@@ -343,8 +343,12 @@ export default function AthleteNutrition() {
     const p = parseFloat(formData.protein) || 0;
     const c = parseFloat(formData.carbs) || 0;
     const f = parseFloat(formData.fat) || 0;
+    const fib = parseFloat(formData.fiber) || 0;
+    const salt = parseFloat(formData.salt) || 0;
+    const water = parseFloat(formData.water) || 0;
     
-    if (finalCalories === 0 && p === 0 && c === 0 && f === 0) {
+    // At least one value must be filled
+    if (finalCalories === 0 && p === 0 && c === 0 && f === 0 && fib === 0 && salt === 0 && water === 0) {
       toast.error("Inserisci almeno un valore");
       return;
     }
@@ -538,12 +542,7 @@ export default function AthleteNutrition() {
             setShowSecondFab(true);
           }
         }}
-        className={cn(
-          "fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-xl z-40 transition-all duration-200",
-          showSecondFab 
-            ? "bg-slate-900 hover:bg-slate-800 rotate-45" 
-            : "bg-gradient-to-br from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700"
-        )}
+        className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-xl z-40 transition-all duration-200 bg-gradient-to-br from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700"
         size="icon"
       >
         <Plus className="h-6 w-6" />
@@ -710,7 +709,7 @@ export default function AthleteNutrition() {
               <Button 
                 onClick={handleSubmit}
                 className="w-full h-12 font-semibold bg-slate-900 hover:bg-slate-800 text-foreground"
-                disabled={isSubmitting || displayKcal === 0}
+                disabled={isSubmitting}
               >
                 Log Foods
               </Button>

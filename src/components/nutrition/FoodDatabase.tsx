@@ -249,7 +249,7 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="athlete-theme max-h-[90vh]">
+      <DrawerContent className="athlete-theme h-[90vh]">
         <div className="mx-auto w-full max-w-md flex flex-col overflow-hidden">
           
           {/* LIST VIEW */}
@@ -332,8 +332,8 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
                 <p className="text-xs text-foreground/50 mt-1 ml-10">Valori per 100g</p>
               </DrawerHeader>
               
-              <ScrollArea className="flex-1 px-4">
-                <div className="space-y-4 pb-4">
+              <div className="flex-1 overflow-y-auto px-4">
+                <div className="space-y-4 pb-8">
                   {/* Name */}
                   <div className="space-y-1.5">
                     <Label className="text-xs text-foreground/60">Nome del cibo *</Label>
@@ -605,7 +605,7 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
                     </div>
                   </div>
                 </div>
-              </ScrollArea>
+              </div>
               
               <DrawerFooter className="pt-2 shrink-0 border-t border-slate-700/50">
                 <Button
