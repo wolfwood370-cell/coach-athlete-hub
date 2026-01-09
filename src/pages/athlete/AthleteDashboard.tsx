@@ -1,9 +1,20 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { AthleteLayout } from "@/components/athlete/AthleteLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Slider } from "@/components/ui/slider";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { 
   Moon, 
   Brain, 
@@ -14,183 +25,218 @@ import {
   UtensilsCrossed,
   Dumbbell,
   Sparkles,
-  TrendingDown,
-  Minus
+  Clock,
+  Zap,
+  Battery
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-// Mock state - in real app this would come from API/state
-const mockReadinessData = {
-  isCompleted: true,
-  score: 78,
-  indicators: {
-    sleep: { value: 7.5, label: "Sonno", status: "good" },
-    stress: { value: 4, label: "Stress", status: "medium" },
-    pain: { value: 2, label: "Dolori", status: "good" },
-  }
+interface ReadinessData {
+  isCompleted: boolean;
+  score: number;
+  sleepHours: number;
+  sleepQuality: number;
+  stress: number;
+  hasPain: boolean;
+}
+
+const initialReadiness: ReadinessData = {
+  isCompleted: false,
+  score: 0,
+  sleepHours: 7,
+  sleepQuality: 7,
+  stress: 5,
+  hasPain: false,
 };
 
 const todayTasks = [
   { 
     id: "workout",
-    label: "Allenamento: Upper Body Power",
+    label: "Upper Body Hypertrophy",
+    sublabel: "45 min · 6 esercizi",
     icon: Dumbbell,
-    completed: false,
-    accent: "primary"
+    type: "workout" as const,
+    progress: undefined,
+    value: undefined,
+    target: undefined,
   },
   { 
     id: "steps",
-    label: "Obiettivo Passi",
-    sublabel: "3,240 / 10,000",
+    label: "Passi",
+    sublabel: undefined,
     icon: Footprints,
-    completed: false,
-    progress: 32,
-    accent: "warning"
+    type: "progress" as const,
+    progress: 35,
+    value: 3500,
+    target: 10000,
   },
   { 
     id: "nutrition",
-    label: "Log Nutrizione",
-    sublabel: "1,200 / 2,400 kcal",
+    label: "Macros",
+    sublabel: undefined,
     icon: UtensilsCrossed,
-    completed: false,
-    progress: 50,
-    accent: "success"
+    type: "progress" as const,
+    progress: 48,
+    value: 1200,
+    target: 2500,
   },
 ];
 
-const energyBalance = {
-  intake: 1200,
-  target: 2400,
-  status: "deficit" as "deficit" | "maintenance" | "surplus"
-};
-
 export default function AthleteDashboard() {
-  const [tasks, setTasks] = useState(todayTasks);
-  const [readiness] = useState(mockReadinessData);
+  const [readiness, setReadiness] = useState<ReadinessData>(initialReadiness);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [tempReadiness, setTempReadiness] = useState<ReadinessData>(initialReadiness);
 
-  const toggleTask = (taskId: string) => {
-    setTasks(prev => prev.map(task => 
-      task.id === taskId ? { ...task, completed: !task.completed } : task
-    ));
+  const calculateScore = useCallback((data: ReadinessData): number => {
+    // Sleep hours score (0-35 points) - optimal is 7-9 hours
+    let sleepHoursScore = 0;
+    if (data.sleepHours >= 7 && data.sleepHours <= 9) {
+      sleepHoursScore = 35;
+    } else if (data.sleepHours >= 6) {
+      sleepHoursScore = 25;
+    } else if (data.sleepHours >= 5) {
+      sleepHoursScore = 15;
+    } else {
+      sleepHoursScore = 5;
+    }
+    
+    // Sleep quality score (0-25 points)
+    const sleepQualityScore = (data.sleepQuality / 10) * 25;
+    
+    // Stress score (0-25 points) - lower is better
+    const stressScore = ((10 - data.stress) / 10) * 25;
+    
+    // Pain score (0-15 points)
+    const painScore = data.hasPain ? 0 : 15;
+    
+    return Math.round(sleepHoursScore + sleepQualityScore + stressScore + painScore);
+  }, []);
+
+  const handleOpenDrawer = () => {
+    setTempReadiness({ ...readiness });
+    setDrawerOpen(true);
+  };
+
+  const handleSubmitReadiness = () => {
+    const score = calculateScore(tempReadiness);
+    setReadiness({
+      ...tempReadiness,
+      isCompleted: true,
+      score,
+    });
+    setDrawerOpen(false);
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 70) return "text-success";
-    if (score >= 40) return "text-warning";
+    if (score >= 80) return "text-success";
+    if (score >= 50) return "text-warning";
     return "text-destructive";
   };
 
-  const getScoreRingColor = (score: number) => {
-    if (score >= 70) return "stroke-success";
-    if (score >= 40) return "stroke-warning";
-    return "stroke-destructive";
+  const getScoreGradient = (score: number) => {
+    if (score >= 80) return "from-success to-success/60";
+    if (score >= 50) return "from-warning to-warning/60";
+    return "from-destructive to-destructive/60";
   };
 
-  const getIndicatorColor = (status: string) => {
-    if (status === "good") return "bg-success";
-    if (status === "medium") return "bg-warning";
-    return "bg-destructive";
+  const getScoreLabel = (score: number) => {
+    if (score >= 80) return "Ottimo";
+    if (score >= 50) return "Moderato";
+    return "Basso";
   };
-
-  const getBalanceStatus = () => {
-    const diff = energyBalance.target - energyBalance.intake;
-    if (diff > 200) return { label: "Sei in Deficit", icon: TrendingDown, color: "text-warning" };
-    if (diff < -200) return { label: "Sei in Surplus", icon: Flame, color: "text-destructive" };
-    return { label: "Mantenimento", icon: Minus, color: "text-success" };
-  };
-
-  const balanceStatus = getBalanceStatus();
-  const intakePercent = Math.min((energyBalance.intake / energyBalance.target) * 100, 100);
 
   return (
     <AthleteLayout>
-      <div className="space-y-5 p-5 animate-fade-in">
+      <div className="space-y-5 p-4 animate-fade-in">
         {/* Header */}
-        <div className="pt-2 flex items-center justify-between">
+        <div className="flex items-center justify-between pt-2">
           <div>
-            <p className="text-muted-foreground text-sm">Buongiorno, Sofia 👋</p>
-            <h1 className="text-xl font-bold">Come stai oggi?</h1>
+            <p className="text-muted-foreground text-xs">Buongiorno</p>
+            <h1 className="text-lg font-semibold">Sofia 👋</h1>
           </div>
-          <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
-            <span className="text-sm font-bold text-primary">SN</span>
+          <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center">
+            <span className="text-xs font-semibold text-primary">SN</span>
           </div>
         </div>
 
-        {/* Readiness Card (Bio-Gate) */}
-        <Card className="overflow-hidden border-0 bg-gradient-to-br from-card to-secondary/50">
-          <CardContent className="p-5">
+        {/* ===== READINESS CARD (Bio-Gate) ===== */}
+        <Card className="border-0 overflow-hidden">
+          <CardContent className="p-0">
             {!readiness.isCompleted ? (
-              /* Not completed state */
-              <div className="text-center py-4">
-                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-                  <Sparkles className="h-8 w-8 text-primary" />
+              /* ===== NOT COMPLETED STATE ===== */
+              <div className="p-5 text-center">
+                <div className="relative mx-auto mb-4 h-20 w-20">
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 animate-pulse-soft" />
+                  <div className="absolute inset-2 rounded-full bg-card flex items-center justify-center">
+                    <Sparkles className="h-8 w-8 text-primary" />
+                  </div>
                 </div>
-                <h3 className="font-semibold text-lg mb-1">Daily Check</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Compila il check giornaliero per sbloccare il tuo piano
+                <h3 className="font-semibold text-base mb-1">Daily Readiness</h3>
+                <p className="text-xs text-muted-foreground mb-5 max-w-[200px] mx-auto">
+                  Compila il check giornaliero per ottimizzare il tuo piano
                 </p>
-                <Button className="w-full gradient-primary text-white h-12 font-semibold">
-                  Start Daily Check
+                <Button 
+                  onClick={handleOpenDrawer}
+                  className="w-full h-12 text-sm font-semibold gradient-primary"
+                >
+                  <Zap className="h-4 w-4 mr-2" />
+                  Start Day
                 </Button>
               </div>
             ) : (
-              /* Completed state */
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">Readiness Score</p>
-                    <p className="text-sm text-muted-foreground mt-1">Pronto per allenarti</p>
-                  </div>
-                  <Button variant="ghost" size="sm" className="text-primary text-xs h-7">
-                    Dettagli <ChevronRight className="h-3 w-3 ml-0.5" />
-                  </Button>
-                </div>
-
-                <div className="flex items-center gap-6">
-                  {/* Circular Score */}
+              /* ===== COMPLETED STATE ===== */
+              <div className="p-4">
+                <div className="flex items-center gap-4">
+                  {/* Battery Score */}
                   <div className="relative flex-shrink-0">
-                    <svg className="h-24 w-24 -rotate-90">
-                      <circle
-                        cx="48"
-                        cy="48"
-                        r="40"
-                        strokeWidth="8"
-                        fill="none"
-                        className="stroke-secondary"
-                      />
-                      <circle
-                        cx="48"
-                        cy="48"
-                        r="40"
-                        strokeWidth="8"
-                        fill="none"
-                        strokeLinecap="round"
-                        strokeDasharray={`${(readiness.score / 100) * 251.2} 251.2`}
-                        className={`${getScoreRingColor(readiness.score)} transition-all duration-500`}
-                      />
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className={`text-2xl font-bold ${getScoreColor(readiness.score)}`}>
-                        {readiness.score}
-                      </span>
+                    <div className={cn(
+                      "h-20 w-20 rounded-2xl bg-gradient-to-br flex items-center justify-center",
+                      getScoreGradient(readiness.score)
+                    )}>
+                      <div className="text-center">
+                        <Battery className="h-4 w-4 mx-auto mb-0.5 text-white/80" />
+                        <span className="text-2xl font-bold text-white tabular-nums">
+                          {readiness.score}
+                        </span>
+                        <span className="text-[10px] text-white/80 block -mt-0.5">%</span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Indicators */}
-                  <div className="flex-1 space-y-3">
-                    {Object.entries(readiness.indicators).map(([key, indicator]) => (
-                      <div key={key} className="flex items-center gap-3">
-                        <div className={`h-2 w-2 rounded-full ${getIndicatorColor(indicator.status)}`} />
-                        <div className="flex items-center gap-2 flex-1">
-                          {key === 'sleep' && <Moon className="h-4 w-4 text-muted-foreground" />}
-                          {key === 'stress' && <Brain className="h-4 w-4 text-muted-foreground" />}
-                          {key === 'pain' && <HeartPulse className="h-4 w-4 text-muted-foreground" />}
-                          <span className="text-sm">{indicator.label}</span>
-                        </div>
-                        <span className="text-sm font-medium text-muted-foreground">
-                          {key === 'sleep' ? `${indicator.value}h` : `${indicator.value}/10`}
-                        </span>
+                  {/* Details */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Readiness</p>
+                        <p className={cn("text-sm font-semibold", getScoreColor(readiness.score))}>
+                          {getScoreLabel(readiness.score)}
+                        </p>
                       </div>
-                    ))}
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 px-2 text-xs text-muted-foreground"
+                        onClick={handleOpenDrawer}
+                      >
+                        Modifica
+                      </Button>
+                    </div>
+
+                    {/* Indicators */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="text-center p-2 rounded-lg bg-secondary/50">
+                        <Moon className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-0.5" />
+                        <p className="text-xs font-medium tabular-nums">{readiness.sleepHours}h</p>
+                      </div>
+                      <div className="text-center p-2 rounded-lg bg-secondary/50">
+                        <Brain className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-0.5" />
+                        <p className="text-xs font-medium tabular-nums">{readiness.stress}/10</p>
+                      </div>
+                      <div className="text-center p-2 rounded-lg bg-secondary/50">
+                        <HeartPulse className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-0.5" />
+                        <p className="text-xs font-medium">{readiness.hasPain ? "Sì" : "No"}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -198,58 +244,62 @@ export default function AthleteDashboard() {
           </CardContent>
         </Card>
 
-        {/* Today's Focus */}
+        {/* ===== TODAY'S FOCUS ===== */}
         <div>
-          <h2 className="font-semibold text-base mb-3">Today's Focus</h2>
-          <div className="space-y-2.5">
-            {tasks.map((task) => (
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold">Today's Focus</h2>
+            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+              {todayTasks.length} tasks
+            </span>
+          </div>
+          
+          <div className="space-y-2">
+            {todayTasks.map((task) => (
               <Card 
                 key={task.id}
-                className={`overflow-hidden transition-all duration-200 ${
-                  task.completed ? 'bg-success/5 border-success/20' : 'hover:bg-muted/30'
-                }`}
+                className="border-0 overflow-hidden active:scale-[0.98] transition-transform"
               >
-                <CardContent className="p-4">
-                  <div 
-                    className="flex items-start gap-4 cursor-pointer"
-                    onClick={() => toggleTask(task.id)}
-                  >
-                    <div className="pt-0.5">
-                      <Checkbox 
-                        checked={task.completed}
-                        className={`h-6 w-6 rounded-full border-2 ${
-                          task.completed 
-                            ? 'border-success bg-success data-[state=checked]:bg-success' 
-                            : 'border-muted-foreground/30'
-                        }`}
-                      />
+                <CardContent className="p-3.5">
+                  <div className="flex items-center gap-3">
+                    {/* Icon */}
+                    <div className={cn(
+                      "h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0",
+                      task.type === 'workout' ? "bg-primary/15" : "bg-secondary"
+                    )}>
+                      <task.icon className={cn(
+                        "h-5 w-5",
+                        task.type === 'workout' ? "text-primary" : "text-muted-foreground"
+                      )} />
                     </div>
+                    
+                    {/* Content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <task.icon className={`h-4 w-4 flex-shrink-0 ${
-                          task.completed ? 'text-success' : 'text-primary'
-                        }`} />
-                        <span className={`font-medium text-sm ${
-                          task.completed ? 'line-through text-muted-foreground' : ''
-                        }`}>
-                          {task.label}
-                        </span>
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-sm">{task.label}</span>
+                        {task.type === 'progress' && task.value !== undefined && (
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {task.value.toLocaleString()}/{task.target?.toLocaleString()}
+                          </span>
+                        )}
                       </div>
+                      
                       {task.sublabel && (
-                        <p className={`text-xs mt-1 ${
-                          task.completed ? 'text-success' : 'text-muted-foreground'
-                        }`}>
-                          {task.sublabel}
-                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">{task.sublabel}</span>
+                        </div>
                       )}
-                      {task.progress !== undefined && !task.completed && (
+                      
+                      {task.progress !== undefined && (
                         <Progress 
                           value={task.progress} 
-                          className="h-1.5 mt-2"
+                          className="h-1 mt-2"
                         />
                       )}
                     </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                    
+                    {/* Chevron */}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
                   </div>
                 </CardContent>
               </Card>
@@ -257,51 +307,161 @@ export default function AthleteDashboard() {
           </div>
         </div>
 
-        {/* Energy Balance Widget */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Flame className="h-4 w-4 text-primary" />
-                <span className="font-semibold text-sm">Energy Balance</span>
+        {/* ===== QUICK STATS ===== */}
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="border-0">
+            <CardContent className="p-3.5">
+              <div className="flex items-center gap-2 mb-2">
+                <Flame className="h-4 w-4 text-warning" />
+                <span className="text-xs text-muted-foreground">Calorie</span>
               </div>
-              <div className={`flex items-center gap-1 ${balanceStatus.color}`}>
-                <balanceStatus.icon className="h-4 w-4" />
-                <span className="text-xs font-medium">{balanceStatus.label}</span>
+              <p className="text-xl font-bold tabular-nums">1,200</p>
+              <p className="text-[10px] text-muted-foreground">/ 2,500 kcal</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-0">
+            <CardContent className="p-3.5">
+              <div className="flex items-center gap-2 mb-2">
+                <Dumbbell className="h-4 w-4 text-primary" />
+                <span className="text-xs text-muted-foreground">Streak</span>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Intake: {energyBalance.intake} kcal</span>
-                <span>Target: {energyBalance.target} kcal</span>
-              </div>
-              
-              <div className="relative h-3 bg-secondary rounded-full overflow-hidden">
-                <div 
-                  className="absolute inset-y-0 left-0 gradient-primary rounded-full transition-all duration-500"
-                  style={{ width: `${intakePercent}%` }}
-                />
-                {/* Target marker */}
-                <div 
-                  className="absolute top-0 bottom-0 w-0.5 bg-foreground/50"
-                  style={{ left: '100%', transform: 'translateX(-1px)' }}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-muted-foreground">
-                  {energyBalance.target - energyBalance.intake} kcal rimanenti
-                </span>
-                <span className="text-xs font-medium text-primary">
-                  {Math.round(intakePercent)}%
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
+              <p className="text-xl font-bold tabular-nums">12</p>
+              <p className="text-[10px] text-muted-foreground">giorni consecutivi</p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
+
+      {/* ===== READINESS DRAWER ===== */}
+      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <DrawerContent className="athlete-theme">
+          <div className="mx-auto w-full max-w-sm">
+            <DrawerHeader className="text-center">
+              <DrawerTitle className="text-lg">Daily Check-in</DrawerTitle>
+              <DrawerDescription className="text-xs">
+                Rispondi a queste domande per calcolare la tua readiness
+              </DrawerDescription>
+            </DrawerHeader>
+            
+            <div className="px-4 pb-4 space-y-6">
+              {/* Sleep Hours */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2 text-sm">
+                    <Moon className="h-4 w-4 text-primary" />
+                    Ore di sonno
+                  </Label>
+                  <span className="text-sm font-semibold tabular-nums">
+                    {tempReadiness.sleepHours}h
+                  </span>
+                </div>
+                <Slider
+                  value={[tempReadiness.sleepHours]}
+                  onValueChange={([value]) => setTempReadiness(prev => ({ ...prev, sleepHours: value }))}
+                  min={3}
+                  max={12}
+                  step={0.5}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>3h</span>
+                  <span>12h</span>
+                </div>
+              </div>
+
+              {/* Sleep Quality */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2 text-sm">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                    Qualità del sonno
+                  </Label>
+                  <span className="text-sm font-semibold tabular-nums">
+                    {tempReadiness.sleepQuality}/10
+                  </span>
+                </div>
+                <Slider
+                  value={[tempReadiness.sleepQuality]}
+                  onValueChange={([value]) => setTempReadiness(prev => ({ ...prev, sleepQuality: value }))}
+                  min={1}
+                  max={10}
+                  step={1}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>Pessima</span>
+                  <span>Ottima</span>
+                </div>
+              </div>
+
+              {/* Stress */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="flex items-center gap-2 text-sm">
+                    <Brain className="h-4 w-4 text-primary" />
+                    Livello di stress
+                  </Label>
+                  <span className="text-sm font-semibold tabular-nums">
+                    {tempReadiness.stress}/10
+                  </span>
+                </div>
+                <Slider
+                  value={[tempReadiness.stress]}
+                  onValueChange={([value]) => setTempReadiness(prev => ({ ...prev, stress: value }))}
+                  min={1}
+                  max={10}
+                  step={1}
+                  className="w-full"
+                />
+                <div className="flex justify-between text-[10px] text-muted-foreground">
+                  <span>Rilassato</span>
+                  <span>Molto stressato</span>
+                </div>
+              </div>
+
+              {/* Pain Toggle */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
+                <Label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <HeartPulse className="h-4 w-4 text-primary" />
+                  Hai dolori o fastidi fisici?
+                </Label>
+                <Switch
+                  checked={tempReadiness.hasPain}
+                  onCheckedChange={(checked) => setTempReadiness(prev => ({ ...prev, hasPain: checked }))}
+                />
+              </div>
+
+              {/* Preview Score */}
+              <div className="text-center py-3 rounded-lg bg-secondary/30">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                  Score previsto
+                </p>
+                <p className={cn(
+                  "text-3xl font-bold tabular-nums",
+                  getScoreColor(calculateScore(tempReadiness))
+                )}>
+                  {calculateScore(tempReadiness)}%
+                </p>
+              </div>
+            </div>
+
+            <DrawerFooter className="pt-2">
+              <Button 
+                onClick={handleSubmitReadiness}
+                className="w-full h-12 font-semibold gradient-primary"
+              >
+                Conferma Check-in
+              </Button>
+              <DrawerClose asChild>
+                <Button variant="ghost" className="w-full">
+                  Annulla
+                </Button>
+              </DrawerClose>
+            </DrawerFooter>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </AthleteLayout>
   );
 }
