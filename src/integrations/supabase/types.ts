@@ -14,6 +14,96 @@ export type Database = {
   }
   public: {
     Tables: {
+      custom_foods: {
+        Row: {
+          athlete_id: string
+          biotin_b7: number | null
+          carbs: number | null
+          created_at: string
+          energy_kcal: number | null
+          energy_kj: number | null
+          fat: number | null
+          fiber: number | null
+          folic_acid_b9: number | null
+          id: string
+          name: string
+          niacin_b3: number | null
+          pantothenic_acid_b5: number | null
+          protein: number | null
+          riboflavin_b2: number | null
+          salt: number | null
+          saturated_fat: number | null
+          sugars: number | null
+          thiamine_b1: number | null
+          updated_at: string
+          vitamin_a: number | null
+          vitamin_b12: number | null
+          vitamin_b6: number | null
+          vitamin_c: number | null
+          vitamin_d: number | null
+          vitamin_e: number | null
+          vitamin_k: number | null
+        }
+        Insert: {
+          athlete_id: string
+          biotin_b7?: number | null
+          carbs?: number | null
+          created_at?: string
+          energy_kcal?: number | null
+          energy_kj?: number | null
+          fat?: number | null
+          fiber?: number | null
+          folic_acid_b9?: number | null
+          id?: string
+          name: string
+          niacin_b3?: number | null
+          pantothenic_acid_b5?: number | null
+          protein?: number | null
+          riboflavin_b2?: number | null
+          salt?: number | null
+          saturated_fat?: number | null
+          sugars?: number | null
+          thiamine_b1?: number | null
+          updated_at?: string
+          vitamin_a?: number | null
+          vitamin_b12?: number | null
+          vitamin_b6?: number | null
+          vitamin_c?: number | null
+          vitamin_d?: number | null
+          vitamin_e?: number | null
+          vitamin_k?: number | null
+        }
+        Update: {
+          athlete_id?: string
+          biotin_b7?: number | null
+          carbs?: number | null
+          created_at?: string
+          energy_kcal?: number | null
+          energy_kj?: number | null
+          fat?: number | null
+          fiber?: number | null
+          folic_acid_b9?: number | null
+          id?: string
+          name?: string
+          niacin_b3?: number | null
+          pantothenic_acid_b5?: number | null
+          protein?: number | null
+          riboflavin_b2?: number | null
+          salt?: number | null
+          saturated_fat?: number | null
+          sugars?: number | null
+          thiamine_b1?: number | null
+          updated_at?: string
+          vitamin_a?: number | null
+          vitamin_b12?: number | null
+          vitamin_b6?: number | null
+          vitamin_c?: number | null
+          vitamin_d?: number | null
+          vitamin_e?: number | null
+          vitamin_k?: number | null
+        }
+        Relationships: []
+      }
       daily_readiness: {
         Row: {
           athlete_id: string

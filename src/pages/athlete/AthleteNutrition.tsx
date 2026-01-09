@@ -17,11 +17,13 @@ import {
   Scale,
   TrendingUp,
   Minus,
+  Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { FoodDatabase } from "@/components/nutrition/FoodDatabase";
 import {
   Line,
   Scatter,
@@ -193,6 +195,8 @@ function WeightTrendChart({ data }: { data: { day: number; date: string; scale: 
 export default function AthleteNutrition() {
   const { user } = useAuth();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [foodDbOpen, setFoodDbOpen] = useState(false);
+  const [showSecondFab, setShowSecondFab] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   // Quick Add form state
@@ -504,14 +508,61 @@ export default function AthleteNutrition() {
         </Card>
       </div>
 
-      {/* ===== FLOATING ACTION BUTTON ===== */}
+      {/* ===== FLOATING ACTION BUTTONS ===== */}
+      {/* Secondary FAB - Food Database (appears when primary is clicked) */}
+      <div
+        className={cn(
+          "fixed bottom-20 right-4 z-40 transition-all duration-300 ease-out",
+          showSecondFab ? "translate-x-[-72px] opacity-100" : "translate-x-0 opacity-0 pointer-events-none"
+        )}
+      >
+        <Button
+          onClick={() => {
+            setFoodDbOpen(true);
+            setShowSecondFab(false);
+          }}
+          className="h-14 w-14 rounded-full shadow-xl bg-slate-700 hover:bg-slate-600"
+          size="icon"
+        >
+          <Search className="h-6 w-6" />
+        </Button>
+      </div>
+      
+      {/* Primary FAB - toggles menu or opens quick add */}
       <Button
-        onClick={() => setQuickAddOpen(true)}
-        className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-xl bg-gradient-to-br from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 z-40"
+        onClick={() => {
+          if (showSecondFab) {
+            setQuickAddOpen(true);
+            setShowSecondFab(false);
+          } else {
+            setShowSecondFab(true);
+          }
+        }}
+        className={cn(
+          "fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-xl z-40 transition-all duration-200",
+          showSecondFab 
+            ? "bg-slate-900 hover:bg-slate-800 rotate-45" 
+            : "bg-gradient-to-br from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700"
+        )}
         size="icon"
       >
         <Plus className="h-6 w-6" />
       </Button>
+      
+      {/* Backdrop when FAB menu is open */}
+      {showSecondFab && (
+        <div 
+          className="fixed inset-0 z-30" 
+          onClick={() => setShowSecondFab(false)}
+        />
+      )}
+
+      {/* ===== FOOD DATABASE DRAWER ===== */}
+      <FoodDatabase
+        open={foodDbOpen}
+        onOpenChange={setFoodDbOpen}
+        onFoodLogged={fetchTodayNutrition}
+      />
 
       {/* ===== QUICK ADD DRAWER ===== */}
       <Drawer open={quickAddOpen} onOpenChange={setQuickAddOpen}>
