@@ -291,7 +291,8 @@ export default function AthleteDashboard() {
     const digestionScore = (data.digestion / 10) * 10;
     
     // Soreness penalty (0-10 points deduction)
-    const sorenessValues = Object.values(data.sorenessMap);
+    const sorenessMap = data.sorenessMap || {};
+    const sorenessValues = Object.values(sorenessMap) as number[];
     const maxSoreness = sorenessValues.length > 0 ? Math.max(...sorenessValues) : 0;
     const sorenessCount = sorenessValues.filter(v => v > 0).length;
     const sorenessPenalty = Math.min(10, (maxSoreness * 2) + (sorenessCount * 0.5));
@@ -318,10 +319,11 @@ export default function AthleteDashboard() {
 
   const handleSorenessToggle = (part: BodyPart) => {
     setTempReadiness(prev => {
-      const currentLevel = (prev.sorenessMap[part] || 0) as SorenessLevel;
+      const sorenessMap = prev.sorenessMap || {};
+      const currentLevel = (sorenessMap[part] ?? 0) as SorenessLevel;
       const nextLevel = ((currentLevel + 1) % 4) as SorenessLevel;
       
-      const newMap = { ...prev.sorenessMap };
+      const newMap = { ...sorenessMap };
       if (nextLevel === 0) {
         delete newMap[part];
       } else {
@@ -661,7 +663,7 @@ export default function AthleteDashboard() {
                     <BodyPartChip
                       key={part}
                       part={part}
-                      level={(tempReadiness.sorenessMap[part] || 0) as SorenessLevel}
+                      level={(tempReadiness.sorenessMap?.[part] ?? 0) as SorenessLevel}
                       onClick={() => handleSorenessToggle(part)}
                     />
                   ))}
