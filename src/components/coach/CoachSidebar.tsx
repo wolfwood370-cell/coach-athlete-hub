@@ -7,9 +7,12 @@ import {
   BarChart3, 
   Settings,
   LogOut,
-  Zap
+  Zap,
+  ChevronLeft
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Sidebar,
   SidebarContent,
@@ -21,7 +24,13 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
+  useSidebar,
 } from "@/components/ui/sidebar";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/coach", icon: LayoutDashboard },
@@ -37,40 +46,77 @@ const secondaryNavItems = [
 ];
 
 export function CoachSidebar() {
+  const { state, toggleSidebar } = useSidebar();
+  const isCollapsed = state === "collapsed";
+
   return (
-    <Sidebar className="border-r-0">
+    <Sidebar 
+      collapsible="icon"
+      className={cn(
+        "border-r-0 sidebar-transition",
+        isCollapsed ? "w-16" : "w-64"
+      )}
+    >
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-primary">
-            <Zap className="h-5 w-5 text-white" />
+        <div className="flex items-center justify-between">
+          <div className={cn("flex items-center gap-3", isCollapsed && "justify-center w-full")}>
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-primary flex-shrink-0">
+              <Zap className="h-5 w-5 text-white" />
+            </div>
+            {!isCollapsed && (
+              <div className="overflow-hidden">
+                <h1 className="text-base font-semibold text-sidebar-foreground">FitCoach</h1>
+                <p className="text-xs text-sidebar-foreground/50">Pro Platform</p>
+              </div>
+            )}
           </div>
-          <div>
-            <h1 className="text-lg font-bold text-sidebar-foreground">FitCoach</h1>
-            <p className="text-xs text-sidebar-foreground/60">Pro Platform</p>
-          </div>
+          {!isCollapsed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleSidebar}
+              className="h-8 w-8 text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </SidebarHeader>
 
       <SidebarContent className="px-2">
         <SidebarGroup>
-          <SidebarGroupLabel className="text-sidebar-foreground/40 text-xs uppercase tracking-wider">
-            Main Menu
-          </SidebarGroupLabel>
+          {!isCollapsed && (
+            <SidebarGroupLabel className="text-sidebar-foreground/40 text-[10px] uppercase tracking-widest font-medium px-3 mb-1">
+              Main Menu
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-0.5">
               {mainNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url} 
-                      end={item.url === "/coach"}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-                      activeClassName="bg-sidebar-accent text-sidebar-foreground font-medium"
-                    >
-                      <item.icon className="h-5 w-5" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <SidebarMenuButton asChild>
+                        <NavLink 
+                          to={item.url} 
+                          end={item.url === "/coach"}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors",
+                            isCollapsed && "justify-center px-2"
+                          )}
+                          activeClassName="bg-sidebar-accent text-sidebar-foreground font-medium"
+                        >
+                          <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
+                          {!isCollapsed && <span className="text-sm">{item.title}</span>}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </TooltipTrigger>
+                    {isCollapsed && (
+                      <TooltipContent side="right" className="font-medium">
+                        {item.title}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -78,23 +124,37 @@ export function CoachSidebar() {
         </SidebarGroup>
 
         <SidebarGroup className="mt-auto">
-          <SidebarGroupLabel className="text-sidebar-foreground/40 text-xs uppercase tracking-wider">
-            System
-          </SidebarGroupLabel>
+          {!isCollapsed && (
+            <SidebarGroupLabel className="text-sidebar-foreground/40 text-[10px] uppercase tracking-widest font-medium px-3 mb-1">
+              System
+            </SidebarGroupLabel>
+          )}
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-0.5">
               {secondaryNavItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-                      activeClassName="bg-sidebar-accent text-sidebar-foreground font-medium"
-                    >
-                      <item.icon className="h-5 w-5" />
-                      <span>{item.title}</span>
-                    </NavLink>
-                  </SidebarMenuButton>
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <SidebarMenuButton asChild>
+                        <NavLink 
+                          to={item.url}
+                          className={cn(
+                            "flex items-center gap-3 px-3 py-2 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors",
+                            isCollapsed && "justify-center px-2"
+                          )}
+                          activeClassName="bg-sidebar-accent text-sidebar-foreground font-medium"
+                        >
+                          <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
+                          {!isCollapsed && <span className="text-sm">{item.title}</span>}
+                        </NavLink>
+                      </SidebarMenuButton>
+                    </TooltipTrigger>
+                    {isCollapsed && (
+                      <TooltipContent side="right" className="font-medium">
+                        {item.title}
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -102,18 +162,35 @@ export function CoachSidebar() {
         </SidebarGroup>
       </SidebarContent>
 
-      <SidebarFooter className="p-4 border-t border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-sidebar-accent flex items-center justify-center">
-            <span className="text-sm font-medium text-sidebar-foreground">MC</span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">Marco Coach</p>
-            <p className="text-xs text-sidebar-foreground/60 truncate">Pro Plan</p>
-          </div>
-          <button className="p-2 rounded-lg hover:bg-sidebar-accent text-sidebar-foreground/60 hover:text-sidebar-foreground transition-colors">
-            <LogOut className="h-4 w-4" />
-          </button>
+      <SidebarFooter className={cn("p-3", isCollapsed && "p-2")}>
+        <div className={cn(
+          "flex items-center gap-3 p-2 rounded-lg hover:bg-sidebar-accent/30 transition-colors cursor-pointer",
+          isCollapsed && "justify-center p-1"
+        )}>
+          <Tooltip delayDuration={0}>
+            <TooltipTrigger asChild>
+              <div className="h-8 w-8 rounded-full bg-sidebar-accent flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-medium text-sidebar-foreground">MC</span>
+              </div>
+            </TooltipTrigger>
+            {isCollapsed && (
+              <TooltipContent side="right">
+                <p className="font-medium">Marco Coach</p>
+                <p className="text-xs text-muted-foreground">Pro Plan</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
+          {!isCollapsed && (
+            <>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-sidebar-foreground truncate">Marco Coach</p>
+                <p className="text-xs text-sidebar-foreground/50 truncate">Pro Plan</p>
+              </div>
+              <button className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors">
+                <LogOut className="h-4 w-4" />
+              </button>
+            </>
+          )}
         </div>
       </SidebarFooter>
     </Sidebar>
