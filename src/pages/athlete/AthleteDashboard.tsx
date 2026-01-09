@@ -1,5 +1,4 @@
 import { useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
 import { AthleteLayout } from "@/components/athlete/AthleteLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -84,7 +83,6 @@ const todayTasks = [
 ];
 
 export default function AthleteDashboard() {
-  const navigate = useNavigate();
   const [readiness, setReadiness] = useState<ReadinessData>(initialReadiness);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [tempReadiness, setTempReadiness] = useState<ReadinessData>(initialReadiness);
@@ -259,12 +257,7 @@ export default function AthleteDashboard() {
             {todayTasks.map((task) => (
               <Card 
                 key={task.id}
-                className="border-0 overflow-hidden active:scale-[0.98] transition-transform cursor-pointer"
-                onClick={() => {
-                  if (task.type === 'workout') {
-                    navigate('/athlete/workout/1');
-                  }
-                }}
+                className="border-0 overflow-hidden active:scale-[0.98] transition-transform"
               >
                 <CardContent className="p-3.5">
                   <div className="flex items-center gap-3">
@@ -305,21 +298,8 @@ export default function AthleteDashboard() {
                       )}
                     </div>
                     
-                    {/* Action Button for Workout */}
-                    {task.type === 'workout' ? (
-                      <Button
-                        size="sm"
-                        className="h-8 px-3 text-xs font-semibold gradient-primary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate('/athlete/workout/1');
-                        }}
-                      >
-                        Start
-                      </Button>
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
-                    )}
+                    {/* Chevron */}
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
                   </div>
                 </CardContent>
               </Card>
