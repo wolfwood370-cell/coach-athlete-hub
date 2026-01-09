@@ -6,9 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Users, 
   TrendingUp, 
-  ClipboardCheck,
-  ChevronRight,
-  MoreHorizontal,
+  TrendingDown,
   AlertTriangle,
   Activity,
   Dumbbell,
@@ -16,81 +14,135 @@ import {
   MessageSquare,
   Scale,
   HeartPulse,
-  Ban,
-  Clock
+  Clock,
+  Minus,
+  ChevronRight,
+  Send,
+  CheckCircle2
 } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+// Sparkline Component
+function Sparkline({ data, color = "primary", className }: { 
+  data: number[]; 
+  color?: "primary" | "success" | "warning" | "destructive";
+  className?: string;
+}) {
+  const max = Math.max(...data);
+  const min = Math.min(...data);
+  const range = max - min || 1;
+  
+  const points = data.map((value, index) => {
+    const x = (index / (data.length - 1)) * 100;
+    const y = 100 - ((value - min) / range) * 100;
+    return `${x},${y}`;
+  }).join(' ');
+
+  const colorClasses = {
+    primary: "stroke-primary",
+    success: "stroke-success",
+    warning: "stroke-warning",
+    destructive: "stroke-destructive"
+  };
+
+  return (
+    <svg 
+      viewBox="0 0 100 40" 
+      className={cn("w-full h-8", className)}
+      preserveAspectRatio="none"
+    >
+      <polyline
+        fill="none"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={colorClasses[color]}
+        points={points}
+      />
+    </svg>
+  );
+}
 
 // Mock Data - Needs Attention Athletes
 const needsAttentionAthletes = [
   { 
     id: 1,
-    name: "Giulia Verdi", 
-    avatar: "GV",
-    issue: "Infortunio",
-    issueType: "critical",
-    details: "Dolore spalla destra - segnalato ieri",
-    lastActivity: "2 ore fa"
+    name: "Marco Rossi", 
+    avatar: "MR",
+    issue: "Check-in Missed",
+    issueType: "critical" as const,
+    lastCheckin: "4 giorni fa",
+    details: "Nessun check-in da 4 giorni",
   },
   { 
     id: 2,
-    name: "Marco Rossi", 
-    avatar: "MR",
-    issue: "Check-in Mancato",
-    issueType: "critical",
-    details: "Nessun check-in da 4 giorni",
-    lastActivity: "4 giorni fa"
+    name: "Elena Bianchi", 
+    avatar: "EB",
+    issue: "Low Readiness",
+    issueType: "critical" as const,
+    lastCheckin: "Oggi",
+    details: "Score 28/100 - stress elevato",
   },
   { 
     id: 3,
-    name: "Elena Bianchi", 
-    avatar: "EB",
-    issue: "Readiness Critica",
-    issueType: "critical",
-    details: "Score readiness 2/10 - stress elevato",
-    lastActivity: "5 ore fa"
+    name: "Giulia Verdi", 
+    avatar: "GV",
+    issue: "Low Readiness",
+    issueType: "critical" as const,
+    lastCheckin: "Ieri",
+    details: "Score 35/100 - dolore spalla",
   },
   { 
     id: 4,
     name: "Luca Ferrari", 
     avatar: "LF",
-    issue: "Stallo Peso",
-    issueType: "warning",
+    issue: "Weight Stall",
+    issueType: "warning" as const,
+    lastCheckin: "Oggi",
     details: "Peso invariato da 3 settimane",
-    lastActivity: "1 giorno fa"
   },
   { 
     id: 5,
     name: "Sara Conti", 
     avatar: "SC",
-    issue: "Volume in calo",
-    issueType: "warning",
-    details: "-25% volume settimana vs programma",
-    lastActivity: "6 ore fa"
+    issue: "Weight Stall",
+    issueType: "warning" as const,
+    lastCheckin: "2 giorni fa",
+    details: "-0.1kg in 4 settimane",
   },
 ];
 
-// Mock Data - Business Health Stats
-const businessStats = [
+// Mock Data - Business Health with Sparklines
+const businessMetrics = [
   { 
-    label: "Clienti Attivi", 
-    value: "24", 
-    change: "+2 questo mese",
-    trend: "up",
+    label: "Active Clients", 
+    value: 24, 
+    suffix: "",
+    change: "+2",
+    trend: "up" as const,
+    sparklineData: [18, 19, 19, 20, 21, 20, 22, 21, 23, 22, 24, 24],
+    color: "primary" as const,
     icon: Users 
   },
   { 
-    label: "Compliance Media", 
-    value: "87%", 
-    change: "+5% vs mese scorso",
-    trend: "up",
+    label: "Compliance Rate", 
+    value: 87, 
+    suffix: "%",
+    change: "+5%",
+    trend: "up" as const,
+    sparklineData: [72, 75, 78, 76, 80, 82, 79, 83, 85, 84, 86, 87],
+    color: "success" as const,
     icon: TrendingUp 
   },
   { 
-    label: "Check-in vs Attesi", 
-    value: "18/24", 
-    change: "75% risposta",
-    trend: "neutral",
-    icon: ClipboardCheck 
+    label: "Churn Risk", 
+    value: 3, 
+    suffix: "",
+    change: "-1",
+    trend: "down" as const,
+    sparklineData: [6, 5, 5, 4, 5, 4, 4, 3, 4, 3, 3, 3],
+    color: "warning" as const,
+    icon: AlertTriangle 
   },
 ];
 
@@ -98,267 +150,326 @@ const businessStats = [
 const activityFeed = [
   { 
     id: 1,
-    type: "workout",
     athlete: "Sofia Neri",
-    action: "ha completato",
-    target: "Upper Body A",
-    time: "5 min fa",
-    icon: Dumbbell
+    action: "ha completato WOD A",
+    highlight: "(PR su Squat 120kg)",
+    time: "5 min",
+    icon: Dumbbell,
+    type: "success"
   },
   { 
     id: 2,
-    type: "photo",
-    athlete: "Marco Bianchi",
-    action: "ha caricato",
-    target: "foto progresso",
-    time: "23 min fa",
-    icon: Camera
+    athlete: "Andrea Russo",
+    action: "check-in inviato",
+    highlight: "Readiness 85/100",
+    time: "12 min",
+    icon: HeartPulse,
+    type: "default"
   },
   { 
     id: 3,
-    type: "message",
     athlete: "Giulia Verdi",
-    action: "ti ha scritto",
-    target: "nuovo messaggio",
-    time: "45 min fa",
-    icon: MessageSquare
+    action: "ha caricato",
+    highlight: "3 foto progresso",
+    time: "23 min",
+    icon: Camera,
+    type: "default"
   },
   { 
     id: 4,
-    type: "checkin",
-    athlete: "Andrea Russo",
-    action: "ha inviato",
-    target: "check-in settimanale",
-    time: "1 ora fa",
-    icon: ClipboardCheck
+    athlete: "Paolo Marino",
+    action: "ha completato",
+    highlight: "Lower Body B",
+    time: "45 min",
+    icon: Dumbbell,
+    type: "default"
   },
   { 
     id: 5,
-    type: "weight",
     athlete: "Laura Gallo",
-    action: "ha registrato",
-    target: "peso: 62.3 kg",
-    time: "2 ore fa",
-    icon: Scale
+    action: "peso registrato",
+    highlight: "62.3 kg (-0.4)",
+    time: "1h",
+    icon: Scale,
+    type: "default"
   },
   { 
     id: 6,
-    type: "workout",
-    athlete: "Paolo Marino",
-    action: "ha iniziato",
-    target: "Lower Body B",
-    time: "2 ore fa",
-    icon: Dumbbell
+    athlete: "Chiara Costa",
+    action: "ti ha scritto",
+    highlight: "",
+    time: "2h",
+    icon: MessageSquare,
+    type: "message"
   },
   { 
     id: 7,
-    type: "readiness",
-    athlete: "Chiara Costa",
-    action: "readiness score",
-    target: "8/10",
-    time: "3 ore fa",
-    icon: HeartPulse
-  },
-  { 
-    id: 8,
-    type: "workout",
     athlete: "Davide Greco",
     action: "ha completato",
-    target: "Cardio HIIT",
-    time: "4 ore fa",
-    icon: Dumbbell
+    highlight: "Cardio HIIT",
+    time: "3h",
+    icon: Dumbbell,
+    type: "default"
   },
 ];
 
-const getIssueIcon = (issue: string) => {
+const getIssueConfig = (issue: string) => {
   switch (issue) {
-    case "Infortunio":
-      return Ban;
-    case "Check-in Mancato":
-      return Clock;
-    case "Readiness Critica":
-      return HeartPulse;
-    case "Stallo Peso":
-      return Scale;
-    case "Volume in calo":
-      return Activity;
+    case "Check-in Missed":
+      return { icon: Clock, color: "destructive" as const };
+    case "Low Readiness":
+      return { icon: HeartPulse, color: "destructive" as const };
+    case "Weight Stall":
+      return { icon: Minus, color: "warning" as const };
     default:
-      return AlertTriangle;
+      return { icon: AlertTriangle, color: "warning" as const };
   }
 };
 
 export default function CoachDashboard() {
   return (
-    <CoachLayout>
+    <CoachLayout title="Dashboard" subtitle="Panoramica e triage atleti">
       <div className="space-y-6 animate-fade-in">
-        {/* Header */}
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-          <p className="text-muted-foreground">Benvenuto, Marco. Ecco la panoramica di oggi.</p>
-        </div>
-
-        {/* Bento Grid Layout */}
-        <div className="grid grid-cols-12 gap-5">
+        {/* Bento Grid */}
+        <div className="grid grid-cols-12 gap-4 lg:gap-5">
           
-          {/* Business Health Stats - Top Row */}
-          <div className="col-span-12 lg:col-span-8">
-            <div className="grid grid-cols-3 gap-4">
-              {businessStats.map((stat) => (
-                <Card key={stat.label} className="hover-lift">
-                  <CardContent className="p-5">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-1">
-                        <p className="text-sm text-muted-foreground">{stat.label}</p>
-                        <p className="text-3xl font-bold tracking-tight">{stat.value}</p>
-                        <p className={`text-xs font-medium ${
-                          stat.trend === 'up' ? 'text-success' : 'text-muted-foreground'
-                        }`}>
-                          {stat.change}
+          {/* ===== NEEDS ATTENTION - Full Width Priority ===== */}
+          <Card className="col-span-12 border-0 shadow-sm bg-card">
+            <CardHeader className="pb-2 pt-4 px-4 lg:px-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive/10">
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-semibold">Needs Attention</CardTitle>
+                    <p className="text-xs text-muted-foreground tabular-nums">
+                      {needsAttentionAthletes.filter(a => a.issueType === 'critical').length} critical · {needsAttentionAthletes.filter(a => a.issueType === 'warning').length} warning
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-border/50">
+                      <th className="text-left text-[10px] uppercase tracking-wider text-muted-foreground font-medium px-4 lg:px-5 py-2">Atleta</th>
+                      <th className="text-left text-[10px] uppercase tracking-wider text-muted-foreground font-medium px-4 py-2 hidden sm:table-cell">Ultimo Check-in</th>
+                      <th className="text-left text-[10px] uppercase tracking-wider text-muted-foreground font-medium px-4 py-2">Stato</th>
+                      <th className="text-left text-[10px] uppercase tracking-wider text-muted-foreground font-medium px-4 py-2 hidden md:table-cell">Dettagli</th>
+                      <th className="text-right text-[10px] uppercase tracking-wider text-muted-foreground font-medium px-4 lg:px-5 py-2">Azioni</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {needsAttentionAthletes.map((athlete) => {
+                      const config = getIssueConfig(athlete.issue);
+                      const IconComponent = config.icon;
+                      const isCritical = athlete.issueType === 'critical';
+                      
+                      return (
+                        <tr 
+                          key={athlete.id}
+                          className="group border-b border-border/30 last:border-0 hover:bg-muted/30 transition-colors"
+                        >
+                          {/* Athlete */}
+                          <td className="px-4 lg:px-5 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="relative flex-shrink-0">
+                                <div className={cn(
+                                  "h-9 w-9 rounded-full flex items-center justify-center text-xs font-semibold",
+                                  isCritical ? "bg-destructive/10 text-destructive" : "bg-warning/10 text-warning"
+                                )}>
+                                  {athlete.avatar}
+                                </div>
+                              </div>
+                              <span className="font-medium text-sm">{athlete.name}</span>
+                            </div>
+                          </td>
+                          
+                          {/* Last Check-in */}
+                          <td className="px-4 py-3 hidden sm:table-cell">
+                            <span className="text-sm text-muted-foreground tabular-nums">{athlete.lastCheckin}</span>
+                          </td>
+                          
+                          {/* Status Badge */}
+                          <td className="px-4 py-3">
+                            <Badge 
+                              variant="secondary"
+                              className={cn(
+                                "text-[10px] font-semibold px-2 py-0.5 gap-1 border-0",
+                                isCritical 
+                                  ? "bg-destructive/10 text-destructive" 
+                                  : "bg-warning/10 text-warning"
+                              )}
+                            >
+                              <IconComponent className="h-3 w-3" />
+                              {athlete.issue}
+                            </Badge>
+                          </td>
+                          
+                          {/* Details */}
+                          <td className="px-4 py-3 hidden md:table-cell">
+                            <span className="text-sm text-muted-foreground">{athlete.details}</span>
+                          </td>
+                          
+                          {/* Actions */}
+                          <td className="px-4 lg:px-5 py-3">
+                            <div className="flex items-center justify-end gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Button 
+                                size="sm" 
+                                variant="ghost"
+                                className="h-7 px-2 text-xs"
+                              >
+                                <Send className="h-3 w-3 mr-1" />
+                                Message
+                              </Button>
+                              <Button 
+                                size="sm" 
+                                className={cn(
+                                  "h-7 px-2 text-xs",
+                                  isCritical
+                                    ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                                    : "bg-warning hover:bg-warning/90 text-warning-foreground"
+                                )}
+                              >
+                                <CheckCircle2 className="h-3 w-3 mr-1" />
+                                Resolve
+                              </Button>
+                            </div>
+                            {/* Mobile: always show */}
+                            <div className="flex items-center justify-end gap-1.5 group-hover:hidden md:hidden">
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                className="h-7 px-2 text-xs"
+                              >
+                                <ChevronRight className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* ===== BUSINESS HEALTH with Sparklines ===== */}
+          <div className="col-span-12 lg:col-span-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {businessMetrics.map((metric) => {
+              const TrendIcon = metric.trend === 'up' ? TrendingUp : metric.trend === 'down' ? TrendingDown : Minus;
+              const isPositive = (metric.trend === 'up' && metric.label !== 'Churn Risk') || 
+                                 (metric.trend === 'down' && metric.label === 'Churn Risk');
+              
+              return (
+                <Card key={metric.label} className="border-0 shadow-sm hover-lift">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                          {metric.label}
                         </p>
+                        <div className="flex items-baseline gap-1.5 mt-1">
+                          <span className="text-2xl font-bold tabular-nums">
+                            {metric.value}
+                          </span>
+                          <span className="text-sm text-muted-foreground">{metric.suffix}</span>
+                          <span className={cn(
+                            "text-xs font-medium flex items-center gap-0.5 ml-1",
+                            isPositive ? "text-success" : "text-destructive"
+                          )}>
+                            <TrendIcon className="h-3 w-3" />
+                            {metric.change}
+                          </span>
+                        </div>
                       </div>
-                      <div className="p-3 rounded-xl bg-primary/10">
-                        <stat.icon className="h-6 w-6 text-primary" />
+                      <div className={cn(
+                        "p-2 rounded-lg",
+                        metric.color === 'primary' && "bg-primary/10",
+                        metric.color === 'success' && "bg-success/10",
+                        metric.color === 'warning' && "bg-warning/10"
+                      )}>
+                        <metric.icon className={cn(
+                          "h-4 w-4",
+                          metric.color === 'primary' && "text-primary",
+                          metric.color === 'success' && "text-success",
+                          metric.color === 'warning' && "text-warning"
+                        )} />
                       </div>
+                    </div>
+                    
+                    {/* Sparkline */}
+                    <div className="mt-2">
+                      <Sparkline 
+                        data={metric.sparklineData} 
+                        color={isPositive ? "success" : "warning"} 
+                      />
+                      <p className="text-[10px] text-muted-foreground mt-1">Ultimi 30 giorni</p>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
+              );
+            })}
           </div>
 
-          {/* Activity Feed Header - Right Column */}
-          <div className="col-span-12 lg:col-span-4 lg:row-span-2">
-            <Card className="h-full">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base font-semibold flex items-center gap-2">
-                    <Activity className="h-4 w-4 text-primary" />
-                    Activity Feed
-                  </CardTitle>
-                  <Button variant="ghost" size="sm" className="text-primary text-xs h-7">
-                    Vedi tutto
-                  </Button>
+          {/* ===== LIVE ACTIVITY FEED ===== */}
+          <Card className="col-span-12 lg:col-span-4 border-0 shadow-sm">
+            <CardHeader className="pb-2 pt-4 px-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="h-2 w-2 rounded-full bg-success animate-pulse-soft" />
+                  <CardTitle className="text-sm font-semibold">Live Activity</CardTitle>
                 </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <ScrollArea className="h-[520px]">
-                  <div className="px-4 pb-4 space-y-1">
-                    {activityFeed.map((activity) => (
-                      <div 
-                        key={activity.id}
-                        className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
-                      >
-                        <div className="flex-shrink-0 h-8 w-8 rounded-full bg-secondary flex items-center justify-center">
-                          <activity.icon className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm">
-                            <span className="font-medium">{activity.athlete}</span>
-                            {" "}
-                            <span className="text-muted-foreground">{activity.action}</span>
-                            {" "}
-                            <span className="font-medium">{activity.target}</span>
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-0.5">{activity.time}</p>
-                        </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <ScrollArea className="h-[280px]">
+                <div className="px-4 pb-4 space-y-0.5">
+                  {activityFeed.map((activity) => (
+                    <div 
+                      key={activity.id}
+                      className="flex items-start gap-3 py-2.5 px-2 rounded-md hover:bg-muted/30 transition-colors cursor-pointer -mx-2"
+                    >
+                      <div className={cn(
+                        "flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center mt-0.5",
+                        activity.type === 'success' ? "bg-success/10" : 
+                        activity.type === 'message' ? "bg-primary/10" : "bg-secondary"
+                      )}>
+                        <activity.icon className={cn(
+                          "h-3.5 w-3.5",
+                          activity.type === 'success' ? "text-success" : 
+                          activity.type === 'message' ? "text-primary" : "text-muted-foreground"
+                        )} />
                       </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Needs Attention Module - Priority Section */}
-          <div className="col-span-12 lg:col-span-8">
-            <Card>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-destructive/10">
-                      <AlertTriangle className="h-5 w-5 text-destructive" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-base font-semibold">Triage / Needs Attention</CardTitle>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {needsAttentionAthletes.length} atleti richiedono la tua attenzione
-                      </p>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="sm" className="text-primary">
-                    Gestisci tutti <ChevronRight className="h-4 w-4 ml-1" />
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="divide-y divide-border">
-                  {needsAttentionAthletes.map((athlete) => {
-                    const IssueIcon = getIssueIcon(athlete.issue);
-                    return (
-                      <div 
-                        key={athlete.id}
-                        className="flex items-center justify-between p-4 hover:bg-muted/30 transition-colors"
-                      >
-                        <div className="flex items-center gap-4">
-                          {/* Avatar */}
-                          <div className="relative">
-                            <div className="h-11 w-11 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center ring-2 ring-background">
-                              <span className="text-sm font-semibold text-primary">
-                                {athlete.avatar}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm leading-snug">
+                          <span className="font-medium">{activity.athlete}</span>
+                          {" "}
+                          <span className="text-muted-foreground">{activity.action}</span>
+                          {activity.highlight && (
+                            <>
+                              {" "}
+                              <span className={cn(
+                                "font-medium",
+                                activity.type === 'success' && "text-success"
+                              )}>
+                                {activity.highlight}
                               </span>
-                            </div>
-                            <div className={`absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full flex items-center justify-center ${
-                              athlete.issueType === 'critical' ? 'bg-destructive' : 'bg-warning'
-                            }`}>
-                              <IssueIcon className="h-2.5 w-2.5 text-white" />
-                            </div>
-                          </div>
-                          
-                          {/* Info */}
-                          <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{athlete.name}</span>
-                              <Badge 
-                                variant="secondary"
-                                className={`text-[10px] font-semibold px-2 py-0 h-5 ${
-                                  athlete.issueType === 'critical' 
-                                    ? 'bg-destructive/10 text-destructive border-0' 
-                                    : 'bg-warning/10 text-warning border-0'
-                                }`}
-                              >
-                                {athlete.issue}
-                              </Badge>
-                            </div>
-                            <p className="text-sm text-muted-foreground">{athlete.details}</p>
-                          </div>
-                        </div>
-
-                        {/* Actions */}
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground hidden sm:block">
-                            {athlete.lastActivity}
-                          </span>
-                          <Button 
-                            size="sm" 
-                            className={`h-8 text-xs font-medium ${
-                              athlete.issueType === 'critical'
-                                ? 'bg-destructive hover:bg-destructive/90 text-destructive-foreground'
-                                : 'bg-warning hover:bg-warning/90 text-warning-foreground'
-                            }`}
-                          >
-                            Quick Action
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </div>
+                            </>
+                          )}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5 tabular-nums">{activity.time}</p>
                       </div>
-                    );
-                  })}
+                    </div>
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-          </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
 
         </div>
       </div>
