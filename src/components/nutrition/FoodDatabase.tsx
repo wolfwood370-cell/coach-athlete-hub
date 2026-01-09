@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Drawer,
   DrawerClose,
@@ -11,10 +12,12 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { Plus, ChevronLeft, Search, Trash2 } from "lucide-react";
+import { Plus, ChevronLeft, Search, Trash2, Globe, User, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { searchFood, type FoodItem } from "@/services/foodApi";
+import { useDebounce } from "@/hooks/useDebounce";
 
 interface CustomFood {
   id: string;
@@ -45,7 +48,6 @@ interface CustomFood {
 
 interface NewFoodForm {
   name: string;
-  energy_kj: string;
   energy_kcal: string;
   fat: string;
   saturated_fat: string;
@@ -71,7 +73,6 @@ interface NewFoodForm {
 
 const initialFormState: NewFoodForm = {
   name: "",
-  energy_kj: "",
   energy_kcal: "",
   fat: "",
   saturated_fat: "",
@@ -101,17 +102,36 @@ interface FoodDatabaseProps {
   onFoodLogged: () => void;
 }
 
+// Unified food type for display
+interface UnifiedFood {
+  id: string;
+  name: string;
+  brand?: string | null;
+  calories: number | null;
+  protein: number | null;
+  carbs: number | null;
+  fats: number | null;
+  fiber: number | null;
+  salt: number | null;
+  source: 'custom' | 'api';
+}
+
 export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseProps) {
   const { user } = useAuth();
-  const [view, setView] = useState<'list' | 'create' | 'log'>('list');
-  const [foods, setFoods] = useState<CustomFood[]>([]);
+  const [view, setView] = useState<'search' | 'create' | 'log'>('search');
+  const [customFoods, setCustomFoods] = useState<CustomFood[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedFood, setSelectedFood] = useState<CustomFood | null>(null);
+  const [selectedFood, setSelectedFood] = useState<UnifiedFood | null>(null);
   const [quantity, setQuantity] = useState("100");
   const [formData, setFormData] = useState<NewFoodForm>(initialFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Search state
+  const [isSearching, setIsSearching] = useState(false);
+  const [apiResults, setApiResults] = useState<FoodItem[]>([]);
+  const debouncedQuery = useDebounce(searchQuery, 500);
 
-  const fetchFoods = useCallback(async () => {
+  const fetchCustomFoods = useCallback(async () => {
     if (!user?.id) return;
     
     const { data, error } = await supabase
@@ -125,21 +145,75 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
       return;
     }
     
-    setFoods(data || []);
+    setCustomFoods(data || []);
   }, [user?.id]);
 
+  // Fetch custom foods on open
   useEffect(() => {
     if (open) {
-      fetchFoods();
-      setView('list');
+      fetchCustomFoods();
+      setView('search');
       setSelectedFood(null);
       setQuantity("100");
+      setSearchQuery("");
+      setApiResults([]);
     }
-  }, [open, fetchFoods]);
+  }, [open, fetchCustomFoods]);
 
-  const filteredFoods = foods.filter(food => 
+  // Hybrid search: when debounced query changes
+  useEffect(() => {
+    const performSearch = async () => {
+      if (!debouncedQuery.trim()) {
+        setApiResults([]);
+        return;
+      }
+      
+      setIsSearching(true);
+      try {
+        const results = await searchFood(debouncedQuery);
+        setApiResults(results);
+      } catch (error) {
+        console.error('Search error:', error);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+    
+    performSearch();
+  }, [debouncedQuery]);
+
+  // Filter custom foods locally
+  const filteredCustomFoods = customFoods.filter(food => 
     food.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Convert custom foods to unified format
+  const unifiedCustomFoods: UnifiedFood[] = filteredCustomFoods.map(food => ({
+    id: food.id,
+    name: food.name,
+    brand: null,
+    calories: food.energy_kcal,
+    protein: food.protein,
+    carbs: food.carbs,
+    fats: food.fat,
+    fiber: food.fiber,
+    salt: food.salt,
+    source: 'custom' as const,
+  }));
+
+  // Convert API results to unified format
+  const unifiedApiResults: UnifiedFood[] = apiResults.map(food => ({
+    id: food.id,
+    name: food.name,
+    brand: food.brand,
+    calories: food.calories,
+    protein: food.protein,
+    carbs: food.carbs,
+    fats: food.fats,
+    fiber: food.fiber,
+    salt: food.salt,
+    source: 'api' as const,
+  }));
 
   // Calculate calories from macros
   const calculatedKcal = Math.round(
@@ -152,7 +226,7 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleCreateFood = async () => {
+  const handleCreateFood = async (autoSelectAfter: boolean = false) => {
     if (!user?.id) {
       toast.error("Devi essere loggato");
       return;
@@ -173,7 +247,6 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
     const foodData = {
       athlete_id: user.id,
       name: formData.name.trim(),
-      energy_kj: formData.energy_kj ? parseFloat(formData.energy_kj) : null,
       energy_kcal: finalKcal,
       fat: formData.fat ? parseFloat(formData.fat) : null,
       saturated_fat: formData.saturated_fat ? parseFloat(formData.saturated_fat) : null,
@@ -197,9 +270,11 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
       pantothenic_acid_b5: formData.pantothenic_acid_b5 ? parseFloat(formData.pantothenic_acid_b5) : null,
     };
     
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('custom_foods')
-      .insert(foodData);
+      .insert(foodData)
+      .select()
+      .single();
     
     if (error) {
       console.error('Error creating food:', error);
@@ -207,8 +282,28 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
     } else {
       toast.success("Cibo creato!");
       setFormData(initialFormState);
-      await fetchFoods();
-      setView('list');
+      await fetchCustomFoods();
+      
+      if (autoSelectAfter && data) {
+        // Auto-select the newly created food for logging
+        const newFood: UnifiedFood = {
+          id: data.id,
+          name: data.name,
+          brand: null,
+          calories: data.energy_kcal,
+          protein: data.protein,
+          carbs: data.carbs,
+          fats: data.fat,
+          fiber: data.fiber,
+          salt: data.salt,
+          source: 'custom',
+        };
+        setSelectedFood(newFood);
+        setQuantity("100");
+        setView('log');
+      } else {
+        setView('search');
+      }
     }
     
     setIsSubmitting(false);
@@ -228,7 +323,7 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
       toast.error("Errore nell'eliminazione");
     } else {
       toast.success("Cibo eliminato!");
-      await fetchFoods();
+      await fetchCustomFoods();
     }
   };
 
@@ -240,11 +335,13 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
     
     const logData = {
       athlete_id: user.id,
-      calories: Math.round((selectedFood.energy_kcal || 0) * multiplier),
+      calories: Math.round((selectedFood.calories || 0) * multiplier),
       protein: selectedFood.protein ? selectedFood.protein * multiplier : null,
       carbs: selectedFood.carbs ? selectedFood.carbs * multiplier : null,
-      fats: selectedFood.fat ? selectedFood.fat * multiplier : null,
-      meal_name: selectedFood.name,
+      fats: selectedFood.fats ? selectedFood.fats * multiplier : null,
+      meal_name: selectedFood.brand 
+        ? `${selectedFood.name} (${selectedFood.brand})` 
+        : selectedFood.name,
     };
     
     setIsSubmitting(true);
@@ -257,7 +354,7 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
       console.error('Error logging food:', error);
       toast.error("Errore nel salvataggio");
     } else {
-      toast.success("Aggiunto!");
+      toast.success("Aggiunto al diario!");
       onOpenChange(false);
       onFoodLogged();
     }
@@ -265,7 +362,7 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
     setIsSubmitting(false);
   };
 
-  const selectFood = (food: CustomFood) => {
+  const selectFood = (food: UnifiedFood) => {
     setSelectedFood(food);
     setQuantity("100");
     setView('log');
@@ -277,61 +374,143 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
     return ((value * qty) / 100).toFixed(1);
   };
 
+  const hasSearchResults = searchQuery.trim() && (unifiedCustomFoods.length > 0 || unifiedApiResults.length > 0);
+  const noResults = searchQuery.trim() && !isSearching && unifiedCustomFoods.length === 0 && unifiedApiResults.length === 0;
+
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent className="athlete-theme h-[90vh]">
-        <div className="mx-auto w-full max-w-md flex flex-col overflow-hidden">
+        <div className="mx-auto w-full max-w-md flex flex-col overflow-hidden h-full">
           
-          {/* LIST VIEW */}
-          {view === 'list' && (
+          {/* SEARCH VIEW */}
+          {view === 'search' && (
             <>
               <DrawerHeader className="text-center pb-2 shrink-0">
-                <DrawerTitle className="text-lg">I Miei Cibi</DrawerTitle>
+                <DrawerTitle className="text-lg">Cerca Cibo</DrawerTitle>
               </DrawerHeader>
               
+              {/* Search Input */}
               <div className="px-4 pb-3 shrink-0">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40" />
                   <Input
-                    placeholder="Cerca cibo..."
+                    placeholder="Cerca cibo (es. Riso, Petto di pollo...)"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 bg-slate-800/60 border-slate-700 h-11"
+                    className="pl-10 pr-10 bg-slate-800/60 border-slate-700 h-12"
+                    autoFocus
                   />
+                  {isSearching && (
+                    <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground/40 animate-spin" />
+                  )}
                 </div>
               </div>
               
+              {/* Results */}
               <ScrollArea className="flex-1 px-4">
-                {filteredFoods.length === 0 ? (
-                  <div className="text-center py-8 text-foreground/40 text-sm">
-                    {searchQuery ? "Nessun risultato" : "Nessun cibo salvato"}
-                  </div>
-                ) : (
-                  <div className="space-y-2 pb-4">
-                    {filteredFoods.map((food) => (
-                      <div
-                        key={food.id}
-                        className="flex items-center gap-2"
-                      >
-                        <button
-                          onClick={() => selectFood(food)}
-                          className="flex-1 text-left p-3 rounded-lg bg-slate-800/60 hover:bg-slate-700/60 transition-colors"
-                        >
-                          <p className="font-medium text-foreground">{food.name}</p>
-                          <p className="text-xs text-foreground/50 mt-0.5">
-                            {food.energy_kcal || 0} kcal · P: {food.protein || 0}g · C: {food.carbs || 0}g · G: {food.fat || 0}g
-                          </p>
-                        </button>
+                {/* No search yet - show all custom foods */}
+                {!searchQuery.trim() && (
+                  <>
+                    {customFoods.length > 0 && (
+                      <div className="space-y-2 pb-4">
+                        <div className="flex items-center gap-2 text-xs text-foreground/50 mb-2">
+                          <User className="h-3.5 w-3.5" />
+                          <span>I Tuoi Cibi</span>
+                        </div>
+                        {customFoods.map((food) => (
+                          <FoodListItem
+                            key={food.id}
+                            food={{
+                              id: food.id,
+                              name: food.name,
+                              brand: null,
+                              calories: food.energy_kcal,
+                              protein: food.protein,
+                              carbs: food.carbs,
+                              fats: food.fat,
+                              fiber: food.fiber,
+                              salt: food.salt,
+                              source: 'custom',
+                            }}
+                            onSelect={selectFood}
+                            onDelete={() => handleDeleteFood(food.id)}
+                            showDelete
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {customFoods.length === 0 && (
+                      <div className="text-center py-8 text-foreground/40 text-sm">
+                        <p>Nessun cibo salvato</p>
+                        <p className="mt-1">Cerca un cibo o creane uno nuovo</p>
+                      </div>
+                    )}
+                  </>
+                )}
+                
+                {/* Search results */}
+                {searchQuery.trim() && (
+                  <div className="space-y-4 pb-4">
+                    {/* Custom Foods Results */}
+                    {unifiedCustomFoods.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs text-foreground/50">
+                          <User className="h-3.5 w-3.5" />
+                          <span>I Tuoi Cibi</span>
+                        </div>
+                        {unifiedCustomFoods.map((food) => (
+                          <FoodListItem
+                            key={food.id}
+                            food={food}
+                            onSelect={selectFood}
+                            onDelete={() => handleDeleteFood(food.id)}
+                            showDelete
+                          />
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* API Results */}
+                    {unifiedApiResults.length > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-xs text-foreground/50">
+                          <Globe className="h-3.5 w-3.5" />
+                          <span>Database Globale</span>
+                        </div>
+                        {unifiedApiResults.map((food) => (
+                          <FoodListItem
+                            key={food.id}
+                            food={food}
+                            onSelect={selectFood}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Loading state */}
+                    {isSearching && unifiedApiResults.length === 0 && (
+                      <div className="text-center py-4 text-foreground/40 text-sm">
+                        <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                        <p>Cercando...</p>
+                      </div>
+                    )}
+                    
+                    {/* No results */}
+                    {noResults && (
+                      <div className="text-center py-8 text-foreground/40 text-sm">
+                        <p>Nessun risultato per "{searchQuery}"</p>
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteFood(food.id)}
-                          className="shrink-0 h-10 w-10 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                          variant="link"
+                          onClick={() => {
+                            setFormData({ ...initialFormState, name: searchQuery });
+                            setView('create');
+                          }}
+                          className="mt-2 text-indigo-400 hover:text-indigo-300"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          Crea "{searchQuery}" come cibo personalizzato
                         </Button>
                       </div>
-                    ))}
+                    )}
                   </div>
                 )}
               </ScrollArea>
@@ -364,7 +543,7 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => setView('list')}
+                    onClick={() => setView('search')}
                     className="mr-2 -ml-2"
                   >
                     <ChevronLeft className="h-5 w-5" />
@@ -643,15 +822,23 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
               
               <DrawerFooter className="pt-2 shrink-0 border-t border-slate-700/50">
                 <Button
-                  onClick={handleCreateFood}
+                  onClick={() => handleCreateFood(true)}
                   className="w-full h-12 font-semibold bg-gradient-to-br from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700"
                   disabled={isSubmitting || !formData.name.trim()}
                 >
-                  {isSubmitting ? "Salvataggio..." : "Salva Cibo"}
+                  {isSubmitting ? "Salvataggio..." : "Salva e Aggiungi al Diario"}
+                </Button>
+                <Button
+                  onClick={() => handleCreateFood(false)}
+                  variant="outline"
+                  className="w-full h-10 border-slate-700 text-foreground/70"
+                  disabled={isSubmitting || !formData.name.trim()}
+                >
+                  Solo Salva
                 </Button>
                 <Button
                   variant="ghost"
-                  onClick={() => setView('list')}
+                  onClick={() => setView('search')}
                   className="w-full text-violet-400 hover:text-violet-300 hover:bg-violet-900/20 text-sm"
                 >
                   Annulla
@@ -668,12 +855,27 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => setView('list')}
+                    onClick={() => setView('search')}
                     className="mr-2 -ml-2"
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </Button>
-                  <DrawerTitle className="text-lg">{selectedFood.name}</DrawerTitle>
+                  <div className="flex-1 min-w-0">
+                    <DrawerTitle className="text-lg truncate">{selectedFood.name}</DrawerTitle>
+                    {selectedFood.brand && (
+                      <p className="text-xs text-foreground/50 truncate">{selectedFood.brand}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 ml-10 mt-1">
+                  {selectedFood.source === 'custom' ? (
+                    <User className="h-3 w-3 text-indigo-400" />
+                  ) : (
+                    <Globe className="h-3 w-3 text-emerald-400" />
+                  )}
+                  <span className="text-xs text-foreground/50">
+                    {selectedFood.source === 'custom' ? 'Cibo personalizzato' : 'Database globale'}
+                  </span>
                 </div>
               </DrawerHeader>
               
@@ -698,7 +900,7 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
                   <div className="grid grid-cols-2 gap-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-foreground/60">Energia</span>
-                      <span className="font-medium">{getScaledValue(selectedFood.energy_kcal)} kcal</span>
+                      <span className="font-medium">{getScaledValue(selectedFood.calories)} kcal</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-foreground/60">Proteine</span>
@@ -710,7 +912,7 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
                     </div>
                     <div className="flex justify-between">
                       <span className="text-foreground/60">Grassi</span>
-                      <span className="font-medium">{getScaledValue(selectedFood.fat)}g</span>
+                      <span className="font-medium">{getScaledValue(selectedFood.fats)}g</span>
                     </div>
                   </div>
                 </div>
@@ -726,7 +928,7 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
                 </Button>
                 <Button
                   variant="ghost"
-                  onClick={() => setView('list')}
+                  onClick={() => setView('search')}
                   className="w-full text-violet-400 hover:text-violet-300 hover:bg-violet-900/20 text-sm"
                 >
                   Annulla
@@ -737,5 +939,49 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
         </div>
       </DrawerContent>
     </Drawer>
+  );
+}
+
+// Food List Item Component
+interface FoodListItemProps {
+  food: UnifiedFood;
+  onSelect: (food: UnifiedFood) => void;
+  onDelete?: () => void;
+  showDelete?: boolean;
+}
+
+function FoodListItem({ food, onSelect, onDelete, showDelete }: FoodListItemProps) {
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => onSelect(food)}
+        className="flex-1 text-left p-3 rounded-lg bg-slate-800/60 hover:bg-slate-700/60 transition-colors"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <p className="font-medium text-foreground truncate">{food.name}</p>
+            {food.brand && (
+              <p className="text-xs text-foreground/40 truncate">{food.brand}</p>
+            )}
+          </div>
+          <span className="text-xs text-foreground/50 whitespace-nowrap">
+            {food.calories || 0} kcal
+          </span>
+        </div>
+        <p className="text-xs text-foreground/50 mt-1">
+          P: {food.protein?.toFixed(1) || 0}g · C: {food.carbs?.toFixed(1) || 0}g · G: {food.fats?.toFixed(1) || 0}g
+        </p>
+      </button>
+      {showDelete && onDelete && (
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onDelete}
+          className="shrink-0 h-10 w-10 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      )}
+    </div>
   );
 }
