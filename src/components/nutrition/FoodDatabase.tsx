@@ -141,6 +141,13 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
     food.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Calculate calories from macros
+  const calculatedKcal = Math.round(
+    (parseFloat(formData.protein) || 0) * 4 +
+    (parseFloat(formData.carbs) || 0) * 4 +
+    (parseFloat(formData.fat) || 0) * 9
+  );
+
   const handleFieldChange = (field: keyof NewFoodForm, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -158,11 +165,16 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
     
     setIsSubmitting(true);
     
+    // Use manual kcal if provided, otherwise use calculated from macros
+    const finalKcal = formData.energy_kcal 
+      ? parseFloat(formData.energy_kcal) 
+      : (calculatedKcal > 0 ? calculatedKcal : null);
+
     const foodData = {
       athlete_id: user.id,
       name: formData.name.trim(),
       energy_kj: formData.energy_kj ? parseFloat(formData.energy_kj) : null,
-      energy_kcal: formData.energy_kcal ? parseFloat(formData.energy_kcal) : null,
+      energy_kcal: finalKcal,
       fat: formData.fat ? parseFloat(formData.fat) : null,
       saturated_fat: formData.saturated_fat ? parseFloat(formData.saturated_fat) : null,
       carbs: formData.carbs ? parseFloat(formData.carbs) : null,
@@ -336,7 +348,7 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
                   Crea Nuovo Cibo
                 </Button>
                 <DrawerClose asChild>
-                  <Button variant="ghost" className="w-full text-foreground/40 text-sm">
+                  <Button variant="ghost" className="w-full text-violet-400 hover:text-violet-300 hover:bg-violet-900/20 text-sm">
                     Annulla
                   </Button>
                 </DrawerClose>
@@ -376,29 +388,21 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
                   </div>
                   
                   {/* Energy */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-foreground/60">Energia (kJ)</Label>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        placeholder="0"
-                        value={formData.energy_kj}
-                        onChange={(e) => handleFieldChange("energy_kj", e.target.value)}
-                        className="bg-slate-800/60 border-slate-700 h-11"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-foreground/60">Energia (kcal)</Label>
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        placeholder="0"
-                        value={formData.energy_kcal}
-                        onChange={(e) => handleFieldChange("energy_kcal", e.target.value)}
-                        className="bg-slate-800/60 border-slate-700 h-11"
-                      />
-                    </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-foreground/60">Energia (kcal)</Label>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder={calculatedKcal > 0 ? `${calculatedKcal} (auto)` : "0"}
+                      value={formData.energy_kcal}
+                      onChange={(e) => handleFieldChange("energy_kcal", e.target.value)}
+                      className="bg-slate-800/60 border-slate-700 h-11"
+                    />
+                    {calculatedKcal > 0 && !formData.energy_kcal && (
+                      <p className="text-xs text-foreground/40">
+                        Calcolate dai macro: {calculatedKcal} kcal
+                      </p>
+                    )}
                   </div>
                   
                   {/* Macros */}
@@ -723,7 +727,7 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
                 <Button
                   variant="ghost"
                   onClick={() => setView('list')}
-                  className="w-full text-foreground/40 text-sm"
+                  className="w-full text-violet-400 hover:text-violet-300 hover:bg-violet-900/20 text-sm"
                 >
                   Annulla
                 </Button>

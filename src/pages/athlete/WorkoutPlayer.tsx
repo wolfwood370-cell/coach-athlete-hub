@@ -243,7 +243,7 @@ export default function WorkoutPlayer() {
               className="gradient-primary h-8 px-3 text-xs font-semibold"
             >
               <Flag className="h-3.5 w-3.5 mr-1" />
-              Finish
+              Termina
             </Button>
           </div>
           
@@ -271,7 +271,7 @@ export default function WorkoutPlayer() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                        Exercise {exerciseIndex + 1}
+                        Esercizio {exerciseIndex + 1}
                       </span>
                       <h3 className="font-semibold text-sm">{exercise.name}</h3>
                     </div>
@@ -296,7 +296,7 @@ export default function WorkoutPlayer() {
                         >
                           <span className="flex items-center gap-1.5">
                             <MessageSquare className="h-3 w-3" />
-                            Coach Notes
+                            Note del Coach
                           </span>
                           {expandedNotes[exercise.id] ? (
                             <ChevronUp className="h-3 w-3" />
@@ -411,7 +411,7 @@ export default function WorkoutPlayer() {
                     )} />
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Rest Timer</p>
+                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Pausa</p>
                     <p className={cn(
                       "text-2xl font-bold tabular-nums",
                       restTimeRemaining <= 10 ? "text-warning" : "text-foreground"

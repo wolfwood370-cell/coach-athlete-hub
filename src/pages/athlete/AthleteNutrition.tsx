@@ -111,7 +111,7 @@ function MacroRing({
         {/* Center content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className="text-sm font-bold text-foreground tabular-nums">{remaining}g</span>
-          <span className="text-[9px] text-foreground/60">left</span>
+          <span className="text-[9px] text-foreground/60">rimasti</span>
         </div>
       </div>
       <p className="text-xs font-medium mt-2 text-foreground/80">{label}</p>
@@ -409,7 +409,7 @@ export default function AthleteNutrition() {
                 "text-sm font-medium mt-1",
                 isOver ? "text-slate-500" : "text-indigo-400"
               )}>
-                kcal {isOver ? "Over" : "Remaining"}
+                kcal {isOver ? "in eccesso" : "rimanenti"}
               </p>
             </div>
 
@@ -434,8 +434,8 @@ export default function AthleteNutrition() {
                 )}
               </div>
               <div className="flex justify-between text-xs text-slate-500">
-                <span className="tabular-nums">{consumed.calories.toLocaleString()} consumed</span>
-                <span className="tabular-nums">{nutritionTargets.calories.toLocaleString()} target</span>
+                <span className="tabular-nums">{consumed.calories.toLocaleString()} consumate</span>
+                <span className="tabular-nums">{nutritionTargets.calories.toLocaleString()} obiettivo</span>
               </div>
             </div>
           </CardContent>
@@ -446,21 +446,21 @@ export default function AthleteNutrition() {
           <CardContent className="p-5">
             <div className="flex justify-around items-center">
               <MacroRing 
-                label="Protein" 
+                label="Proteine" 
                 consumed={consumed.protein}
                 target={nutritionTargets.protein}
                 color="hsl(0 84% 60%)"
                 bgColor="hsl(0 84% 60% / 0.2)"
               />
               <MacroRing 
-                label="Carbs" 
+                label="Carboidrati" 
                 consumed={consumed.carbs}
                 target={nutritionTargets.carbs}
                 color="hsl(142 71% 45%)"
                 bgColor="hsl(142 71% 45% / 0.2)"
               />
               <MacroRing 
-                label="Fats" 
+                label="Grassi" 
                 consumed={consumed.fats}
                 target={nutritionTargets.fats}
                 color="hsl(45 93% 47%)"
@@ -492,7 +492,7 @@ export default function AthleteNutrition() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Scale className="h-4 w-4 text-slate-500" />
-                <span className="text-sm font-semibold text-foreground">Weight Trend</span>
+                <span className="text-sm font-semibold text-foreground">Andamento Peso</span>
               </div>
               {currentTrend && (
                 <div className="flex items-center gap-1.5">
@@ -588,13 +588,13 @@ export default function AthleteNutrition() {
         <DrawerContent className="athlete-theme max-h-[85vh]">
           <div className="mx-auto w-full max-w-md flex flex-col overflow-hidden">
             <DrawerHeader className="text-center pb-2 shrink-0">
-              <DrawerTitle className="text-lg">Quick Add</DrawerTitle>
+              <DrawerTitle className="text-lg">Aggiunta Rapida</DrawerTitle>
             </DrawerHeader>
             
             <div className="flex-1 px-4 overflow-y-auto space-y-4 pb-4">
               {/* Energy Field with Unit Selector */}
               <div className="space-y-2">
-                <Label className="text-xs text-foreground/60">Energy</Label>
+                <Label className="text-xs text-foreground/60">Energia</Label>
                 <div className="flex gap-2">
                   <Input
                     type="number"
@@ -609,14 +609,14 @@ export default function AthleteNutrition() {
                   </div>
                 </div>
                 <p className="text-xs text-foreground/40">
-                  Macro sum is {calculatedKcal} kcal
+                  Somma macro: {calculatedKcal} kcal
                 </p>
               </div>
               
               {/* Macro Row: Protein, Fat, Carbs */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-foreground/60">Protein</Label>
+                  <Label className="text-xs text-foreground/60">Proteine</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -630,7 +630,7 @@ export default function AthleteNutrition() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-foreground/60">Fat</Label>
+                  <Label className="text-xs text-foreground/60">Grassi</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -644,7 +644,7 @@ export default function AthleteNutrition() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-foreground/60">Carbs</Label>
+                  <Label className="text-xs text-foreground/60">Carboidrati</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -662,7 +662,7 @@ export default function AthleteNutrition() {
               {/* Additional fields row: Fiber, Salt, Water */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-foreground/60">Fiber</Label>
+                  <Label className="text-xs text-foreground/60">Fibre</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -676,7 +676,7 @@ export default function AthleteNutrition() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-foreground/60">Salt</Label>
+                  <Label className="text-xs text-foreground/60">Sale</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -690,7 +690,7 @@ export default function AthleteNutrition() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-foreground/60">Water</Label>
+                  <Label className="text-xs text-foreground/60">Acqua</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -716,7 +716,7 @@ export default function AthleteNutrition() {
                 Aggiungi
               </Button>
               <DrawerClose asChild>
-                <Button variant="ghost" className="w-full text-foreground/40 text-sm">
+                <Button variant="ghost" className="w-full text-violet-400 hover:text-violet-300 hover:bg-violet-900/20 text-sm">
                   Annulla
                 </Button>
               </DrawerClose>
