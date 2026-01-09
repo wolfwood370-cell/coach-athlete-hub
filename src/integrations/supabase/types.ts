@@ -14,7 +14,208 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      daily_readiness: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          date: string
+          has_pain: boolean | null
+          id: string
+          notes: string | null
+          score: number | null
+          sleep_hours: number | null
+          sleep_quality: number | null
+          soreness_map: Json | null
+          stress_level: number | null
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          date?: string
+          has_pain?: boolean | null
+          id?: string
+          notes?: string | null
+          score?: number | null
+          sleep_hours?: number | null
+          sleep_quality?: number | null
+          soreness_map?: Json | null
+          stress_level?: number | null
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          date?: string
+          has_pain?: boolean | null
+          id?: string
+          notes?: string | null
+          score?: number | null
+          sleep_hours?: number | null
+          sleep_quality?: number | null
+          soreness_map?: Json | null
+          stress_level?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_readiness_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          coach_id: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          one_rm_data: Json | null
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          coach_id?: string | null
+          created_at?: string
+          full_name?: string | null
+          id: string
+          one_rm_data?: Json | null
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          coach_id?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          one_rm_data?: Json | null
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workout_logs: {
+        Row: {
+          athlete_id: string
+          completed_at: string | null
+          created_at: string
+          duration_seconds: number | null
+          exercises_data: Json
+          id: string
+          notes: string | null
+          rpe_global: number | null
+          started_at: string | null
+          workout_id: string
+        }
+        Insert: {
+          athlete_id: string
+          completed_at?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          exercises_data?: Json
+          id?: string
+          notes?: string | null
+          rpe_global?: number | null
+          started_at?: string | null
+          workout_id: string
+        }
+        Update: {
+          athlete_id?: string
+          completed_at?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          exercises_data?: Json
+          id?: string
+          notes?: string | null
+          rpe_global?: number | null
+          started_at?: string | null
+          workout_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_logs_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_logs_workout_id_fkey"
+            columns: ["workout_id"]
+            isOneToOne: false
+            referencedRelation: "workouts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workouts: {
+        Row: {
+          athlete_id: string
+          coach_id: string | null
+          created_at: string
+          description: string | null
+          estimated_duration: number | null
+          id: string
+          scheduled_date: string | null
+          status: Database["public"]["Enums"]["workout_status"]
+          structure: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          coach_id?: string | null
+          created_at?: string
+          description?: string | null
+          estimated_duration?: number | null
+          id?: string
+          scheduled_date?: string | null
+          status?: Database["public"]["Enums"]["workout_status"]
+          structure?: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          coach_id?: string | null
+          created_at?: string
+          description?: string | null
+          estimated_duration?: number | null
+          id?: string
+          scheduled_date?: string | null
+          status?: Database["public"]["Enums"]["workout_status"]
+          structure?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workouts_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workouts_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +224,8 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      user_role: "coach" | "athlete"
+      workout_status: "pending" | "in_progress" | "completed" | "skipped"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +352,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      user_role: ["coach", "athlete"],
+      workout_status: ["pending", "in_progress", "completed", "skipped"],
+    },
   },
 } as const
