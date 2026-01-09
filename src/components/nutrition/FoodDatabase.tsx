@@ -648,7 +648,7 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
                 <Button
                   variant="ghost"
                   onClick={() => setView('list')}
-                  className="w-full text-foreground/40 text-sm"
+                  className="w-full text-violet-400 hover:text-violet-300 hover:bg-violet-900/20 text-sm"
                 >
                   Annulla
                 </Button>

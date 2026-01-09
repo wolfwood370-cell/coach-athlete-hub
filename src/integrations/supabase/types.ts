@@ -170,6 +170,7 @@ export type Database = {
           meal_name: string | null
           notes: string | null
           protein: number | null
+          water: number | null
         }
         Insert: {
           athlete_id: string
@@ -183,6 +184,7 @@ export type Database = {
           meal_name?: string | null
           notes?: string | null
           protein?: number | null
+          water?: number | null
         }
         Update: {
           athlete_id?: string
@@ -196,6 +198,7 @@ export type Database = {
           meal_name?: string | null
           notes?: string | null
           protein?: number | null
+          water?: number | null
         }
         Relationships: [
           {

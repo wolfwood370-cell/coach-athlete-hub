@@ -246,7 +246,7 @@ export default function AthleteNutrition() {
     
     const { data, error } = await supabase
       .from('nutrition_logs')
-      .select('calories, protein, carbs, fats')
+      .select('calories, protein, carbs, fats, water')
       .eq('athlete_id', user.id)
       .eq('date', today);
     
@@ -261,7 +261,7 @@ export default function AthleteNutrition() {
         protein: acc.protein + (Number(log.protein) || 0),
         carbs: acc.carbs + (Number(log.carbs) || 0),
         fats: acc.fats + (Number(log.fats) || 0),
-        water: acc.water,
+        water: acc.water + (Number(log.water) || 0),
       }), { calories: 0, protein: 0, carbs: 0, fats: 0, water: 0 });
       
       setConsumed(totals);
@@ -364,7 +364,8 @@ export default function AthleteNutrition() {
       protein: p || null,
       carbs: c || null,
       fats: f || null,
-      meal_name: formData.name || null,
+      water: water || null,
+      meal_name: null,
     };
     
     const { error } = await supabase
