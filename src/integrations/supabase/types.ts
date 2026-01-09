@@ -17,6 +17,7 @@ export type Database = {
       daily_readiness: {
         Row: {
           athlete_id: string
+          body_weight: number | null
           created_at: string
           date: string
           has_pain: boolean | null
@@ -30,6 +31,7 @@ export type Database = {
         }
         Insert: {
           athlete_id: string
+          body_weight?: number | null
           created_at?: string
           date?: string
           has_pain?: boolean | null
@@ -43,6 +45,7 @@ export type Database = {
         }
         Update: {
           athlete_id?: string
+          body_weight?: number | null
           created_at?: string
           date?: string
           has_pain?: boolean | null
@@ -57,6 +60,56 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "daily_readiness_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      nutrition_logs: {
+        Row: {
+          athlete_id: string
+          calories: number | null
+          carbs: number | null
+          created_at: string
+          date: string
+          fats: number | null
+          id: string
+          logged_at: string
+          meal_name: string | null
+          notes: string | null
+          protein: number | null
+        }
+        Insert: {
+          athlete_id: string
+          calories?: number | null
+          carbs?: number | null
+          created_at?: string
+          date?: string
+          fats?: number | null
+          id?: string
+          logged_at?: string
+          meal_name?: string | null
+          notes?: string | null
+          protein?: number | null
+        }
+        Update: {
+          athlete_id?: string
+          calories?: number | null
+          carbs?: number | null
+          created_at?: string
+          date?: string
+          fats?: number | null
+          id?: string
+          logged_at?: string
+          meal_name?: string | null
+          notes?: string | null
+          protein?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_logs_athlete_id_fkey"
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "profiles"

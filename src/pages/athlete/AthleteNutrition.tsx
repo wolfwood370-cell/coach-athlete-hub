@@ -1,380 +1,561 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AthleteLayout } from "@/components/athlete/AthleteLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Drawer,
   DrawerClose,
   DrawerContent,
-  DrawerDescription,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { 
   Plus,
-  Beef,
-  Wheat,
-  Droplets,
   Scale,
   TrendingUp,
-  ChevronRight,
-  Utensils,
-  Clock,
-  Minus
+  Minus,
+  Delete,
+  Check
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+import {
+  LineChart,
+  Line,
+  ScatterChart,
+  Scatter,
+  XAxis,
+  YAxis,
+  ResponsiveContainer,
+  ComposedChart,
+  Tooltip,
+} from "recharts";
 
-// Mock nutrition data
-const nutritionData = {
-  target: {
-    calories: 2400,
-    protein: 180,
-    carbs: 260,
-    fats: 75,
-  },
-  consumed: {
-    calories: 1650,
-    protein: 125,
-    carbs: 180,
-    fats: 52,
-  },
-  meals: [
-    { id: 1, name: "Colazione", time: "07:30", calories: 450, logged: true },
-    { id: 2, name: "Spuntino", time: "10:30", calories: 200, logged: true },
-    { id: 3, name: "Pranzo", time: "13:00", calories: 650, logged: true },
-    { id: 4, name: "Spuntino", time: "16:00", calories: 150, logged: true },
-    { id: 5, name: "Pre-Workout", time: "17:30", calories: 200, logged: true },
-    { id: 6, name: "Cena", time: "20:00", calories: 0, logged: false },
-  ]
+// Nutrition targets (would come from user profile in production)
+const nutritionTargets = {
+  calories: 2400,
+  protein: 180,
+  carbs: 260,
+  fats: 75,
 };
 
-// Mock weight data for trend chart
-const weightData = [
-  { day: 1, scale: 78.2, trend: 78.5 },
-  { day: 2, scale: 78.8, trend: 78.45 },
-  { day: 3, scale: 78.0, trend: 78.4 },
-  { day: 4, scale: 78.5, trend: 78.35 },
-  { day: 5, scale: 77.9, trend: 78.25 },
-  { day: 6, scale: 78.3, trend: 78.2 },
-  { day: 7, scale: 78.1, trend: 78.15 },
-  { day: 8, scale: 77.8, trend: 78.05 },
-  { day: 9, scale: 78.4, trend: 78.0 },
-  { day: 10, scale: 77.6, trend: 77.9 },
-  { day: 11, scale: 77.9, trend: 77.85 },
-  { day: 12, scale: 77.5, trend: 77.75 },
-  { day: 13, scale: 77.8, trend: 77.7 },
-  { day: 14, scale: 77.3, trend: 77.6 },
-];
+// Calculate EMA (Exponential Moving Average)
+const calculateEMA = (data: number[], smoothing: number = 0.2): number[] => {
+  if (data.length === 0) return [];
+  const ema: number[] = [data[0]];
+  for (let i = 1; i < data.length; i++) {
+    ema.push(data[i] * smoothing + ema[i - 1] * (1 - smoothing));
+  }
+  return ema;
+};
 
-// Weight Trend Chart Component
-function WeightTrendChart({ data }: { data: typeof weightData }) {
-  const maxWeight = Math.max(...data.map(d => Math.max(d.scale, d.trend)));
-  const minWeight = Math.min(...data.map(d => Math.min(d.scale, d.trend)));
-  const range = maxWeight - minWeight || 1;
-  const padding = range * 0.1;
+// Macro Ring Component with center text
+function MacroRing({ 
+  label, 
+  consumed, 
+  target, 
+  color,
+  bgColor
+}: { 
+  label: string;
+  consumed: number;
+  target: number;
+  color: string;
+  bgColor: string;
+}) {
+  const percentage = Math.min((consumed / target) * 100, 100);
+  const remaining = Math.max(target - consumed, 0);
+  const radius = 36;
+  const strokeWidth = 6;
+  const normalizedRadius = radius - strokeWidth / 2;
+  const circumference = normalizedRadius * 2 * Math.PI;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
   
-  const getY = (value: number) => {
-    return 100 - ((value - minWeight + padding) / (range + padding * 2)) * 100;
-  };
-  
-  const trendPoints = data.map((d, i) => 
-    `${(i / (data.length - 1)) * 100},${getY(d.trend)}`
-  ).join(' ');
-
   return (
-    <div className="relative h-32">
-      <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="none">
-        {/* Grid lines */}
-        <line x1="0" y1="25" x2="100" y2="25" className="stroke-border/30" strokeWidth="0.5" />
-        <line x1="0" y1="50" x2="100" y2="50" className="stroke-border/30" strokeWidth="0.5" />
-        <line x1="0" y1="75" x2="100" y2="75" className="stroke-border/30" strokeWidth="0.5" />
-        
-        {/* Trend line */}
-        <polyline
-          fill="none"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="stroke-primary"
-          points={trendPoints}
-        />
-        
-        {/* Scale weight dots */}
-        {data.map((d, i) => (
+    <div className="flex flex-col items-center">
+      <div className="relative">
+        <svg
+          height={radius * 2}
+          width={radius * 2}
+          className="transform -rotate-90"
+        >
+          {/* Background ring */}
           <circle
-            key={i}
-            cx={(i / (data.length - 1)) * 100}
-            cy={getY(d.scale)}
-            r="1.5"
-            className="fill-muted-foreground/40"
+            stroke={bgColor}
+            fill="transparent"
+            strokeWidth={strokeWidth}
+            r={normalizedRadius}
+            cx={radius}
+            cy={radius}
           />
-        ))}
-      </svg>
-      
-      {/* Labels */}
-      <div className="absolute top-0 right-0 flex items-center gap-3 text-[10px]">
-        <div className="flex items-center gap-1">
-          <div className="h-0.5 w-3 bg-primary rounded" />
-          <span className="text-muted-foreground">Trend</span>
-        </div>
-        <div className="flex items-center gap-1">
-          <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/40" />
-          <span className="text-muted-foreground">Scale</span>
+          {/* Progress ring */}
+          <circle
+            stroke={color}
+            fill="transparent"
+            strokeWidth={strokeWidth}
+            strokeDasharray={`${circumference} ${circumference}`}
+            style={{ 
+              strokeDashoffset,
+              transition: "stroke-dashoffset 0.5s ease-out"
+            }}
+            strokeLinecap="round"
+            r={normalizedRadius}
+            cx={radius}
+            cy={radius}
+          />
+        </svg>
+        {/* Center content */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-sm font-bold text-foreground tabular-nums">{remaining}g</span>
+          <span className="text-[9px] text-foreground/60">left</span>
         </div>
       </div>
+      <p className="text-xs font-medium mt-2 text-foreground/80">{label}</p>
     </div>
   );
 }
 
-// Macro Ring Component
-function MacroRing({ 
-  label, 
+// Custom Numpad Component
+function Numpad({ 
   value, 
-  target, 
-  icon: Icon, 
-  color 
+  onChange, 
+  onDelete, 
+  onClear 
 }: { 
-  label: string;
-  value: number;
-  target: number;
-  icon: React.ElementType;
-  color: string;
+  value: string;
+  onChange: (digit: string) => void;
+  onDelete: () => void;
+  onClear: () => void;
 }) {
-  const percentage = Math.min((value / target) * 100, 100);
-  const remaining = target - value;
-  const isOver = value > target;
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'];
+  
+  const handlePress = (key: string) => {
+    if (key === 'C') {
+      onClear();
+    } else if (key === '⌫') {
+      onDelete();
+    } else {
+      onChange(key);
+    }
+  };
   
   return (
-    <div className="text-center">
-      <div className="relative inline-block">
-        <svg className="h-16 w-16 -rotate-90">
-          <circle
-            cx="32"
-            cy="32"
-            r="26"
-            strokeWidth="6"
-            fill="none"
-            className="stroke-secondary"
-          />
-          <circle
-            cx="32"
-            cy="32"
-            r="26"
-            strokeWidth="6"
-            fill="none"
-            strokeLinecap="round"
-            strokeDasharray={`${(percentage / 100) * 163.4} 163.4`}
-            className={cn("transition-all duration-500", color)}
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Icon className="h-4 w-4 text-muted-foreground" />
-        </div>
-      </div>
-      <p className="text-xs font-medium mt-1.5">{label}</p>
-      <p className="text-[10px] text-muted-foreground tabular-nums">
-        {isOver ? (
-          <span>+{value - target}g</span>
-        ) : (
-          <span>{remaining}g left</span>
-        )}
-      </p>
+    <div className="grid grid-cols-3 gap-2">
+      {keys.map((key) => (
+        <Button
+          key={key}
+          variant="secondary"
+          className={cn(
+            "h-14 text-xl font-semibold",
+            key === 'C' && "text-foreground/60",
+            key === '⌫' && "text-foreground/60"
+          )}
+          onClick={() => handlePress(key)}
+        >
+          {key === '⌫' ? <Delete className="h-5 w-5" /> : key}
+        </Button>
+      ))}
     </div>
+  );
+}
+
+// Weight Trend Chart with recharts
+function WeightTrendChart({ data }: { data: { day: number; date: string; scale: number; trend: number }[] }) {
+  if (data.length === 0) {
+    return (
+      <div className="h-32 flex items-center justify-center text-foreground/40 text-sm">
+        Nessun dato peso disponibile
+      </div>
+    );
+  }
+
+  const minWeight = Math.min(...data.map(d => Math.min(d.scale, d.trend))) - 0.5;
+  const maxWeight = Math.max(...data.map(d => Math.max(d.scale, d.trend))) + 0.5;
+
+  return (
+    <ResponsiveContainer width="100%" height={140}>
+      <ComposedChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+        <XAxis 
+          dataKey="day" 
+          tick={{ fontSize: 10, fill: 'hsl(var(--foreground) / 0.4)' }}
+          axisLine={false}
+          tickLine={false}
+        />
+        <YAxis 
+          domain={[minWeight, maxWeight]}
+          tick={{ fontSize: 10, fill: 'hsl(var(--foreground) / 0.4)' }}
+          axisLine={false}
+          tickLine={false}
+          tickFormatter={(value) => value.toFixed(1)}
+        />
+        <Tooltip
+          contentStyle={{
+            backgroundColor: 'hsl(224 71% 8%)',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '12px',
+          }}
+          labelStyle={{ color: 'hsl(var(--foreground) / 0.6)' }}
+          formatter={(value: number, name: string) => [
+            `${value.toFixed(1)} kg`,
+            name === 'scale' ? 'Bilancia' : 'Trend'
+          ]}
+        />
+        {/* Scale weight as scattered dots (noise) */}
+        <Scatter 
+          dataKey="scale" 
+          fill="hsl(var(--foreground) / 0.25)" 
+          shape="circle"
+        />
+        {/* Trend line (signal) */}
+        <Line 
+          type="monotone" 
+          dataKey="trend" 
+          stroke="hsl(262 83% 58%)" 
+          strokeWidth={3}
+          dot={false}
+          activeDot={{ r: 4, fill: 'hsl(262 83% 58%)' }}
+        />
+      </ComposedChart>
+    </ResponsiveContainer>
   );
 }
 
 export default function AthleteNutrition() {
+  const { user } = useAuth();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [quickAddTab, setQuickAddTab] = useState<"kcal" | "macros">("kcal");
-  const [quickKcal, setQuickKcal] = useState("");
-  const [quickProtein, setQuickProtein] = useState("");
-  const [quickCarbs, setQuickCarbs] = useState("");
-  const [quickFats, setQuickFats] = useState("");
-
-  const { target, consumed, meals } = nutritionData;
-  const remaining = target.calories - consumed.calories;
-  const consumedPercent = (consumed.calories / target.calories) * 100;
+  const [inputMode, setInputMode] = useState<"calories" | "macros">("calories");
+  const [numpadValue, setNumpadValue] = useState("");
+  const [macroValues, setMacroValues] = useState({ p: "", c: "", f: "" });
+  const [activeMacro, setActiveMacro] = useState<"p" | "c" | "f">("p");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const currentWeight = weightData[weightData.length - 1];
-  const weightChange = currentWeight.trend - weightData[0].trend;
+  // Nutrition state
+  const [consumed, setConsumed] = useState({
+    calories: 0,
+    protein: 0,
+    carbs: 0,
+    fats: 0,
+  });
+  
+  // Weight data state
+  const [weightData, setWeightData] = useState<{ day: number; date: string; scale: number; trend: number }[]>([]);
+  const [currentTrend, setCurrentTrend] = useState<number | null>(null);
+  const [weightChange, setWeightChange] = useState<number>(0);
 
-  const handleQuickAdd = () => {
-    // In real app, this would add to consumed
-    setQuickAddOpen(false);
-    setQuickKcal("");
-    setQuickProtein("");
-    setQuickCarbs("");
-    setQuickFats("");
+  // Fetch today's nutrition logs
+  const fetchTodayNutrition = useCallback(async () => {
+    if (!user?.id) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    const { data, error } = await supabase
+      .from('nutrition_logs')
+      .select('calories, protein, carbs, fats')
+      .eq('athlete_id', user.id)
+      .eq('date', today);
+    
+    if (error) {
+      console.error('Error fetching nutrition:', error);
+      return;
+    }
+    
+    if (data && data.length > 0) {
+      const totals = data.reduce((acc, log) => ({
+        calories: acc.calories + (log.calories || 0),
+        protein: acc.protein + (Number(log.protein) || 0),
+        carbs: acc.carbs + (Number(log.carbs) || 0),
+        fats: acc.fats + (Number(log.fats) || 0),
+      }), { calories: 0, protein: 0, carbs: 0, fats: 0 });
+      
+      setConsumed(totals);
+    }
+  }, [user?.id]);
+
+  // Fetch weight data for trend chart
+  const fetchWeightData = useCallback(async () => {
+    if (!user?.id) return;
+    
+    const fourteenDaysAgo = new Date();
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+    
+    const { data, error } = await supabase
+      .from('daily_readiness')
+      .select('date, body_weight')
+      .eq('athlete_id', user.id)
+      .gte('date', fourteenDaysAgo.toISOString().split('T')[0])
+      .order('date', { ascending: true });
+    
+    if (error) {
+      console.error('Error fetching weight:', error);
+      return;
+    }
+    
+    if (data && data.length > 0) {
+      const weights = data
+        .filter(d => d.body_weight !== null)
+        .map(d => Number(d.body_weight));
+      
+      if (weights.length > 0) {
+        const ema = calculateEMA(weights, 0.3);
+        
+        const chartData = data
+          .filter(d => d.body_weight !== null)
+          .map((d, i) => ({
+            day: i + 1,
+            date: d.date,
+            scale: Number(d.body_weight),
+            trend: Number(ema[i].toFixed(1)),
+          }));
+        
+        setWeightData(chartData);
+        setCurrentTrend(ema[ema.length - 1]);
+        setWeightChange(ema[ema.length - 1] - ema[0]);
+      }
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    fetchTodayNutrition();
+    fetchWeightData();
+  }, [fetchTodayNutrition, fetchWeightData]);
+
+  // Handle numpad input
+  const handleNumpadChange = (digit: string) => {
+    if (inputMode === "calories") {
+      if (numpadValue.length < 5) {
+        setNumpadValue(prev => prev + digit);
+      }
+    } else {
+      const currentValue = macroValues[activeMacro];
+      if (currentValue.length < 4) {
+        setMacroValues(prev => ({ ...prev, [activeMacro]: prev[activeMacro] + digit }));
+      }
+    }
   };
+  
+  const handleNumpadDelete = () => {
+    if (inputMode === "calories") {
+      setNumpadValue(prev => prev.slice(0, -1));
+    } else {
+      setMacroValues(prev => ({ 
+        ...prev, 
+        [activeMacro]: prev[activeMacro].slice(0, -1) 
+      }));
+    }
+  };
+  
+  const handleNumpadClear = () => {
+    if (inputMode === "calories") {
+      setNumpadValue("");
+    } else {
+      setMacroValues(prev => ({ ...prev, [activeMacro]: "" }));
+    }
+  };
+
+  // Submit nutrition log
+  const handleSubmit = async () => {
+    if (!user?.id) {
+      toast.error("Devi essere loggato");
+      return;
+    }
+    
+    setIsSubmitting(true);
+    
+    let logData: {
+      athlete_id: string;
+      calories?: number;
+      protein?: number;
+      carbs?: number;
+      fats?: number;
+    } = {
+      athlete_id: user.id,
+    };
+    
+    if (inputMode === "calories") {
+      const kcal = parseInt(numpadValue);
+      if (!kcal || kcal <= 0) {
+        toast.error("Inserisci un valore valido");
+        setIsSubmitting(false);
+        return;
+      }
+      logData.calories = kcal;
+    } else {
+      const p = parseFloat(macroValues.p) || 0;
+      const c = parseFloat(macroValues.c) || 0;
+      const f = parseFloat(macroValues.f) || 0;
+      
+      if (p === 0 && c === 0 && f === 0) {
+        toast.error("Inserisci almeno un macro");
+        setIsSubmitting(false);
+        return;
+      }
+      
+      logData.protein = p;
+      logData.carbs = c;
+      logData.fats = f;
+      logData.calories = Math.round(p * 4 + c * 4 + f * 9);
+    }
+    
+    const { error } = await supabase
+      .from('nutrition_logs')
+      .insert(logData);
+    
+    if (error) {
+      console.error('Error inserting log:', error);
+      toast.error("Errore nel salvataggio");
+    } else {
+      toast.success("Aggiunto!");
+      setQuickAddOpen(false);
+      setNumpadValue("");
+      setMacroValues({ p: "", c: "", f: "" });
+      fetchTodayNutrition();
+    }
+    
+    setIsSubmitting(false);
+  };
+
+  // Calculated values
+  const remaining = nutritionTargets.calories - consumed.calories;
+  const consumedPercent = (consumed.calories / nutritionTargets.calories) * 100;
+  const isOver = remaining < 0;
+  
+  // Calculate macros from current input
+  const calculatedKcal = inputMode === "macros" 
+    ? Math.round(
+        (parseFloat(macroValues.p) || 0) * 4 +
+        (parseFloat(macroValues.c) || 0) * 4 +
+        (parseFloat(macroValues.f) || 0) * 9
+      )
+    : parseInt(numpadValue) || 0;
 
   return (
     <AthleteLayout title="Nutrition">
-      <div className="space-y-4 p-4 pb-24 animate-fade-in">
+      <div className="space-y-4 p-4 pb-24 animate-fade-in" style={{ backgroundColor: '#0f172a' }}>
         
-        {/* ===== CALORIES REMAINING (Hero Card) ===== */}
-        <Card className="border-0 overflow-hidden">
+        {/* ===== ENERGY BALANCE (Hero Widget) ===== */}
+        <Card className="border-0 bg-slate-800/50 overflow-hidden">
           <CardContent className="p-5">
-            <div className="text-center mb-4">
-              <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-                Calories Remaining
-              </p>
+            {/* Main number */}
+            <div className="text-center mb-5">
               <p className={cn(
-                "text-4xl font-bold tabular-nums",
-                remaining >= 0 ? "text-foreground" : "text-muted-foreground"
+                "text-5xl font-bold tabular-nums tracking-tight",
+                isOver ? "text-slate-400" : "text-foreground"
               )}>
                 {Math.abs(remaining).toLocaleString()}
               </p>
-              {remaining < 0 && (
-                <p className="text-xs text-muted-foreground mt-0.5">over target</p>
-              )}
+              <p className={cn(
+                "text-sm font-medium mt-1",
+                isOver ? "text-slate-500" : "text-indigo-400"
+              )}>
+                kcal {isOver ? "Over" : "Remaining"}
+              </p>
             </div>
 
-            {/* Progress Bar - Neutral colors */}
+            {/* Progress Bar - Adherence Neutral */}
             <div className="space-y-2">
-              <div className="relative h-2 bg-secondary rounded-full overflow-hidden">
+              <div className="relative h-3 bg-slate-700/50 rounded-full overflow-hidden">
                 <div 
                   className={cn(
                     "absolute inset-y-0 left-0 rounded-full transition-all duration-500",
                     consumedPercent <= 100 
-                      ? "bg-gradient-to-r from-primary/60 to-primary" 
-                      : "bg-gradient-to-r from-primary to-accent"
+                      ? "bg-gradient-to-r from-indigo-600 to-violet-500" 
+                      : "bg-gradient-to-r from-violet-600 to-slate-500"
                   )}
                   style={{ width: `${Math.min(consumedPercent, 100)}%` }}
                 />
+                {/* Overflow indicator */}
+                {consumedPercent > 100 && (
+                  <div 
+                    className="absolute inset-y-0 right-0 bg-slate-500/80 rounded-r-full"
+                    style={{ width: `${Math.min(consumedPercent - 100, 100)}%` }}
+                  />
+                )}
               </div>
-              <div className="flex justify-between text-[10px] text-muted-foreground">
+              <div className="flex justify-between text-xs text-slate-500">
                 <span className="tabular-nums">{consumed.calories.toLocaleString()} consumed</span>
-                <span className="tabular-nums">{target.calories.toLocaleString()} target</span>
+                <span className="tabular-nums">{nutritionTargets.calories.toLocaleString()} target</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* ===== MACRO RINGS ===== */}
-        <Card className="border-0">
-          <CardContent className="p-4">
-            <div className="grid grid-cols-3 gap-2">
+        {/* ===== MACRO TARGETS (The Rings) ===== */}
+        <Card className="border-0 bg-slate-800/50">
+          <CardContent className="p-5">
+            <div className="flex justify-around items-center">
               <MacroRing 
                 label="Protein" 
-                value={consumed.protein} 
-                target={target.protein}
-                icon={Beef}
-                color="stroke-violet-500"
+                consumed={consumed.protein}
+                target={nutritionTargets.protein}
+                color="hsl(217 91% 60%)"
+                bgColor="hsl(217 91% 60% / 0.2)"
               />
               <MacroRing 
                 label="Carbs" 
-                value={consumed.carbs} 
-                target={target.carbs}
-                icon={Wheat}
-                color="stroke-sky-500"
+                consumed={consumed.carbs}
+                target={nutritionTargets.carbs}
+                color="hsl(38 92% 50%)"
+                bgColor="hsl(38 92% 50% / 0.2)"
               />
               <MacroRing 
                 label="Fats" 
-                value={consumed.fats} 
-                target={target.fats}
-                icon={Droplets}
-                color="stroke-amber-500"
+                consumed={consumed.fats}
+                target={nutritionTargets.fats}
+                color="hsl(280 70% 60%)"
+                bgColor="hsl(280 70% 60% / 0.2)"
               />
-            </div>
-            
-            {/* Macro details */}
-            <div className="grid grid-cols-3 gap-2 mt-3 pt-3 border-t border-border/50">
-              <div className="text-center">
-                <p className="text-sm font-semibold tabular-nums">{consumed.protein}g</p>
-                <p className="text-[10px] text-muted-foreground">/ {target.protein}g</p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-semibold tabular-nums">{consumed.carbs}g</p>
-                <p className="text-[10px] text-muted-foreground">/ {target.carbs}g</p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-semibold tabular-nums">{consumed.fats}g</p>
-                <p className="text-[10px] text-muted-foreground">/ {target.fats}g</p>
-              </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* ===== MEALS LOG ===== */}
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-semibold">Today's Log</h2>
-          </div>
-          <Card className="border-0">
-            <CardContent className="p-0 divide-y divide-border/50">
-              {meals.map((meal) => (
-                <div 
-                  key={meal.id}
-                  className="flex items-center justify-between p-3 active:bg-secondary/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className={cn(
-                      "h-8 w-8 rounded-lg flex items-center justify-center",
-                      meal.logged ? "bg-primary/10" : "bg-secondary"
-                    )}>
-                      <Utensils className={cn(
-                        "h-4 w-4",
-                        meal.logged ? "text-primary" : "text-muted-foreground"
-                      )} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{meal.name}</p>
-                      <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        <span>{meal.time}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {meal.logged ? (
-                      <span className="text-sm font-medium tabular-nums">{meal.calories} kcal</span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Non loggato</span>
-                    )}
-                    <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* ===== WEIGHT TREND ===== */}
-        <Card className="border-0">
+        {/* ===== WEIGHT TREND (Intelligence) ===== */}
+        <Card className="border-0 bg-slate-800/50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Scale className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-semibold">Weight Trend</span>
+                <Scale className="h-4 w-4 text-slate-500" />
+                <span className="text-sm font-semibold text-foreground">Weight Trend</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-lg font-bold tabular-nums">{currentWeight.trend}</span>
-                <span className="text-xs text-muted-foreground">kg</span>
-                <div className={cn(
-                  "flex items-center gap-0.5 text-xs font-medium ml-1",
-                  weightChange < 0 ? "text-success" : "text-muted-foreground"
-                )}>
-                  {weightChange < 0 ? (
-                    <TrendingUp className="h-3 w-3 rotate-180" />
-                  ) : weightChange > 0 ? (
-                    <TrendingUp className="h-3 w-3" />
-                  ) : (
-                    <Minus className="h-3 w-3" />
-                  )}
-                  <span className="tabular-nums">{Math.abs(weightChange).toFixed(1)}</span>
+              {currentTrend && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-lg font-bold tabular-nums text-foreground">{currentTrend.toFixed(1)}</span>
+                  <span className="text-xs text-slate-500">kg</span>
+                  <div className={cn(
+                    "flex items-center gap-0.5 text-xs font-medium ml-1",
+                    weightChange < 0 ? "text-violet-400" : weightChange > 0 ? "text-slate-500" : "text-slate-500"
+                  )}>
+                    {weightChange < 0 ? (
+                      <TrendingUp className="h-3 w-3 rotate-180" />
+                    ) : weightChange > 0 ? (
+                      <TrendingUp className="h-3 w-3" />
+                    ) : (
+                      <Minus className="h-3 w-3" />
+                    )}
+                    <span className="tabular-nums">{Math.abs(weightChange).toFixed(1)}</span>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
             
             <WeightTrendChart data={weightData} />
             
-            <p className="text-[10px] text-muted-foreground text-center mt-2">
-              Ultimi 14 giorni · La linea mostra la media mobile
-            </p>
+            {/* Legend */}
+            <div className="flex justify-center gap-4 mt-2">
+              <div className="flex items-center gap-1.5">
+                <div className="h-0.5 w-4 rounded bg-violet-500" />
+                <span className="text-[10px] text-slate-500">Trend</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <div className="h-2 w-2 rounded-full bg-foreground/25" />
+                <span className="text-[10px] text-slate-500">Bilancia</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -382,7 +563,7 @@ export default function AthleteNutrition() {
       {/* ===== FLOATING ACTION BUTTON ===== */}
       <Button
         onClick={() => setQuickAddOpen(true)}
-        className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-lg gradient-primary z-40"
+        className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-xl bg-gradient-to-br from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 z-40"
         size="icon"
       >
         <Plus className="h-6 w-6" />
@@ -390,117 +571,97 @@ export default function AthleteNutrition() {
 
       {/* ===== QUICK ADD DRAWER ===== */}
       <Drawer open={quickAddOpen} onOpenChange={setQuickAddOpen}>
-        <DrawerContent className="athlete-theme">
-          <div className="mx-auto w-full max-w-sm">
+        <DrawerContent className="athlete-theme h-[60vh]">
+          <div className="mx-auto w-full max-w-sm h-full flex flex-col">
             <DrawerHeader className="text-center pb-2">
               <DrawerTitle className="text-lg">Quick Add</DrawerTitle>
-              <DrawerDescription className="text-xs">
-                Aggiungi rapidamente calorie o macro
-              </DrawerDescription>
             </DrawerHeader>
             
-            <div className="px-4">
-              <Tabs value={quickAddTab} onValueChange={(v) => setQuickAddTab(v as "kcal" | "macros")}>
-                <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger value="kcal">Quick Kcal</TabsTrigger>
-                  <TabsTrigger value="macros">Quick Macros</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="kcal" className="space-y-4">
-                  <div className="text-center">
-                    <Label className="text-sm text-muted-foreground mb-2 block">
-                      Inserisci calorie
-                    </Label>
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      placeholder="0"
-                      value={quickKcal}
-                      onChange={(e) => setQuickKcal(e.target.value)}
-                      className="text-center text-3xl font-bold h-16 bg-secondary border-0"
-                    />
-                    <p className="text-[10px] text-muted-foreground mt-2">kcal</p>
+            <div className="flex-1 px-4 flex flex-col">
+              {/* Toggle Switch */}
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <span className={cn(
+                  "text-sm font-medium transition-colors",
+                  inputMode === "calories" ? "text-foreground" : "text-foreground/40"
+                )}>
+                  Calories
+                </span>
+                <Switch
+                  checked={inputMode === "macros"}
+                  onCheckedChange={(checked) => setInputMode(checked ? "macros" : "calories")}
+                />
+                <span className={cn(
+                  "text-sm font-medium transition-colors",
+                  inputMode === "macros" ? "text-foreground" : "text-foreground/40"
+                )}>
+                  Macros
+                </span>
+              </div>
+              
+              {/* Display Area */}
+              <div className="mb-4">
+                {inputMode === "calories" ? (
+                  <div className="text-center py-4 rounded-xl bg-secondary/30">
+                    <p className="text-4xl font-bold tabular-nums text-foreground">
+                      {numpadValue || "0"}
+                    </p>
+                    <p className="text-xs text-foreground/60 mt-1">kcal</p>
                   </div>
-                  
-                  {/* Quick presets */}
-                  <div className="grid grid-cols-4 gap-2">
-                    {[100, 200, 300, 500].map((val) => (
-                      <Button
-                        key={val}
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => setQuickKcal(String(Number(quickKcal || 0) + val))}
-                        className="h-10 text-xs"
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { key: "p" as const, label: "P", color: "bg-blue-500/20 border-blue-500" },
+                      { key: "c" as const, label: "C", color: "bg-amber-500/20 border-amber-500" },
+                      { key: "f" as const, label: "F", color: "bg-violet-500/20 border-violet-500" },
+                    ].map(({ key, label, color }) => (
+                      <button
+                        key={key}
+                        onClick={() => setActiveMacro(key)}
+                        className={cn(
+                          "py-3 rounded-xl border-2 transition-all",
+                          activeMacro === key ? color : "bg-secondary/30 border-transparent"
+                        )}
                       >
-                        +{val}
-                      </Button>
+                        <p className="text-xs text-foreground/60 mb-1">{label}</p>
+                        <p className="text-xl font-bold tabular-nums text-foreground">
+                          {macroValues[key] || "0"}
+                        </p>
+                        <p className="text-[10px] text-foreground/40">g</p>
+                      </button>
                     ))}
                   </div>
-                </TabsContent>
+                )}
                 
-                <TabsContent value="macros" className="space-y-4">
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="text-center">
-                      <Label className="text-[10px] text-muted-foreground mb-1 block">Protein</Label>
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        placeholder="0"
-                        value={quickProtein}
-                        onChange={(e) => setQuickProtein(e.target.value)}
-                        className="text-center text-lg font-semibold h-12 bg-secondary border-0"
-                      />
-                      <p className="text-[10px] text-muted-foreground mt-1">g</p>
-                    </div>
-                    <div className="text-center">
-                      <Label className="text-[10px] text-muted-foreground mb-1 block">Carbs</Label>
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        placeholder="0"
-                        value={quickCarbs}
-                        onChange={(e) => setQuickCarbs(e.target.value)}
-                        className="text-center text-lg font-semibold h-12 bg-secondary border-0"
-                      />
-                      <p className="text-[10px] text-muted-foreground mt-1">g</p>
-                    </div>
-                    <div className="text-center">
-                      <Label className="text-[10px] text-muted-foreground mb-1 block">Fats</Label>
-                      <Input
-                        type="number"
-                        inputMode="numeric"
-                        placeholder="0"
-                        value={quickFats}
-                        onChange={(e) => setQuickFats(e.target.value)}
-                        className="text-center text-lg font-semibold h-12 bg-secondary border-0"
-                      />
-                      <p className="text-[10px] text-muted-foreground mt-1">g</p>
-                    </div>
-                  </div>
-                  
-                  {/* Calculated kcal */}
-                  <div className="text-center py-2 rounded-lg bg-secondary/30">
-                    <p className="text-[10px] text-muted-foreground">Calorie calcolate</p>
-                    <p className="text-lg font-bold tabular-nums">
-                      {(Number(quickProtein || 0) * 4) + 
-                       (Number(quickCarbs || 0) * 4) + 
-                       (Number(quickFats || 0) * 9)} kcal
-                    </p>
-                  </div>
-                </TabsContent>
-              </Tabs>
+                {/* Calculated kcal for macros mode */}
+                {inputMode === "macros" && (
+                  <p className="text-center text-sm text-foreground/60 mt-2">
+                    = <span className="font-semibold text-foreground">{calculatedKcal}</span> kcal
+                  </p>
+                )}
+              </div>
+              
+              {/* Numpad */}
+              <div className="flex-1">
+                <Numpad
+                  value={inputMode === "calories" ? numpadValue : macroValues[activeMacro]}
+                  onChange={handleNumpadChange}
+                  onDelete={handleNumpadDelete}
+                  onClear={handleNumpadClear}
+                />
+              </div>
             </div>
 
-            <DrawerFooter className="pt-4">
+            <DrawerFooter className="pt-2">
               <Button 
-                onClick={handleQuickAdd}
-                className="w-full h-12 font-semibold gradient-primary"
-                disabled={quickAddTab === 'kcal' ? !quickKcal : (!quickProtein && !quickCarbs && !quickFats)}
+                onClick={handleSubmit}
+                className="w-full h-12 font-semibold bg-gradient-to-r from-indigo-500 to-violet-600"
+                disabled={isSubmitting || calculatedKcal === 0}
               >
-                Aggiungi
+                <Check className="h-4 w-4 mr-2" />
+                Salva
               </Button>
               <DrawerClose asChild>
-                <Button variant="ghost" className="w-full">
+                <Button variant="ghost" className="w-full text-foreground/60">
                   Annulla
                 </Button>
               </DrawerClose>
