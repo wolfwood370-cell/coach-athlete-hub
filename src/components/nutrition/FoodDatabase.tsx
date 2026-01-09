@@ -11,7 +11,7 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
-import { Plus, ChevronLeft, Search } from "lucide-react";
+import { Plus, ChevronLeft, Search, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -202,6 +202,24 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
     setIsSubmitting(false);
   };
 
+  const handleDeleteFood = async (foodId: string) => {
+    if (!user?.id) return;
+    
+    const { error } = await supabase
+      .from('custom_foods')
+      .delete()
+      .eq('id', foodId)
+      .eq('athlete_id', user.id);
+    
+    if (error) {
+      console.error('Error deleting food:', error);
+      toast.error("Errore nell'eliminazione");
+    } else {
+      toast.success("Cibo eliminato!");
+      await fetchFoods();
+    }
+  };
+
   const handleLogFood = async () => {
     if (!user?.id || !selectedFood) return;
     
@@ -279,16 +297,28 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
                 ) : (
                   <div className="space-y-2 pb-4">
                     {filteredFoods.map((food) => (
-                      <button
+                      <div
                         key={food.id}
-                        onClick={() => selectFood(food)}
-                        className="w-full text-left p-3 rounded-lg bg-slate-800/60 hover:bg-slate-700/60 transition-colors"
+                        className="flex items-center gap-2"
                       >
-                        <p className="font-medium text-foreground">{food.name}</p>
-                        <p className="text-xs text-foreground/50 mt-0.5">
-                          {food.energy_kcal || 0} kcal · P: {food.protein || 0}g · C: {food.carbs || 0}g · G: {food.fat || 0}g
-                        </p>
-                      </button>
+                        <button
+                          onClick={() => selectFood(food)}
+                          className="flex-1 text-left p-3 rounded-lg bg-slate-800/60 hover:bg-slate-700/60 transition-colors"
+                        >
+                          <p className="font-medium text-foreground">{food.name}</p>
+                          <p className="text-xs text-foreground/50 mt-0.5">
+                            {food.energy_kcal || 0} kcal · P: {food.protein || 0}g · C: {food.carbs || 0}g · G: {food.fat || 0}g
+                          </p>
+                        </button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteFood(food.id)}
+                          className="shrink-0 h-10 w-10 text-red-400 hover:text-red-300 hover:bg-red-900/20"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     ))}
                   </div>
                 )}

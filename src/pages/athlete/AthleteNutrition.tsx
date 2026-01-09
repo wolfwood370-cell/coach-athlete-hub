@@ -40,6 +40,7 @@ const nutritionTargets = {
   protein: 180,
   carbs: 260,
   fats: 75,
+  water: 2500,
 };
 
 // Calculate EMA (Exponential Moving Average)
@@ -217,6 +218,7 @@ export default function AthleteNutrition() {
     protein: 0,
     carbs: 0,
     fats: 0,
+    water: 0,
   });
   
   // Weight data state
@@ -254,12 +256,13 @@ export default function AthleteNutrition() {
     }
     
     if (data && data.length > 0) {
-      const totals = data.reduce((acc, log) => ({
+      const totals = data.reduce<{ calories: number; protein: number; carbs: number; fats: number; water: number }>((acc, log) => ({
         calories: acc.calories + (log.calories || 0),
         protein: acc.protein + (Number(log.protein) || 0),
         carbs: acc.carbs + (Number(log.carbs) || 0),
         fats: acc.fats + (Number(log.fats) || 0),
-      }), { calories: 0, protein: 0, carbs: 0, fats: 0 });
+        water: acc.water,
+      }), { calories: 0, protein: 0, carbs: 0, fats: 0, water: 0 });
       
       setConsumed(totals);
     }
@@ -445,23 +448,39 @@ export default function AthleteNutrition() {
                 label="Protein" 
                 consumed={consumed.protein}
                 target={nutritionTargets.protein}
-                color="hsl(217 91% 60%)"
-                bgColor="hsl(217 91% 60% / 0.2)"
+                color="hsl(0 84% 60%)"
+                bgColor="hsl(0 84% 60% / 0.2)"
               />
               <MacroRing 
                 label="Carbs" 
                 consumed={consumed.carbs}
                 target={nutritionTargets.carbs}
-                color="hsl(38 92% 50%)"
-                bgColor="hsl(38 92% 50% / 0.2)"
+                color="hsl(142 71% 45%)"
+                bgColor="hsl(142 71% 45% / 0.2)"
               />
               <MacroRing 
                 label="Fats" 
                 consumed={consumed.fats}
                 target={nutritionTargets.fats}
-                color="hsl(280 70% 60%)"
-                bgColor="hsl(280 70% 60% / 0.2)"
+                color="hsl(45 93% 47%)"
+                bgColor="hsl(45 93% 47% / 0.2)"
               />
+            </div>
+            
+            {/* Water Progress Bar */}
+            <div className="mt-5 pt-4 border-t border-slate-700/50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-foreground/70">Acqua</span>
+                <span className="text-xs text-foreground/50">
+                  {consumed.water || 0} / {nutritionTargets.water} ml
+                </span>
+              </div>
+              <div className="relative h-2.5 bg-slate-700/50 rounded-full overflow-hidden">
+                <div 
+                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 bg-gradient-to-r from-sky-500 to-cyan-400"
+                  style={{ width: `${Math.min(((consumed.water || 0) / nutritionTargets.water) * 100, 100)}%` }}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -685,33 +704,15 @@ export default function AthleteNutrition() {
                 </div>
               </div>
               
-              {/* Name Field */}
-              <div className="space-y-1.5">
-                <Label className="text-xs text-foreground/60">Name</Label>
-                <Input
-                  type="text"
-                  placeholder="e.g. Pranzo, Snack..."
-                  value={formData.name}
-                  onChange={(e) => handleFieldChange("name", e.target.value)}
-                  className="bg-slate-800/60 border-slate-700 h-12 text-base"
-                />
-              </div>
             </div>
 
             <DrawerFooter className="pt-2 shrink-0 border-t border-slate-700/50">
-              <Button
-                variant="outline"
-                onClick={resetForm}
-                className="w-full h-11 border-slate-600 text-foreground/80"
-              >
-                Quick Add
-              </Button>
               <Button 
                 onClick={handleSubmit}
-                className="w-full h-12 font-semibold bg-slate-900 hover:bg-slate-800 text-foreground"
+                className="w-full h-12 font-semibold bg-gradient-to-br from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700"
                 disabled={isSubmitting}
               >
-                Log Foods
+                Aggiungi
               </Button>
               <DrawerClose asChild>
                 <Button variant="ghost" className="w-full text-foreground/40 text-sm">
