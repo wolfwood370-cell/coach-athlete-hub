@@ -203,7 +203,7 @@ const ParamSliderCard = ({
   return (
     <div className="p-3 rounded-xl bg-secondary/50 space-y-3">
       <div className="flex items-center justify-between">
-        <Label className="flex items-center gap-2 text-sm font-medium">
+        <Label className="flex items-center gap-2 text-sm font-medium text-foreground">
           <Icon className="h-4 w-4 text-primary" />
           {label}
         </Label>
@@ -223,7 +223,7 @@ const ParamSliderCard = ({
         step={1}
         className="w-full"
       />
-      <div className="flex justify-between text-[10px] text-muted-foreground">
+      <div className="flex justify-between text-[10px] text-foreground/60">
         <span>{lowLabel}</span>
         <span>{highLabel}</span>
       </div>
@@ -563,14 +563,14 @@ export default function AthleteDashboard() {
               
               {/* ===== SECTION A: SLEEP (Hybrid Layout) ===== */}
               <div className="space-y-2">
-                <Label className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                  <Moon className="h-4 w-4" />
+                <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
+                  <Moon className="h-4 w-4 text-primary" />
                   SONNO
                 </Label>
                 <div className="flex flex-row items-center justify-between gap-4 p-3 rounded-xl bg-secondary/50">
                   {/* Left: Sleep Duration */}
                   <div className="flex flex-col items-center gap-1">
-                    <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Ore</span>
+                    <span className="text-[10px] text-foreground/60 uppercase tracking-wide">Ore</span>
                     <Input
                       type="number"
                       value={tempReadiness.sleepHours}
@@ -578,15 +578,15 @@ export default function AthleteDashboard() {
                       step={0.5}
                       min={0}
                       max={24}
-                      className="w-16 h-12 text-center text-xl font-bold bg-background border-0"
+                      className="w-16 h-12 text-center text-xl font-bold bg-card text-foreground border-0"
                     />
                   </div>
                   
                   {/* Right: Sleep Quality Slider */}
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] text-muted-foreground uppercase tracking-wide">Qualità</span>
-                      <span className="text-sm font-semibold tabular-nums">{tempReadiness.sleepQuality}/10</span>
+                      <span className="text-[10px] text-foreground/60 uppercase tracking-wide">Qualità</span>
+                      <span className="text-sm font-semibold tabular-nums text-foreground">{tempReadiness.sleepQuality}/10</span>
                     </div>
                     <Slider
                       value={[tempReadiness.sleepQuality]}
@@ -596,7 +596,7 @@ export default function AthleteDashboard() {
                       step={1}
                       className="w-full"
                     />
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <div className="flex justify-between text-[10px] text-foreground/60">
                       <span>Poor</span>
                       <span>Great</span>
                     </div>
@@ -606,8 +606,8 @@ export default function AthleteDashboard() {
 
               {/* ===== SECTION B: PSYCHOPHYSICAL PARAMETERS ===== */}
               <div className="space-y-3">
-                <Label className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                  <Activity className="h-4 w-4" />
+                <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
+                  <Activity className="h-4 w-4 text-primary" />
                   PARAMETRI PSICOFISICI
                 </Label>
                 
@@ -651,11 +651,11 @@ export default function AthleteDashboard() {
 
               {/* ===== SECTION C: DOMS & BODY MAP ===== */}
               <div className="space-y-3">
-                <Label className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
-                  <HeartPulse className="h-4 w-4" />
+                <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
+                  <HeartPulse className="h-4 w-4 text-primary" />
                   SORENESS MAP
                 </Label>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-[10px] text-foreground/60">
                   Tocca per ciclare: Nessuno → Leggero → Moderato → Acuto
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -674,7 +674,7 @@ export default function AthleteDashboard() {
                   {([0, 1, 2, 3] as SorenessLevel[]).map((level) => (
                     <div key={level} className="flex items-center gap-1.5">
                       <div className={cn("h-3 w-3 rounded-full", sorenessConfig[level].bg)} />
-                      <span className="text-[10px] text-muted-foreground">{sorenessConfig[level].label}</span>
+                      <span className="text-[10px] text-foreground/60">{sorenessConfig[level].label}</span>
                     </div>
                   ))}
                 </div>
@@ -684,7 +684,7 @@ export default function AthleteDashboard() {
               <div className="flex items-center justify-center gap-4 py-4 rounded-xl bg-secondary/30">
                 <ReadinessRing score={calculateScore(tempReadiness)} />
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+                  <p className="text-[10px] uppercase tracking-wider text-foreground/60 mb-1">
                     Score previsto
                   </p>
                   <p className={cn(
