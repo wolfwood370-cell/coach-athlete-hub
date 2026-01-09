@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { AthleteLayout } from "@/components/athlete/AthleteLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Drawer,
@@ -17,17 +17,13 @@ import {
   Scale,
   TrendingUp,
   Minus,
-  Delete,
-  Check
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
-  LineChart,
   Line,
-  ScatterChart,
   Scatter,
   XAxis,
   YAxis,
@@ -120,48 +116,16 @@ function MacroRing({
   );
 }
 
-// Custom Numpad Component
-function Numpad({ 
-  value, 
-  onChange, 
-  onDelete, 
-  onClear 
-}: { 
-  value: string;
-  onChange: (digit: string) => void;
-  onDelete: () => void;
-  onClear: () => void;
-}) {
-  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', '0', '⌫'];
-  
-  const handlePress = (key: string) => {
-    if (key === 'C') {
-      onClear();
-    } else if (key === '⌫') {
-      onDelete();
-    } else {
-      onChange(key);
-    }
-  };
-  
-  return (
-    <div className="grid grid-cols-3 gap-2">
-      {keys.map((key) => (
-        <Button
-          key={key}
-          variant="secondary"
-          className={cn(
-            "h-14 text-xl font-semibold",
-            key === 'C' && "text-foreground/60",
-            key === '⌫' && "text-foreground/60"
-          )}
-          onClick={() => handlePress(key)}
-        >
-          {key === '⌫' ? <Delete className="h-5 w-5" /> : key}
-        </Button>
-      ))}
-    </div>
-  );
+// Quick Add Form state interface
+interface QuickAddFormState {
+  name: string;
+  protein: string;
+  fat: string;
+  carbs: string;
+  fiber: string;
+  salt: string;
+  water: string;
+  caloriesOverride: string;
 }
 
 // Weight Trend Chart with recharts
@@ -229,11 +193,19 @@ function WeightTrendChart({ data }: { data: { day: number; date: string; scale: 
 export default function AthleteNutrition() {
   const { user } = useAuth();
   const [quickAddOpen, setQuickAddOpen] = useState(false);
-  const [inputMode, setInputMode] = useState<"calories" | "macros">("calories");
-  const [numpadValue, setNumpadValue] = useState("");
-  const [macroValues, setMacroValues] = useState({ p: "", c: "", f: "" });
-  const [activeMacro, setActiveMacro] = useState<"p" | "c" | "f">("p");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Quick Add form state
+  const [formData, setFormData] = useState<QuickAddFormState>({
+    name: "",
+    protein: "",
+    fat: "",
+    carbs: "",
+    fiber: "",
+    salt: "",
+    water: "",
+    caloriesOverride: "",
+  });
   
   // Nutrition state
   const [consumed, setConsumed] = useState({
@@ -247,6 +219,18 @@ export default function AthleteNutrition() {
   const [weightData, setWeightData] = useState<{ day: number; date: string; scale: number; trend: number }[]>([]);
   const [currentTrend, setCurrentTrend] = useState<number | null>(null);
   const [weightChange, setWeightChange] = useState<number>(0);
+
+  // Calculate calories from macros
+  const calculatedKcal = Math.round(
+    (parseFloat(formData.protein) || 0) * 4 +
+    (parseFloat(formData.carbs) || 0) * 4 +
+    (parseFloat(formData.fat) || 0) * 9
+  );
+  
+  // Use override if provided, otherwise use calculated
+  const displayKcal = formData.caloriesOverride 
+    ? parseInt(formData.caloriesOverride) || 0 
+    : calculatedKcal;
 
   // Fetch today's nutrition logs
   const fetchTodayNutrition = useCallback(async () => {
@@ -325,37 +309,23 @@ export default function AthleteNutrition() {
     fetchWeightData();
   }, [fetchTodayNutrition, fetchWeightData]);
 
-  // Handle numpad input
-  const handleNumpadChange = (digit: string) => {
-    if (inputMode === "calories") {
-      if (numpadValue.length < 5) {
-        setNumpadValue(prev => prev + digit);
-      }
-    } else {
-      const currentValue = macroValues[activeMacro];
-      if (currentValue.length < 4) {
-        setMacroValues(prev => ({ ...prev, [activeMacro]: prev[activeMacro] + digit }));
-      }
-    }
+  // Handle form field change
+  const handleFieldChange = (field: keyof QuickAddFormState, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
   
-  const handleNumpadDelete = () => {
-    if (inputMode === "calories") {
-      setNumpadValue(prev => prev.slice(0, -1));
-    } else {
-      setMacroValues(prev => ({ 
-        ...prev, 
-        [activeMacro]: prev[activeMacro].slice(0, -1) 
-      }));
-    }
-  };
-  
-  const handleNumpadClear = () => {
-    if (inputMode === "calories") {
-      setNumpadValue("");
-    } else {
-      setMacroValues(prev => ({ ...prev, [activeMacro]: "" }));
-    }
+  // Reset form
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      protein: "",
+      fat: "",
+      carbs: "",
+      fiber: "",
+      salt: "",
+      water: "",
+      caloriesOverride: "",
+    });
   };
 
   // Submit nutrition log
@@ -365,42 +335,26 @@ export default function AthleteNutrition() {
       return;
     }
     
+    const finalCalories = displayKcal;
+    const p = parseFloat(formData.protein) || 0;
+    const c = parseFloat(formData.carbs) || 0;
+    const f = parseFloat(formData.fat) || 0;
+    
+    if (finalCalories === 0 && p === 0 && c === 0 && f === 0) {
+      toast.error("Inserisci almeno un valore");
+      return;
+    }
+    
     setIsSubmitting(true);
     
-    let logData: {
-      athlete_id: string;
-      calories?: number;
-      protein?: number;
-      carbs?: number;
-      fats?: number;
-    } = {
+    const logData = {
       athlete_id: user.id,
+      calories: finalCalories,
+      protein: p || null,
+      carbs: c || null,
+      fats: f || null,
+      meal_name: formData.name || null,
     };
-    
-    if (inputMode === "calories") {
-      const kcal = parseInt(numpadValue);
-      if (!kcal || kcal <= 0) {
-        toast.error("Inserisci un valore valido");
-        setIsSubmitting(false);
-        return;
-      }
-      logData.calories = kcal;
-    } else {
-      const p = parseFloat(macroValues.p) || 0;
-      const c = parseFloat(macroValues.c) || 0;
-      const f = parseFloat(macroValues.f) || 0;
-      
-      if (p === 0 && c === 0 && f === 0) {
-        toast.error("Inserisci almeno un macro");
-        setIsSubmitting(false);
-        return;
-      }
-      
-      logData.protein = p;
-      logData.carbs = c;
-      logData.fats = f;
-      logData.calories = Math.round(p * 4 + c * 4 + f * 9);
-    }
     
     const { error } = await supabase
       .from('nutrition_logs')
@@ -412,8 +366,7 @@ export default function AthleteNutrition() {
     } else {
       toast.success("Aggiunto!");
       setQuickAddOpen(false);
-      setNumpadValue("");
-      setMacroValues({ p: "", c: "", f: "" });
+      resetForm();
       fetchTodayNutrition();
     }
     
@@ -424,15 +377,6 @@ export default function AthleteNutrition() {
   const remaining = nutritionTargets.calories - consumed.calories;
   const consumedPercent = (consumed.calories / nutritionTargets.calories) * 100;
   const isOver = remaining < 0;
-  
-  // Calculate macros from current input
-  const calculatedKcal = inputMode === "macros" 
-    ? Math.round(
-        (parseFloat(macroValues.p) || 0) * 4 +
-        (parseFloat(macroValues.c) || 0) * 4 +
-        (parseFloat(macroValues.f) || 0) * 9
-      )
-    : parseInt(numpadValue) || 0;
 
   return (
     <AthleteLayout title="Nutrition">
@@ -571,97 +515,156 @@ export default function AthleteNutrition() {
 
       {/* ===== QUICK ADD DRAWER ===== */}
       <Drawer open={quickAddOpen} onOpenChange={setQuickAddOpen}>
-        <DrawerContent className="athlete-theme h-[60vh]">
-          <div className="mx-auto w-full max-w-sm h-full flex flex-col">
-            <DrawerHeader className="text-center pb-2">
+        <DrawerContent className="athlete-theme max-h-[85vh]">
+          <div className="mx-auto w-full max-w-md flex flex-col overflow-hidden">
+            <DrawerHeader className="text-center pb-2 shrink-0">
               <DrawerTitle className="text-lg">Quick Add</DrawerTitle>
             </DrawerHeader>
             
-            <div className="flex-1 px-4 flex flex-col">
-              {/* Toggle Switch */}
-              <div className="flex items-center justify-center gap-3 mb-4">
-                <span className={cn(
-                  "text-sm font-medium transition-colors",
-                  inputMode === "calories" ? "text-foreground" : "text-foreground/40"
-                )}>
-                  Calories
-                </span>
-                <Switch
-                  checked={inputMode === "macros"}
-                  onCheckedChange={(checked) => setInputMode(checked ? "macros" : "calories")}
-                />
-                <span className={cn(
-                  "text-sm font-medium transition-colors",
-                  inputMode === "macros" ? "text-foreground" : "text-foreground/40"
-                )}>
-                  Macros
-                </span>
+            <div className="flex-1 px-4 overflow-y-auto space-y-4 pb-4">
+              {/* Energy Field with Unit Selector */}
+              <div className="space-y-2">
+                <Label className="text-xs text-foreground/60">Energy</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    placeholder={calculatedKcal > 0 ? `${calculatedKcal} (auto)` : "0"}
+                    value={formData.caloriesOverride}
+                    onChange={(e) => handleFieldChange("caloriesOverride", e.target.value)}
+                    className="flex-1 bg-slate-800/60 border-slate-700 h-12 text-base"
+                  />
+                  <div className="flex items-center justify-center px-4 bg-slate-800/60 border border-slate-700 rounded-md text-sm text-foreground/60">
+                    kcal
+                  </div>
+                </div>
+                <p className="text-xs text-foreground/40">
+                  Macro sum is {calculatedKcal} kcal
+                </p>
               </div>
               
-              {/* Display Area */}
-              <div className="mb-4">
-                {inputMode === "calories" ? (
-                  <div className="text-center py-4 rounded-xl bg-secondary/30">
-                    <p className="text-4xl font-bold tabular-nums text-foreground">
-                      {numpadValue || "0"}
-                    </p>
-                    <p className="text-xs text-foreground/60 mt-1">kcal</p>
+              {/* Macro Row: Protein, Fat, Carbs */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-foreground/60">Protein</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={formData.protein}
+                      onChange={(e) => handleFieldChange("protein", e.target.value)}
+                      className="bg-slate-800/60 border-slate-700 h-11 text-base pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground/40">g</span>
                   </div>
-                ) : (
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { key: "p" as const, label: "P", color: "bg-blue-500/20 border-blue-500" },
-                      { key: "c" as const, label: "C", color: "bg-amber-500/20 border-amber-500" },
-                      { key: "f" as const, label: "F", color: "bg-violet-500/20 border-violet-500" },
-                    ].map(({ key, label, color }) => (
-                      <button
-                        key={key}
-                        onClick={() => setActiveMacro(key)}
-                        className={cn(
-                          "py-3 rounded-xl border-2 transition-all",
-                          activeMacro === key ? color : "bg-secondary/30 border-transparent"
-                        )}
-                      >
-                        <p className="text-xs text-foreground/60 mb-1">{label}</p>
-                        <p className="text-xl font-bold tabular-nums text-foreground">
-                          {macroValues[key] || "0"}
-                        </p>
-                        <p className="text-[10px] text-foreground/40">g</p>
-                      </button>
-                    ))}
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-foreground/60">Fat</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={formData.fat}
+                      onChange={(e) => handleFieldChange("fat", e.target.value)}
+                      className="bg-slate-800/60 border-slate-700 h-11 text-base pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground/40">g</span>
                   </div>
-                )}
-                
-                {/* Calculated kcal for macros mode */}
-                {inputMode === "macros" && (
-                  <p className="text-center text-sm text-foreground/60 mt-2">
-                    = <span className="font-semibold text-foreground">{calculatedKcal}</span> kcal
-                  </p>
-                )}
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-foreground/60">Carbs</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={formData.carbs}
+                      onChange={(e) => handleFieldChange("carbs", e.target.value)}
+                      className="bg-slate-800/60 border-slate-700 h-11 text-base pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground/40">g</span>
+                  </div>
+                </div>
               </div>
               
-              {/* Numpad */}
-              <div className="flex-1">
-                <Numpad
-                  value={inputMode === "calories" ? numpadValue : macroValues[activeMacro]}
-                  onChange={handleNumpadChange}
-                  onDelete={handleNumpadDelete}
-                  onClear={handleNumpadClear}
+              {/* Additional fields row: Fiber, Salt, Water */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-foreground/60">Fiber</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={formData.fiber}
+                      onChange={(e) => handleFieldChange("fiber", e.target.value)}
+                      className="bg-slate-800/60 border-slate-700 h-11 text-base pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground/40">g</span>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-foreground/60">Salt</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={formData.salt}
+                      onChange={(e) => handleFieldChange("salt", e.target.value)}
+                      className="bg-slate-800/60 border-slate-700 h-11 text-base pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground/40">g</span>
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-foreground/60">Water</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={formData.water}
+                      onChange={(e) => handleFieldChange("water", e.target.value)}
+                      className="bg-slate-800/60 border-slate-700 h-11 text-base pr-8"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground/40">ml</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Name Field */}
+              <div className="space-y-1.5">
+                <Label className="text-xs text-foreground/60">Name</Label>
+                <Input
+                  type="text"
+                  placeholder="e.g. Pranzo, Snack..."
+                  value={formData.name}
+                  onChange={(e) => handleFieldChange("name", e.target.value)}
+                  className="bg-slate-800/60 border-slate-700 h-12 text-base"
                 />
               </div>
             </div>
 
-            <DrawerFooter className="pt-2">
+            <DrawerFooter className="pt-2 shrink-0 border-t border-slate-700/50">
+              <Button
+                variant="outline"
+                onClick={resetForm}
+                className="w-full h-11 border-slate-600 text-foreground/80"
+              >
+                Quick Add
+              </Button>
               <Button 
                 onClick={handleSubmit}
-                className="w-full h-12 font-semibold bg-gradient-to-r from-indigo-500 to-violet-600"
-                disabled={isSubmitting || calculatedKcal === 0}
+                className="w-full h-12 font-semibold bg-slate-900 hover:bg-slate-800 text-foreground"
+                disabled={isSubmitting || displayKcal === 0}
               >
-                <Check className="h-4 w-4 mr-2" />
-                Salva
+                Log Foods
               </Button>
               <DrawerClose asChild>
-                <Button variant="ghost" className="w-full text-foreground/60">
+                <Button variant="ghost" className="w-full text-foreground/40 text-sm">
                   Annulla
                 </Button>
               </DrawerClose>
