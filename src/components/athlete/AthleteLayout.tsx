@@ -3,9 +3,10 @@ import { AthleteBottomNav } from "./AthleteBottomNav";
 interface AthleteLayoutProps {
   children: React.ReactNode;
   title?: string;
+  hideBottomNav?: boolean;
 }
 
-export function AthleteLayout({ children, title }: AthleteLayoutProps) {
+export function AthleteLayout({ children, title, hideBottomNav = false }: AthleteLayoutProps) {
   return (
     <div className="athlete-theme min-h-screen bg-background text-foreground">
       {/* Status bar safe area */}
@@ -19,11 +20,11 @@ export function AthleteLayout({ children, title }: AthleteLayoutProps) {
       )}
       
       {/* Main content with bottom nav spacing */}
-      <main className="pb-24 safe-bottom">
+      <main className={hideBottomNav ? "safe-bottom" : "pb-24 safe-bottom"}>
         {children}
       </main>
       
-      <AthleteBottomNav />
+      {!hideBottomNav && <AthleteBottomNav />}
     </div>
   );
 }
