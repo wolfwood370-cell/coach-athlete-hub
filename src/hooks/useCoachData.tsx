@@ -18,6 +18,7 @@ interface DailyReadiness {
   sleep_quality: number | null;
   stress_level: number | null;
   has_pain: boolean | null;
+  soreness_map: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -28,7 +29,7 @@ interface Workout {
   scheduled_date: string | null;
   status: "pending" | "in_progress" | "completed" | "skipped";
   estimated_duration: number | null;
-  structure: any;
+  structure: unknown;
 }
 
 interface WorkoutLog {
@@ -38,7 +39,24 @@ interface WorkoutLog {
   completed_at: string | null;
   duration_seconds: number | null;
   rpe_global: number | null;
-  exercises_data: any;
+  exercises_data: unknown;
+}
+
+export interface AthleteIssue {
+  type: "no_checkin" | "low_readiness" | "pain_reported" | "high_stress";
+  label: string;
+  severity: "critical" | "warning" | "info";
+  details?: string;
+}
+
+export interface ProblematicAthlete {
+  id: string;
+  name: string;
+  avatar: string;
+  avatarUrl: string | null;
+  issues: AthleteIssue[];
+  lastCheckinDate: string | null;
+  readinessScore: number | null;
 }
 
 export function useCoachAthletes() {
@@ -64,6 +82,7 @@ export function useCoachAthletes() {
 
 export function useCoachDashboardData() {
   const { user, profile } = useAuth();
+  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
   
   // Fetch athletes
   const athletesQuery = useQuery({
@@ -83,9 +102,9 @@ export function useCoachDashboardData() {
     enabled: !!user && profile?.role === "coach",
   });
 
-  // Fetch recent readiness data for all athletes
+  // Fetch latest readiness for each athlete (last 7 days to have context)
   const readinessQuery = useQuery({
-    queryKey: ["coach-readiness", user?.id],
+    queryKey: ["coach-readiness", user?.id, athletesQuery.data?.map(a => a.id).join(",")],
     queryFn: async () => {
       if (!user || !athletesQuery.data?.length) return [];
       
@@ -124,7 +143,7 @@ export function useCoachDashboardData() {
 
   // Fetch recent workout logs
   const logsQuery = useQuery({
-    queryKey: ["coach-workout-logs", user?.id],
+    queryKey: ["coach-workout-logs", user?.id, athletesQuery.data?.map(a => a.id).join(",")],
     queryFn: async () => {
       if (!user || !athletesQuery.data?.length) return [];
       
@@ -143,66 +162,115 @@ export function useCoachDashboardData() {
     enabled: !!user && profile?.role === "coach" && !!athletesQuery.data?.length,
   });
 
-  // Compute needs attention athletes
-  const needsAttentionAthletes = athletesQuery.data?.map(athlete => {
-    const athleteReadiness = readinessQuery.data?.filter(r => r.athlete_id === athlete.id) || [];
-    const latestReadiness = athleteReadiness[0];
+  // Compute problematic athletes with triage logic
+  const problematicAthletes: ProblematicAthlete[] = (athletesQuery.data || []).map(athlete => {
+    // Get all readiness for this athlete
+    const athleteReadiness = (readinessQuery.data || []).filter(r => r.athlete_id === athlete.id);
     
-    // Calculate days since last check-in
-    const today = new Date();
-    const lastCheckinDate = latestReadiness ? new Date(latestReadiness.date) : null;
-    const daysSinceCheckin = lastCheckinDate 
-      ? Math.floor((today.getTime() - lastCheckinDate.getTime()) / (1000 * 60 * 60 * 24))
-      : null;
+    // Get today's check-in (if exists)
+    const todayCheckin = athleteReadiness.find(r => r.date === today);
     
-    let issue: string | null = null;
-    let issueType: "critical" | "warning" | null = null;
-    let details: string | null = null;
+    // Get latest check-in (most recent by date)
+    const latestCheckin = athleteReadiness[0] || null;
     
-    // Check for issues
-    if (!lastCheckinDate || daysSinceCheckin! >= 3) {
-      issue = "Check-in Missed";
-      issueType = "critical";
-      details = lastCheckinDate 
-        ? `Nessun check-in da ${daysSinceCheckin} giorni`
-        : "Mai effettuato check-in";
-    } else if (latestReadiness && latestReadiness.score !== null && latestReadiness.score < 40) {
-      issue = "Low Readiness";
-      issueType = "critical";
-      details = `Score ${latestReadiness.score}/100${latestReadiness.has_pain ? " - dolore segnalato" : ""}`;
-    } else if (latestReadiness && latestReadiness.stress_level && latestReadiness.stress_level >= 8) {
-      issue = "High Stress";
-      issueType = "warning";
-      details = `Stress ${latestReadiness.stress_level}/10`;
+    const issues: AthleteIssue[] = [];
+    
+    // 1. Missing Check-in: No record with today's date
+    if (!todayCheckin) {
+      issues.push({
+        type: "no_checkin",
+        label: "No Check-in",
+        severity: "info",
+        details: latestCheckin ? `Ultimo: ${formatDate(latestCheckin.date)}` : "Mai effettuato",
+      });
     }
     
-    if (!issue) return null;
+    // Use today's check-in if available, otherwise latest
+    const relevantCheckin = todayCheckin || latestCheckin;
+    
+    if (relevantCheckin) {
+      // 2. Low Readiness: score < 50
+      if (relevantCheckin.score !== null && relevantCheckin.score < 50) {
+        issues.push({
+          type: "low_readiness",
+          label: "Low Readiness",
+          severity: "critical",
+          details: `Score: ${relevantCheckin.score}/100`,
+        });
+      }
+      
+      // 3. Pain Detected: has_pain is true OR soreness_map is not empty
+      const hasSoreness = relevantCheckin.soreness_map && 
+        typeof relevantCheckin.soreness_map === 'object' && 
+        Object.keys(relevantCheckin.soreness_map).length > 0;
+      
+      if (relevantCheckin.has_pain || hasSoreness) {
+        issues.push({
+          type: "pain_reported",
+          label: "Dolore Segnalato",
+          severity: "critical",
+          details: hasSoreness 
+            ? `Zone: ${Object.keys(relevantCheckin.soreness_map!).join(", ")}`
+            : "Dolore generico",
+        });
+      }
+      
+      // 4. High Stress: stress_level > 7
+      if (relevantCheckin.stress_level !== null && relevantCheckin.stress_level > 7) {
+        issues.push({
+          type: "high_stress",
+          label: "Stress Alto",
+          severity: "warning",
+          details: `Livello: ${relevantCheckin.stress_level}/10`,
+        });
+      }
+    }
+    
+    // Only include athletes with at least one issue
+    if (issues.length === 0) return null;
     
     return {
       id: athlete.id,
       name: athlete.full_name || "Atleta",
-      avatar: athlete.full_name?.split(" ").map(n => n[0]).join("").toUpperCase() || "??",
-      issue,
-      issueType,
-      lastCheckin: daysSinceCheckin === 0 
-        ? "Oggi" 
-        : daysSinceCheckin === 1 
-          ? "Ieri" 
-          : `${daysSinceCheckin} giorni fa`,
-      details,
+      avatar: athlete.full_name?.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2) || "??",
+      avatarUrl: athlete.avatar_url,
+      issues,
+      lastCheckinDate: latestCheckin?.date || null,
+      readinessScore: relevantCheckin?.score ?? null,
     };
-  }).filter(Boolean) || [];
+  }).filter((a): a is ProblematicAthlete => a !== null);
 
-  // Compute business metrics
-  const activeClients = athletesQuery.data?.length || 0;
+  // Sort by severity: critical issues first, then warning, then info
+  problematicAthletes.sort((a, b) => {
+    const severityOrder = { critical: 0, warning: 1, info: 2 };
+    const aMaxSeverity = Math.min(...a.issues.map(i => severityOrder[i.severity]));
+    const bMaxSeverity = Math.min(...b.issues.map(i => severityOrder[i.severity]));
+    return aMaxSeverity - bMaxSeverity;
+  });
+
+  // Compute KPI metrics
+  const totalAthletes = athletesQuery.data?.length || 0;
   
-  const completedWorkouts = logsQuery.data?.length || 0;
-  const totalWorkouts = workoutsQuery.data?.length || 0;
-  const complianceRate = totalWorkouts > 0 
-    ? Math.round((completedWorkouts / totalWorkouts) * 100) 
+  // Compliance Rate: % of athletes who checked in today
+  const athletesCheckedInToday = (athletesQuery.data || []).filter(athlete => 
+    (readinessQuery.data || []).some(r => r.athlete_id === athlete.id && r.date === today)
+  ).length;
+  const complianceRate = totalAthletes > 0 
+    ? Math.round((athletesCheckedInToday / totalAthletes) * 100) 
     : 0;
   
-  const churnRisk = needsAttentionAthletes.filter(a => a?.issueType === "critical").length;
+  // Avg Readiness: average score of today's check-ins
+  const todayReadinessScores = (readinessQuery.data || [])
+    .filter(r => r.date === today && r.score !== null)
+    .map(r => r.score!);
+  const avgReadiness = todayReadinessScores.length > 0
+    ? Math.round(todayReadinessScores.reduce((a, b) => a + b, 0) / todayReadinessScores.length)
+    : null;
+
+  // Churn Risk: athletes with critical issues
+  const churnRisk = problematicAthletes.filter(a => 
+    a.issues.some(i => i.severity === "critical")
+  ).length;
 
   // Build activity feed from recent data
   const activityFeed: Array<{
@@ -218,7 +286,7 @@ export function useCoachDashboardData() {
       const athlete = athletesQuery.data?.find(a => a.id === log.athlete_id);
       const workout = workoutsQuery.data?.find(w => w.id === log.workout_id);
       return {
-        id: log.id,
+        id: `log-${log.id}`,
         athlete: athlete?.full_name || "Atleta",
         action: "ha completato",
         highlight: workout?.title || "Workout",
@@ -230,10 +298,10 @@ export function useCoachDashboardData() {
     ...(readinessQuery.data?.slice(0, 5).map(readiness => {
       const athlete = athletesQuery.data?.find(a => a.id === readiness.athlete_id);
       return {
-        id: readiness.id,
+        id: `readiness-${readiness.id}`,
         athlete: athlete?.full_name || "Atleta",
         action: "check-in inviato",
-        highlight: `Readiness ${readiness.score}/100`,
+        highlight: readiness.score !== null ? `Readiness ${readiness.score}/100` : "Check-in",
         time: getRelativeTime(new Date(readiness.created_at)),
         type: "default" as const,
         icon: "HeartPulse" as const,
@@ -243,16 +311,38 @@ export function useCoachDashboardData() {
 
   return {
     athletes: athletesQuery.data || [],
-    needsAttentionAthletes,
+    problematicAthletes,
     businessMetrics: {
-      activeClients,
+      activeClients: totalAthletes,
       complianceRate,
+      avgReadiness,
       churnRisk,
     },
     activityFeed,
     isLoading: athletesQuery.isLoading || readinessQuery.isLoading,
     error: athletesQuery.error || readinessQuery.error,
   };
+}
+
+function formatDate(dateStr: string): string {
+  const date = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+  
+  if (dateStr === today.toISOString().split("T")[0]) {
+    return "Oggi";
+  }
+  if (dateStr === yesterday.toISOString().split("T")[0]) {
+    return "Ieri";
+  }
+  
+  const diffDays = Math.floor((today.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 7) {
+    return `${diffDays} giorni fa`;
+  }
+  
+  return date.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
 }
 
 function getRelativeTime(date: Date): string {
