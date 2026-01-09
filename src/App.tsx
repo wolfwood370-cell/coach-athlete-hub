@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import CoachDashboard from "./pages/coach/CoachDashboard";
+import ProgramBuilder from "./pages/coach/ProgramBuilder";
 import AthleteDashboard from "./pages/athlete/AthleteDashboard";
 import NotFound from "./pages/NotFound";
 
@@ -22,7 +23,7 @@ const App = () => (
           {/* Coach Routes */}
           <Route path="/coach" element={<CoachDashboard />} />
           <Route path="/coach/athletes" element={<CoachDashboard />} />
-          <Route path="/coach/programs" element={<CoachDashboard />} />
+          <Route path="/coach/programs" element={<ProgramBuilder />} />
           <Route path="/coach/calendar" element={<CoachDashboard />} />
           <Route path="/coach/messages" element={<CoachDashboard />} />
           <Route path="/coach/analytics" element={<CoachDashboard />} />
