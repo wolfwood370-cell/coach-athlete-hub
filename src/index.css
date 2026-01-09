@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,87 +7,90 @@
 
 @layer base {
   :root {
-    /* Coach Platform - Light, Professional */
-    --background: 220 20% 98%;
-    --foreground: 222 47% 11%;
+    /* Coach Platform - Signal-Over-Noise Philosophy */
+    /* Clean, almost-white background for minimal distraction */
+    --background: 210 20% 98%; /* #F9FAFB equivalent */
+    --foreground: 224 71% 4%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 224 71% 4%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover-foreground: 224 71% 4%;
 
-    /* Electric Blue Primary */
-    --primary: 217 91% 60%;
+    /* Indigo/Violet Primary - Modern Tech Accent */
+    --primary: 239 84% 67%; /* #6366f1 - Indigo 500 */
     --primary-foreground: 0 0% 100%;
 
     --secondary: 220 14% 96%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary-foreground: 224 71% 4%;
 
     --muted: 220 14% 96%;
     --muted-foreground: 220 9% 46%;
 
-    --accent: 217 91% 60%;
+    --accent: 239 84% 67%;
     --accent-foreground: 0 0% 100%;
 
-    /* Alert Colors */
-    --destructive: 0 84% 60%;
+    /* Alert System - Clear Visual Hierarchy */
+    --destructive: 0 84% 60%; /* #ef4444 - Red 500 */
     --destructive-foreground: 0 0% 100%;
     
-    --warning: 45 93% 47%;
+    --warning: 38 92% 50%; /* #f59e0b - Amber 500 */
     --warning-foreground: 0 0% 100%;
     
-    --success: 142 71% 45%;
+    --success: 160 84% 39%; /* #10b981 - Emerald 500 */
     --success-foreground: 0 0% 100%;
 
+    /* Subtle borders - use whitespace over lines */
     --border: 220 13% 91%;
     --input: 220 13% 91%;
-    --ring: 217 91% 60%;
+    --ring: 239 84% 67%;
 
-    --radius: 0.625rem;
+    --radius: 0.5rem;
 
-    /* Sidebar */
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 220 20% 98%;
-    --sidebar-primary: 217 91% 60%;
+    /* Sidebar - Dark contrast for navigation clarity */
+    --sidebar-background: 224 71% 4%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-primary: 239 84% 67%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 47% 18%;
-    --sidebar-accent-foreground: 220 20% 98%;
-    --sidebar-border: 222 47% 18%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-accent: 224 71% 8%;
+    --sidebar-accent-foreground: 210 20% 98%;
+    --sidebar-border: 224 71% 10%;
+    --sidebar-ring: 239 84% 67%;
+    --sidebar-width: 16rem;
+    --sidebar-width-collapsed: 4rem;
 
-    /* Custom Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(237 91% 65%) 100%);
-    --gradient-success: linear-gradient(135deg, hsl(142 71% 45%) 0%, hsl(152 76% 40%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(222 47% 11%) 0%, hsl(222 47% 18%) 100%);
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(239 84% 67%) 0%, hsl(262 83% 58%) 100%);
+    --gradient-success: linear-gradient(135deg, hsl(160 84% 39%) 0%, hsl(172 66% 50%) 100%);
   }
 
-  /* Athlete App - Darker, Modern */
+  /* Athlete App - Dark Mode Default for Battery & Focus */
   .athlete-theme {
-    --background: 222 47% 7%;
-    --foreground: 220 20% 98%;
+    --background: 224 71% 4%;
+    --foreground: 210 20% 98%;
 
-    --card: 222 47% 11%;
-    --card-foreground: 220 20% 98%;
+    --card: 224 71% 8%;
+    --card-foreground: 210 20% 98%;
 
-    --popover: 222 47% 11%;
-    --popover-foreground: 220 20% 98%;
+    --popover: 224 71% 8%;
+    --popover-foreground: 210 20% 98%;
 
-    --primary: 217 91% 60%;
+    --primary: 239 84% 67%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 222 47% 15%;
-    --secondary-foreground: 220 20% 98%;
+    --secondary: 224 71% 12%;
+    --secondary-foreground: 210 20% 98%;
 
-    --muted: 222 47% 15%;
-    --muted-foreground: 220 14% 60%;
+    --muted: 224 71% 12%;
+    --muted-foreground: 215 14% 55%;
 
-    --accent: 192 91% 50%;
+    --accent: 172 66% 50%; /* Cyan accent for athlete */
     --accent-foreground: 0 0% 100%;
 
-    --border: 222 47% 18%;
-    --input: 222 47% 18%;
-    --ring: 217 91% 60%;
+    --border: 224 71% 15%;
+    --input: 224 71% 15%;
+    --ring: 239 84% 67%;
   }
 }
 
@@ -98,20 +102,35 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  /* Tabular numbers for data displays */
+  .tabular-nums,
+  [data-numeric],
+  .stat-value {
+    font-feature-settings: "tnum", "cv02", "cv03", "cv04", "cv11";
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Improve text rendering */
+  h1, h2, h3, h4, h5, h6 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
   }
 }
 
 @layer utilities {
+  /* Gradients */
   .gradient-primary {
     background: var(--gradient-primary);
   }
   
   .gradient-success {
     background: var(--gradient-success);
-  }
-  
-  .gradient-hero {
-    background: var(--gradient-hero);
   }
 
   .text-gradient-primary {
@@ -123,23 +142,101 @@
 
   /* Glass effect for athlete app */
   .glass {
-    background: hsl(222 47% 11% / 0.8);
-    backdrop-filter: blur(12px);
-    border: 1px solid hsl(222 47% 18% / 0.5);
+    background: hsl(224 71% 4% / 0.8);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
 
-  /* Subtle animation for interactive elements */
+  /* Subtle hover lift */
   .hover-lift {
-    @apply transition-all duration-200;
+    @apply transition-all duration-200 ease-out;
   }
   
   .hover-lift:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 25px -8px hsl(217 91% 60% / 0.3);
+    box-shadow: 0 8px 30px -12px hsl(239 84% 67% / 0.25);
+  }
+
+  /* Data-dense spacing utilities */
+  .data-card {
+    @apply bg-card rounded-lg p-4;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.03);
+  }
+
+  .data-section {
+    @apply space-y-1;
+  }
+
+  /* Status indicators */
+  .status-critical {
+    @apply bg-destructive text-destructive-foreground;
+  }
+
+  .status-warning {
+    @apply bg-warning text-warning-foreground;
+  }
+
+  .status-success {
+    @apply bg-success text-success-foreground;
+  }
+
+  /* Subtle dividers using shadows instead of borders */
+  .divider-subtle {
+    box-shadow: inset 0 1px 0 0 hsl(var(--border) / 0.5);
   }
 
   /* Safe area padding for mobile */
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 1rem);
   }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0);
+  }
+
+  /* Focus ring for accessibility */
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background;
+  }
+
+  /* Sidebar transition */
+  .sidebar-transition {
+    transition: width 200ms ease-out, padding 200ms ease-out;
+  }
+}
+
+/* Custom scrollbar for coach platform */
+@media (pointer: fine) {
+  :root {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+}
+
+/* Hide scrollbar on athlete mobile */
+.athlete-theme {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.athlete-theme::-webkit-scrollbar {
+  display: none;
 }
