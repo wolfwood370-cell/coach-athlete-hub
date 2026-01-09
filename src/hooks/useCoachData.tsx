@@ -307,7 +307,20 @@ export function useCoachDashboardData() {
         icon: "HeartPulse" as const,
       };
     }) || []),
-  ].sort((a, b) => 0).slice(0, 10);
+  ].sort((a, b) => {
+    // Sort by recency (parse time strings for rough ordering)
+    const getMinutes = (time: string) => {
+      if (time === "Adesso") return 0;
+      const match = time.match(/(\d+)/);
+      if (!match) return 9999;
+      const num = parseInt(match[1]);
+      if (time.includes("min")) return num;
+      if (time.includes("h")) return num * 60;
+      if (time.includes("g")) return num * 60 * 24;
+      return 9999;
+    };
+    return getMinutes(a.time) - getMinutes(b.time);
+  }).slice(0, 10);
 
   return {
     athletes: athletesQuery.data || [],
