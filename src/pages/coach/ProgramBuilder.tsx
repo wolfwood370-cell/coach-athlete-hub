@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { CoachLayout } from "@/components/coach/CoachLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,17 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
-  GripVertical, 
-  Dumbbell, 
-  X,
-  Save,
-  RotateCcw,
-  Search,
-  Copy,
-  Trash2,
-  User
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -25,287 +20,411 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { 
+  GripVertical, 
+  Dumbbell, 
+  Save,
+  RotateCcw,
+  Search,
+  Copy,
+  Trash2,
+  User,
+  Loader2,
+  Calculator
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 // Days of week
-const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAYS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 const WEEKS = 4;
 
-// Mock exercise library with categories
+// Exercise library with categories
 const exerciseLibrary = [
-  { id: "squat", name: "Squat", category: "Legs", defaultPercent: 85 },
-  { id: "bench", name: "Bench Press", category: "Chest", defaultPercent: 75 },
-  { id: "deadlift", name: "Deadlift", category: "Back", defaultPercent: 90 },
-  { id: "ohp", name: "Overhead Press", category: "Shoulders", defaultPercent: 55 },
-  { id: "row", name: "Barbell Row", category: "Back", defaultPercent: 65 },
-  { id: "rdl", name: "Romanian Deadlift", category: "Legs", defaultPercent: 70 },
-  { id: "pullups", name: "Pull-ups", category: "Back", defaultPercent: 0 },
-  { id: "dips", name: "Dips", category: "Chest", defaultPercent: 0 },
-  { id: "legpress", name: "Leg Press", category: "Legs", defaultPercent: 120 },
-  { id: "latpull", name: "Lat Pulldown", category: "Back", defaultPercent: 50 },
-  { id: "curls", name: "Bicep Curls", category: "Arms", defaultPercent: 25 },
-  { id: "triceps", name: "Tricep Extension", category: "Arms", defaultPercent: 20 },
-  { id: "lunges", name: "Walking Lunges", category: "Legs", defaultPercent: 40 },
-  { id: "flyes", name: "Cable Flyes", category: "Chest", defaultPercent: 15 },
+  { id: "squat", name: "Squat", category: "Gambe", defaultPercent: 85 },
+  { id: "bench", name: "Panca Piana", category: "Petto", defaultPercent: 75 },
+  { id: "deadlift", name: "Stacco", category: "Schiena", defaultPercent: 90 },
+  { id: "ohp", name: "Military Press", category: "Spalle", defaultPercent: 55 },
+  { id: "row", name: "Rematore", category: "Schiena", defaultPercent: 65 },
+  { id: "rdl", name: "Stacco Rumeno", category: "Gambe", defaultPercent: 70 },
+  { id: "pullups", name: "Trazioni", category: "Schiena", defaultPercent: 0 },
+  { id: "dips", name: "Dips", category: "Petto", defaultPercent: 0 },
+  { id: "legpress", name: "Leg Press", category: "Gambe", defaultPercent: 120 },
+  { id: "latpull", name: "Lat Machine", category: "Schiena", defaultPercent: 50 },
+  { id: "curls", name: "Curl Bicipiti", category: "Braccia", defaultPercent: 25 },
+  { id: "triceps", name: "Tricipiti", category: "Braccia", defaultPercent: 20 },
+  { id: "lunges", name: "Affondi", category: "Gambe", defaultPercent: 40 },
+  { id: "flyes", name: "Croci ai Cavi", category: "Petto", defaultPercent: 15 },
 ];
 
-// Mock athletes
-const athletes = [
-  { id: "1", name: "Marco Rossi", oneRM: 140 },
-  { id: "2", name: "Giulia Verdi", oneRM: 80 },
-  { id: "3", name: "Luca Ferrari", oneRM: 120 },
-  { id: "4", name: "Sara Conti", oneRM: 70 },
-];
-
-interface ExerciseEntry {
+// Exercise structure for the program
+interface Exercise {
   id: string;
-  raw: string; // Raw input text
-  parsed: {
-    name: string;
-    sets: number;
-    reps: number;
-    percent: number | null;
-    kg: number | null;
-  } | null;
+  name: string;
+  sets: number;
+  reps: string;
+  load: string;
+  rpe: number | null;
+  notes: string;
 }
 
-interface CellData {
-  exercises: ExerciseEntry[];
-  isEditing: boolean;
-  editValue: string;
-}
+// Program structure: { weekIndex: { dayIndex: Exercise[] } }
+type ProgramData = Record<number, Record<number, Exercise[]>>;
 
-type GridData = CellData[][];
-
-// Parse exercise string like "Squat 4x8 @ 75%" or "Squat 4x8 @ 100kg"
-function parseExerciseInput(input: string, oneRM: number): ExerciseEntry["parsed"] {
-  if (!input.trim()) return null;
-  
-  // Pattern: "Exercise Name NxM @ X%" or "Exercise Name NxM @ Xkg"
-  const regex = /^(.+?)\s*(\d+)\s*[xX×]\s*(\d+)\s*(?:@\s*(\d+(?:\.\d+)?)\s*(%|kg)?)?$/i;
-  const match = input.trim().match(regex);
-  
-  if (match) {
-    const [, name, sets, reps, weight, unit] = match;
-    const numWeight = weight ? parseFloat(weight) : null;
-    
-    let percent: number | null = null;
-    let kg: number | null = null;
-    
-    if (unit === '%' && numWeight) {
-      percent = numWeight;
-      kg = Math.round(oneRM * (numWeight / 100));
-    } else if (unit === 'kg' && numWeight) {
-      kg = numWeight;
-      percent = Math.round((numWeight / oneRM) * 100);
+// ExerciseCard component
+function ExerciseCard({
+  exercise,
+  oneRM,
+  onUpdate,
+  onRemove,
+}: {
+  exercise: Exercise;
+  oneRM: number;
+  onUpdate: (updated: Exercise) => void;
+  onRemove: () => void;
+}) {
+  // Calculate kg from percentage
+  const getCalculatedKg = (loadStr: string): string | null => {
+    const match = loadStr.match(/^(\d+(?:\.\d+)?)\s*%$/);
+    if (match && oneRM > 0) {
+      const percent = parseFloat(match[1]);
+      const kg = Math.round(oneRM * (percent / 100));
+      return `≈ ${kg}kg`;
     }
-    
-    return {
-      name: name.trim(),
-      sets: parseInt(sets),
-      reps: parseInt(reps),
-      percent,
-      kg,
-    };
-  }
-  
-  // Fallback: just treat it as a name
-  return {
-    name: input.trim(),
-    sets: 0,
-    reps: 0,
-    percent: null,
-    kg: null,
+    return null;
   };
+
+  const calculatedHint = getCalculatedKg(exercise.load);
+
+  return (
+    <div className="bg-background rounded-lg border border-border/50 p-2 space-y-2 group hover:border-primary/30 transition-colors">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium truncate flex-1">{exercise.name}</span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-5 w-5 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+          onClick={onRemove}
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+      
+      {/* Input Row */}
+      <div className="flex items-center gap-1">
+        <div className="flex-shrink-0">
+          <Input
+            type="number"
+            min={1}
+            value={exercise.sets || ""}
+            onChange={(e) => onUpdate({ ...exercise, sets: parseInt(e.target.value) || 0 })}
+            className="h-6 w-10 text-[10px] text-center px-1"
+            placeholder="Set"
+          />
+        </div>
+        <span className="text-[10px] text-muted-foreground">×</span>
+        <div className="flex-shrink-0">
+          <Input
+            type="text"
+            value={exercise.reps}
+            onChange={(e) => onUpdate({ ...exercise, reps: e.target.value })}
+            className="h-6 w-14 text-[10px] text-center px-1"
+            placeholder="Rep"
+          />
+        </div>
+        <span className="text-[10px] text-muted-foreground">@</span>
+        <div className="relative flex-1">
+          <Input
+            type="text"
+            value={exercise.load}
+            onChange={(e) => onUpdate({ ...exercise, load: e.target.value })}
+            className="h-6 text-[10px] px-1.5 pr-6"
+            placeholder="80% o 60kg"
+          />
+          {calculatedHint && (
+            <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 text-[8px] text-primary">
+              <Calculator className="h-2.5 w-2.5" />
+            </div>
+          )}
+        </div>
+      </div>
+      
+      {/* Smart Load Hint */}
+      {calculatedHint && (
+        <p className="text-[9px] text-muted-foreground flex items-center gap-1">
+          <Calculator className="h-2.5 w-2.5" />
+          Calcolo: <span className="text-primary font-medium">{calculatedHint}</span>
+        </p>
+      )}
+      
+      {/* RPE & Notes */}
+      <div className="flex items-center gap-1">
+        <Select
+          value={exercise.rpe?.toString() || ""}
+          onValueChange={(val) => onUpdate({ ...exercise, rpe: val ? parseInt(val) : null })}
+        >
+          <SelectTrigger className="h-6 w-16 text-[10px]">
+            <SelectValue placeholder="RPE" />
+          </SelectTrigger>
+          <SelectContent>
+            {[6, 7, 8, 9, 10].map((rpe) => (
+              <SelectItem key={rpe} value={rpe.toString()} className="text-xs">
+                RPE {rpe}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Input
+          type="text"
+          value={exercise.notes}
+          onChange={(e) => onUpdate({ ...exercise, notes: e.target.value })}
+          className="h-6 text-[10px] px-1.5 flex-1"
+          placeholder="Note..."
+        />
+      </div>
+    </div>
+  );
 }
 
 const ProgramBuilder = () => {
-  const [selectedAthlete, setSelectedAthlete] = useState(athletes[0]);
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  
+  const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [draggedExercise, setDraggedExercise] = useState<typeof exerciseLibrary[0] | null>(null);
-  const [activeCell, setActiveCell] = useState<{ week: number; day: number } | null>(null);
-  const inputRefs = useRef<{ [key: string]: HTMLTextAreaElement | null }>({});
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [programName, setProgramName] = useState("");
+  const [saveAthleteId, setSaveAthleteId] = useState<string | null>(null);
   
-  const [grid, setGrid] = useState<GridData>(() =>
-    Array(WEEKS).fill(null).map(() =>
-      Array(7).fill(null).map(() => ({
-        exercises: [],
-        isEditing: false,
-        editValue: "",
-      }))
-    )
-  );
+  // Initialize program data
+  const [program, setProgram] = useState<ProgramData>(() => {
+    const initial: ProgramData = {};
+    for (let w = 0; w < WEEKS; w++) {
+      initial[w] = {};
+      for (let d = 0; d < 7; d++) {
+        initial[w][d] = [];
+      }
+    }
+    return initial;
+  });
+
+  // Fetch athletes (connected to this coach)
+  const { data: athletes = [] } = useQuery({
+    queryKey: ["coach-athletes-for-program", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, one_rm_data")
+        .eq("coach_id", user.id)
+        .eq("role", "athlete");
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+  });
+
+  const selectedAthlete = athletes.find((a) => a.id === selectedAthleteId) || athletes[0];
+  
+  // Get 1RM for squat (default exercise for calculations)
+  const getOneRM = (): number => {
+    if (!selectedAthlete?.one_rm_data) return 100; // Default fallback
+    const oneRmData = selectedAthlete.one_rm_data as Record<string, number>;
+    return oneRmData.squat || oneRmData.bench || 100;
+  };
 
   const filteredExercises = exerciseLibrary.filter(
-    ex => ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          ex.category.toLowerCase().includes(searchQuery.toLowerCase())
+    (ex) =>
+      ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ex.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleCellClick = useCallback((week: number, day: number) => {
-    setActiveCell({ week, day });
-    setGrid(prev => {
-      const newGrid = prev.map((w, wi) =>
-        w.map((d, di) => ({
-          ...d,
-          isEditing: wi === week && di === day,
-        }))
-      );
-      return newGrid;
-    });
-    
-    // Focus the input after state update
-    setTimeout(() => {
-      const key = `${week}-${day}`;
-      inputRefs.current[key]?.focus();
-    }, 0);
-  }, []);
+  // Update exercise in program
+  const updateExercise = useCallback(
+    (week: number, day: number, exerciseId: string, updated: Exercise) => {
+      setProgram((prev) => ({
+        ...prev,
+        [week]: {
+          ...prev[week],
+          [day]: prev[week][day].map((ex) => (ex.id === exerciseId ? updated : ex)),
+        },
+      }));
+    },
+    []
+  );
 
-  const handleInputChange = useCallback((week: number, day: number, value: string) => {
-    setGrid(prev => {
-      const newGrid = [...prev];
-      newGrid[week] = [...newGrid[week]];
-      newGrid[week][day] = {
-        ...newGrid[week][day],
-        editValue: value,
-      };
-      return newGrid;
-    });
-  }, []);
-
-  const handleInputBlur = useCallback((week: number, day: number) => {
-    setGrid(prev => {
-      const newGrid = [...prev];
-      const cell = newGrid[week][day];
-      
-      if (cell.editValue.trim()) {
-        const lines = cell.editValue.split('\n').filter(l => l.trim());
-        const newExercises: ExerciseEntry[] = lines.map((line, idx) => ({
-          id: `${Date.now()}-${idx}`,
-          raw: line,
-          parsed: parseExerciseInput(line, selectedAthlete.oneRM),
-        }));
-        
-        newGrid[week] = [...newGrid[week]];
-        newGrid[week][day] = {
-          exercises: [...cell.exercises, ...newExercises],
-          isEditing: false,
-          editValue: "",
-        };
-      } else {
-        newGrid[week] = [...newGrid[week]];
-        newGrid[week][day] = {
-          ...cell,
-          isEditing: false,
-        };
-      }
-      
-      return newGrid;
-    });
-    setActiveCell(null);
-  }, [selectedAthlete.oneRM]);
-
-  const handleKeyDown = useCallback((e: React.KeyboardEvent, week: number, day: number) => {
-    if (e.key === 'Escape') {
-      setGrid(prev => {
-        const newGrid = [...prev];
-        newGrid[week] = [...newGrid[week]];
-        newGrid[week][day] = {
-          ...newGrid[week][day],
-          isEditing: false,
-          editValue: "",
-        };
-        return newGrid;
-      });
-      setActiveCell(null);
-    }
-  }, []);
-
-  const handleDrop = useCallback((week: number, day: number, exercise: typeof exerciseLibrary[0]) => {
-    const defaultInput = `${exercise.name} 3x8${exercise.defaultPercent ? ` @ ${exercise.defaultPercent}%` : ''}`;
-    const parsed = parseExerciseInput(defaultInput, selectedAthlete.oneRM);
-    
-    setGrid(prev => {
-      const newGrid = [...prev];
-      newGrid[week] = [...newGrid[week]];
-      newGrid[week][day] = {
-        ...newGrid[week][day],
-        exercises: [
-          ...newGrid[week][day].exercises,
-          { id: `${Date.now()}`, raw: defaultInput, parsed },
-        ],
-      };
-      return newGrid;
-    });
-    setDraggedExercise(null);
-  }, [selectedAthlete.oneRM]);
-
+  // Remove exercise from program
   const removeExercise = useCallback((week: number, day: number, exerciseId: string) => {
-    setGrid(prev => {
-      const newGrid = [...prev];
-      newGrid[week] = [...newGrid[week]];
-      newGrid[week][day] = {
-        ...newGrid[week][day],
-        exercises: newGrid[week][day].exercises.filter(e => e.id !== exerciseId),
-      };
-      return newGrid;
-    });
+    setProgram((prev) => ({
+      ...prev,
+      [week]: {
+        ...prev[week],
+        [day]: prev[week][day].filter((ex) => ex.id !== exerciseId),
+      },
+    }));
   }, []);
 
+  // Handle drop
+  const handleDrop = useCallback(
+    (week: number, day: number, exercise: typeof exerciseLibrary[0]) => {
+      const newExercise: Exercise = {
+        id: `${Date.now()}-${Math.random()}`,
+        name: exercise.name,
+        sets: 3,
+        reps: "8",
+        load: exercise.defaultPercent > 0 ? `${exercise.defaultPercent}%` : "",
+        rpe: null,
+        notes: "",
+      };
+
+      setProgram((prev) => ({
+        ...prev,
+        [week]: {
+          ...prev[week],
+          [day]: [...prev[week][day], newExercise],
+        },
+      }));
+      setDraggedExercise(null);
+    },
+    []
+  );
+
+  // Copy week
   const copyWeek = useCallback((weekIndex: number) => {
     if (weekIndex < WEEKS - 1) {
-      setGrid(prev => {
-        const newGrid = [...prev];
-        newGrid[weekIndex + 1] = prev[weekIndex].map(cell => ({
-          ...cell,
-          exercises: cell.exercises.map(ex => ({ ...ex, id: `${Date.now()}-${Math.random()}` })),
-          isEditing: false,
-        }));
-        return newGrid;
-      });
+      setProgram((prev) => ({
+        ...prev,
+        [weekIndex + 1]: Object.fromEntries(
+          Object.entries(prev[weekIndex]).map(([day, exercises]) => [
+            day,
+            exercises.map((ex) => ({ ...ex, id: `${Date.now()}-${Math.random()}` })),
+          ])
+        ),
+      }));
+      toast.success(`Settimana ${weekIndex + 1} copiata nella settimana ${weekIndex + 2}`);
     }
   }, []);
 
+  // Clear week
   const clearWeek = useCallback((weekIndex: number) => {
-    setGrid(prev => {
-      const newGrid = [...prev];
-      newGrid[weekIndex] = Array(7).fill(null).map(() => ({
-        exercises: [],
-        isEditing: false,
-        editValue: "",
-      }));
-      return newGrid;
-    });
+    setProgram((prev) => ({
+      ...prev,
+      [weekIndex]: Object.fromEntries(Array.from({ length: 7 }, (_, d) => [d, []])),
+    }));
   }, []);
 
+  // Reset grid
   const resetGrid = useCallback(() => {
-    setGrid(
-      Array(WEEKS).fill(null).map(() =>
-        Array(7).fill(null).map(() => ({
-          exercises: [],
-          isEditing: false,
-          editValue: "",
-        }))
-      )
-    );
-    setActiveCell(null);
+    const initial: ProgramData = {};
+    for (let w = 0; w < WEEKS; w++) {
+      initial[w] = {};
+      for (let d = 0; d < 7; d++) {
+        initial[w][d] = [];
+      }
+    }
+    setProgram(initial);
   }, []);
 
-  // Recalculate weights when athlete changes
-  useEffect(() => {
-    setGrid(prev =>
-      prev.map(week =>
-        week.map(day => ({
-          ...day,
-          exercises: day.exercises.map(ex => ({
-            ...ex,
-            parsed: ex.raw ? parseExerciseInput(ex.raw, selectedAthlete.oneRM) : null,
-          })),
-        }))
-      )
-    );
-  }, [selectedAthlete.oneRM]);
+  // Save mutation
+  const saveMutation = useMutation({
+    mutationFn: async ({
+      athleteId,
+      title,
+      structure,
+    }: {
+      athleteId: string;
+      title: string;
+      structure: ProgramData;
+    }) => {
+      if (!user) throw new Error("Non autenticato");
+
+      // Create workout entries for each day with exercises
+      const workoutsToInsert: Array<{
+        coach_id: string;
+        athlete_id: string;
+        title: string;
+        description: string | null;
+        structure: Exercise[];
+        status: "pending" | "in_progress" | "completed" | "skipped";
+        scheduled_date: string | null;
+        estimated_duration: number | null;
+      }> = [];
+
+      const today = new Date();
+      
+      for (const [weekStr, days] of Object.entries(structure)) {
+        const weekIndex = parseInt(weekStr);
+        for (const [dayStr, exercises] of Object.entries(days)) {
+          const dayIndex = parseInt(dayStr);
+          if (exercises.length > 0) {
+            // Calculate scheduled date based on week and day
+            const scheduledDate = new Date(today);
+            scheduledDate.setDate(today.getDate() + weekIndex * 7 + dayIndex);
+            
+            workoutsToInsert.push({
+              coach_id: user.id,
+              athlete_id: athleteId,
+              title: `${title} - Sett.${weekIndex + 1} ${DAYS[dayIndex]}`,
+              description: null,
+              structure: exercises as Exercise[],
+              status: "pending",
+              scheduled_date: scheduledDate.toISOString().split("T")[0],
+              estimated_duration: exercises.length * 10, // ~10 min per exercise
+            });
+          }
+        }
+      }
+
+      if (workoutsToInsert.length === 0) {
+        throw new Error("Il programma è vuoto. Aggiungi almeno un esercizio.");
+      }
+
+      const { error } = await supabase.from("workouts").insert(workoutsToInsert as any);
+
+      if (error) throw error;
+      return workoutsToInsert.length;
+    },
+    onSuccess: (count) => {
+      toast.success(`Programma salvato! ${count} sessioni create.`);
+      queryClient.invalidateQueries({ queryKey: ["coach-workouts"] });
+      setSaveDialogOpen(false);
+      setProgramName("");
+      resetGrid();
+    },
+    onError: (error) => {
+      toast.error(`Errore: ${error.message}`);
+    },
+  });
+
+  const handleSave = () => {
+    if (!saveAthleteId) {
+      toast.error("Seleziona un atleta");
+      return;
+    }
+    if (!programName.trim()) {
+      toast.error("Inserisci un nome per il programma");
+      return;
+    }
+    saveMutation.mutate({
+      athleteId: saveAthleteId,
+      title: programName.trim(),
+      structure: program,
+    });
+  };
+
+  const totalExercises = Object.values(program).reduce(
+    (acc, week) => acc + Object.values(week).reduce((a, day) => a + day.length, 0),
+    0
+  );
 
   return (
-    <CoachLayout title="Program Builder" subtitle="Crea schede di allenamento Excel-style">
+    <CoachLayout title="Program Builder" subtitle="Crea schede di allenamento">
       <div className="flex gap-4 h-[calc(100vh-160px)]">
         {/* Main Grid Area */}
         <div className="flex-1 flex flex-col gap-3 min-w-0">
@@ -315,38 +434,57 @@ const ProgramBuilder = () => {
               {/* Athlete Selector */}
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-muted-foreground" />
-                <Select 
-                  value={selectedAthlete.id} 
-                  onValueChange={(id) => setSelectedAthlete(athletes.find(a => a.id === id) || athletes[0])}
+                <Select
+                  value={selectedAthleteId || selectedAthlete?.id || ""}
+                  onValueChange={setSelectedAthleteId}
                 >
-                  <SelectTrigger className="w-40 h-8 text-sm">
-                    <SelectValue />
+                  <SelectTrigger className="w-44 h-8 text-sm">
+                    <SelectValue placeholder="Seleziona atleta" />
                   </SelectTrigger>
                   <SelectContent>
-                    {athletes.map(athlete => (
-                      <SelectItem key={athlete.id} value={athlete.id}>
-                        {athlete.name}
+                    {athletes.length === 0 ? (
+                      <SelectItem value="none" disabled>
+                        Nessun atleta
                       </SelectItem>
-                    ))}
+                    ) : (
+                      athletes.map((athlete) => (
+                        <SelectItem key={athlete.id} value={athlete.id}>
+                          {athlete.full_name || "Atleta"}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
-              
+
               {/* 1RM Display */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-secondary">
-                <Label className="text-xs text-muted-foreground">1RM Squat</Label>
-                <span className="text-sm font-semibold tabular-nums">{selectedAthlete.oneRM} kg</span>
-              </div>
+              {selectedAthlete && (
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-secondary">
+                  <Label className="text-xs text-muted-foreground">1RM Ref</Label>
+                  <span className="text-sm font-semibold tabular-nums">{getOneRM()} kg</span>
+                </div>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-xs">
+                {totalExercises} esercizi
+              </Badge>
               <Button variant="outline" size="sm" onClick={resetGrid} className="h-8">
                 <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
                 Reset
               </Button>
-              <Button size="sm" className="h-8 bg-primary">
+              <Button
+                size="sm"
+                className="h-8 bg-gradient-to-br from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700"
+                onClick={() => {
+                  setSaveAthleteId(selectedAthlete?.id || null);
+                  setSaveDialogOpen(true);
+                }}
+                disabled={totalExercises === 0}
+              >
                 <Save className="h-3.5 w-3.5 mr-1.5" />
-                Salva
+                Salva Programma
               </Button>
             </div>
           </div>
@@ -360,8 +498,8 @@ const ProgramBuilder = () => {
                   <div className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-border sticky top-0 z-20 bg-muted/50 backdrop-blur-sm">
                     <div className="p-2 text-[10px] uppercase tracking-wider text-muted-foreground font-medium border-r border-border/50" />
                     {DAYS.map((day) => (
-                      <div 
-                        key={day} 
+                      <div
+                        key={day}
                         className="p-2 text-[10px] uppercase tracking-wider text-center font-medium border-r border-border/50 last:border-r-0"
                       >
                         {day}
@@ -371,122 +509,80 @@ const ProgramBuilder = () => {
 
                   {/* Week Rows */}
                   {Array.from({ length: WEEKS }).map((_, weekIndex) => (
-                    <div 
-                      key={weekIndex} 
+                    <div
+                      key={weekIndex}
                       className="grid grid-cols-[80px_repeat(7,1fr)] border-b border-border/50 last:border-b-0 group/week"
                     >
                       {/* Week Label */}
                       <div className="p-2 bg-muted/30 border-r border-border/50 flex flex-col justify-between">
-                        <span className="text-xs font-medium">Week {weekIndex + 1}</span>
+                        <span className="text-xs font-medium">Sett. {weekIndex + 1}</span>
                         <div className="flex gap-1 opacity-0 group-hover/week:opacity-100 transition-opacity">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-6 w-6"
                             onClick={() => copyWeek(weekIndex)}
-                            title="Copy to next week"
+                            title="Copia alla settimana successiva"
                           >
                             <Copy className="h-3 w-3" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-6 w-6 text-destructive"
                             onClick={() => clearWeek(weekIndex)}
-                            title="Clear week"
+                            title="Svuota settimana"
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
                       </div>
-                      
+
                       {/* Day Cells */}
                       {Array.from({ length: 7 }).map((_, dayIndex) => {
-                        const cell = grid[weekIndex][dayIndex];
-                        const isActive = activeCell?.week === weekIndex && activeCell?.day === dayIndex;
-                        const cellKey = `${weekIndex}-${dayIndex}`;
-                        
+                        const exercises = program[weekIndex]?.[dayIndex] || [];
+
                         return (
                           <div
                             key={dayIndex}
                             className={cn(
-                              "min-h-[100px] border-r border-border/50 last:border-r-0 p-1 transition-colors cursor-text",
-                              isActive && "bg-primary/5 ring-1 ring-inset ring-primary",
-                              !isActive && "hover:bg-muted/20",
+                              "min-h-[140px] border-r border-border/50 last:border-r-0 p-1.5 transition-colors",
+                              "hover:bg-muted/20",
                               draggedExercise && "hover:bg-primary/10"
                             )}
-                            onClick={() => !cell.isEditing && handleCellClick(weekIndex, dayIndex)}
                             onDragOver={(e) => {
                               e.preventDefault();
-                              e.currentTarget.classList.add('bg-primary/20');
+                              e.currentTarget.classList.add("bg-primary/20");
                             }}
                             onDragLeave={(e) => {
-                              e.currentTarget.classList.remove('bg-primary/20');
+                              e.currentTarget.classList.remove("bg-primary/20");
                             }}
                             onDrop={(e) => {
                               e.preventDefault();
-                              e.currentTarget.classList.remove('bg-primary/20');
+                              e.currentTarget.classList.remove("bg-primary/20");
                               if (draggedExercise) {
                                 handleDrop(weekIndex, dayIndex, draggedExercise);
                               }
                             }}
                           >
-                            {/* Existing Exercises */}
-                            <div className="space-y-1">
-                              {cell.exercises.map((exercise) => (
-                                <div
+                            <div className="space-y-1.5">
+                              {exercises.map((exercise) => (
+                                <ExerciseCard
                                   key={exercise.id}
-                                  className="group/ex relative bg-background rounded px-1.5 py-1 text-[11px] border border-border/50 hover:border-primary/30"
-                                >
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      removeExercise(weekIndex, dayIndex, exercise.id);
-                                    }}
-                                    className="absolute -top-1 -right-1 h-4 w-4 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover/ex:opacity-100 transition-opacity flex items-center justify-center z-10"
-                                  >
-                                    <X className="h-2.5 w-2.5" />
-                                  </button>
-                                  
-                                  {exercise.parsed ? (
-                                    <div>
-                                      <p className="font-medium truncate">{exercise.parsed.name}</p>
-                                      {exercise.parsed.sets > 0 && (
-                                        <p className="text-muted-foreground tabular-nums">
-                                          {exercise.parsed.sets}×{exercise.parsed.reps}
-                                          {exercise.parsed.kg && (
-                                            <span className="text-primary ml-1">
-                                              @ {exercise.parsed.kg}kg
-                                              {exercise.parsed.percent && (
-                                                <span className="text-muted-foreground/70 ml-0.5">
-                                                  ({exercise.parsed.percent}%)
-                                                </span>
-                                              )}
-                                            </span>
-                                          )}
-                                        </p>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <p className="text-muted-foreground">{exercise.raw}</p>
-                                  )}
-                                </div>
+                                  exercise={exercise}
+                                  oneRM={getOneRM()}
+                                  onUpdate={(updated) =>
+                                    updateExercise(weekIndex, dayIndex, exercise.id, updated)
+                                  }
+                                  onRemove={() => removeExercise(weekIndex, dayIndex, exercise.id)}
+                                />
                               ))}
+                              {exercises.length === 0 && (
+                                <div className="h-full min-h-[100px] flex items-center justify-center text-[10px] text-muted-foreground/50">
+                                  Trascina qui
+                                </div>
+                              )}
                             </div>
-                            
-                            {/* Inline Input */}
-                            {cell.isEditing && (
-                              <textarea
-                                ref={(el) => { inputRefs.current[cellKey] = el; }}
-                                value={cell.editValue}
-                                onChange={(e) => handleInputChange(weekIndex, dayIndex, e.target.value)}
-                                onBlur={() => handleInputBlur(weekIndex, dayIndex)}
-                                onKeyDown={(e) => handleKeyDown(e, weekIndex, dayIndex)}
-                                placeholder="Squat 4x8 @ 75%"
-                                className="w-full min-h-[60px] text-[11px] bg-transparent border-0 outline-none resize-none placeholder:text-muted-foreground/50"
-                                autoFocus
-                              />
-                            )}
                           </div>
                         );
                       })}
@@ -499,7 +595,7 @@ const ProgramBuilder = () => {
 
           {/* Help Text */}
           <p className="text-[10px] text-muted-foreground text-center">
-            Clicca una cella per scrivere · Formato: <code className="bg-muted px-1 rounded">Squat 4x8 @ 75%</code> oppure <code className="bg-muted px-1 rounded">Bench 3x10 @ 60kg</code> · I pesi si calcolano automaticamente dal 1RM
+            Trascina gli esercizi dalla libreria · Usa <code className="bg-muted px-1 rounded">80%</code> per calcolo automatico dal 1RM · I valori si salvano automaticamente
           </p>
         </div>
 
@@ -508,12 +604,12 @@ const ProgramBuilder = () => {
           <CardHeader className="p-3 pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <Dumbbell className="h-4 w-4" />
-              Exercise Library
+              Libreria Esercizi
             </CardTitle>
             <div className="relative mt-2">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                placeholder="Search..."
+                placeholder="Cerca..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="h-8 pl-7 text-sm"
@@ -556,6 +652,64 @@ const ProgramBuilder = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Save Dialog */}
+      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Salva Programma</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="program-name">Nome Programma</Label>
+              <Input
+                id="program-name"
+                value={programName}
+                onChange={(e) => setProgramName(e.target.value)}
+                placeholder="Es: Fase Forza - Marzo 2024"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Assegna ad Atleta</Label>
+              <Select value={saveAthleteId || ""} onValueChange={setSaveAthleteId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleziona atleta" />
+                </SelectTrigger>
+                <SelectContent>
+                  {athletes.map((athlete) => (
+                    <SelectItem key={athlete.id} value={athlete.id}>
+                      {athlete.full_name || "Atleta"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Verranno create <span className="font-semibold text-foreground">{totalExercises > 0 ? Object.values(program).reduce(
+                (acc, week) => acc + Object.values(week).filter(day => day.length > 0).length,
+                0
+              ) : 0}</span> sessioni di allenamento con status &quot;pending&quot;.
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setSaveDialogOpen(false)}
+              className="text-violet-400 hover:text-violet-300 hover:bg-violet-900/20"
+            >
+              Annulla
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saveMutation.isPending || !saveAthleteId || !programName.trim()}
+              className="bg-gradient-to-br from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700"
+            >
+              {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Salva
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </CoachLayout>
   );
 };
