@@ -31,8 +31,7 @@ const App = () => (
           {/* Athlete Routes */}
           <Route path="/athlete" element={<AthleteDashboard />} />
           <Route path="/athlete/workout" element={<AthleteDashboard />} />
-          <Route path="/athlete/plan" element={<AthleteDashboard />} />
-          <Route path="/athlete/progress" element={<AthleteDashboard />} />
+          <Route path="/athlete/nutrition" element={<AthleteDashboard />} />
           <Route path="/athlete/profile" element={<AthleteDashboard />} />
           
           <Route path="*" element={<NotFound />} />
