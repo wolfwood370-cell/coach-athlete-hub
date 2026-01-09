@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button";
 
 interface CoachLayoutProps {
   children: React.ReactNode;
+  title?: string;
+  subtitle?: string;
 }
 
-export function CoachLayout({ children }: CoachLayoutProps) {
+export function CoachLayout({ children, title, subtitle }: CoachLayoutProps) {
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -38,6 +40,12 @@ export function CoachLayout({ children }: CoachLayoutProps) {
           
           {/* Main Content */}
           <main className="flex-1 overflow-auto bg-background p-6">
+            {(title || subtitle) && (
+              <div className="mb-6">
+                {title && <h1 className="text-2xl font-bold text-foreground">{title}</h1>}
+                {subtitle && <p className="text-muted-foreground mt-1">{subtitle}</p>}
+              </div>
+            )}
             {children}
           </main>
         </div>
