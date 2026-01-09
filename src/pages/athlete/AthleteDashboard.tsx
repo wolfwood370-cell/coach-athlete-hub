@@ -379,7 +379,7 @@ export default function AthleteDashboard() {
                     <Sparkles className="h-8 w-8 text-primary" />
                   </div>
                 </div>
-                <h3 className="font-semibold text-base mb-1">Daily Readiness</h3>
+                <h3 className="font-semibold text-base mb-1">Prontezza Giornaliera</h3>
                 <p className="text-xs text-muted-foreground mb-5 max-w-[200px] mx-auto">
                   Compila il check giornaliero per ottimizzare il tuo piano
                 </p>
@@ -388,7 +388,7 @@ export default function AthleteDashboard() {
                   className="w-full h-12 text-sm font-semibold gradient-primary"
                 >
                   <Zap className="h-4 w-4 mr-2" />
-                  Start Day
+                  Inizia Giornata
                 </Button>
               </div>
             ) : (
@@ -404,7 +404,7 @@ export default function AthleteDashboard() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-2">
                       <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Readiness</p>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Prontezza</p>
                         <p className={cn("text-sm font-semibold", getScoreColor(readiness.score))}>
                           {getScoreLabel(readiness.score)}
                         </p>
@@ -444,9 +444,9 @@ export default function AthleteDashboard() {
         {/* ===== TODAY'S FOCUS ===== */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold">Today's Focus</h2>
+            <h2 className="text-sm font-semibold">Focus di Oggi</h2>
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              {todayTasks.length} tasks
+              {todayTasks.length} attività
             </span>
           </div>
           
@@ -712,7 +712,7 @@ export default function AthleteDashboard() {
                 Conferma Check-in
               </Button>
               <DrawerClose asChild>
-                <Button variant="ghost" className="w-full">
+                <Button variant="ghost" className="w-full text-violet-400 hover:text-violet-300 hover:bg-violet-900/20">
                   Annulla
                 </Button>
               </DrawerClose>
