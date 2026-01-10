@@ -47,9 +47,9 @@ const WEEKS = 4;
 const exerciseLibrary = [
   { id: "squat", name: "Squat", category: "Gambe", defaultPercent: 85 },
   { id: "bench", name: "Panca Piana", category: "Petto", defaultPercent: 75 },
-  { id: "deadlift", name: "Stacco", category: "Schiena", defaultPercent: 90 },
-  { id: "ohp", name: "Military Press", category: "Spalle", defaultPercent: 55 },
-  { id: "row", name: "Rematore", category: "Schiena", defaultPercent: 65 },
+  { id: "deadlift", name: "Stacco da Terra", category: "Schiena", defaultPercent: 90 },
+  { id: "ohp", name: "Lento Avanti", category: "Spalle", defaultPercent: 55 },
+  { id: "row", name: "Rematore Manubrio", category: "Schiena", defaultPercent: 65 },
   { id: "rdl", name: "Stacco Rumeno", category: "Gambe", defaultPercent: 70 },
   { id: "pullups", name: "Trazioni", category: "Schiena", defaultPercent: 0 },
   { id: "dips", name: "Dips", category: "Petto", defaultPercent: 0 },

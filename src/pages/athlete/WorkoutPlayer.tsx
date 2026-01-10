@@ -135,30 +135,30 @@ const mockWorkout = {
 
 // Foster RPE Scale configuration
 const fosterRpeScale = [
-  { value: 1, label: "Rest", color: "bg-emerald-500" },
-  { value: 2, label: "Really Easy", color: "bg-emerald-500" },
-  { value: 3, label: "Easy", color: "bg-emerald-400" },
-  { value: 4, label: "Moderate", color: "bg-yellow-400" },
-  { value: 5, label: "Somewhat Hard", color: "bg-yellow-500" },
-  { value: 6, label: "Hard", color: "bg-orange-400" },
-  { value: 7, label: "Very Hard", color: "bg-orange-500" },
-  { value: 8, label: "Very Hard+", color: "bg-orange-600" },
-  { value: 9, label: "Near Max", color: "bg-red-500" },
-  { value: 10, label: "Maximal", color: "bg-red-600" },
+  { value: 1, label: "Riposo", color: "bg-success" },
+  { value: 2, label: "Molto Facile", color: "bg-success" },
+  { value: 3, label: "Facile", color: "bg-success/80" },
+  { value: 4, label: "Moderato", color: "bg-warning/80" },
+  { value: 5, label: "Abbastanza Duro", color: "bg-warning" },
+  { value: 6, label: "Duro", color: "bg-orange-400" },
+  { value: 7, label: "Molto Duro", color: "bg-orange-500" },
+  { value: 8, label: "Molto Duro+", color: "bg-orange-600" },
+  { value: 9, label: "Quasi Max", color: "bg-destructive/80" },
+  { value: 10, label: "Massimale", color: "bg-destructive" },
 ];
 
 const getRpeColor = (rpe: number): string => {
-  if (rpe <= 3) return "bg-emerald-500";
-  if (rpe <= 5) return "bg-yellow-500";
+  if (rpe <= 3) return "bg-success";
+  if (rpe <= 5) return "bg-warning";
   if (rpe <= 8) return "bg-orange-500";
-  return "bg-red-500";
+  return "bg-destructive";
 };
 
 const getRpeTextColor = (rpe: number): string => {
-  if (rpe <= 3) return "text-emerald-500";
-  if (rpe <= 5) return "text-yellow-500";
+  if (rpe <= 3) return "text-success";
+  if (rpe <= 5) return "text-warning";
   if (rpe <= 8) return "text-orange-500";
-  return "text-red-500";
+  return "text-destructive";
 };
 
 export default function WorkoutPlayer() {
@@ -284,15 +284,15 @@ export default function WorkoutPlayer() {
     },
     onSuccess: (result) => {
       toast({
-        title: "Workout Saved!",
-        description: `Session Load: ${result.sessionLoad} AU`,
+        title: "Allenamento salvato!",
+        description: `Carico: ${result.sessionLoad} UA`,
       });
       navigate("/athlete");
     },
     onError: (error) => {
       toast({
-        title: "Error",
-        description: "Failed to save workout. Please try again.",
+        title: "Errore",
+        description: "Impossibile salvare l'allenamento. Riprova.",
         variant: "destructive",
       });
       console.error("Save workout error:", error);
@@ -319,8 +319,8 @@ export default function WorkoutPlayer() {
     if (!id || !isValidUUID(id)) {
       // Mock mode - simulate success without saving to database
       toast({
-        title: "Workout Saved!",
-        description: `Session Load: ${sessionLoad} AU (Mock Mode)`,
+        title: "Allenamento salvato!",
+        description: `Carico: ${sessionLoad} UA (Mock Mode)`,
       });
       navigate("/athlete");
       return;
@@ -667,20 +667,20 @@ export default function WorkoutPlayer() {
               
               {/* RPE Legend */}
               <div className="grid grid-cols-4 gap-2 text-[10px] text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                  <span>1-3 Easy</span>
+              <div className="flex items-center gap-1">
+                  <div className="h-2 w-2 rounded-full bg-success" />
+                  <span>1-3 Facile</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <div className="h-2 w-2 rounded-full bg-yellow-500" />
-                  <span>4-5 Moderate</span>
+                  <div className="h-2 w-2 rounded-full bg-warning" />
+                  <span>4-5 Moderato</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <div className="h-2 w-2 rounded-full bg-orange-500" />
-                  <span>6-8 Hard</span>
+                  <span>6-8 Intenso</span>
                 </div>
                 <div className="flex items-center gap-1">
-                  <div className="h-2 w-2 rounded-full bg-red-500" />
+                  <div className="h-2 w-2 rounded-full bg-destructive" />
                   <span>9-10 Max</span>
                 </div>
               </div>
@@ -689,13 +689,16 @@ export default function WorkoutPlayer() {
             {/* Session Load Preview */}
             <div className="p-4 rounded-lg bg-secondary/50 border border-border/50">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Session Load</span>
+                <div className="flex flex-col">
+                  <span className="text-sm text-muted-foreground">Carico Interno</span>
+                  <span className="text-[10px] text-muted-foreground/70">(Session Load)</span>
+                </div>
                 <span className="text-xl font-bold tabular-nums">
-                  {((recapDurationHours * 60) + recapDurationMinutes) * sessionRpe} AU
+                  {((recapDurationHours * 60) + recapDurationMinutes) * sessionRpe} UA
                 </span>
               </div>
               <p className="text-[10px] text-muted-foreground mt-1">
-                (Ore × 60 + Minuti) × RPE = Arbitrary Units
+                (Ore × 60 + Minuti) × RPE = Unità Arbitrarie
               </p>
             </div>
           </div>
