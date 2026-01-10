@@ -19,15 +19,16 @@ export function AcwrCard() {
     );
   }
 
-  if (error) {
+  if (error || !data) {
     return (
       <Card className="border-0">
         <CardContent className="p-3.5">
           <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="h-4 w-4 text-destructive" />
-            <span className="text-xs text-muted-foreground">ACWR</span>
+            <HelpCircle className="h-4 w-4 text-muted-foreground" />
+            <span className="text-xs text-muted-foreground">Carico ACWR</span>
           </div>
-          <p className="text-sm text-destructive">Errore</p>
+          <p className="text-xl font-bold tabular-nums text-muted-foreground">—</p>
+          <p className="text-[10px] text-muted-foreground">{error ? "Errore" : "Dati insufficienti"}</p>
         </CardContent>
       </Card>
     );
