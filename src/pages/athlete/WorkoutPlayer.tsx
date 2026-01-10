@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useMutation } from "@tanstack/react-query";
 import { AthleteLayout } from "@/components/athlete/AthleteLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,13 @@ import {
   CollapsibleTrigger 
 } from "@/components/ui/collapsible";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
   Play,
   Pause,
   CheckCircle2,
@@ -22,9 +30,13 @@ import {
   RotateCcw,
   Dumbbell,
   MessageSquare,
-  Flag
+  Flag,
+  Trophy,
+  Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 interface SetData {
   id: string;
@@ -121,9 +133,38 @@ const mockWorkout = {
   ] as ExerciseData[]
 };
 
+// Foster RPE Scale configuration
+const fosterRpeScale = [
+  { value: 1, label: "Rest", color: "bg-emerald-500" },
+  { value: 2, label: "Really Easy", color: "bg-emerald-500" },
+  { value: 3, label: "Easy", color: "bg-emerald-400" },
+  { value: 4, label: "Moderate", color: "bg-yellow-400" },
+  { value: 5, label: "Somewhat Hard", color: "bg-yellow-500" },
+  { value: 6, label: "Hard", color: "bg-orange-400" },
+  { value: 7, label: "Very Hard", color: "bg-orange-500" },
+  { value: 8, label: "Very Hard+", color: "bg-orange-600" },
+  { value: 9, label: "Near Max", color: "bg-red-500" },
+  { value: 10, label: "Maximal", color: "bg-red-600" },
+];
+
+const getRpeColor = (rpe: number): string => {
+  if (rpe <= 3) return "bg-emerald-500";
+  if (rpe <= 5) return "bg-yellow-500";
+  if (rpe <= 8) return "bg-orange-500";
+  return "bg-red-500";
+};
+
+const getRpeTextColor = (rpe: number): string => {
+  if (rpe <= 3) return "text-emerald-500";
+  if (rpe <= 5) return "text-yellow-500";
+  if (rpe <= 8) return "text-orange-500";
+  return "text-red-500";
+};
+
 export default function WorkoutPlayer() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   
   // Workout state
   const [exercises, setExercises] = useState<ExerciseData[]>(mockWorkout.exercises);
@@ -138,6 +179,12 @@ export default function WorkoutPlayer() {
   const [restTimerActive, setRestTimerActive] = useState(false);
   const [restTimeRemaining, setRestTimeRemaining] = useState(90);
   const [defaultRestTime, setDefaultRestTime] = useState(90);
+  
+  // Session recap dialog state
+  const [showRecapDialog, setShowRecapDialog] = useState(false);
+  const [recapDurationMinutes, setRecapDurationMinutes] = useState(0);
+  const [recapDurationSeconds, setRecapDurationSeconds] = useState(0);
+  const [sessionRpe, setSessionRpe] = useState(5);
 
   // Workout elapsed timer
   useEffect(() => {
@@ -203,10 +250,66 @@ export default function WorkoutPlayer() {
   const getCompletedSets = () => exercises.reduce((acc, ex) => acc + ex.sets.filter(s => s.completed).length, 0);
   const progressPercent = (getCompletedSets() / getTotalSets()) * 100;
 
+  // Mutation to save workout log
+  const saveWorkoutMutation = useMutation({
+    mutationFn: async (data: { 
+      durationSeconds: number; 
+      rpe: number; 
+      exercisesData: ExerciseData[];
+    }) => {
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError || !userData.user) throw new Error("User not authenticated");
+      
+      const durationMinutes = Math.round(data.durationSeconds / 60);
+      const sessionLoad = durationMinutes * data.rpe;
+      
+      const { error } = await supabase.from("workout_logs").insert({
+        athlete_id: userData.user.id,
+        workout_id: id || crypto.randomUUID(), // Use actual workout ID or generate one
+        duration_seconds: data.durationSeconds,
+        rpe_global: data.rpe,
+        exercises_data: JSON.parse(JSON.stringify(data.exercisesData)), // Convert to JSON-safe format
+        started_at: workoutStartTime.toISOString(),
+        completed_at: new Date().toISOString(),
+      } as any);
+      
+      if (error) throw error;
+      return { sessionLoad };
+    },
+    onSuccess: (result) => {
+      toast({
+        title: "Workout Saved!",
+        description: `Session Load: ${result.sessionLoad} AU`,
+      });
+      navigate("/athlete");
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to save workout. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Save workout error:", error);
+    },
+  });
+
   const handleFinishWorkout = () => {
     setIsWorkoutActive(false);
-    // In a real app, save workout data here
-    navigate('/athlete');
+    // Convert elapsed time to minutes and seconds for the recap form
+    const mins = Math.floor(elapsedSeconds / 60);
+    const secs = elapsedSeconds % 60;
+    setRecapDurationMinutes(mins);
+    setRecapDurationSeconds(secs);
+    setShowRecapDialog(true);
+  };
+
+  const handleSaveWorkoutLog = () => {
+    const totalSeconds = (recapDurationMinutes * 60) + recapDurationSeconds;
+    saveWorkoutMutation.mutate({
+      durationSeconds: totalSeconds,
+      rpe: sessionRpe,
+      exercisesData: exercises,
+    });
   };
 
   const skipRest = () => {
@@ -452,6 +555,158 @@ export default function WorkoutPlayer() {
           </Card>
         </div>
       )}
+
+      {/* Session Recap Dialog */}
+      <Dialog open={showRecapDialog} onOpenChange={setShowRecapDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trophy className="h-5 w-5 text-primary" />
+              Workout Complete!
+            </DialogTitle>
+            <DialogDescription>
+              Completa il recap della sessione per salvare i dati.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Duration Input */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Durata Reale</label>
+              <div className="flex items-center gap-2">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="999"
+                      value={recapDurationMinutes}
+                      onChange={(e) => setRecapDurationMinutes(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="text-center text-lg tabular-nums pr-12"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">min</span>
+                  </div>
+                </div>
+                <span className="text-lg font-bold">:</span>
+                <div className="flex-1">
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      min="0"
+                      max="59"
+                      value={recapDurationSeconds}
+                      onChange={(e) => setRecapDurationSeconds(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                      className="text-center text-lg tabular-nums pr-10"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">sec</span>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Puoi modificare la durata se il timer è rimasto acceso troppo a lungo.
+              </p>
+            </div>
+
+            {/* RPE Scale */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Intensità Percepita (RPE)</label>
+                <span className={cn("text-lg font-bold tabular-nums", getRpeTextColor(sessionRpe))}>
+                  {sessionRpe}
+                </span>
+              </div>
+              
+              {/* RPE Grid */}
+              <div className="grid grid-cols-5 gap-1.5">
+                {fosterRpeScale.map((item) => (
+                  <button
+                    key={item.value}
+                    onClick={() => setSessionRpe(item.value)}
+                    className={cn(
+                      "h-10 rounded-lg font-semibold text-sm transition-all",
+                      sessionRpe === item.value
+                        ? `${item.color} text-white ring-2 ring-offset-2 ring-offset-background ring-primary scale-105`
+                        : "bg-secondary hover:bg-secondary/80 text-foreground"
+                    )}
+                  >
+                    {item.value}
+                  </button>
+                ))}
+              </div>
+              
+              {/* Current RPE Label */}
+              <div className={cn(
+                "text-center py-2 rounded-lg text-sm font-medium",
+                getRpeColor(sessionRpe),
+                "text-white"
+              )}>
+                {fosterRpeScale.find(r => r.value === sessionRpe)?.label}
+              </div>
+              
+              {/* RPE Legend */}
+              <div className="grid grid-cols-4 gap-2 text-[10px] text-muted-foreground">
+                <div className="flex items-center gap-1">
+                  <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                  <span>1-3 Easy</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="h-2 w-2 rounded-full bg-yellow-500" />
+                  <span>4-5 Moderate</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="h-2 w-2 rounded-full bg-orange-500" />
+                  <span>6-8 Hard</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="h-2 w-2 rounded-full bg-red-500" />
+                  <span>9-10 Max</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Session Load Preview */}
+            <div className="p-4 rounded-lg bg-secondary/50 border border-border/50">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Session Load</span>
+                <span className="text-xl font-bold tabular-nums">
+                  {Math.round((recapDurationMinutes + recapDurationSeconds / 60) * sessionRpe)} AU
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Durata × RPE = Arbitrary Units
+              </p>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => {
+                setShowRecapDialog(false);
+                setIsWorkoutActive(true);
+              }}
+            >
+              Continua Workout
+            </Button>
+            <Button
+              className="flex-1 gradient-primary"
+              onClick={handleSaveWorkoutLog}
+              disabled={saveWorkoutMutation.isPending}
+            >
+              {saveWorkoutMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Salvataggio...
+                </>
+              ) : (
+                "Salva Log"
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </AthleteLayout>
   );
 }
