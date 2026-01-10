@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 const navItems = [
   { title: "Home", url: "/athlete", icon: Home },
   { title: "Workout", url: "/athlete/workout", icon: Dumbbell },
-  { title: "Salute", url: "/athlete/health", icon: HeartPulse },
   { title: "Nutrition", url: "/athlete/nutrition", icon: Apple },
+  { title: "Salute", url: "/athlete/health", icon: HeartPulse },
   { title: "Profile", url: "/athlete/profile", icon: User },
 ];
 

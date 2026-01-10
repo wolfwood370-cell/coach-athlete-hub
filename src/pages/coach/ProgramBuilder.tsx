@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -199,7 +200,7 @@ const ProgramBuilder = () => {
   const [draggedExercise, setDraggedExercise] = useState<typeof exerciseLibrary[0] | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [programName, setProgramName] = useState("");
-  const [saveAthleteId, setSaveAthleteId] = useState<string | null>(null);
+  const [selectedAthleteIds, setSelectedAthleteIds] = useState<string[]>([]);
   
   // Initialize program data
   const [program, setProgram] = useState<ProgramData>(() => {
@@ -334,17 +335,18 @@ const ProgramBuilder = () => {
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async ({
-      athleteId,
+      athleteIds,
       title,
       structure,
     }: {
-      athleteId: string;
+      athleteIds: string[];
       title: string;
       structure: ProgramData;
     }) => {
       if (!user) throw new Error("Non autenticato");
+      if (athleteIds.length === 0) throw new Error("Seleziona almeno un atleta");
 
-      // Create workout entries for each day with exercises
+      // Create workout entries for each athlete and each day with exercises
       const workoutsToInsert: Array<{
         coach_id: string;
         athlete_id: string;
@@ -358,25 +360,28 @@ const ProgramBuilder = () => {
 
       const today = new Date();
       
-      for (const [weekStr, days] of Object.entries(structure)) {
-        const weekIndex = parseInt(weekStr);
-        for (const [dayStr, exercises] of Object.entries(days)) {
-          const dayIndex = parseInt(dayStr);
-          if (exercises.length > 0) {
-            // Calculate scheduled date based on week and day
-            const scheduledDate = new Date(today);
-            scheduledDate.setDate(today.getDate() + weekIndex * 7 + dayIndex);
-            
-            workoutsToInsert.push({
-              coach_id: user.id,
-              athlete_id: athleteId,
-              title: `${title} - Sett.${weekIndex + 1} ${DAYS[dayIndex]}`,
-              description: null,
-              structure: exercises as Exercise[],
-              status: "pending",
-              scheduled_date: scheduledDate.toISOString().split("T")[0],
-              estimated_duration: exercises.length * 10, // ~10 min per exercise
-            });
+      // For each selected athlete, create a copy of all workouts
+      for (const athleteId of athleteIds) {
+        for (const [weekStr, days] of Object.entries(structure)) {
+          const weekIndex = parseInt(weekStr);
+          for (const [dayStr, exercises] of Object.entries(days)) {
+            const dayIndex = parseInt(dayStr);
+            if (exercises.length > 0) {
+              // Calculate scheduled date based on week and day
+              const scheduledDate = new Date(today);
+              scheduledDate.setDate(today.getDate() + weekIndex * 7 + dayIndex);
+              
+              workoutsToInsert.push({
+                coach_id: user.id,
+                athlete_id: athleteId,
+                title: `${title} - Sett.${weekIndex + 1} ${DAYS[dayIndex]}`,
+                description: null,
+                structure: exercises as Exercise[],
+                status: "pending",
+                scheduled_date: scheduledDate.toISOString().split("T")[0],
+                estimated_duration: exercises.length * 10, // ~10 min per exercise
+              });
+            }
           }
         }
       }
@@ -388,13 +393,14 @@ const ProgramBuilder = () => {
       const { error } = await supabase.from("workouts").insert(workoutsToInsert as any);
 
       if (error) throw error;
-      return workoutsToInsert.length;
+      return { sessions: workoutsToInsert.length, athletes: athleteIds.length };
     },
-    onSuccess: (count) => {
-      toast.success(`Programma salvato! ${count} sessioni create.`);
+    onSuccess: (result) => {
+      toast.success(`Programma salvato! ${result.sessions} sessioni create per ${result.athletes} atleti.`);
       queryClient.invalidateQueries({ queryKey: ["coach-workouts"] });
       setSaveDialogOpen(false);
       setProgramName("");
+      setSelectedAthleteIds([]);
       resetGrid();
     },
     onError: (error) => {
@@ -403,8 +409,8 @@ const ProgramBuilder = () => {
   });
 
   const handleSave = () => {
-    if (!saveAthleteId) {
-      toast.error("Seleziona un atleta");
+    if (selectedAthleteIds.length === 0) {
+      toast.error("Seleziona almeno un atleta");
       return;
     }
     if (!programName.trim()) {
@@ -412,10 +418,18 @@ const ProgramBuilder = () => {
       return;
     }
     saveMutation.mutate({
-      athleteId: saveAthleteId,
+      athleteIds: selectedAthleteIds,
       title: programName.trim(),
       structure: program,
     });
+  };
+
+  const toggleAthleteSelection = (athleteId: string) => {
+    setSelectedAthleteIds((prev) =>
+      prev.includes(athleteId)
+        ? prev.filter((id) => id !== athleteId)
+        : [...prev, athleteId]
+    );
   };
 
   const totalExercises = Object.values(program).reduce(
@@ -478,7 +492,10 @@ const ProgramBuilder = () => {
                 size="sm"
                 className="h-8 bg-gradient-to-br from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700"
                 onClick={() => {
-                  setSaveAthleteId(selectedAthlete?.id || null);
+                  // Pre-select the currently selected athlete if any
+                  if (selectedAthlete?.id && !selectedAthleteIds.includes(selectedAthlete.id)) {
+                    setSelectedAthleteIds([selectedAthlete.id]);
+                  }
                   setSaveDialogOpen(true);
                 }}
                 disabled={totalExercises === 0}
@@ -670,25 +687,37 @@ const ProgramBuilder = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label>Assegna ad Atleta</Label>
-              <Select value={saveAthleteId || ""} onValueChange={setSaveAthleteId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleziona atleta" />
-                </SelectTrigger>
-                <SelectContent>
-                  {athletes.map((athlete) => (
-                    <SelectItem key={athlete.id} value={athlete.id}>
-                      {athlete.full_name || "Atleta"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Assegna ad Atleti ({selectedAthleteIds.length} selezionati)</Label>
+              <ScrollArea className="h-40 border rounded-md p-2">
+                <div className="space-y-2">
+                  {athletes.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">Nessun atleta disponibile</p>
+                  ) : (
+                    athletes.map((athlete) => (
+                      <label
+                        key={athlete.id}
+                        className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer transition-colors"
+                      >
+                        <Checkbox
+                          checked={selectedAthleteIds.includes(athlete.id)}
+                          onCheckedChange={() => toggleAthleteSelection(athlete.id)}
+                        />
+                        <span className="text-sm">{athlete.full_name || "Atleta"}</span>
+                      </label>
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
             </div>
             <div className="text-sm text-muted-foreground">
-              Verranno create <span className="font-semibold text-foreground">{totalExercises > 0 ? Object.values(program).reduce(
-                (acc, week) => acc + Object.values(week).filter(day => day.length > 0).length,
-                0
-              ) : 0}</span> sessioni di allenamento con status &quot;pending&quot;.
+              Verranno create <span className="font-semibold text-foreground">{
+                selectedAthleteIds.length > 0 && totalExercises > 0
+                  ? selectedAthleteIds.length * Object.values(program).reduce(
+                      (acc, week) => acc + Object.values(week).filter(day => day.length > 0).length,
+                      0
+                    )
+                  : 0
+              }</span> sessioni di allenamento per <span className="font-semibold text-foreground">{selectedAthleteIds.length}</span> atleti.
             </div>
           </div>
           <DialogFooter>
@@ -701,7 +730,7 @@ const ProgramBuilder = () => {
             </Button>
             <Button
               onClick={handleSave}
-              disabled={saveMutation.isPending || !saveAthleteId || !programName.trim()}
+              disabled={saveMutation.isPending || selectedAthleteIds.length === 0 || !programName.trim()}
               className="bg-gradient-to-br from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700"
             >
               {saveMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
