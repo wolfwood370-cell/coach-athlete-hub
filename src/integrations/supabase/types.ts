@@ -110,8 +110,11 @@ export type Database = {
           body_weight: number | null
           created_at: string
           date: string
+          digestion: number | null
+          energy: number | null
           has_pain: boolean | null
           id: string
+          mood: number | null
           notes: string | null
           score: number | null
           sleep_hours: number | null
@@ -124,8 +127,11 @@ export type Database = {
           body_weight?: number | null
           created_at?: string
           date?: string
+          digestion?: number | null
+          energy?: number | null
           has_pain?: boolean | null
           id?: string
+          mood?: number | null
           notes?: string | null
           score?: number | null
           sleep_hours?: number | null
@@ -138,8 +144,11 @@ export type Database = {
           body_weight?: number | null
           created_at?: string
           date?: string
+          digestion?: number | null
+          energy?: number | null
           has_pain?: boolean | null
           id?: string
+          mood?: number | null
           notes?: string | null
           score?: number | null
           sleep_hours?: number | null

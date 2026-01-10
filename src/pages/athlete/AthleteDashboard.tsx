@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { AthleteLayout } from "@/components/athlete/AthleteLayout";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,6 +33,8 @@ import {
   Check
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useReadiness, initialReadiness, ReadinessData } from "@/hooks/useReadiness";
+import { AcwrCard } from "@/components/athlete/AcwrCard";
 
 // Body parts for DOMS map
 const bodyParts = [
@@ -46,30 +48,6 @@ type SorenessLevel = 0 | 1 | 2 | 3;
 interface SorenessMap {
   [key: string]: SorenessLevel;
 }
-
-interface ReadinessData {
-  isCompleted: boolean;
-  score: number;
-  sleepHours: number;
-  sleepQuality: number;
-  energy: number;
-  stress: number;
-  mood: number;
-  digestion: number;
-  sorenessMap: SorenessMap;
-}
-
-const initialReadiness: ReadinessData = {
-  isCompleted: false,
-  score: 0,
-  sleepHours: 7,
-  sleepQuality: 7,
-  energy: 7,
-  stress: 3,
-  mood: 7,
-  digestion: 7,
-  sorenessMap: {},
-};
 
 const todayTasks = [
   { 
@@ -258,62 +236,31 @@ const BodyPartChip = ({
 
 export default function AthleteDashboard() {
   const navigate = useNavigate();
-  const [readiness, setReadiness] = useState<ReadinessData>(initialReadiness);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [tempReadiness, setTempReadiness] = useState<ReadinessData>(initialReadiness);
+  
+  const {
+    readiness,
+    tempReadiness,
+    setTempReadiness,
+    isLoading,
+    isSaving,
+    calculateScore,
+    saveReadiness,
+  } = useReadiness();
 
-  const calculateScore = useCallback((data: ReadinessData): number => {
-    // Sleep hours score (0-20 points) - optimal is 7-9 hours
-    let sleepHoursScore = 0;
-    if (data.sleepHours >= 7 && data.sleepHours <= 9) {
-      sleepHoursScore = 20;
-    } else if (data.sleepHours >= 6) {
-      sleepHoursScore = 15;
-    } else if (data.sleepHours >= 5) {
-      sleepHoursScore = 10;
-    } else {
-      sleepHoursScore = 5;
+  // Sync tempReadiness when drawer opens
+  useEffect(() => {
+    if (drawerOpen) {
+      setTempReadiness(readiness.isCompleted ? { ...readiness } : { ...initialReadiness });
     }
-    
-    // Sleep quality score (0-15 points)
-    const sleepQualityScore = (data.sleepQuality / 10) * 15;
-    
-    // Energy score (0-15 points)
-    const energyScore = (data.energy / 10) * 15;
-    
-    // Stress score (0-15 points) - lower is better
-    const stressScore = ((10 - data.stress) / 10) * 15;
-    
-    // Mood score (0-15 points)
-    const moodScore = (data.mood / 10) * 15;
-    
-    // Digestion score (0-10 points)
-    const digestionScore = (data.digestion / 10) * 10;
-    
-    // Soreness penalty (0-10 points deduction)
-    const sorenessMap = data.sorenessMap || {};
-    const sorenessValues = Object.values(sorenessMap) as number[];
-    const maxSoreness = sorenessValues.length > 0 ? Math.max(...sorenessValues) : 0;
-    const sorenessCount = sorenessValues.filter(v => v > 0).length;
-    const sorenessPenalty = Math.min(10, (maxSoreness * 2) + (sorenessCount * 0.5));
-    
-    const total = sleepHoursScore + sleepQualityScore + energyScore + stressScore + moodScore + digestionScore - sorenessPenalty;
-    
-    return Math.max(0, Math.min(100, Math.round(total)));
-  }, []);
+  }, [drawerOpen, readiness, setTempReadiness]);
 
   const handleOpenDrawer = () => {
-    setTempReadiness({ ...readiness });
     setDrawerOpen(true);
   };
 
-  const handleSubmitReadiness = () => {
-    const score = calculateScore(tempReadiness);
-    setReadiness({
-      ...tempReadiness,
-      isCompleted: true,
-      score,
-    });
+  const handleSubmitReadiness = async () => {
+    await saveReadiness(tempReadiness);
     setDrawerOpen(false);
   };
 
@@ -386,6 +333,7 @@ export default function AthleteDashboard() {
                 <Button 
                   onClick={handleOpenDrawer}
                   className="w-full h-12 text-sm font-semibold gradient-primary"
+                  disabled={isLoading}
                 >
                   <Zap className="h-4 w-4 mr-2" />
                   Inizia Giornata
@@ -524,6 +472,9 @@ export default function AthleteDashboard() {
 
         {/* ===== QUICK STATS ===== */}
         <div className="grid grid-cols-2 gap-3">
+          {/* ACWR Card */}
+          <AcwrCard />
+          
           <Card className="border-0">
             <CardContent className="p-3.5">
               <div className="flex items-center gap-2 mb-2">
@@ -534,7 +485,10 @@ export default function AthleteDashboard() {
               <p className="text-[10px] text-muted-foreground">/ 2,500 kcal</p>
             </CardContent>
           </Card>
-          
+        </div>
+
+        {/* Additional Stats Row */}
+        <div className="grid grid-cols-2 gap-3">
           <Card className="border-0">
             <CardContent className="p-3.5">
               <div className="flex items-center gap-2 mb-2">
@@ -543,6 +497,17 @@ export default function AthleteDashboard() {
               </div>
               <p className="text-xl font-bold tabular-nums">12</p>
               <p className="text-[10px] text-muted-foreground">giorni consecutivi</p>
+            </CardContent>
+          </Card>
+          
+          <Card className="border-0">
+            <CardContent className="p-3.5">
+              <div className="flex items-center gap-2 mb-2">
+                <Smile className="h-4 w-4 text-success" />
+                <span className="text-xs text-muted-foreground">Umore</span>
+              </div>
+              <p className="text-xl font-bold tabular-nums">{readiness.isCompleted ? readiness.mood : "—"}</p>
+              <p className="text-[10px] text-muted-foreground">/ 10</p>
             </CardContent>
           </Card>
         </div>
@@ -707,12 +672,13 @@ export default function AthleteDashboard() {
               <Button 
                 onClick={handleSubmitReadiness}
                 className="w-full h-12 font-semibold gradient-primary"
+                disabled={isSaving}
               >
                 <Check className="h-4 w-4 mr-2" />
-                Conferma Check-in
+                {isSaving ? "Salvataggio..." : "Conferma Check-in"}
               </Button>
               <DrawerClose asChild>
-                <Button variant="ghost" className="w-full text-violet-400 hover:text-violet-300 hover:bg-violet-900/20">
+                <Button variant="ghost" className="w-full text-primary hover:text-primary/80 hover:bg-primary/10">
                   Annulla
                 </Button>
               </DrawerClose>
