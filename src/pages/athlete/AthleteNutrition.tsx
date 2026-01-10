@@ -162,12 +162,12 @@ function WeightTrendChart({ data }: { data: { day: number; date: string; scale: 
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: 'hsl(224 71% 8%)',
-            border: 'none',
+            backgroundColor: 'hsl(var(--card))',
+            border: '1px solid hsl(var(--border))',
             borderRadius: '8px',
             fontSize: '12px',
           }}
-          labelStyle={{ color: 'hsl(var(--foreground) / 0.6)' }}
+          labelStyle={{ color: 'hsl(var(--muted-foreground))' }}
           formatter={(value: number, name: string) => [
             `${value.toFixed(1)} kg`,
             name === 'scale' ? 'Bilancia' : 'Trend'
@@ -183,10 +183,10 @@ function WeightTrendChart({ data }: { data: { day: number; date: string; scale: 
         <Line 
           type="monotone" 
           dataKey="trend" 
-          stroke="hsl(262 83% 58%)" 
+          stroke="hsl(var(--primary))" 
           strokeWidth={3}
           dot={false}
-          activeDot={{ r: 4, fill: 'hsl(262 83% 58%)' }}
+          activeDot={{ r: 4, fill: 'hsl(var(--primary))' }}
         />
       </ComposedChart>
     </ResponsiveContainer>
@@ -392,22 +392,22 @@ export default function AthleteNutrition() {
 
   return (
     <AthleteLayout title="Nutrition">
-      <div className="space-y-4 p-4 pb-24 animate-fade-in" style={{ backgroundColor: '#0f172a' }}>
+      <div className="space-y-4 p-4 pb-24 animate-fade-in">
         
         {/* ===== ENERGY BALANCE (Hero Widget) ===== */}
-        <Card className="border-0 bg-slate-800/50 overflow-hidden">
+        <Card className="border-0 bg-card/50">
           <CardContent className="p-5">
             {/* Main number */}
             <div className="text-center mb-5">
               <p className={cn(
                 "text-5xl font-bold tabular-nums tracking-tight",
-                isOver ? "text-slate-400" : "text-foreground"
+                isOver ? "text-muted-foreground" : "text-foreground"
               )}>
                 {Math.abs(remaining).toLocaleString()}
               </p>
               <p className={cn(
                 "text-sm font-medium mt-1",
-                isOver ? "text-slate-500" : "text-indigo-400"
+                isOver ? "text-muted-foreground" : "text-primary"
               )}>
                 kcal {isOver ? "in eccesso" : "rimanenti"}
               </p>
@@ -415,25 +415,25 @@ export default function AthleteNutrition() {
 
             {/* Progress Bar - Adherence Neutral */}
             <div className="space-y-2">
-              <div className="relative h-3 bg-slate-700/50 rounded-full overflow-hidden">
+              <div className="relative h-3 bg-muted rounded-full overflow-hidden">
                 <div 
                   className={cn(
                     "absolute inset-y-0 left-0 rounded-full transition-all duration-500",
                     consumedPercent <= 100 
-                      ? "bg-gradient-to-r from-indigo-600 to-violet-500" 
-                      : "bg-gradient-to-r from-violet-600 to-slate-500"
+                      ? "bg-gradient-to-r from-primary to-primary/70" 
+                      : "bg-gradient-to-r from-primary/70 to-muted-foreground"
                   )}
                   style={{ width: `${Math.min(consumedPercent, 100)}%` }}
                 />
                 {/* Overflow indicator */}
                 {consumedPercent > 100 && (
                   <div 
-                    className="absolute inset-y-0 right-0 bg-slate-500/80 rounded-r-full"
+                    className="absolute inset-y-0 right-0 bg-muted-foreground/50 rounded-r-full"
                     style={{ width: `${Math.min(consumedPercent - 100, 100)}%` }}
                   />
                 )}
               </div>
-              <div className="flex justify-between text-xs text-slate-500">
+              <div className="flex justify-between text-xs text-muted-foreground">
                 <span className="tabular-nums">{consumed.calories.toLocaleString()} consumate</span>
                 <span className="tabular-nums">{nutritionTargets.calories.toLocaleString()} obiettivo</span>
               </div>
@@ -442,7 +442,7 @@ export default function AthleteNutrition() {
         </Card>
 
         {/* ===== MACRO TARGETS (The Rings) ===== */}
-        <Card className="border-0 bg-slate-800/50">
+        <Card className="border-0 bg-card/50">
           <CardContent className="p-5">
             <div className="flex justify-around items-center">
               <MacroRing 
@@ -469,14 +469,14 @@ export default function AthleteNutrition() {
             </div>
             
             {/* Water Progress Bar */}
-            <div className="mt-5 pt-4 border-t border-slate-700/50">
+            <div className="mt-5 pt-4 border-t border-border/50">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-medium text-foreground/70">Acqua</span>
                 <span className="text-xs text-foreground/50">
                   {consumed.water || 0} / {nutritionTargets.water} ml
                 </span>
               </div>
-              <div className="relative h-2.5 bg-slate-700/50 rounded-full overflow-hidden">
+              <div className="relative h-2.5 bg-muted rounded-full overflow-hidden">
                 <div 
                   className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 bg-gradient-to-r from-sky-500 to-cyan-400"
                   style={{ width: `${Math.min(((consumed.water || 0) / nutritionTargets.water) * 100, 100)}%` }}
@@ -487,20 +487,20 @@ export default function AthleteNutrition() {
         </Card>
 
         {/* ===== WEIGHT TREND (Intelligence) ===== */}
-        <Card className="border-0 bg-slate-800/50">
+        <Card className="border-0 bg-card/50">
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Scale className="h-4 w-4 text-slate-500" />
+                <Scale className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm font-semibold text-foreground">Andamento Peso</span>
               </div>
               {currentTrend && (
                 <div className="flex items-center gap-1.5">
                   <span className="text-lg font-bold tabular-nums text-foreground">{currentTrend.toFixed(1)}</span>
-                  <span className="text-xs text-slate-500">kg</span>
+                  <span className="text-xs text-muted-foreground">kg</span>
                   <div className={cn(
                     "flex items-center gap-0.5 text-xs font-medium ml-1",
-                    weightChange < 0 ? "text-violet-400" : weightChange > 0 ? "text-slate-500" : "text-slate-500"
+                    weightChange < 0 ? "text-primary" : weightChange > 0 ? "text-muted-foreground" : "text-muted-foreground"
                   )}>
                     {weightChange < 0 ? (
                       <TrendingUp className="h-3 w-3 rotate-180" />
@@ -520,12 +520,12 @@ export default function AthleteNutrition() {
             {/* Legend */}
             <div className="flex justify-center gap-4 mt-2">
               <div className="flex items-center gap-1.5">
-                <div className="h-0.5 w-4 rounded bg-violet-500" />
-                <span className="text-[10px] text-slate-500">Trend</span>
+                <div className="h-0.5 w-4 rounded bg-primary" />
+                <span className="text-[10px] text-muted-foreground">Trend</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="h-2 w-2 rounded-full bg-foreground/25" />
-                <span className="text-[10px] text-slate-500">Bilancia</span>
+                <span className="text-[10px] text-muted-foreground">Bilancia</span>
               </div>
             </div>
           </CardContent>
@@ -545,7 +545,7 @@ export default function AthleteNutrition() {
             setFoodDbOpen(true);
             setShowSecondFab(false);
           }}
-          className="h-14 w-14 rounded-full shadow-xl bg-slate-700 hover:bg-slate-600"
+          className="h-14 w-14 rounded-full shadow-xl bg-secondary hover:bg-secondary/80"
           size="icon"
         >
           <Search className="h-6 w-6" />
@@ -562,7 +562,7 @@ export default function AthleteNutrition() {
             setShowSecondFab(true);
           }
         }}
-        className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-xl z-40 transition-all duration-200 bg-gradient-to-br from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700"
+        className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-xl z-40 transition-all duration-200 bg-primary hover:bg-primary/90"
         size="icon"
       >
         <Plus className="h-6 w-6" />
@@ -585,7 +585,7 @@ export default function AthleteNutrition() {
 
       {/* ===== QUICK ADD DRAWER ===== */}
       <Drawer open={quickAddOpen} onOpenChange={setQuickAddOpen}>
-        <DrawerContent className="athlete-theme max-h-[85vh]">
+        <DrawerContent className="max-h-[85vh]">
           <div className="mx-auto w-full max-w-md flex flex-col overflow-hidden">
             <DrawerHeader className="text-center pb-2 shrink-0">
               <DrawerTitle className="text-lg">Aggiunta Rapida</DrawerTitle>
@@ -594,7 +594,7 @@ export default function AthleteNutrition() {
             <div className="flex-1 px-4 overflow-y-auto space-y-4 pb-4">
               {/* Energy Field with Unit Selector */}
               <div className="space-y-2">
-                <Label className="text-xs text-foreground/60">Energia</Label>
+                <Label className="text-xs text-muted-foreground">Energia</Label>
                 <div className="flex gap-2">
                   <Input
                     type="number"
@@ -602,13 +602,13 @@ export default function AthleteNutrition() {
                     placeholder={calculatedKcal > 0 ? `${calculatedKcal} (auto)` : "0"}
                     value={formData.caloriesOverride}
                     onChange={(e) => handleFieldChange("caloriesOverride", e.target.value)}
-                    className="flex-1 bg-slate-800/60 border-slate-700 h-12 text-base"
+                    className="flex-1 bg-secondary/60 border-border h-12 text-base"
                   />
-                  <div className="flex items-center justify-center px-4 bg-slate-800/60 border border-slate-700 rounded-md text-sm text-foreground/60">
+                  <div className="flex items-center justify-center px-4 bg-secondary/60 border border-border rounded-md text-sm text-muted-foreground">
                     kcal
                   </div>
                 </div>
-                <p className="text-xs text-foreground/40">
+                <p className="text-xs text-muted-foreground/60">
                   Somma macro: {calculatedKcal} kcal
                 </p>
               </div>
@@ -616,7 +616,7 @@ export default function AthleteNutrition() {
               {/* Macro Row: Protein, Fat, Carbs */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-foreground/60">Proteine</Label>
+                  <Label className="text-xs text-muted-foreground">Proteine</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -624,13 +624,13 @@ export default function AthleteNutrition() {
                       placeholder="0"
                       value={formData.protein}
                       onChange={(e) => handleFieldChange("protein", e.target.value)}
-                      className="bg-slate-800/60 border-slate-700 h-11 text-base pr-8"
+                      className="bg-secondary/60 border-border h-11 text-base pr-8"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground/40">g</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60">g</span>
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-foreground/60">Grassi</Label>
+                  <Label className="text-xs text-muted-foreground">Grassi</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -638,13 +638,13 @@ export default function AthleteNutrition() {
                       placeholder="0"
                       value={formData.fat}
                       onChange={(e) => handleFieldChange("fat", e.target.value)}
-                      className="bg-slate-800/60 border-slate-700 h-11 text-base pr-8"
+                      className="bg-secondary/60 border-border h-11 text-base pr-8"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground/40">g</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60">g</span>
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-foreground/60">Carboidrati</Label>
+                  <Label className="text-xs text-muted-foreground">Carboidrati</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -652,9 +652,9 @@ export default function AthleteNutrition() {
                       placeholder="0"
                       value={formData.carbs}
                       onChange={(e) => handleFieldChange("carbs", e.target.value)}
-                      className="bg-slate-800/60 border-slate-700 h-11 text-base pr-8"
+                      className="bg-secondary/60 border-border h-11 text-base pr-8"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground/40">g</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60">g</span>
                   </div>
                 </div>
               </div>
@@ -662,7 +662,7 @@ export default function AthleteNutrition() {
               {/* Additional fields row: Fiber, Salt, Water */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-foreground/60">Fibre</Label>
+                  <Label className="text-xs text-muted-foreground">Fibre</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -670,13 +670,13 @@ export default function AthleteNutrition() {
                       placeholder="0"
                       value={formData.fiber}
                       onChange={(e) => handleFieldChange("fiber", e.target.value)}
-                      className="bg-slate-800/60 border-slate-700 h-11 text-base pr-8"
+                      className="bg-secondary/60 border-border h-11 text-base pr-8"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground/40">g</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60">g</span>
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-foreground/60">Sale</Label>
+                  <Label className="text-xs text-muted-foreground">Sale</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -684,13 +684,13 @@ export default function AthleteNutrition() {
                       placeholder="0"
                       value={formData.salt}
                       onChange={(e) => handleFieldChange("salt", e.target.value)}
-                      className="bg-slate-800/60 border-slate-700 h-11 text-base pr-8"
+                      className="bg-secondary/60 border-border h-11 text-base pr-8"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground/40">g</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60">g</span>
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-foreground/60">Acqua</Label>
+                  <Label className="text-xs text-muted-foreground">Acqua</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -698,25 +698,25 @@ export default function AthleteNutrition() {
                       placeholder="0"
                       value={formData.water}
                       onChange={(e) => handleFieldChange("water", e.target.value)}
-                      className="bg-slate-800/60 border-slate-700 h-11 text-base pr-8"
+                      className="bg-secondary/60 border-border h-11 text-base pr-8"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-foreground/40">ml</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60">ml</span>
                   </div>
                 </div>
               </div>
               
             </div>
 
-            <DrawerFooter className="pt-2 shrink-0 border-t border-slate-700/50">
+            <DrawerFooter className="pt-2 shrink-0 border-t border-border/50">
               <Button 
                 onClick={handleSubmit}
-                className="w-full h-12 font-semibold bg-gradient-to-br from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700"
+                className="w-full h-12 font-semibold bg-primary hover:bg-primary/90"
                 disabled={isSubmitting}
               >
                 Aggiungi
               </Button>
               <DrawerClose asChild>
-                <Button variant="ghost" className="w-full text-violet-400 hover:text-violet-300 hover:bg-violet-900/20 text-sm">
+                <Button variant="ghost" className="w-full text-primary hover:text-primary/80 hover:bg-primary/10 text-sm">
                   Annulla
                 </Button>
               </DrawerClose>
