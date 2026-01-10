@@ -379,7 +379,7 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className="athlete-theme h-[90vh]">
+      <DrawerContent className="h-[90vh]">
         <div className="mx-auto w-full max-w-md flex flex-col overflow-hidden h-full">
           
           {/* SEARCH VIEW */}
@@ -397,7 +397,7 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
                     placeholder="Cerca cibo (es. Riso, Petto di pollo...)"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 pr-10 bg-slate-800/60 border-slate-700 h-12"
+                    className="pl-10 pr-10 bg-secondary/60 border-border h-12"
                     autoFocus
                   />
                   {isSearching && (
