@@ -13,6 +13,7 @@ import {
   DrawerTitle,
 } from "@/components/ui/drawer";
 import { 
+  Plus,
   Zap,
   Scale,
   TrendingUp,
@@ -540,10 +541,10 @@ export default function AthleteNutrition() {
             setFoodDbOpen(true);
             setShowSecondFab(false);
           }}
-          className="h-14 w-14 rounded-full shadow-xl bg-card border border-border hover:bg-accent"
+          className="h-14 w-14 rounded-full shadow-xl bg-emerald-400 hover:bg-emerald-500"
           size="icon"
         >
-          <Search className="h-6 w-6 text-primary" />
+          <Search className="h-6 w-6 text-violet-700" />
         </Button>
       </div>
       
@@ -560,7 +561,11 @@ export default function AthleteNutrition() {
         className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-xl z-40 transition-all duration-200 bg-primary hover:bg-primary/90"
         size="icon"
       >
-        <Zap className="h-6 w-6" />
+        {showSecondFab ? (
+          <Zap className="h-6 w-6 transition-transform duration-200" />
+        ) : (
+          <Plus className="h-6 w-6 transition-transform duration-200" />
+        )}
       </Button>
       
       {/* Backdrop when FAB menu is open */}
