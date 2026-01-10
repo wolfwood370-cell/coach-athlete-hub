@@ -71,32 +71,34 @@ function CoachHeader({ title, subtitle }: { title?: string; subtitle?: string })
 
 export function CoachLayout({ children, title, subtitle }: CoachLayoutProps) {
   return (
-    <SidebarProvider defaultOpen={true}>
-      <div className="min-h-screen flex w-full bg-background">
-        <CoachSidebar />
-        
-        <div className="flex-1 flex flex-col min-w-0">
-          <CoachHeader title={title} subtitle={subtitle} />
+    <div className="theme-coach">
+      <SidebarProvider defaultOpen={true}>
+        <div className="min-h-screen flex w-full bg-slate-50 dark:bg-slate-950">
+          <CoachSidebar />
           
-          {/* Main Content */}
-          <main className="flex-1 overflow-auto p-4 lg:p-6">
-            {/* Page Header - Desktop */}
-            {(title || subtitle) && (
-              <div className="mb-6 hidden lg:block">
-                {title && (
-                  <h1 className="text-xl font-semibold text-foreground tracking-tight">
-                    {title}
-                  </h1>
-                )}
-                {subtitle && (
-                  <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
-                )}
-              </div>
-            )}
-            {children}
-          </main>
+          <div className="flex-1 flex flex-col min-w-0">
+            <CoachHeader title={title} subtitle={subtitle} />
+            
+            {/* Main Content */}
+            <main className="flex-1 overflow-auto p-4 lg:p-6 bg-slate-50 dark:bg-slate-950">
+              {/* Page Header - Desktop */}
+              {(title || subtitle) && (
+                <div className="mb-6 hidden lg:block">
+                  {title && (
+                    <h1 className="text-xl font-semibold text-foreground tracking-tight">
+                      {title}
+                    </h1>
+                  )}
+                  {subtitle && (
+                    <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
+                  )}
+                </div>
+              )}
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
-    </SidebarProvider>
+      </SidebarProvider>
+    </div>
   );
 }

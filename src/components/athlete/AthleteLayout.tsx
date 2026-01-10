@@ -11,13 +11,13 @@ interface AthleteLayoutProps {
 
 export function AthleteLayout({ children, title }: AthleteLayoutProps) {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="theme-athlete min-h-screen bg-white dark:bg-black text-foreground">
       {/* Status bar safe area */}
       <div className="safe-top" />
       
       {/* Header */}
       {title && (
-        <header className="sticky top-0 z-40 glass-adaptive px-4 py-3 border-b border-border/30">
+        <header className="sticky top-0 z-40 bg-white/95 dark:bg-black/95 backdrop-blur-md px-4 py-3 border-b border-border/20">
           <div className="flex items-center justify-between">
             <div className="w-9" /> {/* Spacer for centering */}
             <h1 className="text-lg font-semibold text-center flex-1">{title}</h1>
@@ -36,7 +36,7 @@ export function AthleteLayout({ children, title }: AthleteLayoutProps) {
       )}
       
       {/* Main content with bottom nav spacing */}
-      <main className="pb-24 safe-bottom">
+      <main className="pb-24 safe-bottom bg-white dark:bg-black">
         {children}
       </main>
       

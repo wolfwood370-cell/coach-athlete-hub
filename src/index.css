@@ -198,6 +198,90 @@
     background: hsl(224 71% 4% / 0.8);
   }
 
+  /* ========================================
+     SCOPED THEME: COACH (Indigo/Slate)
+     Desktop Admin - Professional Dashboard
+     ======================================== */
+  .theme-coach {
+    --primary: 226 70% 55%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 226 50% 92%;
+    --accent-foreground: 226 70% 30%;
+  }
+
+  .theme-coach:not(.dark) {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --border: 214 32% 91%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+  }
+
+  .dark.theme-coach,
+  .dark .theme-coach {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 98%;
+    --muted: 217 33% 12%;
+    --muted-foreground: 215 20% 65%;
+    --border: 217 33% 17%;
+    --secondary: 217 33% 12%;
+    --secondary-foreground: 210 40% 98%;
+  }
+
+  /* ========================================
+     SCOPED THEME: ATHLETE (Violet/Zinc)
+     Mobile Action - High Contrast OLED
+     ======================================== */
+  .theme-athlete {
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
+    --accent: 262 60% 90%;
+    --accent-foreground: 262 83% 35%;
+  }
+
+  .theme-athlete:not(.dark) {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 4%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+    --border: 240 6% 90%;
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 6% 10%;
+  }
+
+  .dark.theme-athlete,
+  .dark .theme-athlete {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 5%;
+    --card-foreground: 0 0% 98%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 64%;
+    --border: 0 0% 15%;
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 98%;
+  }
+
+  /* Athlete Bottom Nav - Clean, no heavy borders */
+  .theme-athlete .glass-athlete-nav {
+    background: hsl(0 0% 100% / 0.95);
+    border-top: 1px solid hsl(0 0% 90%);
+  }
+
+  .dark.theme-athlete .glass-athlete-nav,
+  .dark .theme-athlete .glass-athlete-nav {
+    background: hsl(0 0% 0% / 0.95);
+    border-top: 1px solid hsl(0 0% 12%);
+  }
+
   /* Subtle hover lift */
   .hover-lift {
     @apply transition-all duration-200 ease-out;
