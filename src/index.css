@@ -177,11 +177,25 @@
     background-clip: text;
   }
 
-  /* Glass effect for athlete app */
+  /* Glass effect - adapts to theme */
   .glass {
     background: hsl(224 71% 4% / 0.8);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
+  }
+
+  .glass-adaptive {
+    background: hsl(var(--background) / 0.8);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+
+  :root .glass-adaptive {
+    background: hsl(0 0% 100% / 0.85);
+  }
+
+  .dark .glass-adaptive {
+    background: hsl(224 71% 4% / 0.8);
   }
 
   /* Subtle hover lift */
