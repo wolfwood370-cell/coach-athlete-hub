@@ -27,7 +27,11 @@ import {
   User,
   Mail,
   Activity,
-  Frown
+  Frown,
+  Smile,
+  Utensils,
+  Zap,
+  Bandage
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -82,6 +86,14 @@ const getIssueConfig = (issue: AthleteIssue) => {
       return { icon: Frown, colorClass: "bg-destructive/10 text-destructive" };
     case "high_stress":
       return { icon: AlertTriangle, colorClass: "bg-warning/10 text-warning" };
+    case "low_mood":
+      return { icon: Smile, colorClass: "bg-warning/10 text-warning" };
+    case "digestion_issues":
+      return { icon: Utensils, colorClass: "bg-warning/10 text-warning" };
+    case "overreaching_risk":
+      return { icon: Zap, colorClass: "bg-destructive/10 text-destructive" };
+    case "active_injury":
+      return { icon: Bandage, colorClass: "bg-destructive/10 text-destructive" };
     default:
       return { icon: AlertTriangle, colorClass: "bg-muted text-muted-foreground" };
   }

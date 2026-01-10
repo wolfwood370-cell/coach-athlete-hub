@@ -19,7 +19,17 @@ interface DailyReadiness {
   stress_level: number | null;
   has_pain: boolean | null;
   soreness_map: Record<string, unknown> | null;
+  mood: number | null;
+  digestion: number | null;
   created_at: string;
+}
+
+interface Injury {
+  id: string;
+  athlete_id: string;
+  body_zone: string;
+  status: string;
+  injury_date: string;
 }
 
 interface Workout {
@@ -43,7 +53,7 @@ interface WorkoutLog {
 }
 
 export interface AthleteIssue {
-  type: "no_checkin" | "low_readiness" | "pain_reported" | "high_stress";
+  type: "no_checkin" | "low_readiness" | "pain_reported" | "high_stress" | "low_mood" | "digestion_issues" | "overreaching_risk" | "active_injury";
   label: string;
   severity: "critical" | "warning" | "info";
   details?: string;
@@ -141,7 +151,10 @@ export function useCoachDashboardData() {
     enabled: !!user && profile?.role === "coach",
   });
 
-  // Fetch recent workout logs
+  // Fetch recent workout logs (last 28 days for ACWR calculation)
+  const twentyEightDaysAgo = new Date();
+  twentyEightDaysAgo.setDate(twentyEightDaysAgo.getDate() - 28);
+
   const logsQuery = useQuery({
     queryKey: ["coach-workout-logs", user?.id, athletesQuery.data?.map(a => a.id).join(",")],
     queryFn: async () => {
@@ -153,14 +166,68 @@ export function useCoachDashboardData() {
         .from("workout_logs")
         .select("*")
         .in("athlete_id", athleteIds)
-        .order("completed_at", { ascending: false })
-        .limit(50);
+        .not("completed_at", "is", null)
+        .gte("completed_at", twentyEightDaysAgo.toISOString())
+        .order("completed_at", { ascending: false });
       
       if (error) throw error;
       return data as WorkoutLog[];
     },
     enabled: !!user && profile?.role === "coach" && !!athletesQuery.data?.length,
   });
+
+  // Fetch active injuries (status != 'healed')
+  const injuriesQuery = useQuery({
+    queryKey: ["coach-injuries", user?.id, athletesQuery.data?.map(a => a.id).join(",")],
+    queryFn: async () => {
+      if (!user || !athletesQuery.data?.length) return [];
+      
+      const athleteIds = athletesQuery.data.map(a => a.id);
+      
+      const { data, error } = await supabase
+        .from("injuries")
+        .select("*")
+        .in("athlete_id", athleteIds)
+        .neq("status", "healed");
+      
+      if (error) throw error;
+      return data as Injury[];
+    },
+    enabled: !!user && profile?.role === "coach" && !!athletesQuery.data?.length,
+  });
+
+  // Helper function to calculate ACWR for an athlete
+  const calculateAthleteAcwr = (athleteId: string): number | null => {
+    const athleteLogs = (logsQuery.data || []).filter(
+      log => log.athlete_id === athleteId && 
+             log.rpe_global !== null && 
+             log.duration_seconds !== null
+    );
+    
+    if (athleteLogs.length === 0) return null;
+    
+    const now = new Date();
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(now.getDate() - 7);
+    
+    const loadsWithDates = athleteLogs.map(log => ({
+      date: new Date(log.completed_at!),
+      load: log.rpe_global! * (log.duration_seconds! / 60),
+    }));
+    
+    // Acute: average daily load over last 7 days
+    const acuteLoads = loadsWithDates.filter(l => l.date >= sevenDaysAgo);
+    const acuteLoad = acuteLoads.length > 0 
+      ? acuteLoads.reduce((sum, l) => sum + l.load, 0) / 7
+      : 0;
+    
+    // Chronic: average daily load over last 28 days
+    const chronicLoad = loadsWithDates.reduce((sum, l) => sum + l.load, 0) / 28;
+    
+    if (chronicLoad === 0) return null;
+    
+    return acuteLoad / chronicLoad;
+  };
 
   // Compute problematic athletes with triage logic
   const problematicAthletes: ProblematicAthlete[] = (athletesQuery.data || []).map(athlete => {
@@ -224,6 +291,48 @@ export function useCoachDashboardData() {
           details: `Livello: ${relevantCheckin.stress_level}/10`,
         });
       }
+
+      // 5. Low Mood: mood <= 4
+      if (relevantCheckin.mood !== null && relevantCheckin.mood <= 4) {
+        issues.push({
+          type: "low_mood",
+          label: "Low Mood",
+          severity: "warning",
+          details: `Umore: ${relevantCheckin.mood}/10`,
+        });
+      }
+
+      // 6. Digestion Issues: digestion <= 4
+      if (relevantCheckin.digestion !== null && relevantCheckin.digestion <= 4) {
+        issues.push({
+          type: "digestion_issues",
+          label: "Digestion Issues",
+          severity: "warning",
+          details: `Digestione: ${relevantCheckin.digestion}/10`,
+        });
+      }
+    }
+
+    // 7. Overreaching Risk: ACWR > 1.5
+    const athleteAcwr = calculateAthleteAcwr(athlete.id);
+    if (athleteAcwr !== null && athleteAcwr > 1.5) {
+      issues.push({
+        type: "overreaching_risk",
+        label: "Overreaching Risk",
+        severity: "critical",
+        details: `ACWR: ${athleteAcwr.toFixed(2)}`,
+      });
+    }
+
+    // 8. Active Injury: has open injury record
+    const athleteInjuries = (injuriesQuery.data || []).filter(i => i.athlete_id === athlete.id);
+    if (athleteInjuries.length > 0) {
+      issues.push({
+        type: "active_injury",
+        label: "Infortunio Attivo",
+        severity: "critical",
+        details: athleteInjuries.map(i => i.body_zone).join(", "),
+      });
     }
     
     // Only include athletes with at least one issue
@@ -332,8 +441,8 @@ export function useCoachDashboardData() {
       churnRisk,
     },
     activityFeed,
-    isLoading: athletesQuery.isLoading || readinessQuery.isLoading,
-    error: athletesQuery.error || readinessQuery.error,
+    isLoading: athletesQuery.isLoading || readinessQuery.isLoading || logsQuery.isLoading || injuriesQuery.isLoading,
+    error: athletesQuery.error || readinessQuery.error || logsQuery.error || injuriesQuery.error,
   };
 }
 
