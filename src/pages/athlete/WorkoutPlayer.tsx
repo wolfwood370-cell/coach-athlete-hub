@@ -182,9 +182,15 @@ export default function WorkoutPlayer() {
   
   // Session recap dialog state
   const [showRecapDialog, setShowRecapDialog] = useState(false);
+  const [recapDurationHours, setRecapDurationHours] = useState(0);
   const [recapDurationMinutes, setRecapDurationMinutes] = useState(0);
-  const [recapDurationSeconds, setRecapDurationSeconds] = useState(0);
   const [sessionRpe, setSessionRpe] = useState(5);
+
+  // Helper to check if a string is a valid UUID
+  const isValidUUID = (str: string): boolean => {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return uuidRegex.test(str);
+  };
 
   // Workout elapsed timer
   useEffect(() => {
@@ -295,16 +301,32 @@ export default function WorkoutPlayer() {
 
   const handleFinishWorkout = () => {
     setIsWorkoutActive(false);
-    // Convert elapsed time to minutes and seconds for the recap form
-    const mins = Math.floor(elapsedSeconds / 60);
-    const secs = elapsedSeconds % 60;
-    setRecapDurationMinutes(mins);
-    setRecapDurationSeconds(secs);
+    // Convert elapsed time to hours and minutes for the recap form
+    const hours = Math.floor(elapsedSeconds / 3600);
+    const minutes = Math.floor((elapsedSeconds % 3600) / 60);
+    setRecapDurationHours(hours);
+    setRecapDurationMinutes(minutes);
     setShowRecapDialog(true);
   };
 
   const handleSaveWorkoutLog = () => {
-    const totalSeconds = (recapDurationMinutes * 60) + recapDurationSeconds;
+    // Calculate total minutes and session load
+    const totalMinutes = (recapDurationHours * 60) + recapDurationMinutes;
+    const totalSeconds = totalMinutes * 60;
+    const sessionLoad = totalMinutes * sessionRpe;
+
+    // Check if workout ID is a valid UUID
+    if (!id || !isValidUUID(id)) {
+      // Mock mode - simulate success without saving to database
+      toast({
+        title: "Workout Saved!",
+        description: `Session Load: ${sessionLoad} AU (Mock Mode)`,
+      });
+      navigate("/athlete");
+      return;
+    }
+
+    // Real save to database
     saveWorkoutMutation.mutate({
       durationSeconds: totalSeconds,
       rpe: sessionRpe,
@@ -579,12 +601,12 @@ export default function WorkoutPlayer() {
                     <Input
                       type="number"
                       min="0"
-                      max="999"
-                      value={recapDurationMinutes}
-                      onChange={(e) => setRecapDurationMinutes(Math.max(0, parseInt(e.target.value) || 0))}
-                      className="text-center text-lg tabular-nums pr-12"
+                      max="23"
+                      value={recapDurationHours}
+                      onChange={(e) => setRecapDurationHours(Math.min(23, Math.max(0, parseInt(e.target.value) || 0)))}
+                      className="text-center text-lg tabular-nums pr-10"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">min</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">ore</span>
                   </div>
                 </div>
                 <span className="text-lg font-bold">:</span>
@@ -594,11 +616,11 @@ export default function WorkoutPlayer() {
                       type="number"
                       min="0"
                       max="59"
-                      value={recapDurationSeconds}
-                      onChange={(e) => setRecapDurationSeconds(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
-                      className="text-center text-lg tabular-nums pr-10"
+                      value={recapDurationMinutes}
+                      onChange={(e) => setRecapDurationMinutes(Math.min(59, Math.max(0, parseInt(e.target.value) || 0)))}
+                      className="text-center text-lg tabular-nums pr-12"
                     />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">sec</span>
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">min</span>
                   </div>
                 </div>
               </div>
@@ -669,11 +691,11 @@ export default function WorkoutPlayer() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Session Load</span>
                 <span className="text-xl font-bold tabular-nums">
-                  {Math.round((recapDurationMinutes + recapDurationSeconds / 60) * sessionRpe)} AU
+                  {((recapDurationHours * 60) + recapDurationMinutes) * sessionRpe} AU
                 </span>
               </div>
               <p className="text-[10px] text-muted-foreground mt-1">
-                Durata × RPE = Arbitrary Units
+                (Ore × 60 + Minuti) × RPE = Arbitrary Units
               </p>
             </div>
           </div>
