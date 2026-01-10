@@ -54,7 +54,7 @@ const calculateEMA = (data: number[], smoothing: number = 0.2): number[] => {
   return ema;
 };
 
-// Macro Ring Component with center text
+// Macro Ring Component with center text and soft alert for excess
 function MacroRing({ 
   label, 
   consumed, 
@@ -69,12 +69,20 @@ function MacroRing({
   bgColor: string;
 }) {
   const percentage = Math.min((consumed / target) * 100, 100);
-  const remaining = Math.max(target - consumed, 0);
+  const delta = target - consumed;
+  const isOver = delta < 0;
   const radius = 36;
   const strokeWidth = 6;
   const normalizedRadius = radius - strokeWidth / 2;
   const circumference = normalizedRadius * 2 * Math.PI;
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
+  
+  // Amber color for excess
+  const amberColor = "hsl(38 92% 50%)";
+  const amberBgColor = "hsl(38 92% 50% / 0.2)";
+  
+  const activeColor = isOver ? amberColor : color;
+  const activeBgColor = isOver ? amberBgColor : bgColor;
   
   return (
     <div className="flex flex-col items-center">
@@ -86,7 +94,7 @@ function MacroRing({
         >
           {/* Background ring */}
           <circle
-            stroke={bgColor}
+            stroke={activeBgColor}
             fill="transparent"
             strokeWidth={strokeWidth}
             r={normalizedRadius}
@@ -95,12 +103,12 @@ function MacroRing({
           />
           {/* Progress ring */}
           <circle
-            stroke={color}
+            stroke={activeColor}
             fill="transparent"
             strokeWidth={strokeWidth}
             strokeDasharray={`${circumference} ${circumference}`}
             style={{ 
-              strokeDashoffset,
+              strokeDashoffset: isOver ? 0 : strokeDashoffset,
               transition: "stroke-dashoffset 0.5s ease-out"
             }}
             strokeLinecap="round"
@@ -111,8 +119,18 @@ function MacroRing({
         </svg>
         {/* Center content */}
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-sm font-bold text-foreground tabular-nums">{remaining}g</span>
-          <span className="text-[9px] text-foreground/60">rimasti</span>
+          <span className={cn(
+            "text-sm font-bold tabular-nums",
+            isOver ? "text-amber-600 dark:text-amber-400" : "text-foreground"
+          )}>
+            {Math.abs(delta)}g
+          </span>
+          <span className={cn(
+            "text-[9px]",
+            isOver ? "text-amber-600 dark:text-amber-400" : "text-foreground/60"
+          )}>
+            {isOver ? "in eccesso" : "rimasti"}
+          </span>
         </div>
       </div>
       <p className="text-xs font-medium mt-2 text-foreground/80">{label}</p>
@@ -402,29 +420,34 @@ export default function AthleteNutrition() {
             <div className="text-center mb-5">
               <p className={cn(
                 "text-5xl font-bold tabular-nums tracking-tight",
-                isOver ? "text-muted-foreground" : "text-foreground"
+                isOver ? "text-amber-600 dark:text-amber-400" : "text-foreground"
               )}>
                 {Math.abs(remaining).toLocaleString()}
               </p>
               <p className={cn(
                 "text-sm font-medium mt-1",
-                isOver ? "text-muted-foreground" : "text-primary"
+                isOver ? "text-amber-600 dark:text-amber-400" : "text-primary"
               )}>
                 kcal {isOver ? "in eccesso" : "rimanenti"}
               </p>
             </div>
 
-            {/* Progress Bar - Adherence Neutral */}
+            {/* Progress Bar - Soft Alert with Amber for excess */}
             <div className="space-y-2">
               <div className="relative h-3 bg-muted rounded-full overflow-hidden">
                 <div 
-                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 bg-gradient-to-r from-primary to-primary/70"
+                  className={cn(
+                    "absolute inset-y-0 left-0 rounded-full transition-all duration-500",
+                    isOver 
+                      ? "bg-gradient-to-r from-amber-500 to-amber-400" 
+                      : "bg-gradient-to-r from-primary to-primary/70"
+                  )}
                   style={{ width: `${Math.min(consumedPercent, 100)}%` }}
                 />
-                {/* Overflow indicator - neutral violet/purple, not red */}
+                {/* Overflow indicator - amber for excess */}
                 {consumedPercent > 100 && (
                   <div 
-                    className="absolute inset-y-0 right-0 bg-primary/40 rounded-r-full"
+                    className="absolute inset-y-0 right-0 bg-amber-400/50 rounded-r-full"
                     style={{ width: `${Math.min(consumedPercent - 100, 100)}%` }}
                   />
                 )}
@@ -464,12 +487,19 @@ export default function AthleteNutrition() {
               />
             </div>
             
-            {/* Water Progress Bar */}
+            {/* Water Progress Bar - Always positive, no amber alerts */}
             <div className="mt-5 pt-4 border-t border-border/50">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-medium text-foreground/70">Acqua</span>
-                <span className="text-xs text-foreground/50">
-                  {consumed.water || 0} / {nutritionTargets.water} ml
+                <span className={cn(
+                  "text-xs",
+                  (consumed.water || 0) >= nutritionTargets.water 
+                    ? "text-cyan-600 dark:text-cyan-400 font-medium" 
+                    : "text-foreground/50"
+                )}>
+                  {(consumed.water || 0) >= nutritionTargets.water 
+                    ? "✓ Obiettivo raggiunto!" 
+                    : `${consumed.water || 0} / ${nutritionTargets.water} ml`}
                 </span>
               </div>
               <div className="relative h-2.5 bg-muted rounded-full overflow-hidden">

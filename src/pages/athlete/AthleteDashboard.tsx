@@ -7,6 +7,8 @@ import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
 import {
   Drawer,
   DrawerClose,

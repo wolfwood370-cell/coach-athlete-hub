@@ -9,6 +9,8 @@ import { useCoachDashboardData, AthleteIssue } from "@/hooks/useCoachData";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
 import { 
   Users, 
   TrendingUp, 

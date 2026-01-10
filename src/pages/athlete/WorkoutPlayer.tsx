@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
 import { 
   Collapsible, 
   CollapsibleContent, 
