@@ -417,18 +417,13 @@ export default function AthleteNutrition() {
             <div className="space-y-2">
               <div className="relative h-3 bg-muted rounded-full overflow-hidden">
                 <div 
-                  className={cn(
-                    "absolute inset-y-0 left-0 rounded-full transition-all duration-500",
-                    consumedPercent <= 100 
-                      ? "bg-gradient-to-r from-primary to-primary/70" 
-                      : "bg-gradient-to-r from-primary/70 to-muted-foreground"
-                  )}
+                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 bg-gradient-to-r from-primary to-primary/70"
                   style={{ width: `${Math.min(consumedPercent, 100)}%` }}
                 />
-                {/* Overflow indicator */}
+                {/* Overflow indicator - neutral violet/purple, not red */}
                 {consumedPercent > 100 && (
                   <div 
-                    className="absolute inset-y-0 right-0 bg-muted-foreground/50 rounded-r-full"
+                    className="absolute inset-y-0 right-0 bg-primary/40 rounded-r-full"
                     style={{ width: `${Math.min(consumedPercent - 100, 100)}%` }}
                   />
                 )}

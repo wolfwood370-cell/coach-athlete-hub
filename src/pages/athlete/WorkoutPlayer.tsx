@@ -584,7 +584,7 @@ export default function WorkoutPlayer() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Trophy className="h-5 w-5 text-primary" />
-              Workout Complete!
+              Allenamento Completato!
             </DialogTitle>
             <DialogDescription>
               Completa il recap della sessione per salvare i dati.
@@ -690,15 +690,15 @@ export default function WorkoutPlayer() {
             <div className="p-4 rounded-lg bg-secondary/50 border border-border/50">
               <div className="flex items-center justify-between">
                 <div className="flex flex-col">
-                  <span className="text-sm text-muted-foreground">Carico Interno</span>
-                  <span className="text-[10px] text-muted-foreground/70">(Session Load)</span>
+                  <span className="text-sm text-muted-foreground">Carico Sessione (sRPE)</span>
+                  <span className="text-[10px] text-muted-foreground/70">Unità Arbitrarie (UA)</span>
                 </div>
                 <span className="text-xl font-bold tabular-nums">
                   {((recapDurationHours * 60) + recapDurationMinutes) * sessionRpe} UA
                 </span>
               </div>
               <p className="text-[10px] text-muted-foreground mt-1">
-                (Ore × 60 + Minuti) × RPE = Unità Arbitrarie
+                (Ore × 60 + Minuti) × RPE = UA
               </p>
             </div>
           </div>
