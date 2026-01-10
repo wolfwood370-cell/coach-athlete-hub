@@ -336,7 +336,7 @@ export default function AthleteDashboard() {
                   disabled={isLoading}
                 >
                   <Zap className="h-4 w-4 mr-2" />
-                  Inizia Giornata
+                  Biofeedback
                 </Button>
               </div>
             ) : (
@@ -515,7 +515,7 @@ export default function AthleteDashboard() {
 
       {/* ===== READINESS DRAWER (High-Fidelity Bio-Gate) ===== */}
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <DrawerContent className="athlete-theme max-h-[90vh]">
+        <DrawerContent className="theme-athlete max-h-[90vh] bg-background">
           <div className="mx-auto w-full max-w-md overflow-y-auto">
             <DrawerHeader className="text-center pb-2">
               <DrawerTitle className="text-lg">Daily Check-in</DrawerTitle>
