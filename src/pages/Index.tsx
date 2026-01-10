@@ -1,6 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Zap, Users, Smartphone, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Zap, Users, Smartphone, ArrowRight, CheckCircle2, Settings } from "lucide-react";
+import { SunThemeToggle } from "@/components/SunThemeToggle";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const features = [
   "Dashboard coach con analytics avanzate",
@@ -23,6 +29,19 @@ export default function Index() {
             <span className="text-lg font-bold">FitCoach</span>
           </div>
           <div className="flex items-center gap-3">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-9 w-9">
+                  <Settings className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-80">
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm">Impostazioni Tema</h4>
+                  <SunThemeToggle />
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button variant="ghost" asChild>
               <Link to="/coach">Coach Login</Link>
             </Button>
