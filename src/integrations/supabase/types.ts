@@ -166,6 +166,102 @@ export type Database = {
           },
         ]
       }
+      fms_tests: {
+        Row: {
+          active_straight_leg_l: number | null
+          active_straight_leg_r: number | null
+          athlete_id: string
+          created_at: string
+          deep_squat: number | null
+          hurdle_step_l: number | null
+          hurdle_step_r: number | null
+          id: string
+          inline_lunge_l: number | null
+          inline_lunge_r: number | null
+          notes: string | null
+          rotary_stability_l: number | null
+          rotary_stability_r: number | null
+          shoulder_mobility_l: number | null
+          shoulder_mobility_r: number | null
+          test_date: string
+          trunk_stability: number | null
+        }
+        Insert: {
+          active_straight_leg_l?: number | null
+          active_straight_leg_r?: number | null
+          athlete_id: string
+          created_at?: string
+          deep_squat?: number | null
+          hurdle_step_l?: number | null
+          hurdle_step_r?: number | null
+          id?: string
+          inline_lunge_l?: number | null
+          inline_lunge_r?: number | null
+          notes?: string | null
+          rotary_stability_l?: number | null
+          rotary_stability_r?: number | null
+          shoulder_mobility_l?: number | null
+          shoulder_mobility_r?: number | null
+          test_date?: string
+          trunk_stability?: number | null
+        }
+        Update: {
+          active_straight_leg_l?: number | null
+          active_straight_leg_r?: number | null
+          athlete_id?: string
+          created_at?: string
+          deep_squat?: number | null
+          hurdle_step_l?: number | null
+          hurdle_step_r?: number | null
+          id?: string
+          inline_lunge_l?: number | null
+          inline_lunge_r?: number | null
+          notes?: string | null
+          rotary_stability_l?: number | null
+          rotary_stability_r?: number | null
+          shoulder_mobility_l?: number | null
+          shoulder_mobility_r?: number | null
+          test_date?: string
+          trunk_stability?: number | null
+        }
+        Relationships: []
+      }
+      injuries: {
+        Row: {
+          athlete_id: string
+          body_zone: string
+          created_at: string
+          description: string | null
+          id: string
+          injury_date: string
+          notes: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          body_zone: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          injury_date?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          body_zone?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          injury_date?: string
+          notes?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       nutrition_logs: {
         Row: {
           athlete_id: string

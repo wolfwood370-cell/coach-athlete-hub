@@ -11,6 +11,7 @@ import CoachDashboard from "./pages/coach/CoachDashboard";
 import ProgramBuilder from "./pages/coach/ProgramBuilder";
 import AthleteDashboard from "./pages/athlete/AthleteDashboard";
 import AthleteNutrition from "./pages/athlete/AthleteNutrition";
+import AthleteHealth from "./pages/athlete/AthleteHealth";
 import WorkoutPlayer from "./pages/athlete/WorkoutPlayer";
 import NotFound from "./pages/NotFound";
 
@@ -42,6 +43,7 @@ const App = () => (
             <Route path="/athlete/workout" element={<AthleteDashboard />} />
             <Route path="/athlete/workout/:id" element={<WorkoutPlayer />} />
             <Route path="/athlete/nutrition" element={<AthleteNutrition />} />
+            <Route path="/athlete/health" element={<AthleteHealth />} />
             <Route path="/athlete/profile" element={<AthleteDashboard />} />
             
             <Route path="*" element={<NotFound />} />
