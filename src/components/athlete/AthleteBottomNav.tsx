@@ -12,8 +12,8 @@ const navItems = [
 export function AthleteBottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50">
-      {/* Frosted glass effect - adapts to theme */}
-      <div className="absolute inset-0 glass-adaptive border-t border-border/20" />
+      {/* Clean nav - White in light, Black in dark (OLED friendly) */}
+      <div className="absolute inset-0 bg-white/95 dark:bg-black/95 backdrop-blur-md border-t border-zinc-200/50 dark:border-zinc-800/50" />
       
       <div className="relative flex items-center justify-around h-16 max-w-md mx-auto safe-bottom">
         {navItems.map((item) => (
