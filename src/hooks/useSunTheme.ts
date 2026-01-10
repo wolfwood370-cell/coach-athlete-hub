@@ -7,33 +7,19 @@ interface SunTimes {
 }
 
 interface UseSunThemeReturn {
-  isEnabled: boolean;
-  setIsEnabled: (enabled: boolean) => void;
   currentTheme: 'light' | 'dark';
   sunTimes: SunTimes | null;
   locationStatus: 'pending' | 'granted' | 'denied' | 'unavailable';
 }
 
-const STORAGE_KEY = 'sun-theme-enabled';
 const FALLBACK_SUNRISE_HOUR = 6;
 const FALLBACK_SUNSET_HOUR = 19;
 const CHECK_INTERVAL_MS = 15 * 60 * 1000; // 15 minutes
 
 export function useSunTheme(): UseSunThemeReturn {
-  const [isEnabled, setIsEnabledState] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored === 'true';
-  });
-  
   const [sunTimes, setSunTimes] = useState<SunTimes | null>(null);
   const [locationStatus, setLocationStatus] = useState<'pending' | 'granted' | 'denied' | 'unavailable'>('pending');
   const [currentTheme, setCurrentTheme] = useState<'light' | 'dark'>('light');
-
-  const setIsEnabled = useCallback((enabled: boolean) => {
-    setIsEnabledState(enabled);
-    localStorage.setItem(STORAGE_KEY, String(enabled));
-  }, []);
 
   // Calculate fallback times
   const getFallbackTimes = useCallback((): SunTimes => {
@@ -56,10 +42,8 @@ export function useSunTheme(): UseSunThemeReturn {
     return (isAfterSunset || isBeforeSunrise) ? 'dark' : 'light';
   }, []);
 
-  // Request geolocation and calculate sun times
+  // Request geolocation and calculate sun times - always enabled
   useEffect(() => {
-    if (!isEnabled) return;
-
     const updateSunTimes = (latitude: number, longitude: number) => {
       const times = SunCalc.getTimes(new Date(), latitude, longitude);
       setSunTimes({
@@ -85,11 +69,11 @@ export function useSunTheme(): UseSunThemeReturn {
       },
       { timeout: 10000, enableHighAccuracy: false }
     );
-  }, [isEnabled, getFallbackTimes]);
+  }, [getFallbackTimes]);
 
-  // Update theme based on sun times
+  // Update theme based on sun times - always active
   useEffect(() => {
-    if (!isEnabled || !sunTimes) return;
+    if (!sunTimes) return;
 
     const updateTheme = () => {
       const theme = calculateTheme(sunTimes);
@@ -102,11 +86,9 @@ export function useSunTheme(): UseSunThemeReturn {
     const intervalId = setInterval(updateTheme, CHECK_INTERVAL_MS);
 
     return () => clearInterval(intervalId);
-  }, [isEnabled, sunTimes, calculateTheme]);
+  }, [sunTimes, calculateTheme]);
 
   return {
-    isEnabled,
-    setIsEnabled,
     currentTheme,
     sunTimes,
     locationStatus,
