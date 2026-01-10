@@ -81,12 +81,14 @@ export function useAcwrData(): { data: AcwrResult | null; isLoading: boolean; er
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(now.getDate() - 7);
 
-      // Acute load: sum of loads in last 7 days
+      // Acute load: AVERAGE load over last 7 days
       const acuteLoads = loadsWithDates.filter((l) => l.date >= sevenDaysAgo);
-      const acuteLoad = acuteLoads.reduce((sum, l) => sum + l.load, 0);
+      const acuteLoad = acuteLoads.length > 0 
+        ? acuteLoads.reduce((sum, l) => sum + l.load, 0) / 7
+        : 0;
 
-      // Chronic load: sum of loads in last 28 days divided by 4 (weekly average)
-      const chronicLoad = loadsWithDates.reduce((sum, l) => sum + l.load, 0) / 4;
+      // Chronic load: AVERAGE load over last 28 days
+      const chronicLoad = loadsWithDates.reduce((sum, l) => sum + l.load, 0) / 28;
 
       // Calculate ACWR
       if (chronicLoad === 0) {
