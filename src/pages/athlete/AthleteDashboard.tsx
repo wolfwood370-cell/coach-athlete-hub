@@ -38,6 +38,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useReadiness, initialReadiness, ReadinessData } from "@/hooks/useReadiness";
 import { AcwrCard } from "@/components/athlete/AcwrCard";
+import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 // Body parts for DOMS map
 const bodyParts = [
@@ -93,7 +95,218 @@ const sorenessConfig: Record<SorenessLevel, { bg: string; label: string }> = {
   3: { bg: "bg-destructive", label: "Acuto" },
 };
 
-// Ring Chart Component
+// ============================================
+// HRV-BASED READINESS ALGORITHM (MacroFactor Style)
+// ============================================
+
+interface HrvReadinessResult {
+  score: number;
+  level: "high" | "moderate" | "low";
+  color: string;
+  bgColor: string;
+  label: string;
+  reason: string;
+  factors: Array<{ label: string; status: "good" | "warning" | "bad"; detail: string }>;
+}
+
+/**
+ * Calculate readiness based on HRV and Sleep data
+ * Uses baseline comparison for HRV assessment
+ */
+function calculateHrvReadiness(
+  hrv: number | null,
+  hrvBaseline: number,
+  sleepHours: number,
+  sleepQuality: number,
+  energy: number,
+  stress: number
+): HrvReadinessResult {
+  const factors: HrvReadinessResult["factors"] = [];
+  let score = 0;
+  let primaryReason = "";
+  
+  // Calculate HRV deviation from baseline
+  const hrvDeviation = hrv !== null ? ((hrv - hrvBaseline) / hrvBaseline) * 100 : null;
+  
+  // HRV Analysis (40 points max)
+  if (hrv !== null && hrvBaseline > 0) {
+    if (hrvDeviation !== null) {
+      if (hrvDeviation >= -10) {
+        // Within baseline (+/- 10%)
+        score += 40;
+        factors.push({ label: "HRV", status: "good", detail: `${hrv}ms (${hrvDeviation > 0 ? "+" : ""}${hrvDeviation.toFixed(0)}% vs baseline)` });
+      } else if (hrvDeviation > -20) {
+        // Moderate drop (10-20%)
+        score += 25;
+        factors.push({ label: "HRV", status: "warning", detail: `${hrv}ms (${hrvDeviation.toFixed(0)}% vs baseline)` });
+        if (!primaryReason) primaryReason = `HRV ${hrvDeviation.toFixed(0)}% sotto baseline`;
+      } else {
+        // Significant drop (>20%)
+        score += 10;
+        factors.push({ label: "HRV", status: "bad", detail: `${hrv}ms (${hrvDeviation.toFixed(0)}% vs baseline)` });
+        if (!primaryReason) primaryReason = `HRV critico: ${hrvDeviation.toFixed(0)}% sotto baseline`;
+      }
+    }
+  } else {
+    // No HRV data - use moderate score
+    score += 25;
+    factors.push({ label: "HRV", status: "warning", detail: "Nessun dato" });
+  }
+  
+  // Sleep Duration Analysis (25 points max)
+  if (sleepHours >= 7) {
+    score += 25;
+    factors.push({ label: "Sonno", status: "good", detail: `${sleepHours}h` });
+  } else if (sleepHours >= 6) {
+    score += 15;
+    factors.push({ label: "Sonno", status: "warning", detail: `${sleepHours}h` });
+    if (!primaryReason) primaryReason = "Sonno insufficiente";
+  } else {
+    score += 5;
+    factors.push({ label: "Sonno", status: "bad", detail: `${sleepHours}h` });
+    if (!primaryReason) primaryReason = `Solo ${sleepHours}h di sonno`;
+  }
+  
+  // Sleep Quality (15 points max)
+  const sqNorm = sleepQuality / 10;
+  if (sqNorm >= 0.7) {
+    score += 15;
+    factors.push({ label: "Qualità Sonno", status: "good", detail: `${sleepQuality}/10` });
+  } else if (sqNorm >= 0.4) {
+    score += 10;
+    factors.push({ label: "Qualità Sonno", status: "warning", detail: `${sleepQuality}/10` });
+  } else {
+    score += 5;
+    factors.push({ label: "Qualità Sonno", status: "bad", detail: `${sleepQuality}/10` });
+    if (!primaryReason) primaryReason = "Qualità del sonno scarsa";
+  }
+  
+  // Energy Level (10 points max)
+  const energyNorm = energy / 10;
+  if (energyNorm >= 0.7) {
+    score += 10;
+  } else if (energyNorm >= 0.4) {
+    score += 6;
+  } else {
+    score += 2;
+    if (!primaryReason) primaryReason = "Livello energetico basso";
+  }
+  
+  // Stress Penalty (10 points max, inverted)
+  const stressNorm = stress / 10;
+  if (stressNorm <= 0.3) {
+    score += 10;
+  } else if (stressNorm <= 0.6) {
+    score += 6;
+  } else {
+    score += 2;
+    if (!primaryReason) primaryReason = "Stress elevato";
+  }
+  
+  // Clamp score
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  
+  // Determine level
+  let level: HrvReadinessResult["level"];
+  let color: string;
+  let bgColor: string;
+  let label: string;
+  
+  if (score >= 75) {
+    level = "high";
+    color = "text-success";
+    bgColor = "bg-success";
+    label = "Alta Prontezza";
+    if (!primaryReason) primaryReason = "Tutti i parametri ottimali";
+  } else if (score >= 50) {
+    level = "moderate";
+    color = "text-warning";
+    bgColor = "bg-warning";
+    label = "Prontezza Moderata";
+  } else {
+    level = "low";
+    color = "text-destructive";
+    bgColor = "bg-destructive";
+    label = "Bassa Prontezza";
+  }
+  
+  return { score, level, color, bgColor, label, reason: primaryReason, factors };
+}
+
+// ============================================
+// LARGE CIRCULAR READINESS INDICATOR
+// ============================================
+
+const LargeReadinessCircle = ({ 
+  score, 
+  level,
+  isOverridden 
+}: { 
+  score: number;
+  level: "high" | "moderate" | "low";
+  isOverridden?: boolean;
+}) => {
+  const radius = 56;
+  const strokeWidth = 8;
+  const normalizedRadius = radius - strokeWidth / 2;
+  const circumference = normalizedRadius * 2 * Math.PI;
+  const strokeDashoffset = circumference - (score / 100) * circumference;
+
+  const getColor = () => {
+    if (level === "high") return "hsl(160 84% 39%)";
+    if (level === "moderate") return "hsl(38 92% 50%)";
+    return "hsl(0 84% 60%)";
+  };
+
+  return (
+    <div className="relative h-28 w-28">
+      <svg
+        height={radius * 2}
+        width={radius * 2}
+        className="transform -rotate-90"
+      >
+        {/* Background ring */}
+        <circle
+          stroke="hsl(var(--secondary))"
+          fill="transparent"
+          strokeWidth={strokeWidth}
+          r={normalizedRadius}
+          cx={radius}
+          cy={radius}
+        />
+        {/* Progress ring */}
+        <circle
+          stroke={getColor()}
+          fill="transparent"
+          strokeWidth={strokeWidth}
+          strokeDasharray={`${circumference} ${circumference}`}
+          style={{ 
+            strokeDashoffset,
+            transition: "stroke-dashoffset 0.8s ease-out"
+          }}
+          strokeLinecap="round"
+          r={normalizedRadius}
+          cx={radius}
+          cy={radius}
+        />
+      </svg>
+      {/* Center content */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className={cn(
+          "text-3xl font-bold tabular-nums",
+          level === "high" ? "text-success" : level === "moderate" ? "text-warning" : "text-destructive"
+        )}>
+          {score}
+        </span>
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+          {isOverridden ? "Override" : "Score"}
+        </span>
+      </div>
+    </div>
+  );
+};
+
+// Original small ring for existing completed state
 const ReadinessRing = ({ score }: { score: number }) => {
   const radius = 40;
   const strokeWidth = 6;
@@ -240,6 +453,9 @@ const BodyPartChip = ({
 export default function AthleteDashboard() {
   const navigate = useNavigate();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [subjectiveOverride, setSubjectiveOverride] = useState<number | null>(null);
+  const [showOverrideSlider, setShowOverrideSlider] = useState(false);
+  const [tempOverride, setTempOverride] = useState(70);
   
   const {
     readiness,
@@ -250,6 +466,27 @@ export default function AthleteDashboard() {
     calculateScore,
     saveReadiness,
   } = useReadiness();
+
+  // Simulated HRV data (would come from wearable integration)
+  // In production, this would be fetched from daily_metrics.hrv_rmssd
+  const hrvBaseline = 55; // ms - user's baseline HRV
+  const currentHrv = readiness.isCompleted 
+    ? Math.round(hrvBaseline * (0.8 + (readiness.energy / 10) * 0.4)) // Simulate based on energy
+    : null;
+  
+  // Calculate HRV-based readiness
+  const hrvReadiness = calculateHrvReadiness(
+    currentHrv,
+    hrvBaseline,
+    readiness.sleepHours,
+    readiness.sleepQuality,
+    readiness.energy,
+    readiness.stress
+  );
+  
+  // Use override if set, otherwise use calculated score
+  const displayScore = subjectiveOverride !== null ? subjectiveOverride : hrvReadiness.score;
+  const isOverridden = subjectiveOverride !== null;
 
   // Sync tempReadiness when drawer opens
   useEffect(() => {
@@ -317,8 +554,8 @@ export default function AthleteDashboard() {
           </div>
         </div>
 
-        {/* ===== READINESS CARD (Bio-Gate) ===== */}
-        <Card className="border-0 overflow-hidden">
+        {/* ===== ENHANCED MORNING READINESS CARD ===== */}
+        <Card className="border-0 overflow-hidden bg-gradient-to-br from-card via-card to-primary/5">
           <CardContent className="p-0">
             {!readiness.isCompleted ? (
               /* ===== NOT COMPLETED STATE ===== */
@@ -343,50 +580,147 @@ export default function AthleteDashboard() {
                 </Button>
               </div>
             ) : (
-              /* ===== COMPLETED STATE with Ring Chart ===== */
-              <div className="p-4">
-                <div className="flex items-center gap-4">
-                  {/* Ring Chart */}
-                  <div className="flex-shrink-0">
-                    <ReadinessRing score={readiness.score} />
-                  </div>
-
-                  {/* Details */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Prontezza</p>
-                        <p className={cn("text-sm font-semibold", getScoreColor(readiness.score))}>
-                          {getScoreLabel(readiness.score)}
-                        </p>
-                      </div>
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        className="h-7 px-2 text-xs text-muted-foreground"
-                        onClick={handleOpenDrawer}
-                      >
-                        Modifica
-                      </Button>
+              /* ===== ENHANCED COMPLETED STATE ===== */
+              <div className="p-5">
+                {/* Top Row: Circle + Status */}
+                <div className="flex items-start gap-4 mb-4">
+                  {/* Large Circle */}
+                  <LargeReadinessCircle 
+                    score={displayScore} 
+                    level={displayScore >= 75 ? "high" : displayScore >= 50 ? "moderate" : "low"}
+                    isOverridden={isOverridden}
+                  />
+                  
+                  {/* Status & Reason */}
+                  <div className="flex-1 min-w-0 pt-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className={cn(
+                        "text-base font-semibold",
+                        displayScore >= 75 ? "text-success" : displayScore >= 50 ? "text-warning" : "text-destructive"
+                      )}>
+                        {displayScore >= 75 ? "Alta Prontezza" : displayScore >= 50 ? "Prontezza Moderata" : "Bassa Prontezza"}
+                      </h3>
+                      {isOverridden && (
+                        <Badge variant="secondary" className="text-[9px] bg-primary/10 text-primary">
+                          Override
+                        </Badge>
+                      )}
                     </div>
-
-                    {/* Indicators */}
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="text-center p-2 rounded-lg bg-secondary/50">
-                        <Moon className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-0.5" />
-                        <p className="text-xs font-medium tabular-nums">{readiness.sleepHours}h</p>
-                      </div>
-                      <div className="text-center p-2 rounded-lg bg-secondary/50">
-                        <Activity className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-0.5" />
-                        <p className="text-xs font-medium tabular-nums">{readiness.energy}/10</p>
-                      </div>
-                      <div className="text-center p-2 rounded-lg bg-secondary/50">
-                        <Brain className="h-3.5 w-3.5 mx-auto text-muted-foreground mb-0.5" />
-                        <p className="text-xs font-medium tabular-nums">{readiness.stress}/10</p>
-                      </div>
+                    
+                    {/* Reason / "Why" explanation */}
+                    <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
+                      {hrvReadiness.reason}
+                    </p>
+                    
+                    {/* Factor Badges */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {hrvReadiness.factors.slice(0, 3).map((factor, i) => (
+                        <Badge 
+                          key={i}
+                          variant="secondary"
+                          className={cn(
+                            "text-[10px] px-2 py-0.5",
+                            factor.status === "good" && "bg-success/10 text-success border-success/20",
+                            factor.status === "warning" && "bg-warning/10 text-warning border-warning/20",
+                            factor.status === "bad" && "bg-destructive/10 text-destructive border-destructive/20"
+                          )}
+                        >
+                          {factor.label}: {factor.detail}
+                        </Badge>
+                      ))}
                     </div>
                   </div>
                 </div>
+                
+                {/* HRV & Sleep Row */}
+                <div className="grid grid-cols-4 gap-2 mb-4">
+                  <div className="text-center p-2.5 rounded-xl bg-secondary/50">
+                    <HeartPulse className="h-4 w-4 mx-auto text-primary mb-1" />
+                    <p className="text-sm font-semibold tabular-nums">{currentHrv || "—"}</p>
+                    <p className="text-[9px] text-muted-foreground">HRV ms</p>
+                  </div>
+                  <div className="text-center p-2.5 rounded-xl bg-secondary/50">
+                    <Moon className="h-4 w-4 mx-auto text-indigo-400 mb-1" />
+                    <p className="text-sm font-semibold tabular-nums">{readiness.sleepHours}h</p>
+                    <p className="text-[9px] text-muted-foreground">Sonno</p>
+                  </div>
+                  <div className="text-center p-2.5 rounded-xl bg-secondary/50">
+                    <Activity className="h-4 w-4 mx-auto text-emerald-400 mb-1" />
+                    <p className="text-sm font-semibold tabular-nums">{readiness.energy}/10</p>
+                    <p className="text-[9px] text-muted-foreground">Energia</p>
+                  </div>
+                  <div className="text-center p-2.5 rounded-xl bg-secondary/50">
+                    <Brain className="h-4 w-4 mx-auto text-amber-400 mb-1" />
+                    <p className="text-sm font-semibold tabular-nums">{readiness.stress}/10</p>
+                    <p className="text-[9px] text-muted-foreground">Stress</p>
+                  </div>
+                </div>
+                
+                {/* Subjective Override Section */}
+                {!showOverrideSlider ? (
+                  <div className="flex items-center justify-between">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => setShowOverrideSlider(true)}
+                    >
+                      <Smile className="h-4 w-4 mr-1.5" />
+                      Mi sento {displayScore >= 75 ? "diversamente" : "meglio di così"}
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-8 px-2 text-xs text-muted-foreground"
+                      onClick={handleOpenDrawer}
+                    >
+                      Modifica Check-in
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-medium">Come ti senti davvero?</Label>
+                      <span className="text-sm font-bold text-primary tabular-nums">{tempOverride}</span>
+                    </div>
+                    <Slider
+                      value={[tempOverride]}
+                      onValueChange={([v]) => setTempOverride(v)}
+                      min={0}
+                      max={100}
+                      step={5}
+                      className="w-full"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        className="flex-1 h-8 text-xs gradient-primary"
+                        onClick={() => {
+                          setSubjectiveOverride(tempOverride);
+                          setShowOverrideSlider(false);
+                          toast.success(`Override soggettivo salvato: ${tempOverride}/100`);
+                        }}
+                      >
+                        <Check className="h-3.5 w-3.5 mr-1" />
+                        Applica Override
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => {
+                          setShowOverrideSlider(false);
+                          if (subjectiveOverride !== null) {
+                            setSubjectiveOverride(null);
+                            toast.info("Override rimosso, usando dati dispositivo");
+                          }
+                        }}
+                      >
+                        {subjectiveOverride !== null ? "Reset" : "Annulla"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>
