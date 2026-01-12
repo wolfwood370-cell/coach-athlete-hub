@@ -26,6 +26,21 @@ export interface WeightDataPoint {
   trendWeight: number;
 }
 
+export interface StallDetection {
+  isStalling: boolean;
+  stallWeeks: number;
+  suggestedAdjustment: number | null; // kcal to reduce/add
+  adjustmentMessage: string | null;
+}
+
+export interface GoalCompliance {
+  isCompliant: boolean;
+  targetCalories: number;
+  actualAverage: number;
+  variance: number; // percentage
+  message: string;
+}
+
 export interface TDEEResult {
   // Core metrics
   estimatedTDEE: number | null;
@@ -53,6 +68,12 @@ export interface TDEEResult {
     weeklyChange: number; // kg/week target
     message: string;
   } | null;
+  
+  // Stall detection (MacroFactor style)
+  stallDetection: StallDetection;
+  
+  // Goal compliance
+  goalCompliance: GoalCompliance | null;
 }
 
 /**
@@ -250,6 +271,13 @@ export function useAdaptiveTDEE(athleteId?: string, goal: GoalType = "cut") {
         daysWithWeight,
         weightData,
         recommendation: null,
+        stallDetection: {
+          isStalling: false,
+          stallWeeks: 0,
+          suggestedAdjustment: null,
+          adjustmentMessage: null,
+        },
+        goalCompliance: null,
       };
     }
     
@@ -273,6 +301,13 @@ export function useAdaptiveTDEE(athleteId?: string, goal: GoalType = "cut") {
         daysWithWeight,
         weightData,
         recommendation: null,
+        stallDetection: {
+          isStalling: false,
+          stallWeeks: 0,
+          suggestedAdjustment: null,
+          adjustmentMessage: null,
+        },
+        goalCompliance: null,
       };
     }
     
@@ -342,6 +377,56 @@ export function useAdaptiveTDEE(athleteId?: string, goal: GoalType = "cut") {
       }
     }
     
+    // Stall Detection: Check if weight trend is flat for >2 weeks on a cut
+    // A "stall" means less than 0.1kg change per week when trying to lose weight
+    const stallDetection: StallDetection = {
+      isStalling: false,
+      stallWeeks: 0,
+      suggestedAdjustment: null,
+      adjustmentMessage: null,
+    };
+    
+    if (goal === "cut" && Math.abs(weightChangePerWeek) < 0.1 && daysWithWeight >= 10) {
+      // Calculate how many weeks of data we have with minimal change
+      const stallWeeks = Math.floor(actualDays / 7);
+      if (stallWeeks >= 2) {
+        stallDetection.isStalling = true;
+        stallDetection.stallWeeks = stallWeeks;
+        // Suggest 150kcal reduction (conservative adjustment)
+        stallDetection.suggestedAdjustment = -150;
+        stallDetection.adjustmentMessage = `Weight stalled for ${stallWeeks} weeks. Consider reducing by 150 kcal.`;
+      }
+    } else if (goal === "bulk" && Math.abs(weightChangePerWeek) < 0.05 && daysWithWeight >= 10) {
+      const stallWeeks = Math.floor(actualDays / 7);
+      if (stallWeeks >= 2) {
+        stallDetection.isStalling = true;
+        stallDetection.stallWeeks = stallWeeks;
+        stallDetection.suggestedAdjustment = 100;
+        stallDetection.adjustmentMessage = `Weight stalled for ${stallWeeks} weeks. Consider adding 100 kcal.`;
+      }
+    }
+    
+    // Goal Compliance: Check if within ±5% of target calories
+    let goalCompliance: GoalCompliance | null = null;
+    
+    if (recommendation && recommendation.targetCalories && averageIntake) {
+      const targetCal = recommendation.targetCalories;
+      const variance = ((averageIntake - targetCal) / targetCal) * 100;
+      const isCompliant = Math.abs(variance) <= 5;
+      
+      goalCompliance = {
+        isCompliant,
+        targetCalories: targetCal,
+        actualAverage: averageIntake,
+        variance: Math.round(variance * 10) / 10,
+        message: isCompliant 
+          ? "On track! Keep it up." 
+          : variance > 5 
+            ? `Over target by ${Math.abs(Math.round(variance))}%` 
+            : `Under target by ${Math.abs(Math.round(variance))}%`,
+      };
+    }
+    
     return {
       estimatedTDEE,
       confidence,
@@ -355,6 +440,8 @@ export function useAdaptiveTDEE(athleteId?: string, goal: GoalType = "cut") {
       daysWithWeight,
       weightData,
       recommendation,
+      stallDetection,
+      goalCompliance,
     };
   };
   
