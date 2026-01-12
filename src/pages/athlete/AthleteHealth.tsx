@@ -203,95 +203,88 @@ export default function AthleteHealth() {
     },
   });
 
-  // Add or Update FMS test mutation
+  // Add or Update FMS test mutation using UPSERT
   const addFmsMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error("User not authenticated");
       
       const today = new Date().toISOString().split("T")[0];
       
-      // Check if there's already a test for today
-      const { data: existingTest } = await supabase
+      // First, get the existing test for today to merge scores
+      const { data: existingTest, error: fetchError } = await supabase
         .from("fms_tests")
         .select("*")
         .eq("athlete_id", user.id)
         .eq("test_date", today)
         .maybeSingle();
       
-      // Build the scores object, merging with existing data if updating
-      const baseScores = existingTest ? {
-        deep_squat: existingTest.deep_squat,
-        hurdle_step_l: existingTest.hurdle_step_l,
-        hurdle_step_r: existingTest.hurdle_step_r,
-        inline_lunge_l: existingTest.inline_lunge_l,
-        inline_lunge_r: existingTest.inline_lunge_r,
-        shoulder_mobility_l: existingTest.shoulder_mobility_l,
-        shoulder_mobility_r: existingTest.shoulder_mobility_r,
-        active_straight_leg_l: existingTest.active_straight_leg_l,
-        active_straight_leg_r: existingTest.active_straight_leg_r,
-        trunk_stability: existingTest.trunk_stability,
-        rotary_stability_l: existingTest.rotary_stability_l,
-        rotary_stability_r: existingTest.rotary_stability_r,
-        notes: existingTest.notes,
-      } : {};
+      if (fetchError) {
+        console.error("Error fetching existing FMS test:", fetchError);
+        throw fetchError;
+      }
       
-      // Merge with new scores (only update fields that are explicitly set)
-      const updatedScores = {
-        ...baseScores,
-        ...(fmsScores.deep_squat !== undefined && { deep_squat: fmsScores.deep_squat }),
-        ...(fmsScores.hurdle_step_l !== undefined && { hurdle_step_l: fmsScores.hurdle_step_l }),
-        ...(fmsScores.hurdle_step_r !== undefined && { hurdle_step_r: fmsScores.hurdle_step_r }),
-        ...(fmsScores.inline_lunge_l !== undefined && { inline_lunge_l: fmsScores.inline_lunge_l }),
-        ...(fmsScores.inline_lunge_r !== undefined && { inline_lunge_r: fmsScores.inline_lunge_r }),
-        ...(fmsScores.shoulder_mobility_l !== undefined && { shoulder_mobility_l: fmsScores.shoulder_mobility_l }),
-        ...(fmsScores.shoulder_mobility_r !== undefined && { shoulder_mobility_r: fmsScores.shoulder_mobility_r }),
-        ...(fmsScores.active_straight_leg_l !== undefined && { active_straight_leg_l: fmsScores.active_straight_leg_l }),
-        ...(fmsScores.active_straight_leg_r !== undefined && { active_straight_leg_r: fmsScores.active_straight_leg_r }),
-        ...(fmsScores.trunk_stability !== undefined && { trunk_stability: fmsScores.trunk_stability }),
-        ...(fmsScores.rotary_stability_l !== undefined && { rotary_stability_l: fmsScores.rotary_stability_l }),
-        ...(fmsScores.rotary_stability_r !== undefined && { rotary_stability_r: fmsScores.rotary_stability_r }),
-        ...(fmsNotes && { notes: fmsNotes }),
+      // Build the complete payload by merging existing data with new scores
+      const payload = {
+        athlete_id: user.id,
+        test_date: today,
+        // Start with existing values (or null)
+        deep_squat: existingTest?.deep_squat ?? null,
+        hurdle_step_l: existingTest?.hurdle_step_l ?? null,
+        hurdle_step_r: existingTest?.hurdle_step_r ?? null,
+        inline_lunge_l: existingTest?.inline_lunge_l ?? null,
+        inline_lunge_r: existingTest?.inline_lunge_r ?? null,
+        shoulder_mobility_l: existingTest?.shoulder_mobility_l ?? null,
+        shoulder_mobility_r: existingTest?.shoulder_mobility_r ?? null,
+        active_straight_leg_l: existingTest?.active_straight_leg_l ?? null,
+        active_straight_leg_r: existingTest?.active_straight_leg_r ?? null,
+        trunk_stability: existingTest?.trunk_stability ?? null,
+        rotary_stability_l: existingTest?.rotary_stability_l ?? null,
+        rotary_stability_r: existingTest?.rotary_stability_r ?? null,
+        notes: fmsNotes || existingTest?.notes || null,
       };
       
-      if (existingTest) {
-        // Update existing test
-        const { error } = await supabase
-          .from("fms_tests")
-          .update(updatedScores)
-          .eq("id", existingTest.id);
-        if (error) throw error;
-      } else {
-        // Insert new test
-        const { error } = await supabase.from("fms_tests").insert({
-          athlete_id: user.id,
-          test_date: today,
-          deep_squat: updatedScores.deep_squat ?? null,
-          hurdle_step_l: updatedScores.hurdle_step_l ?? null,
-          hurdle_step_r: updatedScores.hurdle_step_r ?? null,
-          inline_lunge_l: updatedScores.inline_lunge_l ?? null,
-          inline_lunge_r: updatedScores.inline_lunge_r ?? null,
-          shoulder_mobility_l: updatedScores.shoulder_mobility_l ?? null,
-          shoulder_mobility_r: updatedScores.shoulder_mobility_r ?? null,
-          active_straight_leg_l: updatedScores.active_straight_leg_l ?? null,
-          active_straight_leg_r: updatedScores.active_straight_leg_r ?? null,
-          trunk_stability: updatedScores.trunk_stability ?? null,
-          rotary_stability_l: updatedScores.rotary_stability_l ?? null,
-          rotary_stability_r: updatedScores.rotary_stability_r ?? null,
-          notes: updatedScores.notes ?? null,
+      // Override with new scores (only those that are explicitly set in fmsScores)
+      if (fmsScores.deep_squat !== undefined) payload.deep_squat = fmsScores.deep_squat;
+      if (fmsScores.hurdle_step_l !== undefined) payload.hurdle_step_l = fmsScores.hurdle_step_l;
+      if (fmsScores.hurdle_step_r !== undefined) payload.hurdle_step_r = fmsScores.hurdle_step_r;
+      if (fmsScores.inline_lunge_l !== undefined) payload.inline_lunge_l = fmsScores.inline_lunge_l;
+      if (fmsScores.inline_lunge_r !== undefined) payload.inline_lunge_r = fmsScores.inline_lunge_r;
+      if (fmsScores.shoulder_mobility_l !== undefined) payload.shoulder_mobility_l = fmsScores.shoulder_mobility_l;
+      if (fmsScores.shoulder_mobility_r !== undefined) payload.shoulder_mobility_r = fmsScores.shoulder_mobility_r;
+      if (fmsScores.active_straight_leg_l !== undefined) payload.active_straight_leg_l = fmsScores.active_straight_leg_l;
+      if (fmsScores.active_straight_leg_r !== undefined) payload.active_straight_leg_r = fmsScores.active_straight_leg_r;
+      if (fmsScores.trunk_stability !== undefined) payload.trunk_stability = fmsScores.trunk_stability;
+      if (fmsScores.rotary_stability_l !== undefined) payload.rotary_stability_l = fmsScores.rotary_stability_l;
+      if (fmsScores.rotary_stability_r !== undefined) payload.rotary_stability_r = fmsScores.rotary_stability_r;
+      
+      console.log("FMS Upsert payload:", payload);
+      
+      // Upsert using the unique constraint on (athlete_id, test_date)
+      const { error } = await supabase
+        .from("fms_tests")
+        .upsert(payload, { 
+          onConflict: "athlete_id,test_date",
+          ignoreDuplicates: false 
         });
-        if (error) throw error;
+      
+      if (error) {
+        console.error("Error upserting FMS test:", error);
+        throw error;
       }
     },
     onSuccess: () => {
+      // Invalidate all FMS-related queries to refetch fresh data
       queryClient.invalidateQueries({ queryKey: ["fms-latest"] });
+      queryClient.invalidateQueries({ queryKey: ["fms-alerts"] });
+      queryClient.invalidateQueries({ queryKey: ["athlete-health-profile"] });
       setFmsDialogOpen(false);
       setFmsScores({});
       setFmsNotes("");
       toast.success("Test FMS salvato");
     },
-    onError: (error) => {
-      console.error("Error saving FMS:", error);
-      toast.error("Errore nel salvataggio");
+    onError: (error: Error) => {
+      console.error("FMS mutation error:", error);
+      toast.error(`Errore nel salvataggio: ${error.message}`);
     },
   });
 
