@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -42,12 +43,19 @@ import {
   Dumbbell,
   Loader2,
   Calendar,
+  AlertTriangle,
+  Activity,
+  ShieldAlert,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { useFmsAlerts, checkExerciseContraindication } from "@/hooks/useFmsAlerts";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
 
 const TOTAL_WEEKS = 4;
 const DAYS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
@@ -128,6 +136,15 @@ export default function ProgramBuilder() {
   });
 
   const selectedAthlete = athletes.find((a) => a.id === selectedAthleteId) || athletes[0];
+  
+  // FMS Alerts for selected athlete
+  const { data: fmsAlerts, isLoading: loadingFms } = useFmsAlerts(selectedAthlete?.id || null);
+  const [healthAlertDismissed, setHealthAlertDismissed] = useState(false);
+  
+  // Reset dismissed state when athlete changes
+  useEffect(() => {
+    setHealthAlertDismissed(false);
+  }, [selectedAthlete?.id]);
 
   // Get 1RM reference
   const getOneRM = useCallback((): number => {
@@ -170,6 +187,20 @@ export default function ProgramBuilder() {
     if (active.data.current?.type === "library-exercise" && over.data.current?.type === "day-cell") {
       const libraryExercise = active.data.current.exercise as LibraryExercise;
       const { weekIndex, dayIndex } = over.data.current;
+
+      // Check for contraindications before adding
+      if (fmsAlerts?.flags && fmsAlerts.flags.length > 0) {
+        const contraindication = checkExerciseContraindication(libraryExercise.name, fmsAlerts.flags);
+        if (contraindication) {
+          toast.warning(
+            `⚠️ Controindicato: ${libraryExercise.name}`,
+            {
+              description: `${fmsAlerts.athleteName} ha ${contraindication.message}`,
+              duration: 5000,
+            }
+          );
+        }
+      }
 
       const newExercise: ProgramExercise = {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -440,6 +471,69 @@ export default function ProgramBuilder() {
 
           {/* Main Content - Week Grid */}
           <div className="flex-1 flex flex-col min-w-0">
+            {/* Health Alert Banner */}
+            {fmsAlerts?.hasRedFlags && !healthAlertDismissed && (
+              <div className="mx-4 mt-2">
+                <Card className="border-destructive/50 bg-destructive/5">
+                  <CardContent className="p-3">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/10 flex-shrink-0">
+                        <ShieldAlert className="h-4 w-4 text-destructive" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="text-sm font-semibold text-destructive">
+                            Health Alert: {fmsAlerts.athleteName}
+                          </h4>
+                          {fmsAlerts.testDate && (
+                            <Badge variant="outline" className="text-[10px] border-destructive/30 text-destructive">
+                              FMS {format(new Date(fmsAlerts.testDate), "d MMM", { locale: it })}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {fmsAlerts.flags
+                            .filter(f => f.status === "pain" || f.status === "dysfunctional")
+                            .slice(0, 4)
+                            .map((flag, i) => (
+                              <Badge 
+                                key={i} 
+                                variant="secondary"
+                                className={cn(
+                                  "text-[10px]",
+                                  flag.status === "pain" 
+                                    ? "bg-destructive/20 text-destructive border-destructive/30" 
+                                    : "bg-warning/20 text-warning border-warning/30"
+                                )}
+                              >
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                {flag.bodyArea} {flag.side === "left" ? "(Sx)" : flag.side === "right" ? "(Dx)" : ""}
+                              </Badge>
+                            ))}
+                          {fmsAlerts.flags.filter(f => f.status === "pain" || f.status === "dysfunctional").length > 4 && (
+                            <Badge variant="secondary" className="text-[10px] bg-muted">
+                              +{fmsAlerts.flags.filter(f => f.status === "pain" || f.status === "dysfunctional").length - 4} altri
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground mt-1.5">
+                          Esercizi controindicati verranno segnalati durante la programmazione
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 flex-shrink-0 text-muted-foreground hover:text-foreground"
+                        onClick={() => setHealthAlertDismissed(true)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+            
             {/* Header Controls */}
             <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 bg-card">
               <div className="flex items-center gap-4">
