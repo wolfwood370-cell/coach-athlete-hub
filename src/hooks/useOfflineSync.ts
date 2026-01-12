@@ -104,7 +104,8 @@ export function useOfflineSync() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast]);
 
   // Sync a single workout log to Supabase
   const syncWorkoutLog = async (log: WorkoutLogInput): Promise<string> => {

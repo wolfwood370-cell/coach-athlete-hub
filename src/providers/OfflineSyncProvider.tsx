@@ -59,7 +59,8 @@ export function OfflineSyncProvider({ children }: { children: React.ReactNode })
     if (isOnline && pendingOperations.size > 0) {
       forceSyncAll();
     }
-  }, [isOnline]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline, pendingOperations.size]);
 
   const registerPendingOperation = useCallback((key: string, operation: () => Promise<void>) => {
     setPendingOperations(prev => {
