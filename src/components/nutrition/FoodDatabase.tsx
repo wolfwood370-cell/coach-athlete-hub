@@ -18,6 +18,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { searchFood, type FoodItem } from "@/services/foodApi";
 import { useDebounce } from "@/hooks/useDebounce";
+import { triggerHaptic } from "@/hooks/useHapticFeedback";
 
 interface CustomFood {
   id: string;
@@ -353,8 +354,10 @@ export function FoodDatabase({ open, onOpenChange, onFoodLogged }: FoodDatabaseP
     if (error) {
       console.error('Error logging food:', error);
       toast.error("Errore nel salvataggio");
+      triggerHaptic('error');
     } else {
       toast.success("Aggiunto al diario!");
+      triggerHaptic('success');
       onOpenChange(false);
       onFoodLogged();
     }
