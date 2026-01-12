@@ -27,11 +27,14 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
+  CheckCircle2,
+  AlertTriangle,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useAdaptiveTDEE, GoalType } from "@/hooks/useAdaptiveTDEE";
+import { useAdaptiveTDEE, GoalType, StallDetection, GoalCompliance } from "@/hooks/useAdaptiveTDEE";
 import { toast } from "sonner";
 import { FoodDatabase } from "@/components/nutrition/FoodDatabase";
 import {
@@ -149,15 +152,18 @@ interface QuickAddFormState {
   caloriesOverride: string;
 }
 
-// Metabolic Status Card Component
+// Metabolic Status Card Component - Enhanced "Coaching Card"
 function MetabolicStatusCard({ 
   tdee, 
   confidence,
   weightChange,
   averageIntake,
   recommendation,
+  stallDetection,
+  goalCompliance,
   isLoading,
   daysWithData,
+  onAdjustmentClick,
 }: {
   tdee: number | null;
   confidence: "high" | "medium" | "low" | "insufficient";
@@ -169,16 +175,19 @@ function MetabolicStatusCard({
     weeklyChange: number;
     message: string;
   } | null;
+  stallDetection: StallDetection;
+  goalCompliance: GoalCompliance | null;
   isLoading: boolean;
   daysWithData: number;
+  onAdjustmentClick?: (adjustment: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   
   const confidenceConfig = {
-    high: { label: "Alta", color: "bg-success/10 text-success" },
-    medium: { label: "Media", color: "bg-warning/10 text-warning" },
-    low: { label: "Bassa", color: "bg-muted text-muted-foreground" },
-    insufficient: { label: "Dati insufficienti", color: "bg-muted text-muted-foreground" },
+    high: { label: "Alta", color: "bg-success/10 text-success", icon: "🎯" },
+    medium: { label: "Media", color: "bg-warning/10 text-warning", icon: "📊" },
+    low: { label: "Bassa", color: "bg-muted text-muted-foreground", icon: "📉" },
+    insufficient: { label: "Dati insufficienti", color: "bg-muted text-muted-foreground", icon: "❓" },
   };
   
   if (isLoading) {
@@ -208,16 +217,16 @@ function MetabolicStatusCard({
               <Flame className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-foreground">Metabolic Status</h3>
+              <h3 className="text-sm font-semibold text-foreground">AI Nutrition Coach</h3>
               <div className="flex items-center gap-2 mt-0.5">
                 <Badge 
                   variant="secondary" 
                   className={cn("text-[10px] px-1.5 py-0", confidenceConfig[confidence].color)}
                 >
-                  {confidenceConfig[confidence].label}
+                  {confidenceConfig[confidence].icon} {confidenceConfig[confidence].label}
                 </Badge>
                 <span className="text-[10px] text-muted-foreground">
-                  {daysWithData} days data
+                  {daysWithData} giorni di dati
                 </span>
               </div>
             </div>
@@ -241,7 +250,7 @@ function MetabolicStatusCard({
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="text-center p-3 rounded-lg bg-background/50">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-              Estimated TDEE
+              TDEE Stimato
             </p>
             <div className="flex items-baseline justify-center gap-1">
               <span className="text-3xl font-bold tabular-nums text-foreground">
@@ -253,7 +262,7 @@ function MetabolicStatusCard({
           
           <div className="text-center p-3 rounded-lg bg-background/50">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-              Avg Intake
+              Media Intake
             </p>
             <div className="flex items-baseline justify-center gap-1">
               <span className="text-3xl font-bold tabular-nums text-foreground">
@@ -263,6 +272,37 @@ function MetabolicStatusCard({
             </div>
           </div>
         </div>
+        
+        {/* Goal Compliance Badge */}
+        {goalCompliance && (
+          <div className={cn(
+            "flex items-center justify-center gap-2 p-2 rounded-lg mb-4",
+            goalCompliance.isCompliant 
+              ? "bg-success/10 border border-success/20" 
+              : "bg-warning/10 border border-warning/20"
+          )}>
+            {goalCompliance.isCompliant ? (
+              <CheckCircle2 className="h-4 w-4 text-success" />
+            ) : (
+              <AlertTriangle className="h-4 w-4 text-warning" />
+            )}
+            <span className={cn(
+              "text-sm font-medium",
+              goalCompliance.isCompliant ? "text-success" : "text-warning"
+            )}>
+              {goalCompliance.message}
+            </span>
+            <Badge 
+              variant="secondary" 
+              className={cn(
+                "text-[10px]",
+                goalCompliance.isCompliant ? "bg-success/20 text-success" : "bg-warning/20 text-warning"
+              )}
+            >
+              {goalCompliance.variance > 0 ? "+" : ""}{goalCompliance.variance}%
+            </Badge>
+          </div>
+        )}
         
         {/* Weight Change Indicator */}
         {weightChange !== null && (
@@ -278,19 +318,45 @@ function MetabolicStatusCard({
               "text-sm font-medium tabular-nums",
               weightChange < 0 ? "text-success" : weightChange > 0 ? "text-warning" : "text-muted-foreground"
             )}>
-              {weightChange > 0 ? "+" : ""}{weightChange.toFixed(2)} kg in 14 days
+              {weightChange > 0 ? "+" : ""}{weightChange.toFixed(2)} kg in 14 giorni
             </span>
           </div>
         )}
         
+        {/* Stall Warning with Adjustment Button */}
+        {stallDetection.isStalling && stallDetection.suggestedAdjustment && (
+          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-4">
+            <div className="flex items-start gap-2 mb-3">
+              <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                  Plateau rilevato
+                </p>
+                <p className="text-xs text-amber-600/80 dark:text-amber-400/70 mt-0.5">
+                  {stallDetection.adjustmentMessage}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
+              onClick={() => onAdjustmentClick?.(stallDetection.suggestedAdjustment!)}
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Applica aggiustamento ({stallDetection.suggestedAdjustment > 0 ? "+" : ""}{stallDetection.suggestedAdjustment} kcal)
+            </Button>
+          </div>
+        )}
+        
         {/* Recommendation */}
-        {recommendation && recommendation.targetCalories && (
+        {recommendation && recommendation.targetCalories && !stallDetection.isStalling && (
           <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
             <div className="flex items-start gap-2">
               <Target className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
               <div>
                 <p className="text-sm font-medium text-foreground">
-                  Weekly Adjustment
+                  Obiettivo Settimanale
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {recommendation.message}
@@ -306,23 +372,27 @@ function MetabolicStatusCard({
             <div className="flex items-start gap-2 text-xs text-muted-foreground">
               <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
               <p>
-                TDEE is calculated using your weight trend (EMA α=0.1) and caloric intake over the last 14 days.
-                Formula: TDEE = Avg Intake + ((Start Trend − End Trend) × 7700 ÷ Days)
+                Il TDEE è calcolato usando il trend del peso (EMA α=0.1) e l'intake calorico degli ultimi 14 giorni.
+                Formula: TDEE = Media Intake + ((Trend Iniziale − Trend Finale) × 7700 ÷ Giorni)
               </p>
             </div>
             
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="p-2 rounded bg-muted/50">
-                <p className="text-lg font-bold tabular-nums">{tdee && averageIntake ? (tdee - averageIntake > 0 ? "+" : "") + (tdee - averageIntake) : "—"}</p>
-                <p className="text-[9px] text-muted-foreground">Daily Δ</p>
+                <p className="text-lg font-bold tabular-nums">
+                  {tdee && averageIntake ? (tdee - averageIntake > 0 ? "+" : "") + (tdee - averageIntake) : "—"}
+                </p>
+                <p className="text-[9px] text-muted-foreground">Δ Giornaliero</p>
               </div>
               <div className="p-2 rounded bg-muted/50">
-                <p className="text-lg font-bold tabular-nums">{weightChange !== null ? (weightChange * 7 / 14).toFixed(2) : "—"}</p>
-                <p className="text-[9px] text-muted-foreground">kg/week</p>
+                <p className="text-lg font-bold tabular-nums">
+                  {weightChange !== null ? (weightChange * 7 / 14).toFixed(2) : "—"}
+                </p>
+                <p className="text-[9px] text-muted-foreground">kg/settimana</p>
               </div>
               <div className="p-2 rounded bg-muted/50">
                 <p className="text-lg font-bold tabular-nums">{daysWithData}</p>
-                <p className="text-[9px] text-muted-foreground">Data Points</p>
+                <p className="text-[9px] text-muted-foreground">Dati</p>
               </div>
             </div>
           </div>
@@ -579,8 +649,13 @@ export default function AthleteNutrition() {
           weightChange={tdeeData.weightChange}
           averageIntake={tdeeData.averageIntake}
           recommendation={tdeeData.recommendation}
+          stallDetection={tdeeData.stallDetection}
+          goalCompliance={tdeeData.goalCompliance}
           isLoading={tdeeData.isLoading}
           daysWithData={Math.max(tdeeData.daysWithCalories, tdeeData.daysWithWeight)}
+          onAdjustmentClick={(adjustment) => {
+            toast.success(`Suggerimento: ${adjustment > 0 ? "+" : ""}${adjustment} kcal/giorno applicato!`);
+          }}
         />
         
         {/* ===== ENERGY BALANCE (Hero Widget) ===== */}
