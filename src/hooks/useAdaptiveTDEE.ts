@@ -4,6 +4,15 @@ import { useAuth } from "./useAuth";
 
 export type GoalType = "cut" | "maintain" | "bulk";
 
+// Configuration constants
+const LOOKBACK_DAYS = 30; // Changed from 14 to 30 days per user request
+const EMA_ALPHA = 0.1; // Smoothing factor (lower = smoother)
+const KCAL_PER_KG = 7700; // Approximate kcal per kg of tissue
+const STALL_THRESHOLD_CUT = 0.15; // kg/week - less than this is a stall
+const STALL_THRESHOLD_BULK = 0.08; // kg/week
+const MIN_DAYS_FOR_STALL = 14; // Need at least 2 weeks of data to detect stall
+const EXCESSIVE_LOSS_THRESHOLD = 0.01; // 1% bodyweight per week is too fast
+
 interface DailyMetricRaw {
   date: string;
   weight_kg: number | null;
@@ -41,6 +50,14 @@ export interface GoalCompliance {
   message: string;
 }
 
+export interface CoachingAction {
+  type: "warning" | "suggestion" | "info";
+  title: string;
+  message: string;
+  actionLabel?: string;
+  actionValue?: number;
+}
+
 export interface TDEEResult {
   // Core metrics
   estimatedTDEE: number | null;
@@ -51,6 +68,7 @@ export interface TDEEResult {
   endTrend: number | null;
   weightChange: number | null;
   weightChangePerWeek: number | null;
+  weightChangePercent: number | null; // % of bodyweight per week
   
   // Calorie data
   averageIntake: number | null;
@@ -74,13 +92,20 @@ export interface TDEEResult {
   
   // Goal compliance
   goalCompliance: GoalCompliance | null;
+  
+  // Weekly coaching action (new)
+  coachingAction: CoachingAction | null;
+  
+  // Trend direction for sparkline arrow
+  trendDirection: "up" | "down" | "stable";
 }
 
 /**
  * Calculate Exponential Moving Average with alpha smoothing
+ * Formula: Trend_Today = (Weight_Today * alpha) + (Trend_Yesterday * (1 - alpha))
  * Lower alpha = more smoothing (0.1 is very smooth)
  */
-function calculateEMA(values: (number | null)[], alpha: number = 0.1): number[] {
+function calculateEMA(values: (number | null)[], alpha: number = EMA_ALPHA): number[] {
   const result: number[] = [];
   let lastEMA: number | null = null;
   
@@ -97,6 +122,7 @@ function calculateEMA(values: (number | null)[], alpha: number = 0.1): number[] 
       // First valid value becomes the initial EMA
       lastEMA = value;
     } else {
+      // EMA formula: Trend_Today = (Weight_Today * 0.1) + (Trend_Yesterday * 0.9)
       lastEMA = alpha * value + (1 - alpha) * lastEMA;
     }
     result.push(lastEMA);
@@ -142,20 +168,20 @@ export function useAdaptiveTDEE(athleteId?: string, goal: GoalType = "cut") {
   const { user } = useAuth();
   const targetUserId = athleteId ?? user?.id;
   
-  // Fetch last 14 days of weight from daily_metrics
+  // Fetch last 30 days of weight from daily_metrics
   const metricsQuery = useQuery({
     queryKey: ["adaptive-tdee-metrics", targetUserId],
     queryFn: async () => {
       if (!targetUserId) return [];
       
-      const fourteenDaysAgo = new Date();
-      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+      const lookbackDate = new Date();
+      lookbackDate.setDate(lookbackDate.getDate() - LOOKBACK_DAYS);
       
       const { data, error } = await supabase
         .from("daily_metrics")
         .select("date, weight_kg")
         .eq("user_id", targetUserId)
-        .gte("date", fourteenDaysAgo.toISOString().split("T")[0])
+        .gte("date", lookbackDate.toISOString().split("T")[0])
         .order("date", { ascending: true });
       
       if (error) throw error;
@@ -170,14 +196,14 @@ export function useAdaptiveTDEE(athleteId?: string, goal: GoalType = "cut") {
     queryFn: async () => {
       if (!targetUserId) return [];
       
-      const fourteenDaysAgo = new Date();
-      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+      const lookbackDate = new Date();
+      lookbackDate.setDate(lookbackDate.getDate() - LOOKBACK_DAYS);
       
       const { data, error } = await supabase
         .from("daily_readiness")
         .select("date, body_weight")
         .eq("athlete_id", targetUserId)
-        .gte("date", fourteenDaysAgo.toISOString().split("T")[0])
+        .gte("date", lookbackDate.toISOString().split("T")[0])
         .order("date", { ascending: true });
       
       if (error) throw error;
@@ -186,20 +212,20 @@ export function useAdaptiveTDEE(athleteId?: string, goal: GoalType = "cut") {
     enabled: !!targetUserId,
   });
   
-  // Fetch last 14 days of nutrition logs
+  // Fetch last 30 days of nutrition logs
   const nutritionQuery = useQuery({
     queryKey: ["adaptive-tdee-nutrition", targetUserId],
     queryFn: async () => {
       if (!targetUserId) return [];
       
-      const fourteenDaysAgo = new Date();
-      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+      const lookbackDate = new Date();
+      lookbackDate.setDate(lookbackDate.getDate() - LOOKBACK_DAYS);
       
       const { data, error } = await supabase
         .from("nutrition_logs")
         .select("date, calories")
         .eq("athlete_id", targetUserId)
-        .gte("date", fourteenDaysAgo.toISOString().split("T")[0])
+        .gte("date", lookbackDate.toISOString().split("T")[0])
         .order("date", { ascending: true });
       
       if (error) throw error;
@@ -210,7 +236,7 @@ export function useAdaptiveTDEE(athleteId?: string, goal: GoalType = "cut") {
   
   // Process the data
   const processData = (): TDEEResult => {
-    const days = getLastNDays(14);
+    const days = getLastNDays(LOOKBACK_DAYS);
     
     // Merge weight data from both sources (prefer daily_metrics)
     const weightMap = new Map<string, number>();
@@ -265,8 +291,9 @@ export function useAdaptiveTDEE(athleteId?: string, goal: GoalType = "cut") {
         endTrend: null,
         weightChange: null,
         weightChangePerWeek: null,
+        weightChangePercent: null,
         averageIntake: null,
-        totalDays: 14,
+        totalDays: LOOKBACK_DAYS,
         daysWithCalories,
         daysWithWeight,
         weightData,
@@ -278,6 +305,8 @@ export function useAdaptiveTDEE(athleteId?: string, goal: GoalType = "cut") {
           adjustmentMessage: null,
         },
         goalCompliance: null,
+        coachingAction: null,
+        trendDirection: "stable" as const,
       };
     }
     
@@ -295,8 +324,9 @@ export function useAdaptiveTDEE(athleteId?: string, goal: GoalType = "cut") {
         endTrend: null,
         weightChange: null,
         weightChangePerWeek: null,
+        weightChangePercent: null,
         averageIntake,
-        totalDays: 14,
+        totalDays: LOOKBACK_DAYS,
         daysWithCalories,
         daysWithWeight,
         weightData,
@@ -308,6 +338,8 @@ export function useAdaptiveTDEE(athleteId?: string, goal: GoalType = "cut") {
           adjustmentMessage: null,
         },
         goalCompliance: null,
+        coachingAction: null,
+        trendDirection: "stable" as const,
       };
     }
     
@@ -427,6 +459,54 @@ export function useAdaptiveTDEE(athleteId?: string, goal: GoalType = "cut") {
       };
     }
     
+    // Calculate weight change as percent of bodyweight
+    const weightChangePercent = endTrend > 0 
+      ? (weightChangePerWeek / endTrend) * 100 
+      : null;
+    
+    // Determine trend direction for sparkline arrow
+    const trendDirection: TDEEResult["trendDirection"] = 
+      weightChange < -0.1 ? "down" : 
+      weightChange > 0.1 ? "up" : 
+      "stable";
+    
+    // Generate coaching action based on current state
+    let coachingAction: CoachingAction | null = null;
+    
+    if (stallDetection.isStalling) {
+      coachingAction = {
+        type: "suggestion",
+        title: "Plateau Detected",
+        message: stallDetection.adjustmentMessage || "Consider adjusting your intake",
+        actionLabel: `Apply ${stallDetection.suggestedAdjustment! > 0 ? "+" : ""}${stallDetection.suggestedAdjustment} kcal`,
+        actionValue: stallDetection.suggestedAdjustment!,
+      };
+    } else if (goal === "cut" && weightChangePercent !== null && weightChangePercent < -EXCESSIVE_LOSS_THRESHOLD * 100) {
+      // Losing too fast (>1% bodyweight/week)
+      coachingAction = {
+        type: "warning",
+        title: "Losing Too Fast",
+        message: `You're losing ${Math.abs(weightChangePercent).toFixed(1)}% bodyweight/week. Increase calories to preserve muscle.`,
+        actionLabel: "Add 100 kcal",
+        actionValue: 100,
+      };
+    } else if (goal === "bulk" && weightChangePercent !== null && weightChangePercent > 0.75) {
+      // Gaining too fast (>0.75% bodyweight/week on bulk)
+      coachingAction = {
+        type: "warning",
+        title: "Gaining Too Fast",
+        message: `You're gaining ${weightChangePercent.toFixed(1)}% bodyweight/week. Reduce surplus to minimize fat gain.`,
+        actionLabel: "Reduce 100 kcal",
+        actionValue: -100,
+      };
+    } else if (goalCompliance && !goalCompliance.isCompliant) {
+      coachingAction = {
+        type: "info",
+        title: "Intake Off Target",
+        message: goalCompliance.message,
+      };
+    }
+    
     return {
       estimatedTDEE,
       confidence,
@@ -434,14 +514,17 @@ export function useAdaptiveTDEE(athleteId?: string, goal: GoalType = "cut") {
       endTrend: Math.round(endTrend * 10) / 10,
       weightChange: Math.round(weightChange * 100) / 100,
       weightChangePerWeek: Math.round(weightChangePerWeek * 100) / 100,
+      weightChangePercent: weightChangePercent !== null ? Math.round(weightChangePercent * 100) / 100 : null,
       averageIntake,
-      totalDays: 14,
+      totalDays: LOOKBACK_DAYS,
       daysWithCalories,
       daysWithWeight,
       weightData,
       recommendation,
       stallDetection,
       goalCompliance,
+      coachingAction,
+      trendDirection,
     };
   };
   

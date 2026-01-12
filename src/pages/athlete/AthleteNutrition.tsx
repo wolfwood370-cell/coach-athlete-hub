@@ -34,7 +34,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { useAdaptiveTDEE, GoalType, StallDetection, GoalCompliance } from "@/hooks/useAdaptiveTDEE";
+import { useAdaptiveTDEE, GoalType, StallDetection, GoalCompliance, CoachingAction } from "@/hooks/useAdaptiveTDEE";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { toast } from "sonner";
 import { FoodDatabase } from "@/components/nutrition/FoodDatabase";
@@ -162,8 +162,11 @@ function MetabolicStatusCard({
   recommendation,
   stallDetection,
   goalCompliance,
+  coachingAction,
+  trendDirection,
   isLoading,
   daysWithData,
+  totalDays,
   onAdjustmentClick,
 }: {
   tdee: number | null;
@@ -178,8 +181,11 @@ function MetabolicStatusCard({
   } | null;
   stallDetection: StallDetection;
   goalCompliance: GoalCompliance | null;
+  coachingAction: CoachingAction | null;
+  trendDirection: "up" | "down" | "stable";
   isLoading: boolean;
   daysWithData: number;
+  totalDays: number;
   onAdjustmentClick?: (adjustment: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -227,7 +233,7 @@ function MetabolicStatusCard({
                   {confidenceConfig[confidence].icon} {confidenceConfig[confidence].label}
                 </Badge>
                 <span className="text-[10px] text-muted-foreground">
-                  {daysWithData} giorni di dati
+                  {daysWithData}/{totalDays} giorni
                 </span>
               </div>
             </div>
@@ -247,18 +253,25 @@ function MetabolicStatusCard({
           </Button>
         </div>
         
-        {/* Main TDEE Display */}
+        {/* Main TDEE Display with Trend Arrow */}
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="text-center p-3 rounded-lg bg-background/50">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
-              TDEE Stimato
+              Live TDEE
             </p>
-            <div className="flex items-baseline justify-center gap-1">
+            <div className="flex items-center justify-center gap-2">
               <span className="text-3xl font-bold tabular-nums text-foreground">
                 {tdee !== null ? tdee.toLocaleString() : "—"}
               </span>
-              <span className="text-sm text-muted-foreground">kcal</span>
+              {trendDirection !== "stable" && (
+                trendDirection === "down" ? (
+                  <TrendingDown className="h-5 w-5 text-success" />
+                ) : (
+                  <TrendingUp className="h-5 w-5 text-warning" />
+                )
+              )}
             </div>
+            <span className="text-xs text-muted-foreground">kcal/giorno</span>
           </div>
           
           <div className="text-center p-3 rounded-lg bg-background/50">
@@ -269,10 +282,58 @@ function MetabolicStatusCard({
               <span className="text-3xl font-bold tabular-nums text-foreground">
                 {averageIntake !== null ? averageIntake.toLocaleString() : "—"}
               </span>
-              <span className="text-sm text-muted-foreground">kcal</span>
             </div>
+            <span className="text-xs text-muted-foreground">kcal/giorno</span>
           </div>
         </div>
+        
+        {/* Coaching Action Card (new - shows contextual advice) */}
+        {coachingAction && (
+          <div className={cn(
+            "p-3 rounded-lg mb-4 border",
+            coachingAction.type === "warning" && "bg-amber-500/10 border-amber-500/20",
+            coachingAction.type === "suggestion" && "bg-primary/10 border-primary/20",
+            coachingAction.type === "info" && "bg-muted border-muted"
+          )}>
+            <div className="flex items-start gap-2 mb-2">
+              {coachingAction.type === "warning" ? (
+                <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+              ) : coachingAction.type === "suggestion" ? (
+                <Sparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              ) : (
+                <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+              )}
+              <div>
+                <p className={cn(
+                  "text-sm font-semibold",
+                  coachingAction.type === "warning" && "text-amber-700 dark:text-amber-400",
+                  coachingAction.type === "suggestion" && "text-primary",
+                  coachingAction.type === "info" && "text-foreground"
+                )}>
+                  {coachingAction.title}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {coachingAction.message}
+                </p>
+              </div>
+            </div>
+            {coachingAction.actionLabel && coachingAction.actionValue !== undefined && (
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "w-full",
+                  coachingAction.type === "warning" && "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20",
+                  coachingAction.type === "suggestion" && "bg-primary/10 border-primary/30 text-primary hover:bg-primary/20"
+                )}
+                onClick={() => onAdjustmentClick?.(coachingAction.actionValue!)}
+              >
+                <Sparkles className="h-4 w-4 mr-2" />
+                {coachingAction.actionLabel}
+              </Button>
+            )}
+          </div>
+        )}
         
         {/* Goal Compliance Badge */}
         {goalCompliance && (
@@ -319,7 +380,7 @@ function MetabolicStatusCard({
               "text-sm font-medium tabular-nums",
               weightChange < 0 ? "text-success" : weightChange > 0 ? "text-warning" : "text-muted-foreground"
             )}>
-              {weightChange > 0 ? "+" : ""}{weightChange.toFixed(2)} kg in 14 giorni
+              {weightChange > 0 ? "+" : ""}{weightChange.toFixed(2)} kg in {totalDays} giorni
             </span>
           </div>
         )}
@@ -373,7 +434,7 @@ function MetabolicStatusCard({
             <div className="flex items-start gap-2 text-xs text-muted-foreground">
               <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
               <p>
-                Il TDEE è calcolato usando il trend del peso (EMA α=0.1) e l'intake calorico degli ultimi 14 giorni.
+                Il TDEE è calcolato usando il trend del peso (EMA α=0.1) e l'intake calorico degli ultimi {totalDays} giorni.
                 Formula: TDEE = Media Intake + ((Trend Iniziale − Trend Finale) × 7700 ÷ Giorni)
               </p>
             </div>
@@ -655,8 +716,11 @@ export default function AthleteNutrition() {
           recommendation={tdeeData.recommendation}
           stallDetection={tdeeData.stallDetection}
           goalCompliance={tdeeData.goalCompliance}
+          coachingAction={tdeeData.coachingAction}
+          trendDirection={tdeeData.trendDirection}
           isLoading={tdeeData.isLoading}
           daysWithData={Math.max(tdeeData.daysWithCalories, tdeeData.daysWithWeight)}
+          totalDays={tdeeData.totalDays}
           onAdjustmentClick={(adjustment) => {
             toast.success(`Suggerimento: ${adjustment > 0 ? "+" : ""}${adjustment} kcal/giorno applicato!`);
           }}
