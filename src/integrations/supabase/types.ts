@@ -104,6 +104,48 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_metrics: {
+        Row: {
+          created_at: string
+          date: string
+          hrv_rmssd: number | null
+          id: string
+          notes: string | null
+          resting_hr: number | null
+          sleep_hours: number | null
+          subjective_readiness: number | null
+          updated_at: string
+          user_id: string
+          weight_kg: number | null
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          hrv_rmssd?: number | null
+          id?: string
+          notes?: string | null
+          resting_hr?: number | null
+          sleep_hours?: number | null
+          subjective_readiness?: number | null
+          updated_at?: string
+          user_id: string
+          weight_kg?: number | null
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          hrv_rmssd?: number | null
+          id?: string
+          notes?: string | null
+          resting_hr?: number | null
+          sleep_hours?: number | null
+          subjective_readiness?: number | null
+          updated_at?: string
+          user_id?: string
+          weight_kg?: number | null
+        }
+        Relationships: []
+      }
       daily_readiness: {
         Row: {
           athlete_id: string
@@ -322,8 +364,10 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          onboarding_completed: boolean
           one_rm_data: Json | null
           role: Database["public"]["Enums"]["user_role"]
+          settings: Json
           updated_at: string
         }
         Insert: {
@@ -332,8 +376,10 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id: string
+          onboarding_completed?: boolean
           one_rm_data?: Json | null
           role?: Database["public"]["Enums"]["user_role"]
+          settings?: Json
           updated_at?: string
         }
         Update: {
@@ -342,8 +388,10 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          onboarding_completed?: boolean
           one_rm_data?: Json | null
           role?: Database["public"]["Enums"]["user_role"]
+          settings?: Json
           updated_at?: string
         }
         Relationships: [
@@ -356,41 +404,100 @@ export type Database = {
           },
         ]
       }
+      workout_exercises: {
+        Row: {
+          created_at: string
+          exercise_name: string
+          exercise_order: number
+          id: string
+          notes: string | null
+          sets_data: Json
+          updated_at: string
+          workout_log_id: string
+        }
+        Insert: {
+          created_at?: string
+          exercise_name: string
+          exercise_order?: number
+          id?: string
+          notes?: string | null
+          sets_data?: Json
+          updated_at?: string
+          workout_log_id: string
+        }
+        Update: {
+          created_at?: string
+          exercise_name?: string
+          exercise_order?: number
+          id?: string
+          notes?: string | null
+          sets_data?: Json
+          updated_at?: string
+          workout_log_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_exercises_workout_log_id_fkey"
+            columns: ["workout_log_id"]
+            isOneToOne: false
+            referencedRelation: "workout_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workout_logs: {
         Row: {
           athlete_id: string
           completed_at: string | null
           created_at: string
+          duration_minutes: number | null
           duration_seconds: number | null
           exercises_data: Json
           id: string
+          local_id: string | null
           notes: string | null
+          program_id: string | null
           rpe_global: number | null
+          srpe: number | null
           started_at: string | null
+          sync_status: string
+          total_load_au: number | null
           workout_id: string
         }
         Insert: {
           athlete_id: string
           completed_at?: string | null
           created_at?: string
+          duration_minutes?: number | null
           duration_seconds?: number | null
           exercises_data?: Json
           id?: string
+          local_id?: string | null
           notes?: string | null
+          program_id?: string | null
           rpe_global?: number | null
+          srpe?: number | null
           started_at?: string | null
+          sync_status?: string
+          total_load_au?: number | null
           workout_id: string
         }
         Update: {
           athlete_id?: string
           completed_at?: string | null
           created_at?: string
+          duration_minutes?: number | null
           duration_seconds?: number | null
           exercises_data?: Json
           id?: string
+          local_id?: string | null
           notes?: string | null
+          program_id?: string | null
           rpe_global?: number | null
+          srpe?: number | null
           started_at?: string | null
+          sync_status?: string
+          total_load_au?: number | null
           workout_id?: string
         }
         Relationships: [
