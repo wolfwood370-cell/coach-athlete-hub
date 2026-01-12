@@ -4,6 +4,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Drawer,
   DrawerClose,
@@ -17,12 +19,19 @@ import {
   Zap,
   Scale,
   TrendingUp,
+  TrendingDown,
   Minus,
   Search,
+  Flame,
+  Target,
+  Info,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useAdaptiveTDEE, GoalType } from "@/hooks/useAdaptiveTDEE";
 import { toast } from "sonner";
 import { FoodDatabase } from "@/components/nutrition/FoodDatabase";
 import {
@@ -42,16 +51,6 @@ const nutritionTargets = {
   carbs: 260,
   fats: 75,
   water: 2500,
-};
-
-// Calculate EMA (Exponential Moving Average)
-const calculateEMA = (data: number[], smoothing: number = 0.2): number[] => {
-  if (data.length === 0) return [];
-  const ema: number[] = [data[0]];
-  for (let i = 1; i < data.length; i++) {
-    ema.push(data[i] * smoothing + ema[i - 1] * (1 - smoothing));
-  }
-  return ema;
 };
 
 // Macro Ring Component with center text and soft alert for excess
@@ -150,8 +149,191 @@ interface QuickAddFormState {
   caloriesOverride: string;
 }
 
-// Weight Trend Chart with recharts
-function WeightTrendChart({ data }: { data: { day: number; date: string; scale: number; trend: number }[] }) {
+// Metabolic Status Card Component
+function MetabolicStatusCard({ 
+  tdee, 
+  confidence,
+  weightChange,
+  averageIntake,
+  recommendation,
+  isLoading,
+  daysWithData,
+}: {
+  tdee: number | null;
+  confidence: "high" | "medium" | "low" | "insufficient";
+  weightChange: number | null;
+  averageIntake: number | null;
+  recommendation: {
+    goal: GoalType;
+    targetCalories: number | null;
+    weeklyChange: number;
+    message: string;
+  } | null;
+  isLoading: boolean;
+  daysWithData: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  
+  const confidenceConfig = {
+    high: { label: "Alta", color: "bg-success/10 text-success" },
+    medium: { label: "Media", color: "bg-warning/10 text-warning" },
+    low: { label: "Bassa", color: "bg-muted text-muted-foreground" },
+    insufficient: { label: "Dati insufficienti", color: "bg-muted text-muted-foreground" },
+  };
+  
+  if (isLoading) {
+    return (
+      <Card className="border-0 bg-gradient-to-br from-primary/5 to-primary/10">
+        <CardContent className="p-5">
+          <div className="flex items-center gap-3 mb-4">
+            <Skeleton className="h-10 w-10 rounded-lg" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-24" />
+            </div>
+          </div>
+          <Skeleton className="h-20 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  return (
+    <Card className="border-0 bg-gradient-to-br from-primary/5 via-primary/8 to-primary/5 overflow-hidden">
+      <CardContent className="p-5">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <Flame className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Metabolic Status</h3>
+              <div className="flex items-center gap-2 mt-0.5">
+                <Badge 
+                  variant="secondary" 
+                  className={cn("text-[10px] px-1.5 py-0", confidenceConfig[confidence].color)}
+                >
+                  {confidenceConfig[confidence].label}
+                </Badge>
+                <span className="text-[10px] text-muted-foreground">
+                  {daysWithData} days data
+                </span>
+              </div>
+            </div>
+          </div>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 -mr-2"
+            onClick={() => setExpanded(!expanded)}
+          >
+            {expanded ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+        
+        {/* Main TDEE Display */}
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="text-center p-3 rounded-lg bg-background/50">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+              Estimated TDEE
+            </p>
+            <div className="flex items-baseline justify-center gap-1">
+              <span className="text-3xl font-bold tabular-nums text-foreground">
+                {tdee !== null ? tdee.toLocaleString() : "—"}
+              </span>
+              <span className="text-sm text-muted-foreground">kcal</span>
+            </div>
+          </div>
+          
+          <div className="text-center p-3 rounded-lg bg-background/50">
+            <p className="text-[10px] uppercase tracking-wider text-muted-foreground mb-1">
+              Avg Intake
+            </p>
+            <div className="flex items-baseline justify-center gap-1">
+              <span className="text-3xl font-bold tabular-nums text-foreground">
+                {averageIntake !== null ? averageIntake.toLocaleString() : "—"}
+              </span>
+              <span className="text-sm text-muted-foreground">kcal</span>
+            </div>
+          </div>
+        </div>
+        
+        {/* Weight Change Indicator */}
+        {weightChange !== null && (
+          <div className="flex items-center justify-center gap-2 mb-4">
+            {weightChange < 0 ? (
+              <TrendingDown className="h-4 w-4 text-success" />
+            ) : weightChange > 0 ? (
+              <TrendingUp className="h-4 w-4 text-warning" />
+            ) : (
+              <Minus className="h-4 w-4 text-muted-foreground" />
+            )}
+            <span className={cn(
+              "text-sm font-medium tabular-nums",
+              weightChange < 0 ? "text-success" : weightChange > 0 ? "text-warning" : "text-muted-foreground"
+            )}>
+              {weightChange > 0 ? "+" : ""}{weightChange.toFixed(2)} kg in 14 days
+            </span>
+          </div>
+        )}
+        
+        {/* Recommendation */}
+        {recommendation && recommendation.targetCalories && (
+          <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
+            <div className="flex items-start gap-2">
+              <Target className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  Weekly Adjustment
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {recommendation.message}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {/* Expanded Details */}
+        {expanded && (
+          <div className="mt-4 pt-4 border-t border-border/50 space-y-3">
+            <div className="flex items-start gap-2 text-xs text-muted-foreground">
+              <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+              <p>
+                TDEE is calculated using your weight trend (EMA α=0.1) and caloric intake over the last 14 days.
+                Formula: TDEE = Avg Intake + ((Start Trend − End Trend) × 7700 ÷ Days)
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="p-2 rounded bg-muted/50">
+                <p className="text-lg font-bold tabular-nums">{tdee && averageIntake ? (tdee - averageIntake > 0 ? "+" : "") + (tdee - averageIntake) : "—"}</p>
+                <p className="text-[9px] text-muted-foreground">Daily Δ</p>
+              </div>
+              <div className="p-2 rounded bg-muted/50">
+                <p className="text-lg font-bold tabular-nums">{weightChange !== null ? (weightChange * 7 / 14).toFixed(2) : "—"}</p>
+                <p className="text-[9px] text-muted-foreground">kg/week</p>
+              </div>
+              <div className="p-2 rounded bg-muted/50">
+                <p className="text-lg font-bold tabular-nums">{daysWithData}</p>
+                <p className="text-[9px] text-muted-foreground">Data Points</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Weight Trend Chart with recharts - Enhanced version
+function WeightTrendChart({ data }: { data: { dayIndex: number; date: string; rawWeight: number | null; trendWeight: number }[] }) {
   if (data.length === 0) {
     return (
       <div className="h-32 flex items-center justify-center text-foreground/40 text-sm">
@@ -160,12 +342,30 @@ function WeightTrendChart({ data }: { data: { day: number; date: string; scale: 
     );
   }
 
-  const minWeight = Math.min(...data.map(d => Math.min(d.scale, d.trend))) - 0.5;
-  const maxWeight = Math.max(...data.map(d => Math.max(d.scale, d.trend))) + 0.5;
+  const validData = data.filter(d => d.rawWeight !== null || d.trendWeight > 0);
+  if (validData.length === 0) {
+    return (
+      <div className="h-32 flex items-center justify-center text-foreground/40 text-sm">
+        Nessun dato peso disponibile
+      </div>
+    );
+  }
+
+  const allWeights = validData.flatMap(d => [d.rawWeight, d.trendWeight]).filter((w): w is number => w !== null && w > 0);
+  const minWeight = Math.min(...allWeights) - 0.5;
+  const maxWeight = Math.max(...allWeights) + 0.5;
+
+  // Format chart data
+  const chartData = validData.map(d => ({
+    day: d.dayIndex,
+    date: d.date,
+    scale: d.rawWeight,
+    trend: d.trendWeight,
+  }));
 
   return (
     <ResponsiveContainer width="100%" height={140}>
-      <ComposedChart data={data} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+      <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
         <XAxis 
           dataKey="day" 
           tick={{ fontSize: 10, fill: 'hsl(var(--foreground) / 0.4)' }}
@@ -187,10 +387,13 @@ function WeightTrendChart({ data }: { data: { day: number; date: string; scale: 
             fontSize: '12px',
           }}
           labelStyle={{ color: 'hsl(var(--muted-foreground))' }}
-          formatter={(value: number, name: string) => [
-            `${value.toFixed(1)} kg`,
-            name === 'scale' ? 'Bilancia' : 'Trend'
-          ]}
+          formatter={(value: number | null, name: string) => {
+            if (value === null) return ['-', name];
+            return [
+              `${value.toFixed(1)} kg`,
+              name === 'scale' ? 'Scale' : 'Trend (EMA)'
+            ];
+          }}
         />
         {/* Scale weight as scattered dots (noise) */}
         <Scatter 
@@ -206,6 +409,7 @@ function WeightTrendChart({ data }: { data: { day: number; date: string; scale: 
           strokeWidth={3}
           dot={false}
           activeDot={{ r: 4, fill: 'hsl(var(--primary))' }}
+          connectNulls
         />
       </ComposedChart>
     </ResponsiveContainer>
@@ -218,6 +422,9 @@ export default function AthleteNutrition() {
   const [foodDbOpen, setFoodDbOpen] = useState(false);
   const [showSecondFab, setShowSecondFab] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // Adaptive TDEE hook
+  const tdeeData = useAdaptiveTDEE(undefined, "cut");
   
   // Quick Add form state
   const [formData, setFormData] = useState<QuickAddFormState>({
@@ -239,11 +446,6 @@ export default function AthleteNutrition() {
     fats: 0,
     water: 0,
   });
-  
-  // Weight data state
-  const [weightData, setWeightData] = useState<{ day: number; date: string; scale: number; trend: number }[]>([]);
-  const [currentTrend, setCurrentTrend] = useState<number | null>(null);
-  const [weightChange, setWeightChange] = useState<number>(0);
 
   // Calculate calories from macros
   const calculatedKcal = Math.round(
@@ -287,53 +489,9 @@ export default function AthleteNutrition() {
     }
   }, [user?.id]);
 
-  // Fetch weight data for trend chart
-  const fetchWeightData = useCallback(async () => {
-    if (!user?.id) return;
-    
-    const fourteenDaysAgo = new Date();
-    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
-    
-    const { data, error } = await supabase
-      .from('daily_readiness')
-      .select('date, body_weight')
-      .eq('athlete_id', user.id)
-      .gte('date', fourteenDaysAgo.toISOString().split('T')[0])
-      .order('date', { ascending: true });
-    
-    if (error) {
-      console.error('Error fetching weight:', error);
-      return;
-    }
-    
-    if (data && data.length > 0) {
-      const weights = data
-        .filter(d => d.body_weight !== null)
-        .map(d => Number(d.body_weight));
-      
-      if (weights.length > 0) {
-        const ema = calculateEMA(weights, 0.3);
-        
-        const chartData = data
-          .filter(d => d.body_weight !== null)
-          .map((d, i) => ({
-            day: i + 1,
-            date: d.date,
-            scale: Number(d.body_weight),
-            trend: Number(ema[i].toFixed(1)),
-          }));
-        
-        setWeightData(chartData);
-        setCurrentTrend(ema[ema.length - 1]);
-        setWeightChange(ema[ema.length - 1] - ema[0]);
-      }
-    }
-  }, [user?.id]);
-
   useEffect(() => {
     fetchTodayNutrition();
-    fetchWeightData();
-  }, [fetchTodayNutrition, fetchWeightData]);
+  }, [fetchTodayNutrition]);
 
   // Handle form field change
   const handleFieldChange = (field: keyof QuickAddFormState, value: string) => {
@@ -399,6 +557,7 @@ export default function AthleteNutrition() {
       setQuickAddOpen(false);
       resetForm();
       fetchTodayNutrition();
+      tdeeData.refetch();
     }
     
     setIsSubmitting(false);
@@ -412,6 +571,17 @@ export default function AthleteNutrition() {
   return (
     <AthleteLayout title="Nutrition">
       <div className="space-y-4 p-4 pb-24 animate-fade-in">
+        
+        {/* ===== METABOLIC STATUS (New AI Coach Card) ===== */}
+        <MetabolicStatusCard
+          tdee={tdeeData.estimatedTDEE}
+          confidence={tdeeData.confidence}
+          weightChange={tdeeData.weightChange}
+          averageIntake={tdeeData.averageIntake}
+          recommendation={tdeeData.recommendation}
+          isLoading={tdeeData.isLoading}
+          daysWithData={Math.max(tdeeData.daysWithCalories, tdeeData.daysWithWeight)}
+        />
         
         {/* ===== ENERGY BALANCE (Hero Widget) ===== */}
         <Card className="border-0 bg-card/50">
@@ -453,8 +623,8 @@ export default function AthleteNutrition() {
                 )}
               </div>
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span className="tabular-nums">{consumed.calories.toLocaleString()} consumate</span>
-                <span className="tabular-nums">{nutritionTargets.calories.toLocaleString()} obiettivo</span>
+                <span className="tabular-nums">{consumed.calories.toLocaleString()} consumed</span>
+                <span className="tabular-nums">{nutritionTargets.calories.toLocaleString()} target</span>
               </div>
             </div>
           </CardContent>
@@ -465,21 +635,21 @@ export default function AthleteNutrition() {
           <CardContent className="p-5">
             <div className="flex justify-around items-center">
               <MacroRing 
-                label="Proteine" 
+                label="Protein" 
                 consumed={consumed.protein}
                 target={nutritionTargets.protein}
                 color="hsl(0 84% 60%)"
                 bgColor="hsl(0 84% 60% / 0.2)"
               />
               <MacroRing 
-                label="Carboidrati" 
+                label="Carbs" 
                 consumed={consumed.carbs}
                 target={nutritionTargets.carbs}
                 color="hsl(142 71% 45%)"
                 bgColor="hsl(142 71% 45% / 0.2)"
               />
               <MacroRing 
-                label="Grassi" 
+                label="Fats" 
                 consumed={consumed.fats}
                 target={nutritionTargets.fats}
                 color="hsl(45 93% 47%)"
@@ -487,10 +657,10 @@ export default function AthleteNutrition() {
               />
             </div>
             
-            {/* Water Progress Bar - Always positive, no amber alerts */}
+            {/* Water Progress Bar */}
             <div className="mt-5 pt-4 border-t border-border/50">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-foreground/70">Acqua</span>
+                <span className="text-xs font-medium text-foreground/70">Water</span>
                 <span className={cn(
                   "text-xs",
                   (consumed.water || 0) >= nutritionTargets.water 
@@ -498,7 +668,7 @@ export default function AthleteNutrition() {
                     : "text-foreground/50"
                 )}>
                   {(consumed.water || 0) >= nutritionTargets.water 
-                    ? "✓ Obiettivo raggiunto!" 
+                    ? "✓ Goal reached!" 
                     : `${consumed.water || 0} / ${nutritionTargets.water} ml`}
                 </span>
               </div>
@@ -518,40 +688,42 @@ export default function AthleteNutrition() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Scale className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm font-semibold text-foreground">Andamento Peso</span>
+                <span className="text-sm font-semibold text-foreground">Weight Trend</span>
               </div>
-              {currentTrend && (
+              {tdeeData.endTrend && (
                 <div className="flex items-center gap-1.5">
-                  <span className="text-lg font-bold tabular-nums text-foreground">{currentTrend.toFixed(1)}</span>
+                  <span className="text-lg font-bold tabular-nums text-foreground">{tdeeData.endTrend.toFixed(1)}</span>
                   <span className="text-xs text-muted-foreground">kg</span>
-                  <div className={cn(
-                    "flex items-center gap-0.5 text-xs font-medium ml-1",
-                    weightChange < 0 ? "text-primary" : weightChange > 0 ? "text-muted-foreground" : "text-muted-foreground"
-                  )}>
-                    {weightChange < 0 ? (
-                      <TrendingUp className="h-3 w-3 rotate-180" />
-                    ) : weightChange > 0 ? (
-                      <TrendingUp className="h-3 w-3" />
-                    ) : (
-                      <Minus className="h-3 w-3" />
-                    )}
-                    <span className="tabular-nums">{Math.abs(weightChange).toFixed(1)}</span>
-                  </div>
+                  {tdeeData.weightChange !== null && (
+                    <div className={cn(
+                      "flex items-center gap-0.5 text-xs font-medium ml-1",
+                      tdeeData.weightChange < 0 ? "text-success" : tdeeData.weightChange > 0 ? "text-warning" : "text-muted-foreground"
+                    )}>
+                      {tdeeData.weightChange < 0 ? (
+                        <TrendingDown className="h-3 w-3" />
+                      ) : tdeeData.weightChange > 0 ? (
+                        <TrendingUp className="h-3 w-3" />
+                      ) : (
+                        <Minus className="h-3 w-3" />
+                      )}
+                      <span className="tabular-nums">{Math.abs(tdeeData.weightChange).toFixed(2)}</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
             
-            <WeightTrendChart data={weightData} />
+            <WeightTrendChart data={tdeeData.weightData} />
             
             {/* Legend */}
             <div className="flex justify-center gap-4 mt-2">
               <div className="flex items-center gap-1.5">
                 <div className="h-0.5 w-4 rounded bg-primary" />
-                <span className="text-[10px] text-muted-foreground">Trend</span>
+                <span className="text-[10px] text-muted-foreground">Trend (EMA)</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <div className="h-2 w-2 rounded-full bg-foreground/25" />
-                <span className="text-[10px] text-muted-foreground">Bilancia</span>
+                <span className="text-[10px] text-muted-foreground">Scale</span>
               </div>
             </div>
           </CardContent>
@@ -618,13 +790,13 @@ export default function AthleteNutrition() {
         <DrawerContent className="max-h-[85vh]">
           <div className="mx-auto w-full max-w-md flex flex-col overflow-hidden">
             <DrawerHeader className="text-center pb-2 shrink-0">
-              <DrawerTitle className="text-lg">Aggiunta Rapida</DrawerTitle>
+              <DrawerTitle className="text-lg">Quick Add</DrawerTitle>
             </DrawerHeader>
             
             <div className="flex-1 px-4 overflow-y-auto space-y-4 pb-4">
               {/* Energy Field with Unit Selector */}
               <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Energia</Label>
+                <Label className="text-xs text-muted-foreground">Energy</Label>
                 <div className="flex gap-2">
                   <Input
                     type="number"
@@ -639,14 +811,14 @@ export default function AthleteNutrition() {
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground/60">
-                  Somma macro: {calculatedKcal} kcal
+                  Macro sum: {calculatedKcal} kcal
                 </p>
               </div>
               
               {/* Macro Row: Protein, Fat, Carbs */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Proteine</Label>
+                  <Label className="text-xs text-muted-foreground">Protein</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -660,7 +832,7 @@ export default function AthleteNutrition() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Grassi</Label>
+                  <Label className="text-xs text-muted-foreground">Fats</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -674,7 +846,7 @@ export default function AthleteNutrition() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Carboidrati</Label>
+                  <Label className="text-xs text-muted-foreground">Carbs</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -692,7 +864,7 @@ export default function AthleteNutrition() {
               {/* Additional fields row: Fiber, Salt, Water */}
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Fibre</Label>
+                  <Label className="text-xs text-muted-foreground">Fiber</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -706,7 +878,7 @@ export default function AthleteNutrition() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Sale</Label>
+                  <Label className="text-xs text-muted-foreground">Salt</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -720,7 +892,7 @@ export default function AthleteNutrition() {
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Acqua</Label>
+                  <Label className="text-xs text-muted-foreground">Water</Label>
                   <div className="relative">
                     <Input
                       type="number"
@@ -743,11 +915,11 @@ export default function AthleteNutrition() {
                 className="w-full h-12 font-semibold bg-primary hover:bg-primary/90"
                 disabled={isSubmitting}
               >
-                Aggiungi
+                Add
               </Button>
               <DrawerClose asChild>
                 <Button variant="ghost" className="w-full text-primary hover:text-primary/80 hover:bg-primary/10 text-sm">
-                  Annulla
+                  Cancel
                 </Button>
               </DrawerClose>
             </DrawerFooter>
