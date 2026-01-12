@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -37,6 +37,11 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   User,
   Save,
   RotateCcw,
@@ -47,6 +52,11 @@ import {
   Activity,
   ShieldAlert,
   X,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  Eye,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -54,6 +64,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useFmsAlerts, checkExerciseContraindication } from "@/hooks/useFmsAlerts";
+import { useAthleteHealthProfile, type FmsScore } from "@/hooks/useAthleteHealthProfile";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -87,6 +98,165 @@ function DragOverlayContent({ exercise }: { exercise: LibraryExercise | null }) 
           <p className="text-[10px] text-muted-foreground">{exercise.muscle}</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+// Physical Readiness Banner Component
+interface PhysicalReadinessBannerProps {
+  healthProfile: import("@/hooks/useAthleteHealthProfile").AthleteHealthProfile;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  onViewDetails: () => void;
+}
+
+function PhysicalReadinessBanner({ 
+  healthProfile, 
+  isExpanded, 
+  onToggleExpand,
+  onViewDetails 
+}: PhysicalReadinessBannerProps) {
+  const { summary, athleteName, fmsTestDate, fmsTotalScore, fmsMaxScore, activeInjuries } = healthProfile;
+  
+  const statusConfig = {
+    green: {
+      bgClass: "bg-emerald-500/5 border-emerald-500/30",
+      iconBgClass: "bg-emerald-500/10",
+      iconClass: "text-emerald-600",
+      textClass: "text-emerald-700 dark:text-emerald-400",
+      Icon: CheckCircle2,
+    },
+    yellow: {
+      bgClass: "bg-amber-500/5 border-amber-500/30",
+      iconBgClass: "bg-amber-500/10",
+      iconClass: "text-amber-600",
+      textClass: "text-amber-700 dark:text-amber-400",
+      Icon: AlertTriangle,
+    },
+    red: {
+      bgClass: "bg-destructive/5 border-destructive/50",
+      iconBgClass: "bg-destructive/10",
+      iconClass: "text-destructive",
+      textClass: "text-destructive",
+      Icon: ShieldAlert,
+    },
+  };
+  
+  const config = statusConfig[summary.status];
+  const Icon = config.Icon;
+  
+  return (
+    <Collapsible open={isExpanded} onOpenChange={onToggleExpand}>
+      <Card className={cn("transition-all duration-200", config.bgClass)}>
+        <CollapsibleTrigger asChild>
+          <CardContent className="p-3 cursor-pointer">
+            <div className="flex items-center gap-3">
+              <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0", config.iconBgClass)}>
+                <Icon className={cn("h-4 w-4", config.iconClass)} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h4 className={cn("text-sm font-semibold", config.textClass)}>
+                    {summary.title}
+                  </h4>
+                  {fmsTestDate && (
+                    <Badge variant="outline" className={cn("text-[10px]", config.textClass)}>
+                      FMS: {fmsTotalScore}/{fmsMaxScore}
+                    </Badge>
+                  )}
+                  {activeInjuries.length > 0 && (
+                    <Badge variant="destructive" className="text-[10px]">
+                      {activeInjuries.length} infortuni
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">{summary.description}</p>
+              </div>
+              <Button variant="ghost" size="icon" className="h-7 w-7">
+                {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </Button>
+            </div>
+          </CardContent>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="px-3 pb-3 pt-0">
+            <div className="border-t border-border/50 pt-2 space-y-1.5">
+              {summary.details.slice(0, 5).map((detail, i) => (
+                <p key={i} className="text-xs text-muted-foreground pl-11">
+                  {detail}
+                </p>
+              ))}
+              {summary.details.length > 5 && (
+                <p className="text-xs text-muted-foreground pl-11">
+                  +{summary.details.length - 5} altri dettagli...
+                </p>
+              )}
+              <div className="flex justify-end pt-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-7 text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewDetails();
+                  }}
+                >
+                  <FileText className="h-3 w-3 mr-1.5" />
+                  Dettagli Completi
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Card>
+    </Collapsible>
+  );
+}
+
+// FMS Score Card for Details Dialog
+function FmsScoreCard({ score }: { score: FmsScore }) {
+  const statusColors = {
+    optimal: "bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
+    limited: "bg-amber-500/10 text-amber-600 border-amber-500/30",
+    dysfunctional: "bg-orange-500/10 text-orange-600 border-orange-500/30",
+    pain: "bg-destructive/10 text-destructive border-destructive/30",
+  };
+  
+  const statusLabels = {
+    optimal: "Ottimale",
+    limited: "Limitato",
+    dysfunctional: "Disfunzionale",
+    pain: "Dolore",
+  };
+  
+  return (
+    <div className={cn(
+      "p-3 rounded-lg border",
+      statusColors[score.status]
+    )}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-sm font-medium">{score.testName}</span>
+        <Badge variant="outline" className={cn("text-[10px]", statusColors[score.status])}>
+          {statusLabels[score.status]}
+        </Badge>
+      </div>
+      <p className="text-xs text-muted-foreground mb-2">{score.bodyArea}</p>
+      {score.leftScore !== null && score.rightScore !== null ? (
+        <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground text-xs">Sx:</span>
+            <span className="font-semibold tabular-nums">{score.leftScore}/3</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className="text-muted-foreground text-xs">Dx:</span>
+            <span className="font-semibold tabular-nums">{score.rightScore}/3</span>
+          </div>
+        </div>
+      ) : (
+        <div className="text-sm">
+          <span className="font-semibold tabular-nums">{score.score ?? score.minScore}/3</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -137,14 +307,26 @@ export default function ProgramBuilder() {
 
   const selectedAthlete = athletes.find((a) => a.id === selectedAthleteId) || athletes[0];
   
-  // FMS Alerts for selected athlete
-  const { data: fmsAlerts, isLoading: loadingFms } = useFmsAlerts(selectedAthlete?.id || null);
-  const [healthAlertDismissed, setHealthAlertDismissed] = useState(false);
+  // FMS Alerts for exercise contraindication checks
+  const { data: fmsAlerts } = useFmsAlerts(selectedAthlete?.id || null);
   
-  // Reset dismissed state when athlete changes
+  // Comprehensive health profile for selected athlete
+  const { data: healthProfile, isLoading: loadingHealth } = useAthleteHealthProfile(selectedAthlete?.id || null);
+  
+  // UI state for health banner
+  const [healthBannerExpanded, setHealthBannerExpanded] = useState(false);
+  const [healthDetailsDialogOpen, setHealthDetailsDialogOpen] = useState(false);
+  
+  // Auto-expand banner for yellow/red status
   useEffect(() => {
-    setHealthAlertDismissed(false);
-  }, [selectedAthlete?.id]);
+    if (healthProfile?.summary.status === "red") {
+      setHealthBannerExpanded(true);
+    } else if (healthProfile?.summary.status === "yellow") {
+      setHealthBannerExpanded(true);
+    } else {
+      setHealthBannerExpanded(false);
+    }
+  }, [healthProfile?.summary.status, selectedAthlete?.id]);
 
   // Get 1RM reference
   const getOneRM = useCallback((): number => {
@@ -471,66 +653,15 @@ export default function ProgramBuilder() {
 
           {/* Main Content - Week Grid */}
           <div className="flex-1 flex flex-col min-w-0">
-            {/* Health Alert Banner */}
-            {fmsAlerts?.hasRedFlags && !healthAlertDismissed && (
+            {/* Physical Readiness Banner */}
+            {selectedAthlete && healthProfile && (
               <div className="mx-4 mt-2">
-                <Card className="border-destructive/50 bg-destructive/5">
-                  <CardContent className="p-3">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/10 flex-shrink-0">
-                        <ShieldAlert className="h-4 w-4 text-destructive" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className="text-sm font-semibold text-destructive">
-                            Health Alert: {fmsAlerts.athleteName}
-                          </h4>
-                          {fmsAlerts.testDate && (
-                            <Badge variant="outline" className="text-[10px] border-destructive/30 text-destructive">
-                              FMS {format(new Date(fmsAlerts.testDate), "d MMM", { locale: it })}
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {fmsAlerts.flags
-                            .filter(f => f.status === "pain" || f.status === "dysfunctional")
-                            .slice(0, 4)
-                            .map((flag, i) => (
-                              <Badge 
-                                key={i} 
-                                variant="secondary"
-                                className={cn(
-                                  "text-[10px]",
-                                  flag.status === "pain" 
-                                    ? "bg-destructive/20 text-destructive border-destructive/30" 
-                                    : "bg-warning/20 text-warning border-warning/30"
-                                )}
-                              >
-                                <AlertTriangle className="h-3 w-3 mr-1" />
-                                {flag.bodyArea} {flag.side === "left" ? "(Sx)" : flag.side === "right" ? "(Dx)" : ""}
-                              </Badge>
-                            ))}
-                          {fmsAlerts.flags.filter(f => f.status === "pain" || f.status === "dysfunctional").length > 4 && (
-                            <Badge variant="secondary" className="text-[10px] bg-muted">
-                              +{fmsAlerts.flags.filter(f => f.status === "pain" || f.status === "dysfunctional").length - 4} altri
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-muted-foreground mt-1.5">
-                          Esercizi controindicati verranno segnalati durante la programmazione
-                        </p>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6 flex-shrink-0 text-muted-foreground hover:text-foreground"
-                        onClick={() => setHealthAlertDismissed(true)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                <PhysicalReadinessBanner
+                  healthProfile={healthProfile}
+                  isExpanded={healthBannerExpanded}
+                  onToggleExpand={() => setHealthBannerExpanded(!healthBannerExpanded)}
+                  onViewDetails={() => setHealthDetailsDialogOpen(true)}
+                />
               </div>
             )}
             
@@ -691,6 +822,128 @@ export default function ProgramBuilder() {
                 <Save className="h-4 w-4 mr-2" />
               )}
               Salva Programma
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Health Details Dialog */}
+      <Dialog open={healthDetailsDialogOpen} onOpenChange={setHealthDetailsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Activity className="h-5 w-5 text-primary" />
+              Profilo Salute: {healthProfile?.athleteName}
+            </DialogTitle>
+            <DialogDescription>
+              Dettaglio completo della situazione fisica dell'atleta
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="flex-1 pr-4">
+            <div className="space-y-6 py-4">
+              {/* FMS Scores Section */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-semibold">Test FMS</h3>
+                  {healthProfile?.fmsTestDate && (
+                    <Badge variant="outline" className="text-xs">
+                      {format(new Date(healthProfile.fmsTestDate), "d MMMM yyyy", { locale: it })}
+                    </Badge>
+                  )}
+                </div>
+                {healthProfile?.fmsScores && healthProfile.fmsScores.length > 0 ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {healthProfile.fmsScores.map((score) => (
+                      <FmsScoreCard key={score.testKey} score={score} />
+                    ))}
+                  </div>
+                ) : (
+                  <Card className="p-4">
+                    <p className="text-sm text-muted-foreground text-center">
+                      Nessun test FMS registrato
+                    </p>
+                  </Card>
+                )}
+                {healthProfile && (
+                  <div className="mt-3 p-3 rounded-lg bg-secondary/50 text-center">
+                    <span className="text-sm text-muted-foreground">Punteggio Totale: </span>
+                    <span className="text-lg font-bold">
+                      {healthProfile.fmsTotalScore}/{healthProfile.fmsMaxScore}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Active Injuries Section */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Infortuni Attivi</h3>
+                {healthProfile?.activeInjuries && healthProfile.activeInjuries.length > 0 ? (
+                  <div className="space-y-2">
+                    {healthProfile.activeInjuries.map((injury) => (
+                      <Card key={injury.id} className="p-3 border-destructive/30 bg-destructive/5">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="text-sm font-medium text-destructive">{injury.bodyZone}</p>
+                            {injury.description && (
+                              <p className="text-xs text-muted-foreground mt-0.5">{injury.description}</p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <Badge 
+                              variant="outline" 
+                              className={cn(
+                                "text-[10px]",
+                                injury.status === "in_rehab" 
+                                  ? "border-destructive/50 text-destructive"
+                                  : "border-amber-500/50 text-amber-600"
+                              )}
+                            >
+                              {injury.status === "in_rehab" ? "In Riabilitazione" : 
+                               injury.status === "monitoring" ? "In Osservazione" : "Recuperato"}
+                            </Badge>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              dal {format(new Date(injury.injuryDate), "d MMM", { locale: it })}
+                            </p>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                ) : (
+                  <Card className="p-4">
+                    <p className="text-sm text-muted-foreground text-center">
+                      ✅ Nessun infortunio attivo
+                    </p>
+                  </Card>
+                )}
+              </div>
+
+              {/* Recent Pain Reports */}
+              {healthProfile?.recentPainReports && healthProfile.recentPainReports.some(r => r.hasPain) && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Dolore Recente (ultimi 7 giorni)</h3>
+                  <div className="space-y-1">
+                    {healthProfile.recentPainReports
+                      .filter(r => r.hasPain)
+                      .map((report, i) => (
+                        <div key={i} className="flex items-center gap-2 text-sm p-2 rounded bg-destructive/5">
+                          <ShieldAlert className="h-3.5 w-3.5 text-destructive" />
+                          <span className="text-muted-foreground">
+                            {format(new Date(report.date), "EEEE d MMMM", { locale: it })}
+                          </span>
+                          <span className="text-destructive">- Dolore riportato</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </ScrollArea>
+
+          <DialogFooter className="border-t pt-4">
+            <Button variant="outline" onClick={() => setHealthDetailsDialogOpen(false)}>
+              Chiudi
             </Button>
           </DialogFooter>
         </DialogContent>
