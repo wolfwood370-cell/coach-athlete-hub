@@ -32,7 +32,8 @@ import {
   Zap,
   Smile,
   Activity,
-  Check
+  Check,
+  Scale
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReadiness, initialReadiness, ReadinessData } from "@/hooks/useReadiness";
@@ -571,7 +572,40 @@ export default function AthleteDashboard() {
                 </div>
               </div>
 
-              {/* ===== SECTION B: PSYCHOPHYSICAL PARAMETERS ===== */}
+              {/* ===== SECTION: BODY WEIGHT ===== */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
+                  <Scale className="h-4 w-4 text-primary" />
+                  PESO CORPOREO
+                </Label>
+                <div className="flex flex-row items-center gap-4 p-3 rounded-xl bg-secondary/50">
+                  <div className="flex flex-col items-center gap-1 flex-1">
+                    <span className="text-[10px] text-foreground/60 uppercase tracking-wide">Peso odierno</span>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={tempReadiness.bodyWeight ?? ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setTempReadiness(prev => ({ 
+                            ...prev, 
+                            bodyWeight: value === "" ? null : parseFloat(value) 
+                          }));
+                        }}
+                        step={0.1}
+                        min={30}
+                        max={300}
+                        placeholder="—"
+                        className="w-24 h-12 text-center text-xl font-bold bg-card text-foreground border-0"
+                      />
+                      <span className="text-sm font-medium text-foreground/60">kg</span>
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground text-center max-w-[140px]">
+                    <p>Pesati la mattina, a digiuno, per un dato più accurato</p>
+                  </div>
+                </div>
+              </div>
               <div className="space-y-3">
                 <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
                   <Activity className="h-4 w-4 text-primary" />

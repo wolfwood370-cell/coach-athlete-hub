@@ -20,6 +20,7 @@ export interface ReadinessData {
   mood: number;
   digestion: number;
   sorenessMap: SorenessMap;
+  bodyWeight: number | null;
 }
 
 export const initialReadiness: ReadinessData = {
@@ -32,6 +33,7 @@ export const initialReadiness: ReadinessData = {
   mood: 7,
   digestion: 7,
   sorenessMap: {},
+  bodyWeight: null,
 };
 
 export function useReadiness() {
@@ -70,6 +72,7 @@ export function useReadiness() {
         mood: (data as any).mood ?? 7,
         digestion: (data as any).digestion ?? 7,
         sorenessMap: (data.soreness_map as SorenessMap) ?? {},
+        bodyWeight: data.body_weight !== null ? Number(data.body_weight) : null,
       };
     },
     enabled: !!user?.id,
@@ -140,6 +143,7 @@ export function useReadiness() {
         digestion: data.digestion,
         has_pain: hasPain,
         soreness_map: data.sorenessMap,
+        body_weight: data.bodyWeight,
       };
 
       if (existing?.id) {
