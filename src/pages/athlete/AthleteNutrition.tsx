@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdaptiveTDEE, GoalType, StallDetection, GoalCompliance } from "@/hooks/useAdaptiveTDEE";
+import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { toast } from "sonner";
 import { FoodDatabase } from "@/components/nutrition/FoodDatabase";
 import {
@@ -492,6 +493,7 @@ export default function AthleteNutrition() {
   const [foodDbOpen, setFoodDbOpen] = useState(false);
   const [showSecondFab, setShowSecondFab] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const haptic = useHapticFeedback();
   
   // Adaptive TDEE hook
   const tdeeData = useAdaptiveTDEE(undefined, "cut");
@@ -622,8 +624,10 @@ export default function AthleteNutrition() {
     if (error) {
       console.error('Error inserting log:', error);
       toast.error("Errore nel salvataggio");
+      haptic.error();
     } else {
       toast.success("Aggiunto!");
+      haptic.success();
       setQuickAddOpen(false);
       resetForm();
       fetchTodayNutrition();

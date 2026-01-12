@@ -39,11 +39,16 @@ import {
   Zap,
   TrendingUp,
   Clock,
+  Flame,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useOfflineSync, type WorkoutLogInput, type SetData as OfflineSetData } from "@/hooks/useOfflineSync";
+import { useHapticFeedback } from "@/hooks/useHapticFeedback";
+import { useWorkoutStreak } from "@/hooks/useWorkoutStreak";
+import { usePersonalRecords } from "@/hooks/usePersonalRecords";
+import { triggerConfetti, triggerPRConfetti } from "@/components/celebration/Confetti";
 
 // Types
 interface SetData {
@@ -178,13 +183,17 @@ export default function WorkoutPlayer() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { logWorkout, isLogging, isOnline } = useOfflineSync();
+  const haptic = useHapticFeedback();
+  const { checkForPR, showPRToast } = usePersonalRecords();
   
   // Refs
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
   // Workout state
   const [exercises, setExercises] = useState<ExerciseData[]>([]);
   const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
+  const [showCelebration, setShowCelebration] = useState(false);
   
   // Timer state
   const [workoutStartTime] = useState<Date>(new Date());
@@ -200,6 +209,18 @@ export default function WorkoutPlayer() {
   const [showRecapDialog, setShowRecapDialog] = useState(false);
   const [sessionRpe, setSessionRpe] = useState(5);
   const [workoutNotes, setWorkoutNotes] = useState("");
+
+  // Fetch current user ID
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setCurrentUserId(data.user.id);
+      }
+    });
+  }, []);
+
+  // Get workout streak
+  const { currentStreak, isStreakDay } = useWorkoutStreak(currentUserId || undefined);
 
   // Fetch workout from database
   const { data: workoutData, isLoading } = useQuery({
@@ -244,10 +265,8 @@ export default function WorkoutPlayer() {
   useEffect(() => {
     if (!restTimerActive || restTimeRemaining <= 0) {
       if (restTimeRemaining <= 0 && restTimerActive) {
-        // Vibrate if supported
-        if (navigator.vibrate) {
-          navigator.vibrate([200, 100, 200]);
-        }
+        // Vibrate with haptic feedback when timer ends
+        haptic.warning();
         setRestTimerActive(false);
       }
       return;
@@ -258,7 +277,7 @@ export default function WorkoutPlayer() {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [restTimerActive, restTimeRemaining]);
+  }, [restTimerActive, restTimeRemaining, haptic]);
 
   // Format time helper
   const formatTime = (seconds: number): string => {
@@ -286,13 +305,31 @@ export default function WorkoutPlayer() {
     }));
   }, []);
 
-  const handleSetComplete = useCallback((exerciseId: string, setId: string, completed: boolean) => {
+  const handleSetComplete = useCallback(async (exerciseId: string, setId: string, completed: boolean) => {
     handleSetUpdate(exerciseId, setId, 'completed', completed);
     
     if (completed) {
+      // Trigger haptic feedback
+      haptic.medium();
+      
       // Get rest time from exercise
       const exercise = exercises.find(ex => ex.id === exerciseId);
       const restTime = exercise?.restSeconds || 90;
+      
+      // Check for PR
+      const set = exercise?.sets.find(s => s.id === setId);
+      if (set && currentUserId && exercise) {
+        const weight = parseFloat(set.actualKg) || set.targetKg;
+        const reps = parseInt(set.actualReps) || set.targetReps;
+        
+        if (weight > 0) {
+          const prResult = await checkForPR(currentUserId, exercise.name, weight, reps);
+          if (prResult.isPR) {
+            triggerPRConfetti();
+            showPRToast(exercise.name, weight, prResult.improvement);
+          }
+        }
+      }
       
       // Check if in superset
       if (exercise?.supersetGroup) {
@@ -315,7 +352,7 @@ export default function WorkoutPlayer() {
       
       setRestTimerActive(true);
     }
-  }, [exercises, handleSetUpdate]);
+  }, [exercises, handleSetUpdate, haptic, currentUserId, checkForPR, showPRToast]);
 
   const toggleNotes = (exerciseId: string) => {
     setExpandedNotes(prev => ({ ...prev, [exerciseId]: !prev[exerciseId] }));
@@ -324,7 +361,16 @@ export default function WorkoutPlayer() {
   const handleFinishWorkout = () => {
     setIsWorkoutActive(false);
     setRestTimerActive(false);
-    setShowRecapDialog(true);
+    
+    // Trigger celebration with confetti
+    triggerConfetti();
+    haptic.success();
+    setShowCelebration(true);
+    
+    // Show recap dialog after a brief delay for celebration effect
+    setTimeout(() => {
+      setShowRecapDialog(true);
+    }, 500);
   };
 
   const handleSaveWorkoutLog = async () => {
@@ -737,6 +783,26 @@ export default function WorkoutPlayer() {
           </DialogHeader>
 
           <div className="space-y-6 py-4">
+            {/* Streak Banner */}
+            {currentStreak > 1 && (
+              <div className="flex items-center justify-center gap-3 p-4 rounded-xl bg-gradient-to-r from-orange-500/20 to-amber-500/20 border border-orange-500/30">
+                <div className="relative">
+                  <Flame className="h-8 w-8 text-orange-500 animate-pulse" />
+                  <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center">
+                    {currentStreak}
+                  </span>
+                </div>
+                <div>
+                  <p className="font-bold text-orange-600 dark:text-orange-400">
+                    🔥 {currentStreak} giorni consecutivi!
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Stai costruendo un'abitudine solida!
+                  </p>
+                </div>
+              </div>
+            )}
+            
             {/* Session Stats */}
             <div className="grid grid-cols-3 gap-3">
               <div className="text-center p-3 rounded-lg bg-secondary">
