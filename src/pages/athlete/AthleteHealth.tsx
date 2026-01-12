@@ -203,28 +203,84 @@ export default function AthleteHealth() {
     },
   });
 
-  // Add FMS test mutation
+  // Add or Update FMS test mutation
   const addFmsMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error("User not authenticated");
-      const { error } = await supabase.from("fms_tests").insert({
-        athlete_id: user.id,
-        test_date: new Date().toISOString().split("T")[0],
-        deep_squat: fmsScores.deep_squat ?? null,
-        hurdle_step_l: fmsScores.hurdle_step_l ?? null,
-        hurdle_step_r: fmsScores.hurdle_step_r ?? null,
-        inline_lunge_l: fmsScores.inline_lunge_l ?? null,
-        inline_lunge_r: fmsScores.inline_lunge_r ?? null,
-        shoulder_mobility_l: fmsScores.shoulder_mobility_l ?? null,
-        shoulder_mobility_r: fmsScores.shoulder_mobility_r ?? null,
-        active_straight_leg_l: fmsScores.active_straight_leg_l ?? null,
-        active_straight_leg_r: fmsScores.active_straight_leg_r ?? null,
-        trunk_stability: fmsScores.trunk_stability ?? null,
-        rotary_stability_l: fmsScores.rotary_stability_l ?? null,
-        rotary_stability_r: fmsScores.rotary_stability_r ?? null,
-        notes: fmsNotes || null,
-      });
-      if (error) throw error;
+      
+      const today = new Date().toISOString().split("T")[0];
+      
+      // Check if there's already a test for today
+      const { data: existingTest } = await supabase
+        .from("fms_tests")
+        .select("*")
+        .eq("athlete_id", user.id)
+        .eq("test_date", today)
+        .maybeSingle();
+      
+      // Build the scores object, merging with existing data if updating
+      const baseScores = existingTest ? {
+        deep_squat: existingTest.deep_squat,
+        hurdle_step_l: existingTest.hurdle_step_l,
+        hurdle_step_r: existingTest.hurdle_step_r,
+        inline_lunge_l: existingTest.inline_lunge_l,
+        inline_lunge_r: existingTest.inline_lunge_r,
+        shoulder_mobility_l: existingTest.shoulder_mobility_l,
+        shoulder_mobility_r: existingTest.shoulder_mobility_r,
+        active_straight_leg_l: existingTest.active_straight_leg_l,
+        active_straight_leg_r: existingTest.active_straight_leg_r,
+        trunk_stability: existingTest.trunk_stability,
+        rotary_stability_l: existingTest.rotary_stability_l,
+        rotary_stability_r: existingTest.rotary_stability_r,
+        notes: existingTest.notes,
+      } : {};
+      
+      // Merge with new scores (only update fields that are explicitly set)
+      const updatedScores = {
+        ...baseScores,
+        ...(fmsScores.deep_squat !== undefined && { deep_squat: fmsScores.deep_squat }),
+        ...(fmsScores.hurdle_step_l !== undefined && { hurdle_step_l: fmsScores.hurdle_step_l }),
+        ...(fmsScores.hurdle_step_r !== undefined && { hurdle_step_r: fmsScores.hurdle_step_r }),
+        ...(fmsScores.inline_lunge_l !== undefined && { inline_lunge_l: fmsScores.inline_lunge_l }),
+        ...(fmsScores.inline_lunge_r !== undefined && { inline_lunge_r: fmsScores.inline_lunge_r }),
+        ...(fmsScores.shoulder_mobility_l !== undefined && { shoulder_mobility_l: fmsScores.shoulder_mobility_l }),
+        ...(fmsScores.shoulder_mobility_r !== undefined && { shoulder_mobility_r: fmsScores.shoulder_mobility_r }),
+        ...(fmsScores.active_straight_leg_l !== undefined && { active_straight_leg_l: fmsScores.active_straight_leg_l }),
+        ...(fmsScores.active_straight_leg_r !== undefined && { active_straight_leg_r: fmsScores.active_straight_leg_r }),
+        ...(fmsScores.trunk_stability !== undefined && { trunk_stability: fmsScores.trunk_stability }),
+        ...(fmsScores.rotary_stability_l !== undefined && { rotary_stability_l: fmsScores.rotary_stability_l }),
+        ...(fmsScores.rotary_stability_r !== undefined && { rotary_stability_r: fmsScores.rotary_stability_r }),
+        ...(fmsNotes && { notes: fmsNotes }),
+      };
+      
+      if (existingTest) {
+        // Update existing test
+        const { error } = await supabase
+          .from("fms_tests")
+          .update(updatedScores)
+          .eq("id", existingTest.id);
+        if (error) throw error;
+      } else {
+        // Insert new test
+        const { error } = await supabase.from("fms_tests").insert({
+          athlete_id: user.id,
+          test_date: today,
+          deep_squat: updatedScores.deep_squat ?? null,
+          hurdle_step_l: updatedScores.hurdle_step_l ?? null,
+          hurdle_step_r: updatedScores.hurdle_step_r ?? null,
+          inline_lunge_l: updatedScores.inline_lunge_l ?? null,
+          inline_lunge_r: updatedScores.inline_lunge_r ?? null,
+          shoulder_mobility_l: updatedScores.shoulder_mobility_l ?? null,
+          shoulder_mobility_r: updatedScores.shoulder_mobility_r ?? null,
+          active_straight_leg_l: updatedScores.active_straight_leg_l ?? null,
+          active_straight_leg_r: updatedScores.active_straight_leg_r ?? null,
+          trunk_stability: updatedScores.trunk_stability ?? null,
+          rotary_stability_l: updatedScores.rotary_stability_l ?? null,
+          rotary_stability_r: updatedScores.rotary_stability_r ?? null,
+          notes: updatedScores.notes ?? null,
+        });
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fms-latest"] });
