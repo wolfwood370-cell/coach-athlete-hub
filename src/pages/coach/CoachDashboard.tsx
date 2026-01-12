@@ -543,49 +543,51 @@ export default function CoachDashboard() {
                 <CardTitle className="text-sm font-semibold">ACWR Distribution</CardTitle>
               </CardHeader>
               <CardContent className="p-4 pt-2">
-                <div className="grid grid-cols-4 gap-4">
-                  {/* High Risk */}
-                  <div className="text-center p-3 rounded-lg bg-destructive/5">
-                    <div className="text-2xl font-bold text-destructive tabular-nums">
-                      {allAthletes.filter(a => (a.acwr ?? 0) > 1.5).length}
+                <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 min-w-0">
+                    {/* High Risk */}
+                    <div className="text-center p-2 sm:p-3 rounded-lg bg-destructive/5">
+                      <div className="text-xl sm:text-2xl font-bold text-destructive tabular-nums">
+                        {allAthletes.filter(a => (a.acwr ?? 0) > 1.5).length}
+                      </div>
+                      <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-1 truncate">
+                        ACWR &gt; 1.5
+                      </div>
+                      <div className="text-[8px] sm:text-[9px] text-destructive font-medium">High Risk</div>
                     </div>
-                    <div className="text-[10px] text-muted-foreground mt-1">
-                      ACWR &gt; 1.5
+                    
+                    {/* Elevated */}
+                    <div className="text-center p-2 sm:p-3 rounded-lg bg-warning/5">
+                      <div className="text-xl sm:text-2xl font-bold text-warning tabular-nums">
+                        {allAthletes.filter(a => (a.acwr ?? 0) > 1.3 && (a.acwr ?? 0) <= 1.5).length}
+                      </div>
+                      <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-1 truncate">
+                        1.3 - 1.5
+                      </div>
+                      <div className="text-[8px] sm:text-[9px] text-warning font-medium">Elevated</div>
                     </div>
-                    <div className="text-[9px] text-destructive font-medium">High Risk</div>
-                  </div>
-                  
-                  {/* Elevated */}
-                  <div className="text-center p-3 rounded-lg bg-warning/5">
-                    <div className="text-2xl font-bold text-warning tabular-nums">
-                      {allAthletes.filter(a => (a.acwr ?? 0) > 1.3 && (a.acwr ?? 0) <= 1.5).length}
+                    
+                    {/* Optimal */}
+                    <div className="text-center p-2 sm:p-3 rounded-lg bg-success/5">
+                      <div className="text-xl sm:text-2xl font-bold text-success tabular-nums">
+                        {allAthletes.filter(a => (a.acwr ?? 0) >= 0.8 && (a.acwr ?? 0) <= 1.3).length}
+                      </div>
+                      <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-1 truncate">
+                        0.8 - 1.3
+                      </div>
+                      <div className="text-[8px] sm:text-[9px] text-success font-medium">Optimal</div>
                     </div>
-                    <div className="text-[10px] text-muted-foreground mt-1">
-                      1.3 - 1.5
+                    
+                    {/* Detraining */}
+                    <div className="text-center p-2 sm:p-3 rounded-lg bg-muted">
+                      <div className="text-xl sm:text-2xl font-bold text-muted-foreground tabular-nums">
+                        {allAthletes.filter(a => a.acwr !== null && (a.acwr ?? 0) < 0.8).length}
+                      </div>
+                      <div className="text-[9px] sm:text-[10px] text-muted-foreground mt-1 truncate">
+                        ACWR &lt; 0.8
+                      </div>
+                      <div className="text-[8px] sm:text-[9px] text-muted-foreground font-medium">Detraining</div>
                     </div>
-                    <div className="text-[9px] text-warning font-medium">Elevated</div>
-                  </div>
-                  
-                  {/* Optimal */}
-                  <div className="text-center p-3 rounded-lg bg-success/5">
-                    <div className="text-2xl font-bold text-success tabular-nums">
-                      {allAthletes.filter(a => (a.acwr ?? 0) >= 0.8 && (a.acwr ?? 0) <= 1.3).length}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground mt-1">
-                      0.8 - 1.3
-                    </div>
-                    <div className="text-[9px] text-success font-medium">Optimal</div>
-                  </div>
-                  
-                  {/* Detraining */}
-                  <div className="text-center p-3 rounded-lg bg-muted">
-                    <div className="text-2xl font-bold text-muted-foreground tabular-nums">
-                      {allAthletes.filter(a => a.acwr !== null && (a.acwr ?? 0) < 0.8).length}
-                    </div>
-                    <div className="text-[10px] text-muted-foreground mt-1">
-                      ACWR &lt; 0.8
-                    </div>
-                    <div className="text-[9px] text-muted-foreground font-medium">Detraining</div>
                   </div>
                 </div>
               </CardContent>
