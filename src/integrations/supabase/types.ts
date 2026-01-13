@@ -404,6 +404,56 @@ export type Database = {
           },
         ]
       }
+      training_phases: {
+        Row: {
+          athlete_id: string
+          base_volume: number
+          coach_id: string
+          created_at: string
+          end_date: string
+          focus_type: Database["public"]["Enums"]["phase_focus_type"]
+          id: string
+          name: string
+          notes: string | null
+          start_date: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          base_volume?: number
+          coach_id: string
+          created_at?: string
+          end_date: string
+          focus_type: Database["public"]["Enums"]["phase_focus_type"]
+          id?: string
+          name: string
+          notes?: string | null
+          start_date: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          base_volume?: number
+          coach_id?: string
+          created_at?: string
+          end_date?: string
+          focus_type?: Database["public"]["Enums"]["phase_focus_type"]
+          id?: string
+          name?: string
+          notes?: string | null
+          start_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_phases_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workout_exercises: {
         Row: {
           created_at: string
@@ -582,6 +632,14 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      phase_focus_type:
+        | "strength"
+        | "hypertrophy"
+        | "endurance"
+        | "power"
+        | "recovery"
+        | "peaking"
+        | "transition"
       user_role: "coach" | "athlete"
       workout_status: "pending" | "in_progress" | "completed" | "skipped"
     }
@@ -711,6 +769,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      phase_focus_type: [
+        "strength",
+        "hypertrophy",
+        "endurance",
+        "power",
+        "recovery",
+        "peaking",
+        "transition",
+      ],
       user_role: ["coach", "athlete"],
       workout_status: ["pending", "in_progress", "completed", "skipped"],
     },
