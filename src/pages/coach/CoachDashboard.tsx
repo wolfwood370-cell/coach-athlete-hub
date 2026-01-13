@@ -18,14 +18,14 @@ import {
   HeartPulse,
   CheckCircle2,
   UserPlus,
-  User,
   Mail,
   Activity,
   Zap,
   TrendingDown,
   ShieldAlert,
   Battery,
-  ChevronRight
+  ChevronRight,
+  BarChart3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -536,13 +536,23 @@ export default function CoachDashboard() {
             </CardContent>
           </Card>
 
-          {/* ===== ACWR DISTRIBUTION (when we have athletes) ===== */}
-          {allAthletes.length > 0 && (
-            <Card className="col-span-12 lg:col-span-8 border-0 shadow-sm">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm font-semibold">ACWR Distribution</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-2">
+          {/* ===== ACWR DISTRIBUTION ===== */}
+          <Card className="col-span-12 lg:col-span-8 border-0 shadow-sm">
+            <CardHeader className="pb-2 pt-4 px-4">
+              <CardTitle className="text-sm font-semibold">ACWR Distribution</CardTitle>
+            </CardHeader>
+            <CardContent className="p-4 pt-2">
+              {allAthletes.length === 0 ? (
+                <div className="p-8 text-center border-2 border-dashed border-border rounded-lg bg-muted/20">
+                  <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-muted mb-3">
+                    <BarChart3 className="h-6 w-6 text-muted-foreground" />
+                  </div>
+                  <h4 className="text-sm font-semibold text-foreground mb-1">Nessun dato disponibile</h4>
+                  <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+                    I dati ACWR appariranno quando i tuoi atleti completeranno i loro allenamenti.
+                  </p>
+                </div>
+              ) : (
                 <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 min-w-0">
                     {/* High Risk */}
@@ -590,9 +600,9 @@ export default function CoachDashboard() {
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+              )}
+            </CardContent>
+          </Card>
 
         </div>
       </div>

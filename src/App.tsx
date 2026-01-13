@@ -56,7 +56,6 @@ const App = () => (
               <Route path="/coach" element={<CoachDashboard />} />
               <Route path="/coach/athletes" element={<CoachDashboard />} />
               <Route path="/coach/programs" element={<ProgramBuilder />} />
-              <Route path="/coach/builder" element={<ProgramBuilder />} />
               <Route path="/coach/periodization" element={<Periodization />} />
               <Route path="/coach/calendar" element={<CoachDashboard />} />
               <Route path="/coach/messages" element={<CoachDashboard />} />
