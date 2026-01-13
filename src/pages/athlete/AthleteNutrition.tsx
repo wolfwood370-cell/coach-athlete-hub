@@ -470,11 +470,13 @@ function WeightTrendChart({ data }: { data: { dayIndex: number; date: string; ra
   
   if (data.length === 0 || validData.length === 0) {
     return (
-      <div className="h-32 flex flex-col items-center justify-center text-center p-4 rounded-lg bg-muted/30 border border-dashed border-border">
-        <Scale className="h-6 w-6 text-muted-foreground/50 mb-2" />
-        <p className="text-sm text-muted-foreground">Nessun dato peso disponibile</p>
+      <div className="h-32 flex flex-col items-center justify-center text-center p-4 rounded-xl bg-gradient-to-br from-muted/40 to-muted/20 border border-dashed border-border">
+        <div className="h-10 w-10 rounded-full bg-muted/50 flex items-center justify-center mb-3">
+          <Scale className="h-5 w-5 text-muted-foreground/40" />
+        </div>
+        <p className="text-sm font-medium text-muted-foreground">Dati insufficienti</p>
         <p className="text-xs text-muted-foreground/70 mt-1">
-          Registra il tuo peso giornaliero per vedere il trend
+          Registra peso e calorie per 3+ giorni per sbloccare le AI Analytics
         </p>
       </div>
     );
