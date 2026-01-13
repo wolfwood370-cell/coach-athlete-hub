@@ -1,7 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAcwrData } from "@/hooks/useAcwrData";
-import { TrendingUp, AlertTriangle, AlertOctagon, HelpCircle } from "lucide-react";
+import { TrendingUp, AlertTriangle, AlertOctagon, HelpCircle, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function AcwrCard() {
@@ -19,16 +19,25 @@ export function AcwrCard() {
     );
   }
 
-  if (error || !data) {
+  // Enhanced empty state for insufficient data
+  if (error || !data || data.status === "insufficient-data") {
     return (
-      <Card className="border-0">
-        <CardContent className="p-3.5">
-          <div className="flex items-center gap-2 mb-2">
-            <HelpCircle className="h-4 w-4 text-muted-foreground" />
-            <span className="text-xs text-muted-foreground">Carico ACWR</span>
+      <Card className="border-0 bg-gradient-to-br from-muted/50 to-muted/30">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
+              <Activity className="h-5 w-5 text-muted-foreground/50" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-muted-foreground mb-0.5">Carico ACWR</p>
+              <p className="text-lg font-bold text-muted-foreground/70">—</p>
+            </div>
           </div>
-          <p className="text-xl font-bold tabular-nums text-muted-foreground">—</p>
-          <p className="text-[10px] text-muted-foreground">{error ? "Errore" : "Dati insufficienti"}</p>
+          <div className="mt-3 pt-3 border-t border-border/30">
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              {error ? "Errore nel caricamento" : "Completa 7+ giorni di allenamento per sbloccare le analytics ACWR"}
+            </p>
+          </div>
         </CardContent>
       </Card>
     );

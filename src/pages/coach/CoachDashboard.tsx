@@ -261,6 +261,25 @@ export default function CoachDashboard() {
                     </div>
                   ))}
                 </div>
+              ) : allAthletes.length === 0 ? (
+                <div className="p-12 text-center">
+                  <div className="inline-flex items-center justify-center h-20 w-20 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 mb-6 ring-4 ring-primary/10">
+                    <UserPlus className="h-10 w-10 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-bold text-foreground mb-2">
+                    Welcome, Coach! 🎯
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
+                    Invite your first athlete to start tracking their training load, recovery, and performance metrics in real-time.
+                  </p>
+                  <Button className="gradient-primary h-12 px-8 text-base font-semibold shadow-lg hover:shadow-xl transition-shadow">
+                    <UserPlus className="h-5 w-5 mr-2" />
+                    Invite Your First Athlete
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-4">
+                    Athletes can join by entering your coach code in their app
+                  </p>
+                </div>
               ) : needsAttention.length === 0 ? (
                 <div className="p-8 text-center">
                   <div className="inline-flex items-center justify-center h-16 w-16 rounded-full bg-success/10 mb-4">
@@ -268,16 +287,8 @@ export default function CoachDashboard() {
                   </div>
                   <h3 className="text-lg font-semibold text-foreground mb-1">All Clear!</h3>
                   <p className="text-sm text-muted-foreground">
-                    {allAthletes.length === 0 
-                      ? "No athletes connected. Invite your athletes!" 
-                      : "All athletes are in optimal training zones. Great work!"}
+                    All athletes are in optimal training zones. Great work!
                   </p>
-                  {allAthletes.length === 0 && (
-                    <Button variant="outline" size="sm" className="mt-4">
-                      <UserPlus className="h-4 w-4 mr-2" />
-                      Invite Athlete
-                    </Button>
-                  )}
                 </div>
               ) : (
                 <div className="divide-y divide-border/50">
