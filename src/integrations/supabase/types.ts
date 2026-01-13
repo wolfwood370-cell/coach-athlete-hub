@@ -102,7 +102,15 @@ export type Database = {
           vitamin_e?: number | null
           vitamin_k?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "custom_foods_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       daily_metrics: {
         Row: {
@@ -144,7 +152,15 @@ export type Database = {
           user_id?: string
           weight_kg?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "daily_metrics_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       daily_readiness: {
         Row: {
@@ -198,7 +214,15 @@ export type Database = {
           soreness_map?: Json | null
           stress_level?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "daily_readiness_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fms_tests: {
         Row: {
@@ -258,7 +282,15 @@ export type Database = {
           test_date?: string
           trunk_stability?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fms_tests_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       injuries: {
         Row: {
@@ -294,7 +326,15 @@ export type Database = {
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "injuries_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       nutrition_logs: {
         Row: {
@@ -339,7 +379,15 @@ export type Database = {
           protein?: number | null
           water?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "nutrition_logs_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -428,7 +476,22 @@ export type Database = {
           start_date?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "training_phases_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_phases_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workout_exercises: {
         Row: {
@@ -526,7 +589,22 @@ export type Database = {
           total_load_au?: number | null
           workout_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "workout_logs_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_logs_workout_id_fkey"
+            columns: ["workout_id"]
+            isOneToOne: false
+            referencedRelation: "workouts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workouts: {
         Row: {
@@ -568,7 +646,22 @@ export type Database = {
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "workouts_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workouts_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
