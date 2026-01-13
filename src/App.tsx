@@ -15,6 +15,7 @@ import AthleteDashboard from "./pages/athlete/AthleteDashboard";
 import AthleteNutrition from "./pages/athlete/AthleteNutrition";
 import AthleteHealth from "./pages/athlete/AthleteHealth";
 import WorkoutPlayer from "./pages/athlete/WorkoutPlayer";
+import OnboardingWizard from "./pages/onboarding/OnboardingWizard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -69,6 +70,9 @@ const App = () => (
               <Route path="/athlete/nutrition" element={<AthleteNutrition />} />
               <Route path="/athlete/health" element={<AthleteHealth />} />
               <Route path="/athlete/profile" element={<AthleteDashboard />} />
+              
+              {/* Onboarding */}
+              <Route path="/onboarding" element={<OnboardingWizard />} />
               
               <Route path="*" element={<NotFound />} />
             </Routes>
