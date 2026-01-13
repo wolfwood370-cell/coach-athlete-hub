@@ -5,11 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AthleteCard } from "@/components/coach/AthleteCard";
 import { useAthleteRiskAnalysis, RiskLevel, RiskFlag } from "@/hooks/useAthleteRiskAnalysis";
 import { useCoachDashboardData } from "@/hooks/useCoachData";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { 
   Users, 
   TrendingUp, 
@@ -25,7 +26,8 @@ import {
   ShieldAlert,
   Battery,
   ChevronRight,
-  BarChart3
+  BarChart3,
+  Grid3X3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -614,6 +616,91 @@ export default function CoachDashboard() {
               )}
             </CardContent>
           </Card>
+
+          {/* ===== MY ATHLETES GRID ===== */}
+          <div className="col-span-12">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10">
+                  <Grid3X3 className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-sm font-semibold">I Miei Atleti</h2>
+                  <p className="text-xs text-muted-foreground tabular-nums">
+                    {allAthletes.length} atleti totali
+                  </p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" className="text-xs">
+                <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+                Invita Atleta
+              </Button>
+            </div>
+
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Card key={i} className="p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      <Skeleton className="h-12 w-12 rounded-full" />
+                      <div className="flex-1">
+                        <Skeleton className="h-4 w-24 mb-1" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-3 w-full mb-1.5" />
+                    <Skeleton className="h-3 w-3/4" />
+                  </Card>
+                ))}
+              </div>
+            ) : allAthletes.length === 0 ? (
+              <Card className="p-12 text-center border-2 border-dashed border-border bg-muted/10">
+                <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 mb-4">
+                  <Users className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Nessun atleta ancora</h3>
+                <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
+                  Invita i tuoi atleti per iniziare a monitorare i loro progressi.
+                </p>
+                <Button className="gradient-primary">
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Invita il tuo primo atleta
+                </Button>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {allAthletes.map((athlete) => {
+                  // Determine if active in last 3 days
+                  const lastActivityDate = athlete.readinessDate;
+                  const isActive = lastActivityDate
+                    ? (Date.now() - new Date(lastActivityDate).getTime()) < 3 * 24 * 60 * 60 * 1000
+                    : false;
+
+                  // Mock program name based on risk level for now
+                  const programName = athlete.riskLevel === "high" 
+                    ? "Recovery Protocol" 
+                    : athlete.riskLevel === "moderate"
+                      ? "Deload Week"
+                      : athlete.acwr !== null
+                        ? "Hypertrophy Block"
+                        : null;
+
+                  return (
+                    <AthleteCard
+                      key={athlete.athleteId}
+                      athleteId={athlete.athleteId}
+                      athleteName={athlete.athleteName}
+                      avatarUrl={athlete.avatarUrl}
+                      avatarInitials={athlete.avatarInitials}
+                      lastActivityDate={lastActivityDate}
+                      programName={programName}
+                      isActive={isActive}
+                    />
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
         </div>
       </div>
