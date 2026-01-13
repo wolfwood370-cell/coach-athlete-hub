@@ -33,10 +33,13 @@ import {
   Smile,
   Activity,
   Check,
-  Scale
+  Scale,
+  Heart,
+  TrendingDown,
+  AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useReadiness, initialReadiness, ReadinessData } from "@/hooks/useReadiness";
+import { useReadiness, initialReadiness, ReadinessData, ReadinessResult } from "@/hooks/useReadiness";
 import { AcwrCard } from "@/components/athlete/AcwrCard";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -96,155 +99,21 @@ const sorenessConfig: Record<SorenessLevel, { bg: string; label: string }> = {
 };
 
 // ============================================
-// HRV-BASED READINESS ALGORITHM (MacroFactor Style)
-// ============================================
-
-interface HrvReadinessResult {
-  score: number;
-  level: "high" | "moderate" | "low";
-  color: string;
-  bgColor: string;
-  label: string;
-  reason: string;
-  factors: Array<{ label: string; status: "good" | "warning" | "bad"; detail: string }>;
-}
-
-/**
- * Calculate readiness based on HRV and Sleep data
- * Uses baseline comparison for HRV assessment
- */
-function calculateHrvReadiness(
-  hrv: number | null,
-  hrvBaseline: number,
-  sleepHours: number,
-  sleepQuality: number,
-  energy: number,
-  stress: number
-): HrvReadinessResult {
-  const factors: HrvReadinessResult["factors"] = [];
-  let score = 0;
-  let primaryReason = "";
-  
-  // Calculate HRV deviation from baseline
-  const hrvDeviation = hrv !== null ? ((hrv - hrvBaseline) / hrvBaseline) * 100 : null;
-  
-  // HRV Analysis (40 points max)
-  if (hrv !== null && hrvBaseline > 0) {
-    if (hrvDeviation !== null) {
-      if (hrvDeviation >= -10) {
-        // Within baseline (+/- 10%)
-        score += 40;
-        factors.push({ label: "HRV", status: "good", detail: `${hrv}ms (${hrvDeviation > 0 ? "+" : ""}${hrvDeviation.toFixed(0)}% vs baseline)` });
-      } else if (hrvDeviation > -20) {
-        // Moderate drop (10-20%)
-        score += 25;
-        factors.push({ label: "HRV", status: "warning", detail: `${hrv}ms (${hrvDeviation.toFixed(0)}% vs baseline)` });
-        if (!primaryReason) primaryReason = `HRV ${hrvDeviation.toFixed(0)}% sotto baseline`;
-      } else {
-        // Significant drop (>20%)
-        score += 10;
-        factors.push({ label: "HRV", status: "bad", detail: `${hrv}ms (${hrvDeviation.toFixed(0)}% vs baseline)` });
-        if (!primaryReason) primaryReason = `HRV critico: ${hrvDeviation.toFixed(0)}% sotto baseline`;
-      }
-    }
-  } else {
-    // No HRV data - use moderate score
-    score += 25;
-    factors.push({ label: "HRV", status: "warning", detail: "Nessun dato" });
-  }
-  
-  // Sleep Duration Analysis (25 points max)
-  if (sleepHours >= 7) {
-    score += 25;
-    factors.push({ label: "Sonno", status: "good", detail: `${sleepHours}h` });
-  } else if (sleepHours >= 6) {
-    score += 15;
-    factors.push({ label: "Sonno", status: "warning", detail: `${sleepHours}h` });
-    if (!primaryReason) primaryReason = "Sonno insufficiente";
-  } else {
-    score += 5;
-    factors.push({ label: "Sonno", status: "bad", detail: `${sleepHours}h` });
-    if (!primaryReason) primaryReason = `Solo ${sleepHours}h di sonno`;
-  }
-  
-  // Sleep Quality (15 points max)
-  const sqNorm = sleepQuality / 10;
-  if (sqNorm >= 0.7) {
-    score += 15;
-    factors.push({ label: "Qualità Sonno", status: "good", detail: `${sleepQuality}/10` });
-  } else if (sqNorm >= 0.4) {
-    score += 10;
-    factors.push({ label: "Qualità Sonno", status: "warning", detail: `${sleepQuality}/10` });
-  } else {
-    score += 5;
-    factors.push({ label: "Qualità Sonno", status: "bad", detail: `${sleepQuality}/10` });
-    if (!primaryReason) primaryReason = "Qualità del sonno scarsa";
-  }
-  
-  // Energy Level (10 points max)
-  const energyNorm = energy / 10;
-  if (energyNorm >= 0.7) {
-    score += 10;
-  } else if (energyNorm >= 0.4) {
-    score += 6;
-  } else {
-    score += 2;
-    if (!primaryReason) primaryReason = "Livello energetico basso";
-  }
-  
-  // Stress Penalty (10 points max, inverted)
-  const stressNorm = stress / 10;
-  if (stressNorm <= 0.3) {
-    score += 10;
-  } else if (stressNorm <= 0.6) {
-    score += 6;
-  } else {
-    score += 2;
-    if (!primaryReason) primaryReason = "Stress elevato";
-  }
-  
-  // Clamp score
-  score = Math.max(0, Math.min(100, Math.round(score)));
-  
-  // Determine level
-  let level: HrvReadinessResult["level"];
-  let color: string;
-  let bgColor: string;
-  let label: string;
-  
-  if (score >= 75) {
-    level = "high";
-    color = "text-success";
-    bgColor = "bg-success";
-    label = "Alta Prontezza";
-    if (!primaryReason) primaryReason = "Tutti i parametri ottimali";
-  } else if (score >= 50) {
-    level = "moderate";
-    color = "text-warning";
-    bgColor = "bg-warning";
-    label = "Prontezza Moderata";
-  } else {
-    level = "low";
-    color = "text-destructive";
-    bgColor = "bg-destructive";
-    label = "Bassa Prontezza";
-  }
-  
-  return { score, level, color, bgColor, label, reason: primaryReason, factors };
-}
-
-// ============================================
 // LARGE CIRCULAR READINESS INDICATOR
 // ============================================
 
 const LargeReadinessCircle = ({ 
   score, 
   level,
-  isOverridden 
+  isOverridden,
+  isNewUser,
+  dataPoints
 }: { 
   score: number;
   level: "high" | "moderate" | "low";
   isOverridden?: boolean;
+  isNewUser?: boolean;
+  dataPoints?: number;
 }) => {
   const radius = 56;
   const strokeWidth = 8;
@@ -299,7 +168,7 @@ const LargeReadinessCircle = ({
           {score}
         </span>
         <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-          {isOverridden ? "Override" : "Score"}
+          {isOverridden ? "Override" : isNewUser ? `${dataPoints}/3 giorni` : "Score"}
         </span>
       </div>
     </div>
@@ -315,7 +184,7 @@ const ReadinessRing = ({ score }: { score: number }) => {
   const strokeDashoffset = circumference - (score / 100) * circumference;
 
   const getScoreColor = () => {
-    if (score >= 80) return "hsl(160 84% 39%)"; // success
+    if (score >= 75) return "hsl(160 84% 39%)"; // success
     if (score >= 50) return "hsl(38 92% 50%)"; // warning
     return "hsl(0 84% 60%)"; // destructive
   };
@@ -356,7 +225,7 @@ const ReadinessRing = ({ score }: { score: number }) => {
       <div className="absolute inset-0 flex items-center justify-center">
         <Zap className={cn(
           "h-6 w-6",
-          score >= 80 ? "text-success" : score >= 50 ? "text-warning" : "text-destructive"
+          score >= 75 ? "text-success" : score >= 50 ? "text-warning" : "text-destructive"
         )} />
       </div>
     </div>
@@ -464,29 +333,30 @@ export default function AthleteDashboard() {
     isLoading,
     isSaving,
     calculateScore,
+    calculateReadiness,
     saveReadiness,
+    baseline,
   } = useReadiness();
 
-  // Simulated HRV data (would come from wearable integration)
-  // In production, this would be fetched from daily_metrics.hrv_rmssd
-  const hrvBaseline = 55; // ms - user's baseline HRV
-  const currentHrv = readiness.isCompleted 
-    ? Math.round(hrvBaseline * (0.8 + (readiness.energy / 10) * 0.4)) // Simulate based on energy
-    : null;
-  
-  // Calculate HRV-based readiness
-  const hrvReadiness = calculateHrvReadiness(
-    currentHrv,
-    hrvBaseline,
-    readiness.sleepHours,
-    readiness.sleepQuality,
-    readiness.energy,
-    readiness.stress
-  );
+  // Calculate readiness result
+  const readinessResult: ReadinessResult = readiness.isCompleted 
+    ? calculateReadiness(readiness)
+    : {
+        score: 0,
+        level: "moderate",
+        color: "text-muted-foreground",
+        bgColor: "bg-muted",
+        label: "Check-in Non Completato",
+        reason: "",
+        penalties: [],
+        isNewUser: baseline.isNewUser,
+        dataPoints: baseline.dataPoints,
+      };
   
   // Use override if set, otherwise use calculated score
-  const displayScore = subjectiveOverride !== null ? subjectiveOverride : hrvReadiness.score;
+  const displayScore = subjectiveOverride !== null ? subjectiveOverride : readinessResult.score;
   const isOverridden = subjectiveOverride !== null;
+  const displayLevel = displayScore >= 75 ? "high" : displayScore >= 50 ? "moderate" : "low";
 
   // Sync tempReadiness when drawer opens
   useEffect(() => {
@@ -522,13 +392,13 @@ export default function AthleteDashboard() {
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-success";
+    if (score >= 75) return "text-success";
     if (score >= 50) return "text-warning";
     return "text-destructive";
   };
 
   const getScoreLabel = (score: number) => {
-    if (score >= 80) return "Ottimo";
+    if (score >= 75) return "Ottimo";
     if (score >= 50) return "Moderato";
     return "Basso";
   };
@@ -539,6 +409,9 @@ export default function AthleteDashboard() {
       setTempReadiness(prev => ({ ...prev, sleepHours: value }));
     }
   };
+
+  // Calculate temp readiness for preview
+  const tempReadinessResult = calculateReadiness(tempReadiness);
 
   return (
     <AthleteLayout>
@@ -567,16 +440,27 @@ export default function AthleteDashboard() {
                   </div>
                 </div>
                 <h3 className="font-semibold text-base mb-1">Prontezza Giornaliera</h3>
-                <p className="text-xs text-muted-foreground mb-5 max-w-[200px] mx-auto">
+                <p className="text-xs text-muted-foreground mb-3 max-w-[200px] mx-auto">
                   Compila il check giornaliero per ottimizzare il tuo piano
                 </p>
+                
+                {/* New User Indicator */}
+                {baseline.isNewUser && (
+                  <div className="flex items-center justify-center gap-2 mb-4 p-2 rounded-lg bg-primary/10">
+                    <AlertCircle className="h-4 w-4 text-primary" />
+                    <span className="text-xs text-primary">
+                      {baseline.dataPoints}/3 giorni per baseline personalizzata
+                    </span>
+                  </div>
+                )}
+                
                 <Button 
                   onClick={handleOpenDrawer}
                   className="w-full h-12 text-sm font-semibold gradient-primary"
                   disabled={isLoading}
                 >
                   <Zap className="h-4 w-4 mr-2" />
-                  Biofeedback
+                  Log Morning Metrics
                 </Button>
               </div>
             ) : (
@@ -587,8 +471,10 @@ export default function AthleteDashboard() {
                   {/* Large Circle */}
                   <LargeReadinessCircle 
                     score={displayScore} 
-                    level={displayScore >= 75 ? "high" : displayScore >= 50 ? "moderate" : "low"}
+                    level={displayLevel}
                     isOverridden={isOverridden}
+                    isNewUser={readinessResult.isNewUser}
+                    dataPoints={readinessResult.dataPoints}
                   />
                   
                   {/* Status & Reason */}
@@ -596,48 +482,70 @@ export default function AthleteDashboard() {
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className={cn(
                         "text-base font-semibold",
-                        displayScore >= 75 ? "text-success" : displayScore >= 50 ? "text-warning" : "text-destructive"
+                        displayLevel === "high" ? "text-success" : displayLevel === "moderate" ? "text-warning" : "text-destructive"
                       )}>
-                        {displayScore >= 75 ? "Alta Prontezza" : displayScore >= 50 ? "Prontezza Moderata" : "Bassa Prontezza"}
+                        {displayLevel === "high" ? "Alta Prontezza" : displayLevel === "moderate" ? "Prontezza Moderata" : "Bassa Prontezza"}
                       </h3>
                       {isOverridden && (
                         <Badge variant="secondary" className="text-[9px] bg-primary/10 text-primary">
                           Override
                         </Badge>
                       )}
+                      {readinessResult.isNewUser && (
+                        <Badge variant="secondary" className="text-[9px] bg-amber-500/10 text-amber-600">
+                          Baseline
+                        </Badge>
+                      )}
                     </div>
                     
                     {/* Reason / "Why" explanation */}
                     <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-                      {hrvReadiness.reason}
+                      {readinessResult.reason}
                     </p>
                     
-                    {/* Factor Badges */}
-                    <div className="flex flex-wrap gap-1.5">
-                      {hrvReadiness.factors.slice(0, 3).map((factor, i) => (
-                        <Badge 
-                          key={i}
-                          variant="secondary"
-                          className={cn(
-                            "text-[10px] px-2 py-0.5",
-                            factor.status === "good" && "bg-success/10 text-success border-success/20",
-                            factor.status === "warning" && "bg-warning/10 text-warning border-warning/20",
-                            factor.status === "bad" && "bg-destructive/10 text-destructive border-destructive/20"
-                          )}
-                        >
-                          {factor.label}: {factor.detail}
+                    {/* Penalty Badges */}
+                    {readinessResult.penalties.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {readinessResult.penalties.map((penalty, i) => (
+                          <Badge 
+                            key={i}
+                            variant="secondary"
+                            className="text-[10px] px-2 py-0.5 bg-destructive/10 text-destructive border-destructive/20"
+                          >
+                            <TrendingDown className="h-3 w-3 mr-1" />
+                            {penalty.label}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Factor Summary for non-penalty state */}
+                    {readinessResult.penalties.length === 0 && !readinessResult.isNewUser && (
+                      <div className="flex flex-wrap gap-1.5">
+                        <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-success/10 text-success border-success/20">
+                          Sonno: {readiness.sleepHours}h
                         </Badge>
-                      ))}
-                    </div>
+                        {readiness.hrvRmssd && (
+                          <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-success/10 text-success border-success/20">
+                            HRV: {readiness.hrvRmssd}ms
+                          </Badge>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 
-                {/* HRV & Sleep Row */}
+                {/* Metrics Row */}
                 <div className="grid grid-cols-4 gap-2 mb-4">
                   <div className="text-center p-2.5 rounded-xl bg-secondary/50">
                     <HeartPulse className="h-4 w-4 mx-auto text-primary mb-1" />
-                    <p className="text-sm font-semibold tabular-nums">{currentHrv || "—"}</p>
+                    <p className="text-sm font-semibold tabular-nums">{readiness.hrvRmssd || "—"}</p>
                     <p className="text-[9px] text-muted-foreground">HRV ms</p>
+                  </div>
+                  <div className="text-center p-2.5 rounded-xl bg-secondary/50">
+                    <Heart className="h-4 w-4 mx-auto text-rose-400 mb-1" />
+                    <p className="text-sm font-semibold tabular-nums">{readiness.restingHr || "—"}</p>
+                    <p className="text-[9px] text-muted-foreground">RHR bpm</p>
                   </div>
                   <div className="text-center p-2.5 rounded-xl bg-secondary/50">
                     <Moon className="h-4 w-4 mx-auto text-indigo-400 mb-1" />
@@ -649,12 +557,21 @@ export default function AthleteDashboard() {
                     <p className="text-sm font-semibold tabular-nums">{readiness.energy}/10</p>
                     <p className="text-[9px] text-muted-foreground">Energia</p>
                   </div>
-                  <div className="text-center p-2.5 rounded-xl bg-secondary/50">
-                    <Brain className="h-4 w-4 mx-auto text-amber-400 mb-1" />
-                    <p className="text-sm font-semibold tabular-nums">{readiness.stress}/10</p>
-                    <p className="text-[9px] text-muted-foreground">Stress</p>
-                  </div>
                 </div>
+                
+                {/* Baseline Progress for New Users */}
+                {readinessResult.isNewUser && (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 mb-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertCircle className="h-4 w-4 text-amber-600" />
+                      <span className="text-xs font-medium text-amber-600">Costruendo la tua baseline</span>
+                    </div>
+                    <Progress value={(readinessResult.dataPoints / 3) * 100} className="h-2" />
+                    <p className="text-[10px] text-muted-foreground mt-2">
+                      Ancora {3 - readinessResult.dataPoints} giorni per una baseline personalizzata
+                    </p>
+                  </div>
+                )}
                 
                 {/* Subjective Override Section */}
                 {!showOverrideSlider ? (
@@ -850,20 +767,88 @@ export default function AthleteDashboard() {
         </div>
       </div>
 
-      {/* ===== READINESS DRAWER (High-Fidelity Bio-Gate) ===== */}
+      {/* ===== READINESS DRAWER (Morning Check-in) ===== */}
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
         <DrawerContent className="theme-athlete max-h-[90vh] bg-background">
           <div className="mx-auto w-full max-w-md overflow-y-auto">
             <DrawerHeader className="text-center pb-2">
-              <DrawerTitle className="text-lg">Daily Check-in</DrawerTitle>
+              <DrawerTitle className="text-lg">Morning Check-in</DrawerTitle>
               <DrawerDescription className="text-xs">
-                Come ti senti oggi?
+                Registra i tuoi dati biometrici del mattino
               </DrawerDescription>
             </DrawerHeader>
             
             <div className="px-4 pb-4 space-y-6 overflow-y-auto">
               
-              {/* ===== SECTION A: SLEEP (Hybrid Layout) ===== */}
+              {/* ===== SECTION: WEARABLE METRICS ===== */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
+                  <HeartPulse className="h-4 w-4 text-primary" />
+                  METRICHE WEARABLE
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  {/* HRV Input */}
+                  <div className="p-3 rounded-xl bg-secondary/50 space-y-2">
+                    <span className="text-[10px] text-foreground/60 uppercase tracking-wide">HRV (RMSSD)</span>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={tempReadiness.hrvRmssd ?? ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setTempReadiness(prev => ({ 
+                            ...prev, 
+                            hrvRmssd: value === "" ? null : parseInt(value) 
+                          }));
+                        }}
+                        min={10}
+                        max={200}
+                        placeholder="—"
+                        className="w-full h-12 text-center text-xl font-bold bg-card text-foreground border-0"
+                      />
+                      <span className="text-sm font-medium text-foreground/60">ms</span>
+                    </div>
+                    {baseline.hrvBaseline && (
+                      <p className="text-[10px] text-muted-foreground">
+                        Baseline: {Math.round(baseline.hrvBaseline)}ms
+                      </p>
+                    )}
+                  </div>
+                  
+                  {/* Resting HR Input */}
+                  <div className="p-3 rounded-xl bg-secondary/50 space-y-2">
+                    <span className="text-[10px] text-foreground/60 uppercase tracking-wide">FC a Riposo</span>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={tempReadiness.restingHr ?? ""}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setTempReadiness(prev => ({ 
+                            ...prev, 
+                            restingHr: value === "" ? null : parseInt(value) 
+                          }));
+                        }}
+                        min={30}
+                        max={120}
+                        placeholder="—"
+                        className="w-full h-12 text-center text-xl font-bold bg-card text-foreground border-0"
+                      />
+                      <span className="text-sm font-medium text-foreground/60">bpm</span>
+                    </div>
+                    {baseline.restingHrBaseline && (
+                      <p className="text-[10px] text-muted-foreground">
+                        Baseline: {Math.round(baseline.restingHrBaseline)}bpm
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground text-center">
+                  💡 Inserisci i dati dal tuo wearable o lascia vuoto se non disponibile
+                </p>
+              </div>
+              
+              {/* ===== SECTION: SLEEP ===== */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
                   <Moon className="h-4 w-4 text-primary" />
@@ -940,10 +925,12 @@ export default function AthleteDashboard() {
                   </div>
                 </div>
               </div>
+              
+              {/* ===== SECTION: SUBJECTIVE READINESS ===== */}
               <div className="space-y-3">
                 <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
                   <Activity className="h-4 w-4 text-primary" />
-                  PARAMETRI PSICOFISICI
+                  COME TI SENTI? (40% del punteggio)
                 </Label>
                 
                 <ParamSliderCard
@@ -984,7 +971,7 @@ export default function AthleteDashboard() {
                 />
               </div>
 
-              {/* ===== SECTION C: DOMS & BODY MAP ===== */}
+              {/* ===== SECTION: DOMS & BODY MAP ===== */}
               <div className="space-y-3">
                 <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
                   <HeartPulse className="h-4 w-4 text-primary" />
@@ -1017,23 +1004,28 @@ export default function AthleteDashboard() {
 
               {/* Preview Score */}
               <div className="flex items-center justify-center gap-4 py-4 rounded-xl bg-secondary/30">
-                <ReadinessRing score={calculateScore(tempReadiness)} />
+                <ReadinessRing score={tempReadinessResult.score} />
                 <div>
                   <p className="text-[10px] uppercase tracking-wider text-foreground/60 mb-1">
                     Score previsto
                   </p>
                   <p className={cn(
                     "text-2xl font-bold tabular-nums",
-                    getScoreColor(calculateScore(tempReadiness))
+                    getScoreColor(tempReadinessResult.score)
                   )}>
-                    {calculateScore(tempReadiness)}%
+                    {tempReadinessResult.score}%
                   </p>
                   <p className={cn(
                     "text-xs font-medium",
-                    getScoreColor(calculateScore(tempReadiness))
+                    getScoreColor(tempReadinessResult.score)
                   )}>
-                    {getScoreLabel(calculateScore(tempReadiness))}
+                    {getScoreLabel(tempReadinessResult.score)}
                   </p>
+                  {tempReadinessResult.isNewUser && (
+                    <p className="text-[10px] text-amber-600 mt-1">
+                      Baseline in costruzione
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
