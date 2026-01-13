@@ -43,6 +43,8 @@ import { useReadiness, initialReadiness, ReadinessData, ReadinessResult } from "
 import { AcwrCard } from "@/components/athlete/AcwrCard";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { useGamification } from "@/hooks/useGamification";
+import { supabase } from "@/integrations/supabase/client";
 
 // Body parts for DOMS map
 const bodyParts = [
@@ -325,6 +327,19 @@ export default function AthleteDashboard() {
   const [subjectiveOverride, setSubjectiveOverride] = useState<number | null>(null);
   const [showOverrideSlider, setShowOverrideSlider] = useState(false);
   const [tempOverride, setTempOverride] = useState(70);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  
+  // Fetch current user ID for gamification
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setCurrentUserId(data.user.id);
+      }
+    });
+  }, []);
+  
+  // Gamification data
+  const { currentStreak, isStreakDay, loading: streakLoading } = useGamification(currentUserId || undefined);
   
   const {
     readiness,
@@ -416,14 +431,34 @@ export default function AthleteDashboard() {
   return (
     <AthleteLayout>
       <div className="space-y-5 p-4 animate-fade-in">
-        {/* Header */}
+        {/* Header with Streak */}
         <div className="flex items-center justify-between pt-2">
           <div>
             <p className="text-muted-foreground text-xs">Buongiorno</p>
             <h1 className="text-lg font-semibold">Sofia 👋</h1>
           </div>
-          <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center">
-            <span className="text-xs font-semibold text-primary">SN</span>
+          <div className="flex items-center gap-3">
+            {/* Streak Badge */}
+            {currentStreak > 0 && (
+              <div className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full",
+                "bg-gradient-to-r from-orange-500/20 to-amber-500/20",
+                "border border-orange-500/30",
+                isStreakDay && "animate-pulse"
+              )}>
+                <Flame className={cn(
+                  "h-4 w-4",
+                  currentStreak >= 7 ? "text-orange-500" : "text-amber-500"
+                )} />
+                <span className="text-sm font-bold tabular-nums text-orange-600 dark:text-orange-400">
+                  {currentStreak}
+                </span>
+              </div>
+            )}
+            {/* Avatar */}
+            <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center">
+              <span className="text-xs font-semibold text-primary">SN</span>
+            </div>
           </div>
         </div>
 
