@@ -153,7 +153,27 @@ export default function AthleteHealth() {
     enabled: !!user?.id,
   });
 
-  // Fetch latest FMS test
+  // Today's date for FMS reset logic
+  const today = new Date().toISOString().split("T")[0];
+  
+  // Fetch TODAY's FMS test only - reset if it's a new day
+  const { data: todayFms } = useQuery({
+    queryKey: ["fms-today", user?.id, today],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from("fms_tests")
+        .select("*")
+        .eq("athlete_id", user.id)
+        .eq("test_date", today)
+        .maybeSingle();
+      if (error) throw error;
+      return data as FmsTest | null;
+    },
+    enabled: !!user?.id,
+  });
+  
+  // Fetch latest historical FMS test for display purposes (not for form state)
   const { data: latestFms } = useQuery({
     queryKey: ["fms-latest", user?.id],
     queryFn: async () => {
@@ -303,35 +323,42 @@ export default function AthleteHealth() {
     },
   });
 
+  // Get FMS score - prioritize today's test, fallback to latest for display
   const getFmsScore = (testKey: string): { left: number | null; right: number | null } | number | null => {
-    if (!latestFms) return null;
+    // Use today's test if available, otherwise show latest historical
+    const fmsSource = todayFms || latestFms;
+    if (!fmsSource) return null;
     
     const test = fmsTests.find(t => t.key === testKey);
     if (!test) return null;
     
     if (test.bilateral) {
-      return (latestFms as any)[testKey] ?? null;
+      return (fmsSource as any)[testKey] ?? null;
     }
     
     return {
-      left: (latestFms as any)[`${testKey}_l`] ?? null,
-      right: (latestFms as any)[`${testKey}_r`] ?? null,
+      left: (fmsSource as any)[`${testKey}_l`] ?? null,
+      right: (fmsSource as any)[`${testKey}_r`] ?? null,
     };
   };
 
   const openFmsTestDialog = (testKey: string) => {
     setSelectedFmsTest(testKey);
-    // Pre-fill with existing scores if available
-    if (latestFms) {
+    // Pre-fill with TODAY's scores only - reset if it's a new day
+    if (todayFms) {
+      // Today's test exists - load those scores for editing
       const test = fmsTests.find(t => t.key === testKey);
       if (test?.bilateral) {
-        setFmsScores({ [testKey]: (latestFms as any)[testKey] });
+        setFmsScores({ [testKey]: (todayFms as any)[testKey] });
       } else {
         setFmsScores({
-          [`${testKey}_l`]: (latestFms as any)[`${testKey}_l`],
-          [`${testKey}_r`]: (latestFms as any)[`${testKey}_r`],
+          [`${testKey}_l`]: (todayFms as any)[`${testKey}_l`],
+          [`${testKey}_r`]: (todayFms as any)[`${testKey}_r`],
         });
       }
+    } else {
+      // No test for today - start fresh (reset logic)
+      setFmsScores({});
     }
     setFmsDialogOpen(true);
   };
@@ -430,11 +457,15 @@ export default function AthleteHealth() {
                 <Activity className="h-4 w-4 text-primary" />
                 Test FMS
               </h2>
-              {latestFms && (
-                <p className="text-[10px] text-muted-foreground">
-                  Ultimo test: {format(new Date(latestFms.test_date), "d MMM yyyy", { locale: it })}
+              {todayFms ? (
+                <p className="text-[10px] text-success font-medium">
+                  ✓ Test di oggi salvato
                 </p>
-              )}
+              ) : latestFms ? (
+                <p className="text-[10px] text-muted-foreground">
+                  Ultimo: {format(new Date(latestFms.test_date), "d MMM yyyy", { locale: it })}
+                </p>
+              ) : null}
             </div>
             <Button
               size="sm"
