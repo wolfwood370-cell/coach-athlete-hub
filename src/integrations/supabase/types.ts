@@ -396,6 +396,7 @@ export type Database = {
           created_at: string
           full_name: string | null
           id: string
+          neurotype: string | null
           onboarding_completed: boolean
           one_rm_data: Json | null
           role: Database["public"]["Enums"]["user_role"]
@@ -408,6 +409,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id: string
+          neurotype?: string | null
           onboarding_completed?: boolean
           one_rm_data?: Json | null
           role?: Database["public"]["Enums"]["user_role"]
@@ -420,6 +422,7 @@ export type Database = {
           created_at?: string
           full_name?: string | null
           id?: string
+          neurotype?: string | null
           onboarding_completed?: boolean
           one_rm_data?: Json | null
           role?: Database["public"]["Enums"]["user_role"]

@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AthleteCard } from "@/components/coach/AthleteCard";
+import { InviteAthleteDialog } from "@/components/coach/InviteAthleteDialog";
 import { useAthleteRiskAnalysis, RiskLevel, RiskFlag } from "@/hooks/useAthleteRiskAnalysis";
 import { useCoachDashboardData } from "@/hooks/useCoachData";
 import { useAuth } from "@/hooks/useAuth";
@@ -274,10 +275,14 @@ export default function CoachDashboard() {
                   <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
                     Invite your first athlete to start tracking their training load, recovery, and performance metrics in real-time.
                   </p>
-                  <Button className="gradient-primary h-12 px-8 text-base font-semibold shadow-lg hover:shadow-xl transition-shadow">
-                    <UserPlus className="h-5 w-5 mr-2" />
-                    Invite Your First Athlete
-                  </Button>
+                  <InviteAthleteDialog 
+                    trigger={
+                      <Button className="gradient-primary h-12 px-8 text-base font-semibold shadow-lg hover:shadow-xl transition-shadow">
+                        <UserPlus className="h-5 w-5 mr-2" />
+                        Invite Your First Athlete
+                      </Button>
+                    }
+                  />
                   <p className="text-xs text-muted-foreground mt-4">
                     Athletes can join by entering your coach code in their app
                   </p>
@@ -631,10 +636,14 @@ export default function CoachDashboard() {
                   </p>
                 </div>
               </div>
-              <Button variant="outline" size="sm" className="text-xs">
-                <UserPlus className="h-3.5 w-3.5 mr-1.5" />
-                Invita Atleta
-              </Button>
+              <InviteAthleteDialog 
+                trigger={
+                  <Button variant="outline" size="sm" className="text-xs">
+                    <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+                    Invita Atleta
+                  </Button>
+                }
+              />
             </div>
 
             {isLoading ? (
