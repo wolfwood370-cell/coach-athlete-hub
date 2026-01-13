@@ -58,6 +58,7 @@ interface SetData {
   setNumber: number;
   targetKg: number;
   targetReps: number;
+  targetRpe?: number; // Prescribed RPE from coach
   actualKg: string;
   actualReps: string;
   rpe: string;
@@ -72,6 +73,8 @@ interface ExerciseData {
   restSeconds: number;
   supersetGroup?: string;
   sets: SetData[];
+  originalSetsCount?: number; // Original prescribed sets before auto-reg
+  originalTargetRpe?: number; // Original prescribed RPE before auto-reg
 }
 
 // Foster RPE Scale - Session Level
@@ -104,24 +107,31 @@ const getRpeBgColor = (rpe: number): string => {
 
 // Parse workout structure from database
 function parseWorkoutStructure(structure: any[]): ExerciseData[] {
-  return structure.map((ex, index) => ({
-    id: ex.id || `ex-${index}`,
-    name: ex.name,
-    videoUrl: ex.videoUrl,
-    coachNotes: ex.notes || ex.coachNotes,
-    restSeconds: ex.restSeconds || 90,
-    supersetGroup: ex.supersetGroup,
-    sets: Array.from({ length: ex.sets || 3 }, (_, i) => ({
-      id: `${ex.id || index}-set-${i}`,
-      setNumber: i + 1,
-      targetKg: parseFloat(ex.load?.replace(/[^0-9.]/g, '') || '0') || 0,
-      targetReps: parseInt(ex.reps) || 8,
-      actualKg: "",
-      actualReps: "",
-      rpe: "",
-      completed: false,
-    })),
-  }));
+  return structure.map((ex, index) => {
+    const setsCount = ex.sets || 3;
+    const targetRpe = parseInt(ex.rpe) || 8;
+    return {
+      id: ex.id || `ex-${index}`,
+      name: ex.name,
+      videoUrl: ex.videoUrl,
+      coachNotes: ex.notes || ex.coachNotes,
+      restSeconds: ex.restSeconds || 90,
+      supersetGroup: ex.supersetGroup,
+      originalSetsCount: setsCount,
+      originalTargetRpe: targetRpe,
+      sets: Array.from({ length: setsCount }, (_, i) => ({
+        id: `${ex.id || index}-set-${i}`,
+        setNumber: i + 1,
+        targetKg: parseFloat(ex.load?.replace(/[^0-9.]/g, '') || '0') || 0,
+        targetReps: parseInt(ex.reps) || 8,
+        targetRpe: targetRpe,
+        actualKg: "",
+        actualReps: "",
+        rpe: "",
+        completed: false,
+      })),
+    };
+  });
 }
 
 // Mock data for development
@@ -136,6 +146,7 @@ const mockWorkout = {
       sets: 4,
       reps: "8",
       load: "80kg",
+      rpe: "8",
       notes: "Controllare la discesa (3 secondi). Focus sulla connessione mente-muscolo.",
       restSeconds: 120,
     },
@@ -145,6 +156,7 @@ const mockWorkout = {
       sets: 3,
       reps: "10",
       load: "30kg",
+      rpe: "7",
       notes: "Angolo 30-45 gradi. Stretch in basso.",
       restSeconds: 90,
       supersetGroup: "ss1",
@@ -155,6 +167,7 @@ const mockWorkout = {
       sets: 3,
       reps: "12",
       load: "15kg",
+      rpe: "7",
       notes: "Squeeze al centro per 1 secondo.",
       restSeconds: 60,
       supersetGroup: "ss1",
@@ -165,6 +178,7 @@ const mockWorkout = {
       sets: 4,
       reps: "10",
       load: "60kg",
+      rpe: "8",
       notes: "Tira verso il petto. Controlla la fase eccentrica.",
       restSeconds: 90,
     },
@@ -174,6 +188,7 @@ const mockWorkout = {
       sets: 3,
       reps: "10",
       load: "55kg",
+      rpe: "7",
       notes: "Petto in fuori, porta i gomiti indietro.",
       restSeconds: 90,
     },
@@ -246,19 +261,37 @@ export default function WorkoutPlayer() {
   // Get workout streak
   const { currentStreak, isStreakDay } = useWorkoutStreak(currentUserId || undefined);
   
-  // Apply auto-regulation: remove 1 set from each exercise (~20% reduction)
+  // Apply auto-regulation: reduce sets and intensity
   const applyAutoRegulation = useCallback(() => {
-    setExercises(prev => prev.map(exercise => ({
-      ...exercise,
-      sets: exercise.sets.length > 1 
-        ? exercise.sets.slice(0, -1) // Remove the last set
-        : exercise.sets
-    })));
+    setExercises(prev => prev.map(exercise => {
+      // Volume: Reduce Sets by 1 (min 2 sets unless originally 1)
+      const originalSets = exercise.sets.length;
+      let newSetsCount = originalSets;
+      if (originalSets === 1) {
+        newSetsCount = 1; // Keep as is
+      } else if (originalSets === 2) {
+        newSetsCount = 2; // Clamp to minimum 2
+      } else {
+        newSetsCount = originalSets - 1; // Remove 1 set
+      }
+      
+      // Intensity: Reduce target_rpe by 2 (min RPE 5)
+      const originalRpe = exercise.originalTargetRpe || 8;
+      const newTargetRpe = Math.max(5, originalRpe - 2);
+      
+      return {
+        ...exercise,
+        sets: exercise.sets.slice(0, newSetsCount).map(set => ({
+          ...set,
+          targetRpe: newTargetRpe,
+        })),
+      };
+    }));
     setIsRecoveryMode(true);
     setShowAutoRegDialog(false);
     toast({
       title: "📉 Recovery Mode attivato",
-      description: "Volume ridotto del 20% per favorire il recupero.",
+      description: "Volume (-1 set) e intensità (-2 RPE) ridotti per favorire il recupero.",
     });
   }, [toast]);
   
@@ -426,6 +459,11 @@ export default function WorkoutPlayer() {
     const durationMinutes = Math.round(elapsedSeconds / 60);
     const sessionLoad = durationMinutes * sessionRpe;
     
+    // Auto-append recovery mode note if applicable
+    const finalNotes = isRecoveryMode 
+      ? `${workoutNotes}${workoutNotes ? '\n' : ''}[Auto-Regulated due to Low Readiness: ${readinessScore}%]`
+      : workoutNotes;
+    
     // Prepare data for offline sync
     const workoutLogInput: WorkoutLogInput = {
       local_id: `workout-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -435,7 +473,7 @@ export default function WorkoutPlayer() {
       completed_at: new Date().toISOString(),
       srpe: sessionRpe,
       duration_minutes: durationMinutes,
-      notes: workoutNotes,
+      notes: finalNotes,
       exercises: exercises.map((ex, index) => ({
         exercise_name: ex.name,
         exercise_order: index,
@@ -509,7 +547,7 @@ export default function WorkoutPlayer() {
               Low Readiness Detected ({readinessScore}%)
             </DialogTitle>
             <DialogDescription className="pt-2">
-              I tuoi indicatori di recupero sono bassi oggi. Il tuo Coach raccomanda di ridurre il volume per proteggere la tua salute.
+              I tuoi indicatori di recupero sono bassi oggi. Il tuo Coach raccomanda di ridurre volume e intensità per proteggere la tua salute.
             </DialogDescription>
           </DialogHeader>
           
@@ -533,8 +571,25 @@ export default function WorkoutPlayer() {
               </div>
             </div>
             
+            {/* Auto-reg preview */}
+            <div className="p-3 rounded-lg bg-secondary/50 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Modifiche proposte:</p>
+              <div className="flex items-center gap-4 text-sm">
+                <span className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">Set:</span>
+                  <span className="line-through text-muted-foreground/60">-1</span>
+                  <span className="text-amber-600 font-medium">(min 2)</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="text-muted-foreground">RPE:</span>
+                  <span className="line-through text-muted-foreground/60">-2</span>
+                  <span className="text-amber-600 font-medium">(min 5)</span>
+                </span>
+              </div>
+            </div>
+            
             <p className="text-xs text-muted-foreground text-center">
-              L'Auto-Regolazione riduce ~1 set per esercizio mantenendo l'intensità.
+              Esempio: 4×8 @RPE8 → 3×8 @RPE6
             </p>
           </div>
           
@@ -544,7 +599,7 @@ export default function WorkoutPlayer() {
               className="w-full bg-amber-500 hover:bg-amber-600 text-white"
             >
               <Activity className="h-4 w-4 mr-2" />
-              Applica Auto-Reg (-20% Set)
+              Applica Auto-Reg (-1 Set, -2 RPE)
             </Button>
             <Button 
               variant="outline" 
@@ -650,13 +705,45 @@ export default function WorkoutPlayer() {
                           {isSuperset ? `${supersetIndex + 1}/${supersetExercises.length}` : `Esercizio ${exerciseIndex + 1}`}
                         </span>
                         <h3 className="font-semibold text-sm">{exercise.name}</h3>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          {/* Sets × Reps badge with recovery mode diff */}
                           <Badge variant="secondary" className="text-[10px] h-4">
-                            {exercise.sets.length} × {exercise.sets[0]?.targetReps || 8}
+                            {isRecoveryMode && exercise.originalSetsCount && exercise.originalSetsCount !== exercise.sets.length ? (
+                              <>
+                                <span className="line-through text-muted-foreground/60 mr-1">{exercise.originalSetsCount}</span>
+                                <span className="text-amber-600">{exercise.sets.length}</span>
+                              </>
+                            ) : (
+                              exercise.sets.length
+                            )}
+                            {' × '}{exercise.sets[0]?.targetReps || 8}
                           </Badge>
+                          
+                          {/* Weight badge */}
                           {exercise.sets[0]?.targetKg > 0 && (
                             <Badge variant="outline" className="text-[10px] h-4">
                               {exercise.sets[0].targetKg}kg
+                            </Badge>
+                          )}
+                          
+                          {/* RPE badge with recovery mode diff */}
+                          {exercise.sets[0]?.targetRpe && (
+                            <Badge 
+                              variant="outline" 
+                              className={cn(
+                                "text-[10px] h-4",
+                                isRecoveryMode && "border-amber-500/30 bg-amber-500/10"
+                              )}
+                            >
+                              RPE:{' '}
+                              {isRecoveryMode && exercise.originalTargetRpe && exercise.originalTargetRpe !== exercise.sets[0].targetRpe ? (
+                                <>
+                                  <span className="line-through text-muted-foreground/60 mx-0.5">{exercise.originalTargetRpe}</span>
+                                  <span className="text-amber-600 font-semibold">{exercise.sets[0].targetRpe}</span>
+                                </>
+                              ) : (
+                                <span>{exercise.sets[0].targetRpe}</span>
+                              )}
                             </Badge>
                           )}
                         </div>
