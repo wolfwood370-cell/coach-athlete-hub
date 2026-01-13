@@ -466,19 +466,16 @@ function MetabolicStatusCard({
 
 // Weight Trend Chart with recharts - Enhanced version
 function WeightTrendChart({ data }: { data: { dayIndex: number; date: string; rawWeight: number | null; trendWeight: number }[] }) {
-  if (data.length === 0) {
-    return (
-      <div className="h-32 flex items-center justify-center text-foreground/40 text-sm">
-        Nessun dato peso disponibile
-      </div>
-    );
-  }
-
   const validData = data.filter(d => d.rawWeight !== null || d.trendWeight > 0);
-  if (validData.length === 0) {
+  
+  if (data.length === 0 || validData.length === 0) {
     return (
-      <div className="h-32 flex items-center justify-center text-foreground/40 text-sm">
-        Nessun dato peso disponibile
+      <div className="h-32 flex flex-col items-center justify-center text-center p-4 rounded-lg bg-muted/30 border border-dashed border-border">
+        <Scale className="h-6 w-6 text-muted-foreground/50 mb-2" />
+        <p className="text-sm text-muted-foreground">Nessun dato peso disponibile</p>
+        <p className="text-xs text-muted-foreground/70 mt-1">
+          Registra il tuo peso giornaliero per vedere il trend
+        </p>
       </div>
     );
   }
