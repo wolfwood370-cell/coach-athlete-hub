@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { AthleteLayout } from "@/components/athlete/AthleteLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,39 +59,6 @@ type SorenessLevel = 0 | 1 | 2 | 3;
 interface SorenessMap {
   [key: string]: SorenessLevel;
 }
-
-const todayTasks = [
-  { 
-    id: "workout",
-    label: "Upper Body Hypertrophy",
-    sublabel: "45 min · 6 esercizi",
-    icon: Dumbbell,
-    type: "workout" as const,
-    progress: undefined,
-    value: undefined,
-    target: undefined,
-  },
-  { 
-    id: "steps",
-    label: "Passi",
-    sublabel: undefined,
-    icon: Footprints,
-    type: "progress" as const,
-    progress: 35,
-    value: 3500,
-    target: 10000,
-  },
-  { 
-    id: "nutrition",
-    label: "Macros",
-    sublabel: undefined,
-    icon: UtensilsCrossed,
-    type: "progress" as const,
-    progress: 48,
-    value: 1200,
-    target: 2500,
-  },
-];
 
 // Soreness level colors and labels
 const sorenessConfig: Record<SorenessLevel, { bg: string; label: string }> = {
@@ -340,6 +308,85 @@ export default function AthleteDashboard() {
   
   // Gamification data
   const { currentStreak, isStreakDay, loading: streakLoading } = useGamification(currentUserId || undefined);
+  
+  // Today's date for strict filtering
+  const todayDate = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
+  
+  // Fetch TODAY's workout only - strict date filter
+  const { data: todayWorkout, isLoading: workoutLoading } = useQuery({
+    queryKey: ['todays-workout', currentUserId, todayDate],
+    queryFn: async () => {
+      if (!currentUserId) return null;
+      
+      const { data, error } = await supabase
+        .from('workouts')
+        .select('id, title, estimated_duration, structure, status')
+        .eq('athlete_id', currentUserId)
+        .eq('scheduled_date', todayDate)
+        .eq('status', 'pending')
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error fetching today workout:', error);
+        return null;
+      }
+      
+      return data;
+    },
+    enabled: !!currentUserId,
+    staleTime: 60 * 1000, // 1 minute
+  });
+  
+  // Build today's tasks dynamically
+  const todayTasks = useMemo(() => {
+    const tasks: Array<{
+      id: string;
+      label: string;
+      sublabel?: string;
+      icon: typeof Dumbbell;
+      type: 'workout' | 'progress';
+      progress?: number;
+      value?: number;
+      target?: number;
+      workoutId?: string;
+    }> = [];
+    
+    // Add workout task if exists for today
+    if (todayWorkout) {
+      const exerciseCount = Array.isArray(todayWorkout.structure) ? todayWorkout.structure.length : 0;
+      tasks.push({
+        id: 'workout',
+        label: todayWorkout.title,
+        sublabel: `${todayWorkout.estimated_duration || 45} min · ${exerciseCount} esercizi`,
+        icon: Dumbbell,
+        type: 'workout',
+        workoutId: todayWorkout.id,
+      });
+    }
+    
+    // Always add steps and nutrition tracking
+    tasks.push({
+      id: 'steps',
+      label: 'Passi',
+      icon: Footprints,
+      type: 'progress',
+      progress: 35,
+      value: 3500,
+      target: 10000,
+    });
+    
+    tasks.push({
+      id: 'nutrition',
+      label: 'Macros',
+      icon: UtensilsCrossed,
+      type: 'progress',
+      progress: 48,
+      value: 1200,
+      target: 2500,
+    });
+    
+    return tasks;
+  }, [todayWorkout]);
   
   const {
     readiness,
@@ -683,9 +730,28 @@ export default function AthleteDashboard() {
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-sm font-semibold">Focus di Oggi</h2>
             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              {todayTasks.length} attività
+              {todayTasks.filter(t => t.type === 'workout').length > 0 
+                ? `${todayTasks.length} attività` 
+                : 'Giorno di riposo'}
             </span>
           </div>
+          
+          {/* Rest Day Empty State */}
+          {!todayWorkout && !workoutLoading && (
+            <Card className="border-0 mb-2 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border border-emerald-500/20">
+              <CardContent className="p-4 text-center">
+                <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-emerald-500/10 mb-3">
+                  <Moon className="h-6 w-6 text-emerald-600" />
+                </div>
+                <h3 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-1">
+                  Giorno di Riposo 🌿
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Nessun allenamento programmato per oggi. Recupera e preparati per il prossimo.
+                </p>
+              </CardContent>
+            </Card>
+          )}
           
           <div className="space-y-2">
             {todayTasks.map((task) => (
@@ -693,8 +759,8 @@ export default function AthleteDashboard() {
                 key={task.id}
                 className="border-0 overflow-hidden active:scale-[0.98] transition-transform cursor-pointer"
                 onClick={() => {
-                  if (task.type === 'workout') {
-                    navigate('/athlete/workout/1');
+                  if (task.type === 'workout' && task.workoutId) {
+                    navigate(`/athlete/workout/${task.workoutId}`);
                   }
                 }}
               >
@@ -744,7 +810,9 @@ export default function AthleteDashboard() {
                         className="h-8 px-3 gradient-primary text-xs font-semibold"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate('/athlete/workout/1');
+                          if (task.workoutId) {
+                            navigate(`/athlete/workout/${task.workoutId}`);
+                          }
                         }}
                       >
                         Start
@@ -799,6 +867,13 @@ export default function AthleteDashboard() {
               <p className="text-[10px] text-muted-foreground">/ 10</p>
             </CardContent>
           </Card>
+        </div>
+        
+        {/* Debug Footer - Visual Date Confirmation */}
+        <div className="mt-4 pt-3 border-t border-border/30 text-center">
+          <p className="text-[10px] text-muted-foreground/60">
+            Viewing data for: <span className="font-medium text-muted-foreground">{format(new Date(), 'EEEE, d MMMM yyyy', { locale: it })}</span>
+          </p>
         </div>
       </div>
 
