@@ -40,6 +40,8 @@ import {
   TrendingUp,
   Clock,
   Flame,
+  AlertTriangle,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -209,18 +211,65 @@ export default function WorkoutPlayer() {
   const [showRecapDialog, setShowRecapDialog] = useState(false);
   const [sessionRpe, setSessionRpe] = useState(5);
   const [workoutNotes, setWorkoutNotes] = useState("");
+  
+  // Auto-regulation state
+  const [showAutoRegDialog, setShowAutoRegDialog] = useState(false);
+  const [readinessScore, setReadinessScore] = useState<number | null>(null);
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
 
-  // Fetch current user ID
+  // Fetch current user ID and check readiness
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(async ({ data }) => {
       if (data.user) {
         setCurrentUserId(data.user.id);
+        
+        // Fetch today's readiness score
+        const today = new Date().toISOString().split('T')[0];
+        const { data: readinessData } = await supabase
+          .from('daily_readiness')
+          .select('score')
+          .eq('athlete_id', data.user.id)
+          .eq('date', today)
+          .maybeSingle();
+        
+        if (readinessData?.score !== null && readinessData?.score !== undefined) {
+          setReadinessScore(readinessData.score);
+          // Show dialog if readiness is below 45%
+          if (readinessData.score < 45) {
+            setShowAutoRegDialog(true);
+          }
+        }
       }
     });
   }, []);
 
   // Get workout streak
   const { currentStreak, isStreakDay } = useWorkoutStreak(currentUserId || undefined);
+  
+  // Apply auto-regulation: remove 1 set from each exercise (~20% reduction)
+  const applyAutoRegulation = useCallback(() => {
+    setExercises(prev => prev.map(exercise => ({
+      ...exercise,
+      sets: exercise.sets.length > 1 
+        ? exercise.sets.slice(0, -1) // Remove the last set
+        : exercise.sets
+    })));
+    setIsRecoveryMode(true);
+    setShowAutoRegDialog(false);
+    toast({
+      title: "📉 Recovery Mode attivato",
+      description: "Volume ridotto del 20% per favorire il recupero.",
+    });
+  }, [toast]);
+  
+  const ignoreAutoReg = useCallback(() => {
+    setShowAutoRegDialog(false);
+    toast({
+      title: "Procedi con cautela",
+      description: "Ascolta il tuo corpo durante l'allenamento.",
+      variant: "destructive",
+    });
+  }, [toast]);
 
   // Fetch workout from database
   const { data: workoutData, isLoading } = useQuery({
@@ -451,14 +500,78 @@ export default function WorkoutPlayer() {
 
   return (
     <AthleteLayout>
+      {/* Auto-Regulation Dialog */}
+      <Dialog open={showAutoRegDialog} onOpenChange={setShowAutoRegDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-amber-600">
+              <AlertTriangle className="h-5 w-5" />
+              Low Readiness Detected ({readinessScore}%)
+            </DialogTitle>
+            <DialogDescription className="pt-2">
+              I tuoi indicatori di recupero sono bassi oggi. Il tuo Coach raccomanda di ridurre il volume per proteggere la tua salute.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4">
+            {/* Readiness indicator */}
+            <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
+              <div className="flex items-center gap-3">
+                <Activity className="h-8 w-8 text-amber-500" />
+                <div className="flex-1">
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="text-sm font-medium">Readiness Score</span>
+                    <span className="text-lg font-bold text-amber-600">{readinessScore}%</span>
+                  </div>
+                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-red-500 to-amber-500 transition-all"
+                      style={{ width: `${readinessScore}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <p className="text-xs text-muted-foreground text-center">
+              L'Auto-Regolazione riduce ~1 set per esercizio mantenendo l'intensità.
+            </p>
+          </div>
+          
+          <div className="flex flex-col gap-2">
+            <Button 
+              onClick={applyAutoRegulation}
+              className="w-full bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              <Activity className="h-4 w-4 mr-2" />
+              Applica Auto-Reg (-20% Set)
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={ignoreAutoReg}
+              className="w-full"
+            >
+              Mi sento bene (Ignora)
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
       {/* Fixed Header */}
       <div className="sticky top-0 z-40 glass-adaptive border-b border-border/30">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
-              <h1 className="text-base font-semibold truncate">
-                {workoutData?.title || mockWorkout.title}
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-semibold truncate">
+                  {workoutData?.title || mockWorkout.title}
+                </h1>
+                {isRecoveryMode && (
+                  <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 text-[10px] h-5">
+                    📉 Recovery Mode
+                  </Badge>
+                )}
+              </div>
               <div className="flex items-center gap-3 mt-0.5">
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   <Timer className="h-3 w-3" />
