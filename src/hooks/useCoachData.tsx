@@ -479,3 +479,13 @@ function getRelativeTime(date: Date): string {
   if (hours < 24) return `${hours}h`;
   return `${days}g`;
 }
+
+// Convenience hook for getting just athletes list (used by Periodization)
+export function useCoachData() {
+  const { data: athletes, isLoading, error } = useCoachAthletes();
+  return {
+    athletes: athletes || [],
+    isLoading,
+    error,
+  };
+}
