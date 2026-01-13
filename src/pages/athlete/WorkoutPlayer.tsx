@@ -48,7 +48,7 @@ import { useOfflineSync, type WorkoutLogInput, type SetData as OfflineSetData } 
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { useWorkoutStreak } from "@/hooks/useWorkoutStreak";
 import { usePersonalRecords } from "@/hooks/usePersonalRecords";
-import { triggerConfetti, triggerPRConfetti } from "@/components/celebration/Confetti";
+import { triggerConfetti, triggerPRConfetti } from "@/utils/ux";
 
 // Types
 interface SetData {
