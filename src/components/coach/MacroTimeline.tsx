@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,7 @@ import {
   Heart,
   Edit2,
   Trash2,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -26,6 +28,7 @@ import {
   endOfMonth,
   eachMonthOfInterval,
   eachWeekOfInterval,
+  eachDayOfInterval,
   differenceInDays,
   startOfWeek,
   isWithinInterval,
@@ -34,6 +37,16 @@ import {
 } from "date-fns";
 import { it } from "date-fns/locale";
 import { TrainingPhase, PhaseFocusType } from "@/hooks/usePeriodization";
+import { supabase } from "@/integrations/supabase/client";
+
+// Types for wellness data
+interface WellnessDay {
+  date: string;
+  status: 'green' | 'yellow' | 'red';
+  label?: string;
+  painLevel?: number;
+  injuries?: string[];
+}
 
 // ============================================
 // PHASE CONFIGURATION
@@ -213,6 +226,7 @@ function PhaseBlock({
 
 interface MacroTimelineProps {
   phases: TrainingPhase[];
+  athleteId?: string;
   onAddPhase: (date: Date) => void;
   onEditPhase: (phase: TrainingPhase) => void;
   onDeletePhase: (phaseId: string) => void;
@@ -223,6 +237,7 @@ interface MacroTimelineProps {
 
 export function MacroTimeline({
   phases,
+  athleteId,
   onAddPhase,
   onEditPhase,
   onDeletePhase,
@@ -235,6 +250,94 @@ export function MacroTimeline({
   // Calculate timeline range
   const timelineStart = startOfMonth(startDate);
   const timelineEnd = endOfMonth(addMonths(startDate, months - 1));
+  
+  // Fetch injuries for the athlete
+  const { data: injuries = [] } = useQuery({
+    queryKey: ['injuries', athleteId, timelineStart.toISOString(), timelineEnd.toISOString()],
+    queryFn: async () => {
+      if (!athleteId) return [];
+      const { data, error } = await supabase
+        .from('injuries')
+        .select('*')
+        .eq('athlete_id', athleteId)
+        .gte('injury_date', format(timelineStart, 'yyyy-MM-dd'))
+        .lte('injury_date', format(timelineEnd, 'yyyy-MM-dd'));
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!athleteId,
+  });
+  
+  // Fetch daily_readiness with pain data
+  const { data: readinessData = [] } = useQuery({
+    queryKey: ['readiness-pain', athleteId, timelineStart.toISOString(), timelineEnd.toISOString()],
+    queryFn: async () => {
+      if (!athleteId) return [];
+      const { data, error } = await supabase
+        .from('daily_readiness')
+        .select('date, has_pain, soreness_map')
+        .eq('athlete_id', athleteId)
+        .gte('date', format(timelineStart, 'yyyy-MM-dd'))
+        .lte('date', format(timelineEnd, 'yyyy-MM-dd'));
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!athleteId,
+  });
+  
+  // Build wellness heatmap data
+  const wellnessData = useMemo(() => {
+    const days = eachDayOfInterval({ start: timelineStart, end: timelineEnd });
+    const wellnessMap: Record<string, WellnessDay> = {};
+    
+    days.forEach(day => {
+      const dateStr = format(day, 'yyyy-MM-dd');
+      wellnessMap[dateStr] = { date: dateStr, status: 'green' };
+    });
+    
+    // Process readiness data for pain
+    readinessData.forEach(r => {
+      const dateStr = r.date;
+      if (!wellnessMap[dateStr]) return;
+      
+      if (r.has_pain && r.soreness_map) {
+        const sorenessMap = r.soreness_map as Record<string, number>;
+        const maxPain = Math.max(...Object.values(sorenessMap).filter(v => typeof v === 'number'), 0);
+        
+        if (maxPain > 4) {
+          wellnessMap[dateStr] = { 
+            date: dateStr, 
+            status: 'red', 
+            painLevel: maxPain,
+            label: `High Pain (${maxPain}/10)`
+          };
+        } else if (maxPain >= 1) {
+          wellnessMap[dateStr] = { 
+            date: dateStr, 
+            status: 'yellow', 
+            painLevel: maxPain,
+            label: `Minor Pain (${maxPain}/10)`
+          };
+        }
+      }
+    });
+    
+    // Process injuries (override to red)
+    injuries.forEach(injury => {
+      const dateStr = injury.injury_date;
+      if (!wellnessMap[dateStr]) return;
+      
+      const existing = wellnessMap[dateStr];
+      wellnessMap[dateStr] = {
+        ...existing,
+        status: 'red',
+        injuries: [...(existing.injuries || []), `${injury.body_zone}: ${injury.description || 'Active Injury'}`],
+        label: `Active Injury: ${injury.body_zone}`
+      };
+    });
+    
+    return wellnessMap;
+  }, [timelineStart, timelineEnd, readinessData, injuries]);
   
   // Generate months array
   const monthsArray = useMemo(
@@ -396,11 +499,103 @@ export function MacroTimeline({
                   </div>
                 )}
               </div>
+
+              {/* Wellness Status Row */}
+              {athleteId && (
+                <div
+                  className="relative border-b border-border/50"
+                  style={{ height: 32 }}
+                >
+                  {/* Row label */}
+                  <div className="absolute left-0 top-0 w-[80px] h-full flex items-center justify-center border-r border-border/50 bg-muted/20 z-10">
+                    <span className="text-[10px] text-muted-foreground font-medium">Wellness</span>
+                  </div>
+
+                  {/* Wellness heatmap */}
+                  <div className="absolute top-0 left-[80px] right-0 bottom-0 flex items-center">
+                    <TooltipProvider>
+                      {eachDayOfInterval({ start: timelineStart, end: timelineEnd }).map((day, i) => {
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        const wellness = wellnessData[dateStr];
+                        const statusColors = {
+                          green: 'bg-emerald-500/40 hover:bg-emerald-500/60',
+                          yellow: 'bg-amber-500/60 hover:bg-amber-500/80',
+                          red: 'bg-red-500/70 hover:bg-red-500/90',
+                        };
+                        
+                        const hasIssue = wellness?.status !== 'green';
+                        
+                        return (
+                          <Tooltip key={i}>
+                            <TooltipTrigger asChild>
+                              <div
+                                className={cn(
+                                  "h-4 transition-colors cursor-default",
+                                  statusColors[wellness?.status || 'green']
+                                )}
+                                style={{ width: DAY_WIDTH }}
+                              />
+                            </TooltipTrigger>
+                            {hasIssue && (
+                              <TooltipContent className="max-w-[200px]">
+                                <div className="flex items-start gap-2">
+                                  <AlertCircle className={cn(
+                                    "h-4 w-4 mt-0.5 flex-shrink-0",
+                                    wellness?.status === 'red' ? 'text-red-500' : 'text-amber-500'
+                                  )} />
+                                  <div>
+                                    <p className="font-medium text-xs">
+                                      {format(day, "d MMM yyyy", { locale: it })}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {wellness?.label || 'Issue detected'}
+                                    </p>
+                                    {wellness?.injuries?.map((inj, idx) => (
+                                      <p key={idx} className="text-xs text-red-400 mt-0.5">{inj}</p>
+                                    ))}
+                                  </div>
+                                </div>
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
+                        );
+                      })}
+                    </TooltipProvider>
+                  </div>
+                  
+                  {/* Today marker for wellness row */}
+                  {showTodayMarker && (
+                    <div
+                      className="absolute top-0 bottom-0 w-0.5 bg-primary z-10"
+                      style={{ left: 80 + todayOffset * DAY_WIDTH }}
+                    />
+                  )}
+                </div>
+              )}
             </div>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
         </CardContent>
       </Card>
+      
+      {/* Legend for wellness status */}
+      {athleteId && (
+        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+          <span className="font-medium">Wellness Status:</span>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm bg-emerald-500/50" />
+            <span>No issues</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm bg-amber-500/60" />
+            <span>Minor Pain (1-4)</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm bg-red-500/70" />
+            <span>High Pain / Injury</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

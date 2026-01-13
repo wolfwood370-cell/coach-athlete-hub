@@ -311,6 +311,7 @@ export default function Periodization() {
             {/* Timeline */}
             <MacroTimeline
               phases={phases}
+              athleteId={selectedAthleteId}
               onAddPhase={handleAddPhase}
               onEditPhase={handleEditPhase}
               onDeletePhase={handleDeletePhase}
