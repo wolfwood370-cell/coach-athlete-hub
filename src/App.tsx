@@ -8,7 +8,11 @@ import { SunThemeSync } from "@/components/logic/SunThemeSync";
 import { OfflineSyncProvider, SyncStatusIndicator } from "@/providers/OfflineSyncProvider";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
-import CoachDashboard from "./pages/coach/CoachDashboard";
+import CoachHome from "./pages/coach/CoachHome";
+import CoachAthletes from "./pages/coach/CoachAthletes";
+import CoachCalendar from "./pages/coach/CoachCalendar";
+import CoachMessages from "./pages/coach/CoachMessages";
+import CoachAnalytics from "./pages/coach/CoachAnalytics";
 import ProgramBuilder from "./pages/coach/ProgramBuilder";
 import Periodization from "./pages/coach/Periodization";
 import AthleteDashboard from "./pages/athlete/AthleteDashboard";
@@ -54,14 +58,14 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               
               {/* Coach Routes */}
-              <Route path="/coach" element={<CoachDashboard />} />
-              <Route path="/coach/athletes" element={<CoachDashboard />} />
+              <Route path="/coach" element={<CoachHome />} />
+              <Route path="/coach/athletes" element={<CoachAthletes />} />
               <Route path="/coach/programs" element={<ProgramBuilder />} />
               <Route path="/coach/periodization" element={<Periodization />} />
-              <Route path="/coach/calendar" element={<CoachDashboard />} />
-              <Route path="/coach/messages" element={<CoachDashboard />} />
-              <Route path="/coach/analytics" element={<CoachDashboard />} />
-              <Route path="/coach/settings" element={<CoachDashboard />} />
+              <Route path="/coach/calendar" element={<CoachCalendar />} />
+              <Route path="/coach/messages" element={<CoachMessages />} />
+              <Route path="/coach/analytics" element={<CoachAnalytics />} />
+              <Route path="/coach/settings" element={<CoachHome />} />
               
               {/* Athlete Routes */}
               <Route path="/athlete" element={<AthleteDashboard />} />
