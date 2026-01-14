@@ -543,6 +543,8 @@ export type Database = {
       workout_logs: {
         Row: {
           athlete_id: string
+          coach_feedback: string | null
+          coach_feedback_at: string | null
           completed_at: string | null
           created_at: string
           duration_minutes: number | null
@@ -561,6 +563,8 @@ export type Database = {
         }
         Insert: {
           athlete_id: string
+          coach_feedback?: string | null
+          coach_feedback_at?: string | null
           completed_at?: string | null
           created_at?: string
           duration_minutes?: number | null
@@ -579,6 +583,8 @@ export type Database = {
         }
         Update: {
           athlete_id?: string
+          coach_feedback?: string | null
+          coach_feedback_at?: string | null
           completed_at?: string | null
           created_at?: string
           duration_minutes?: number | null
