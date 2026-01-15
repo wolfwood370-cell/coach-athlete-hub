@@ -229,8 +229,8 @@ export type Database = {
           coach_id: string
           created_at: string
           default_rpe: number | null
+          exercise_type: string
           id: string
-          is_compound: boolean
           movement_pattern: string | null
           muscles: string[]
           name: string
@@ -244,8 +244,8 @@ export type Database = {
           coach_id: string
           created_at?: string
           default_rpe?: number | null
+          exercise_type?: string
           id?: string
-          is_compound?: boolean
           movement_pattern?: string | null
           muscles?: string[]
           name: string
@@ -259,8 +259,8 @@ export type Database = {
           coach_id?: string
           created_at?: string
           default_rpe?: number | null
+          exercise_type?: string
           id?: string
-          is_compound?: boolean
           movement_pattern?: string | null
           muscles?: string[]
           name?: string
