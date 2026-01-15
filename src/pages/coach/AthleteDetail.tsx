@@ -38,10 +38,13 @@ import {
   Flame,
   Target,
   AlertTriangle,
-  Heart
+  Heart,
+  ChevronRight,
+  Coffee,
+  Play
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, formatDistanceToNow, startOfWeek, addDays, isAfter, isBefore, isSameDay } from "date-fns";
+import { format, formatDistanceToNow, startOfWeek, endOfWeek, addDays, isAfter, isBefore, isSameDay, differenceInDays, differenceInWeeks } from "date-fns";
 import { it } from "date-fns/locale";
 import { useAthleteAcwrData } from "@/hooks/useAthleteAcwrData";
 import { 
@@ -183,6 +186,49 @@ export default function AthleteDetail() {
         .not("completed_at", "is", null)
         .gte("completed_at", weekStart.toISOString())
         .lte("completed_at", addDays(weekEnd, 1).toISOString());
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
+  // Fetch scheduled workouts for this week (for Program tab)
+  const { data: scheduledWorkouts } = useQuery({
+    queryKey: ["athlete-scheduled-workouts", id],
+    queryFn: async () => {
+      if (!id) return [];
+      const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+      const weekEnd = addDays(weekStart, 6);
+      
+      const { data, error } = await supabase
+        .from("workouts")
+        .select("*")
+        .eq("athlete_id", id)
+        .gte("scheduled_date", format(weekStart, "yyyy-MM-dd"))
+        .lte("scheduled_date", format(weekEnd, "yyyy-MM-dd"))
+        .order("scheduled_date", { ascending: true });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
+  // Fetch workout logs for scheduled workouts (to check completion status)
+  const { data: workoutLogs } = useQuery({
+    queryKey: ["athlete-workout-logs-week", id],
+    queryFn: async () => {
+      if (!id) return [];
+      const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+      const weekEnd = addDays(weekStart, 6);
+      
+      const { data, error } = await supabase
+        .from("workout_logs")
+        .select("*, workout_id")
+        .eq("athlete_id", id)
+        .gte("created_at", weekStart.toISOString())
+        .lte("created_at", addDays(weekEnd, 1).toISOString());
       
       if (error) throw error;
       return data || [];
@@ -337,7 +383,115 @@ export default function AthleteDetail() {
 
   const readinessColors = getReadinessColor(readinessScore);
 
-  // Loading state
+  // Get weekly schedule for Program tab
+  const getWeeklySchedule = () => {
+    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+    const today = new Date();
+    const days = [];
+
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(weekStart, i);
+      const dateStr = format(day, "yyyy-MM-dd");
+      const isFuture = isAfter(day, today);
+      const isToday = isSameDay(day, today);
+      const isPast = isBefore(day, today) && !isToday;
+
+      // Find scheduled workout for this day
+      const scheduledWorkout = scheduledWorkouts?.find(
+        w => w.scheduled_date === dateStr
+      );
+
+      // Check if workout was completed
+      const completedLog = scheduledWorkout 
+        ? workoutLogs?.find(log => log.workout_id === scheduledWorkout.id && log.completed_at)
+        : null;
+
+      let status: "completed" | "scheduled" | "missed" | "rest" = "rest";
+      if (scheduledWorkout) {
+        if (completedLog) {
+          status = "completed";
+        } else if (isPast) {
+          status = "missed";
+        } else {
+          status = "scheduled";
+        }
+      }
+
+      days.push({
+        date: day,
+        dateStr,
+        dayName: format(day, "EEE", { locale: it }),
+        dayNumber: format(day, "d"),
+        isToday,
+        isFuture,
+        isPast,
+        workout: scheduledWorkout,
+        completedLog,
+        status
+      });
+    }
+
+    return days;
+  };
+
+  // Calculate phase progress
+  const getPhaseProgress = () => {
+    if (!currentPhase) return null;
+    
+    const start = new Date(currentPhase.start_date);
+    const end = new Date(currentPhase.end_date);
+    const today = new Date();
+    
+    const totalDays = differenceInDays(end, start);
+    const elapsedDays = differenceInDays(today, start);
+    const percentage = Math.max(0, Math.min(100, (elapsedDays / totalDays) * 100));
+    
+    const totalWeeks = Math.ceil(differenceInWeeks(end, start)) || 1;
+    const currentWeek = Math.min(Math.ceil(differenceInWeeks(today, start)) + 1, totalWeeks);
+    
+    return {
+      percentage: Math.round(percentage),
+      currentWeek,
+      totalWeeks,
+      daysRemaining: Math.max(0, differenceInDays(end, today))
+    };
+  };
+
+  // Calculate weekly totals for stats footer
+  const getWeeklyStats = () => {
+    const schedule = getWeeklySchedule();
+    let totalSets = 0;
+    let focusTypes = new Set<string>();
+
+    schedule.forEach(day => {
+      if (day.workout) {
+        const structure = day.workout.structure as Array<{ sets?: number }>;
+        if (Array.isArray(structure)) {
+          structure.forEach(exercise => {
+            totalSets += exercise.sets || 0;
+          });
+        }
+        // Add focus type from phase if available
+        if (currentPhase?.focus_type) {
+          focusTypes.add(currentPhase.focus_type);
+        }
+      }
+    });
+
+    const workoutsPlanned = schedule.filter(d => d.workout).length;
+    const workoutsCompleted = schedule.filter(d => d.status === "completed").length;
+
+    return {
+      totalSets,
+      focusTypes: Array.from(focusTypes),
+      workoutsPlanned,
+      workoutsCompleted
+    };
+  };
+
+  const weeklySchedule = getWeeklySchedule();
+  const phaseProgress = getPhaseProgress();
+  const weeklyStats = getWeeklyStats();
   if (profileLoading) {
     return (
       <CoachLayout title="Caricamento..." subtitle="">
@@ -786,14 +940,246 @@ export default function AthleteDetail() {
             </div>
           </TabsContent>
 
-          {/* Other Tab Placeholders */}
+          {/* Program Tab - Weekly Microcycle */}
           <TabsContent value="program" className="space-y-6">
-            <Card className="p-8 text-center">
-              <Dumbbell className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Workout Program</h3>
-              <p className="text-muted-foreground">
-                Gestione del programma di allenamento assegnato all'atleta.
-              </p>
+            {/* 1. Active Phase Header */}
+            <Card className="overflow-hidden">
+              <CardHeader className="pb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <Dumbbell className="h-6 w-6 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">
+                        {currentPhase?.name || "Nessun Programma Attivo"}
+                      </CardTitle>
+                      {currentPhase && (
+                        <p className="text-sm text-muted-foreground">
+                          {format(new Date(currentPhase.start_date), "d MMM", { locale: it })} - {format(new Date(currentPhase.end_date), "d MMM yyyy", { locale: it })}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => navigate(`/coach/programs?athlete=${id}`)}
+                    className="gap-2"
+                  >
+                    <Play className="h-4 w-4" />
+                    Open Program Builder
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              {phaseProgress && (
+                <CardContent className="pt-0">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Week {phaseProgress.currentWeek} of {phaseProgress.totalWeeks}
+                      </span>
+                      <span className="font-medium text-foreground">
+                        {phaseProgress.daysRemaining} days remaining
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div 
+                        className="h-full rounded-full bg-primary transition-all duration-500"
+                        style={{ width: `${phaseProgress.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                </CardContent>
+              )}
+              {!currentPhase && (
+                <CardContent className="pt-0">
+                  <p className="text-sm text-muted-foreground">
+                    Nessuna fase di allenamento attiva. Crea un programma per questo atleta.
+                  </p>
+                </CardContent>
+              )}
+            </Card>
+
+            {/* 2. Weekly Microcycle Grid */}
+            <div className="space-y-3">
+              <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+                Settimana Corrente
+              </h3>
+              
+              {/* Desktop Grid */}
+              <div className="hidden md:grid md:grid-cols-7 gap-3">
+                {weeklySchedule.map((day, idx) => (
+                  <div 
+                    key={idx}
+                    className={cn(
+                      "rounded-xl border transition-all",
+                      day.isToday && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+                      day.isFuture && "opacity-60"
+                    )}
+                  >
+                    {/* Day Header */}
+                    <div className={cn(
+                      "px-3 py-2 border-b text-center",
+                      day.isToday ? "bg-primary/10" : "bg-muted/30"
+                    )}>
+                      <p className="text-xs font-medium text-muted-foreground uppercase">
+                        {day.dayName}
+                      </p>
+                      <p className={cn(
+                        "text-lg font-bold",
+                        day.isToday ? "text-primary" : "text-foreground"
+                      )}>
+                        {day.dayNumber}
+                      </p>
+                    </div>
+
+                    {/* Day Content */}
+                    <div className="p-3 min-h-[140px]">
+                      {day.workout ? (
+                        <div className="space-y-2">
+                          {/* Status Indicator */}
+                          <div className={cn(
+                            "w-6 h-6 rounded-full flex items-center justify-center mx-auto",
+                            day.status === "completed" && "bg-success text-success-foreground",
+                            day.status === "missed" && "bg-destructive text-destructive-foreground",
+                            day.status === "scheduled" && "bg-primary/20 text-primary"
+                          )}>
+                            {day.status === "completed" && <CheckCircle2 className="h-4 w-4" />}
+                            {day.status === "missed" && <XCircle className="h-4 w-4" />}
+                            {day.status === "scheduled" && <Dumbbell className="h-3 w-3" />}
+                          </div>
+
+                          {/* Workout Info */}
+                          <div className="text-center">
+                            <p className="text-sm font-medium line-clamp-2">
+                              {day.workout.title}
+                            </p>
+                          </div>
+
+                          {/* Badges */}
+                          <div className="flex flex-wrap justify-center gap-1">
+                            {day.workout.estimated_duration && (
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                <Clock className="h-2.5 w-2.5 mr-0.5" />
+                                {day.workout.estimated_duration}m
+                              </Badge>
+                            )}
+                            {currentPhase?.focus_type && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">
+                                {currentPhase.focus_type.replace('_', ' ')}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="h-full flex flex-col items-center justify-center text-muted-foreground/50">
+                          <Coffee className="h-6 w-6 mb-1" />
+                          <span className="text-xs">Rest Day</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Mobile Stack */}
+              <div className="md:hidden space-y-2">
+                {weeklySchedule.map((day, idx) => (
+                  <Card 
+                    key={idx}
+                    className={cn(
+                      "overflow-hidden transition-all",
+                      day.isToday && "ring-2 ring-primary",
+                      day.isFuture && "opacity-60"
+                    )}
+                  >
+                    <div className="flex items-center gap-3 p-3">
+                      {/* Date Column */}
+                      <div className={cn(
+                        "w-14 h-14 rounded-lg flex flex-col items-center justify-center flex-shrink-0",
+                        day.isToday ? "bg-primary text-primary-foreground" : "bg-muted"
+                      )}>
+                        <span className="text-[10px] uppercase font-medium">
+                          {day.dayName}
+                        </span>
+                        <span className="text-xl font-bold">{day.dayNumber}</span>
+                      </div>
+
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        {day.workout ? (
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium truncate">{day.workout.title}</p>
+                              {day.status === "completed" && (
+                                <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
+                              )}
+                              {day.status === "missed" && (
+                                <XCircle className="h-4 w-4 text-destructive flex-shrink-0" />
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              {day.workout.estimated_duration && (
+                                <span className="text-xs text-muted-foreground">
+                                  {day.workout.estimated_duration} min
+                                </span>
+                              )}
+                              {currentPhase?.focus_type && (
+                                <Badge variant="outline" className="text-[10px] capitalize">
+                                  {currentPhase.focus_type.replace('_', ' ')}
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Coffee className="h-4 w-4" />
+                            <span className="text-sm">Rest Day</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            </div>
+
+            {/* 3. Quick Stats Footer */}
+            <Card>
+              <CardContent className="py-4">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex items-center gap-6">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-foreground">{weeklyStats.totalSets}</p>
+                      <p className="text-xs text-muted-foreground">Total Sets</p>
+                    </div>
+                    <div className="h-8 w-px bg-border" />
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-foreground">
+                        {weeklyStats.workoutsCompleted}/{weeklyStats.workoutsPlanned}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Workouts</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Focus:</span>
+                    {weeklyStats.focusTypes.length > 0 ? (
+                      weeklyStats.focusTypes.map((focus, idx) => (
+                        <Badge key={idx} variant="secondary" className="capitalize">
+                          {focus.replace('_', ' ')}
+                        </Badge>
+                      ))
+                    ) : currentPhase?.focus_type ? (
+                      <Badge variant="secondary" className="capitalize">
+                        {currentPhase.focus_type.replace('_', ' ')}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline">None</Badge>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
             </Card>
           </TabsContent>
 
