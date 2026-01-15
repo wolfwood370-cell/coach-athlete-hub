@@ -101,7 +101,7 @@ export function TrackingMetricBuilder({ value, onChange }: TrackingMetricBuilder
             </p>
           </div>
         ) : (
-          <ScrollArea className="max-h-[200px]">
+          <ScrollArea className="max-h-[300px]">
             <div className="space-y-1.5 pr-3">
               {selectedMetrics.map((metricValue, index) => (
                 <div
