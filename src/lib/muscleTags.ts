@@ -70,9 +70,8 @@ export const MOVEMENT_PATTERNS = [
   { value: "lunge", label: "Lunge" },
   { value: "push", label: "Push" },
   { value: "pull", label: "Pull" },
-  { value: "carry", label: "Carry" },
-  { value: "rotation", label: "Rotation" },
-  { value: "isolation", label: "Isolation" },
+  { value: "carry", label: "Trasporto" },
+  { value: "core", label: "Core" },
 ] as const;
 
 // Get the macro category for a muscle

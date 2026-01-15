@@ -35,7 +35,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { MultiSelect, GroupedOptions } from "@/components/ui/multi-select";
 import {
   Search,
@@ -181,8 +181,7 @@ export default function ExerciseLibrary() {
   const [formVideoUrl, setFormVideoUrl] = useState("");
   const [formMuscles, setFormMuscles] = useState<string[]>([]);
   const [formPattern, setFormPattern] = useState("");
-  const [formRpe, setFormRpe] = useState("");
-  const [formIsCompound, setFormIsCompound] = useState(false);
+  const [formIsCompound, setFormIsCompound] = useState(true);
 
   // Fetch exercises
   const { data: exercises = [], isLoading } = useQuery({
@@ -271,8 +270,7 @@ export default function ExerciseLibrary() {
     setFormVideoUrl("");
     setFormMuscles([]);
     setFormPattern("");
-    setFormRpe("");
-    setFormIsCompound(false);
+    setFormIsCompound(true);
   };
 
   // Open edit dialog
@@ -282,7 +280,6 @@ export default function ExerciseLibrary() {
     setFormVideoUrl(exercise.video_url || "");
     setFormMuscles(exercise.muscles || []);
     setFormPattern(exercise.movement_pattern || "");
-    setFormRpe(exercise.default_rpe?.toString() || "");
     setFormIsCompound(exercise.is_compound);
     setDialogOpen(true);
   };
@@ -299,7 +296,7 @@ export default function ExerciseLibrary() {
       video_url: formVideoUrl.trim() || null,
       muscles: formMuscles,
       movement_pattern: formPattern || null,
-      default_rpe: formRpe ? parseInt(formRpe, 10) : null,
+      default_rpe: null,
       is_compound: formIsCompound,
       notes: null,
     };
@@ -500,30 +497,33 @@ export default function ExerciseLibrary() {
                       </Select>
                     </div>
 
-                    {/* Default RPE */}
-                    <div className="space-y-2">
-                      <Label htmlFor="rpe">RPE Default (opzionale)</Label>
-                      <Input
-                        id="rpe"
-                        type="number"
-                        min="1"
-                        max="10"
-                        value={formRpe}
-                        onChange={(e) => setFormRpe(e.target.value)}
-                        placeholder="7"
-                      />
-                    </div>
-
-                    {/* Is Compound */}
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="compound"
-                        checked={formIsCompound}
-                        onCheckedChange={(checked) => setFormIsCompound(checked === true)}
-                      />
-                      <Label htmlFor="compound" className="text-sm font-normal cursor-pointer">
-                        Esercizio Composto (multi-articolare)
-                      </Label>
+                    {/* Exercise Type */}
+                    <div className="space-y-3">
+                      <Label>Tipo di Esercizio</Label>
+                      <RadioGroup
+                        value={formIsCompound ? "compound" : "isolation"}
+                        onValueChange={(value) => setFormIsCompound(value === "compound")}
+                        className="space-y-2"
+                      >
+                        <div className="flex items-center space-x-3 p-3 rounded-md border border-border hover:bg-accent/50 transition-colors">
+                          <RadioGroupItem value="compound" id="compound" />
+                          <Label htmlFor="compound" className="flex-1 cursor-pointer">
+                            <span className="font-medium">Esercizio Composto</span>
+                            <span className="text-muted-foreground text-sm block">
+                              Multi-articolare (es. Squat, Panca, Stacco)
+                            </span>
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-3 p-3 rounded-md border border-border hover:bg-accent/50 transition-colors">
+                          <RadioGroupItem value="isolation" id="isolation" />
+                          <Label htmlFor="isolation" className="flex-1 cursor-pointer">
+                            <span className="font-medium">Esercizio di Isolamento</span>
+                            <span className="text-muted-foreground text-sm block">
+                              Mono-articolare (es. Curl, Alzate Laterali)
+                            </span>
+                          </Label>
+                        </div>
+                      </RadioGroup>
                     </div>
                   </div>
                   <DialogFooter>
