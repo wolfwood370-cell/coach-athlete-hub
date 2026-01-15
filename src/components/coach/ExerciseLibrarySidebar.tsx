@@ -25,6 +25,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { MultiSelect, GroupedOptions } from "@/components/ui/multi-select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
   Dumbbell, 
   Search, 
@@ -32,6 +39,9 @@ import {
   Plus,
   Loader2,
   X,
+  MoreVertical,
+  Pencil,
+  Archive,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -77,8 +87,14 @@ const muscleOptions: GroupedOptions[] = getMusclesGrouped().map((group) => ({
   })),
 }));
 
-// Draggable exercise item
-function DraggableExercise({ exercise }: { exercise: LibraryExercise }) {
+// Draggable exercise item with actions
+interface DraggableExerciseProps {
+  exercise: LibraryExercise;
+  onEdit: (exercise: LibraryExercise) => void;
+  onArchive: (exercise: LibraryExercise) => void;
+}
+
+function DraggableExercise({ exercise, onEdit, onArchive }: DraggableExerciseProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `library-${exercise.id}`,
     data: { type: "library-exercise", exercise },
@@ -92,38 +108,72 @@ function DraggableExercise({ exercise }: { exercise: LibraryExercise }) {
     <div
       ref={setNodeRef}
       style={style}
-      {...listeners}
-      {...attributes}
       className={cn(
-        "flex items-center gap-2 p-2.5 rounded-lg cursor-grab active:cursor-grabbing",
+        "flex items-center gap-2 p-2.5 rounded-lg",
         "bg-card border border-border/50 hover:border-primary/30 hover:bg-primary/5",
         "transition-all duration-150 group",
         isDragging && "opacity-50 ring-2 ring-primary shadow-lg"
       )}
     >
-      <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-        <Dumbbell className="h-4 w-4 text-primary" />
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{exercise.name}</p>
-        <div className="flex flex-wrap gap-0.5 mt-0.5">
-          {exercise.muscles.slice(0, 2).map((muscle) => (
-            <Badge 
-              key={muscle} 
-              variant="secondary" 
-              className="text-[9px] h-4 px-1 bg-primary/10 text-primary border-0"
-            >
-              {muscle.split(" ")[0]}
-            </Badge>
-          ))}
-          {exercise.muscles.length > 2 && (
-            <Badge variant="outline" className="text-[9px] h-4 px-1">
-              +{exercise.muscles.length - 2}
-            </Badge>
-          )}
+      {/* Drag handle area */}
+      <div
+        {...listeners}
+        {...attributes}
+        className="flex items-center gap-2 flex-1 min-w-0 cursor-grab active:cursor-grabbing"
+      >
+        <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <Dumbbell className="h-4 w-4 text-primary" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{exercise.name}</p>
+          <div className="flex flex-wrap gap-0.5 mt-0.5">
+            {exercise.muscles.slice(0, 2).map((muscle) => (
+              <Badge 
+                key={muscle} 
+                variant="secondary" 
+                className="text-[9px] h-4 px-1 bg-primary/10 text-primary border-0"
+              >
+                {muscle.split(" ")[0]}
+              </Badge>
+            ))}
+            {exercise.muscles.length > 2 && (
+              <Badge variant="outline" className="text-[9px] h-4 px-1">
+                +{exercise.muscles.length - 2}
+              </Badge>
+            )}
+          </div>
         </div>
       </div>
-      <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+
+      {/* Actions dropdown - separate from drag handle */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <MoreVertical className="h-3.5 w-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-40">
+          <DropdownMenuItem onClick={() => onEdit(exercise)}>
+            <Pencil className="h-3.5 w-3.5 mr-2" />
+            Modifica
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem 
+            onClick={() => onArchive(exercise)}
+            className="text-destructive focus:text-destructive"
+          >
+            <Archive className="h-3.5 w-3.5 mr-2" />
+            Archivia
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      
+      <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
     </div>
   );
 }
@@ -142,8 +192,9 @@ export function ExerciseLibrarySidebar({ className }: ExerciseLibrarySidebarProp
   const [selectedPattern, setSelectedPattern] = useState<string>("all");
   const [selectedMacroMuscle, setSelectedMacroMuscle] = useState<string>("all");
 
-  // Create dialog state
+  // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingExercise, setEditingExercise] = useState<LibraryExercise | null>(null);
   const [formName, setFormName] = useState("");
   const [formVideoUrl, setFormVideoUrl] = useState("");
   const [formMuscles, setFormMuscles] = useState<string[]>([]);
@@ -151,6 +202,9 @@ export function ExerciseLibrarySidebar({ className }: ExerciseLibrarySidebarProp
   const [formTrackingFields, setFormTrackingFields] = useState<string[]>(["sets", "reps", "weight"]);
   const [formPattern, setFormPattern] = useState("");
   const [formExerciseType, setFormExerciseType] = useState("Multi-articolare");
+
+  // Check if in edit mode
+  const isEditMode = editingExercise !== null;
 
   // Fetch exercises from Supabase
   const { data: exercises = [], isLoading } = useQuery({
@@ -195,8 +249,50 @@ export function ExerciseLibrarySidebar({ className }: ExerciseLibrarySidebarProp
     },
   });
 
+  // Update exercise mutation
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, ...exercise }: Partial<LibraryExercise> & { id: string }) => {
+      const { data, error } = await supabase
+        .from("exercises")
+        .update(exercise)
+        .eq("id", id)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["exercises"] });
+      toast.success("Esercizio aggiornato!");
+      resetForm();
+      setDialogOpen(false);
+    },
+    onError: (error) => {
+      toast.error("Errore nell'aggiornamento: " + error.message);
+    },
+  });
+
+  // Archive exercise mutation
+  const archiveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from("exercises")
+        .update({ archived: true })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["exercises"] });
+      toast.success("Esercizio archiviato");
+    },
+    onError: (error) => {
+      toast.error("Errore nell'archiviazione: " + error.message);
+    },
+  });
+
   // Reset form
   const resetForm = () => {
+    setEditingExercise(null);
     setFormName("");
     setFormVideoUrl("");
     setFormMuscles([]);
@@ -204,6 +300,24 @@ export function ExerciseLibrarySidebar({ className }: ExerciseLibrarySidebarProp
     setFormTrackingFields(["sets", "reps", "weight"]);
     setFormPattern("");
     setFormExerciseType("Multi-articolare");
+  };
+
+  // Open dialog in edit mode
+  const handleEdit = (exercise: LibraryExercise) => {
+    setEditingExercise(exercise);
+    setFormName(exercise.name);
+    setFormVideoUrl(exercise.video_url || "");
+    setFormMuscles(exercise.muscles);
+    setFormSecondaryMuscles(exercise.secondary_muscles);
+    setFormTrackingFields(exercise.tracking_fields);
+    setFormPattern(exercise.movement_pattern || "");
+    setFormExerciseType(exercise.exercise_type);
+    setDialogOpen(true);
+  };
+
+  // Handle archive
+  const handleArchive = (exercise: LibraryExercise) => {
+    archiveMutation.mutate(exercise.id);
   };
 
   // Handle form submit
@@ -218,7 +332,7 @@ export function ExerciseLibrarySidebar({ className }: ExerciseLibrarySidebarProp
       return;
     }
 
-    createMutation.mutate({
+    const exerciseData = {
       name: formName.trim(),
       video_url: formVideoUrl.trim() || null,
       muscles: formMuscles,
@@ -228,8 +342,16 @@ export function ExerciseLibrarySidebar({ className }: ExerciseLibrarySidebarProp
       exercise_type: formExerciseType,
       notes: null,
       archived: false,
-    });
+    };
+
+    if (isEditMode && editingExercise) {
+      updateMutation.mutate({ id: editingExercise.id, ...exerciseData });
+    } else {
+      createMutation.mutate(exerciseData);
+    }
   };
+
+  const isSaving = createMutation.isPending || updateMutation.isPending;
 
   // Get muscles for selected macro category
   const selectedMacroMuscles = useMemo(() => {
@@ -292,9 +414,11 @@ export function ExerciseLibrarySidebar({ className }: ExerciseLibrarySidebarProp
             </DialogTrigger>
             <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Nuovo Esercizio</DialogTitle>
+                <DialogTitle>{isEditMode ? "Modifica Esercizio" : "Nuovo Esercizio"}</DialogTitle>
                 <DialogDescription>
-                  Aggiungi un nuovo esercizio alla libreria
+                  {isEditMode 
+                    ? "Modifica i dettagli dell'esercizio" 
+                    : "Aggiungi un nuovo esercizio alla libreria"}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -400,12 +524,12 @@ export function ExerciseLibrarySidebar({ className }: ExerciseLibrarySidebarProp
                 </Button>
                 <Button
                   onClick={handleSubmit}
-                  disabled={createMutation.isPending}
+                  disabled={isSaving}
                 >
-                  {createMutation.isPending && (
+                  {isSaving && (
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   )}
-                  Crea Esercizio
+                  {isEditMode ? "Salva Modifiche" : "Crea Esercizio"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -529,7 +653,12 @@ export function ExerciseLibrarySidebar({ className }: ExerciseLibrarySidebarProp
                 </span>
               </div>
               {filteredExercises.map(exercise => (
-                <DraggableExercise key={exercise.id} exercise={exercise} />
+                <DraggableExercise 
+                  key={exercise.id} 
+                  exercise={exercise} 
+                  onEdit={handleEdit}
+                  onArchive={handleArchive}
+                />
               ))}
             </>
           )}
