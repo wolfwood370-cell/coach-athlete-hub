@@ -6,16 +6,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Tooltip,
   TooltipContent,
@@ -28,7 +20,6 @@ import {
   Unlink,
   Copy,
   RotateCcw,
-  Calculator,
   ChevronLeft,
   ChevronRight,
   Plus,
@@ -46,23 +37,63 @@ export interface ProgramExercise {
   rpe: number | null;
   restSeconds: number;
   notes: string;
-  supersetGroup?: string; // Link exercises in a superset
+  supersetGroup?: string;
+  isEmpty?: boolean; // Empty slot placeholder
 }
 
 export type WeekProgram = Record<number, ProgramExercise[]>; // dayIndex -> exercises
 export type ProgramData = Record<number, WeekProgram>; // weekIndex -> days
 
 const DAYS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
-const REST_OPTIONS = [30, 45, 60, 90, 120, 180, 240];
 
-// Sortable exercise item within a day
+// Empty slot - droppable placeholder
+function EmptySlot({
+  slotId,
+  dayIndex,
+  weekIndex,
+  onRemove,
+}: {
+  slotId: string;
+  dayIndex: number;
+  weekIndex: number;
+  onRemove: () => void;
+}) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: slotId,
+    data: { type: "empty-slot", weekIndex, dayIndex, slotId },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "relative border-2 border-dashed rounded-lg p-3 text-center transition-all group",
+        isOver
+          ? "border-primary bg-primary/10"
+          : "border-muted-foreground/30 bg-muted/20 hover:border-muted-foreground/50"
+      )}
+    >
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute top-0.5 right-0.5 h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100"
+        onClick={onRemove}
+      >
+        <Trash2 className="h-3 w-3" />
+      </Button>
+      <p className="text-[10px] text-muted-foreground">
+        Trascina qui un esercizio
+      </p>
+    </div>
+  );
+}
+
+// Compact sortable exercise card
 function SortableExercise({
   exercise,
   dayIndex,
   weekIndex,
-  oneRM,
   isSelected,
-  onUpdate,
   onRemove,
   onToggleSuperset,
   onSelect,
@@ -72,9 +103,7 @@ function SortableExercise({
   exercise: ProgramExercise;
   dayIndex: number;
   weekIndex: number;
-  oneRM: number;
   isSelected?: boolean;
-  onUpdate: (updated: ProgramExercise) => void;
   onRemove: () => void;
   onToggleSuperset: () => void;
   onSelect?: () => void;
@@ -98,49 +127,53 @@ function SortableExercise({
     transition,
   };
 
-  // Calculate kg from percentage
-  const getCalculatedKg = (loadStr: string): string | null => {
-    const match = loadStr.match(/^(\d+(?:\.\d+)?)\s*%$/);
-    if (match && oneRM > 0) {
-      const percent = parseFloat(match[1]);
-      const kg = Math.round(oneRM * (percent / 100));
-      return `≈${kg}kg`;
-    }
-    return null;
-  };
-
-  const calculatedHint = getCalculatedKg(exercise.load);
+  // Build summary string
+  const summary = [
+    exercise.sets ? `${exercise.sets}x${exercise.reps || "?"}` : null,
+    exercise.load || null,
+    exercise.rpe ? `RPE ${exercise.rpe}` : null,
+  ]
+    .filter(Boolean)
+    .join(" @ ");
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       onClick={(e) => {
-        // Don't select if clicking on buttons or inputs
-        if ((e.target as HTMLElement).closest('button, input, select')) return;
+        if ((e.target as HTMLElement).closest("button")) return;
         onSelect?.();
       }}
       className={cn(
-        "bg-background rounded-lg border p-2 space-y-1.5 group transition-all cursor-pointer",
+        "bg-background rounded-lg border p-2 group transition-all cursor-pointer",
         isDragging && "opacity-50 shadow-lg ring-2 ring-primary",
         isSelected && "ring-2 ring-primary border-primary bg-primary/5",
         isInSuperset && "border-l-4",
         supersetColor
       )}
     >
-      {/* Header Row */}
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5">
         <button
           {...attributes}
           {...listeners}
-          className="p-0.5 rounded hover:bg-secondary cursor-grab active:cursor-grabbing"
+          className="p-0.5 rounded hover:bg-secondary cursor-grab active:cursor-grabbing flex-shrink-0"
         >
           <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
-        
-        <span className="text-[11px] font-medium truncate flex-1" title={exercise.name}>
-          {exercise.name}
-        </span>
+
+        <div className="flex-1 min-w-0">
+          <p
+            className="text-[11px] font-medium truncate"
+            title={exercise.name}
+          >
+            {exercise.name}
+          </p>
+          {summary && (
+            <p className="text-[9px] text-muted-foreground truncate">
+              {summary}
+            </p>
+          )}
+        </div>
 
         <Tooltip>
           <TooltipTrigger asChild>
@@ -148,12 +181,18 @@ function SortableExercise({
               variant="ghost"
               size="icon"
               className={cn(
-                "h-5 w-5",
-                isInSuperset ? "text-primary" : "text-muted-foreground opacity-0 group-hover:opacity-100"
+                "h-5 w-5 flex-shrink-0",
+                isInSuperset
+                  ? "text-primary"
+                  : "text-muted-foreground opacity-0 group-hover:opacity-100"
               )}
               onClick={onToggleSuperset}
             >
-              {isInSuperset ? <Unlink className="h-3 w-3" /> : <Link2 className="h-3 w-3" />}
+              {isInSuperset ? (
+                <Unlink className="h-3 w-3" />
+              ) : (
+                <Link2 className="h-3 w-3" />
+              )}
             </Button>
           </TooltipTrigger>
           <TooltipContent side="top" className="text-xs">
@@ -164,124 +203,35 @@ function SortableExercise({
         <Button
           variant="ghost"
           size="icon"
-          className="h-5 w-5 text-destructive opacity-0 group-hover:opacity-100 hover:text-destructive"
+          className="h-5 w-5 text-destructive opacity-0 group-hover:opacity-100 hover:text-destructive flex-shrink-0"
           onClick={onRemove}
         >
           <Trash2 className="h-3 w-3" />
         </Button>
       </div>
-
-      {/* Sets x Reps @ Load */}
-      <div className="flex items-center gap-1">
-        <Input
-          type="number"
-          min={1}
-          value={exercise.sets || ""}
-          onChange={(e) => onUpdate({ ...exercise, sets: parseInt(e.target.value) || 0 })}
-          className="h-6 w-8 text-[10px] text-center px-1"
-          placeholder="S"
-        />
-        <span className="text-[10px] text-muted-foreground">×</span>
-        <Input
-          type="text"
-          value={exercise.reps}
-          onChange={(e) => onUpdate({ ...exercise, reps: e.target.value })}
-          className="h-6 w-10 text-[10px] text-center px-1"
-          placeholder="Rep"
-        />
-        <span className="text-[10px] text-muted-foreground">@</span>
-        <div className="relative flex-1">
-          <Input
-            type="text"
-            value={exercise.load}
-            onChange={(e) => onUpdate({ ...exercise, load: e.target.value })}
-            className={cn("h-6 text-[10px] px-1", calculatedHint && "pr-6")}
-            placeholder="80%"
-          />
-          {calculatedHint && (
-            <span className="absolute right-1 top-1/2 -translate-y-1/2 text-[8px] text-primary flex items-center gap-0.5">
-              <Calculator className="h-2 w-2" />
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Hint */}
-      {calculatedHint && (
-        <p className="text-[9px] text-muted-foreground flex items-center gap-0.5">
-          <Calculator className="h-2.5 w-2.5" />
-          <span className="text-primary font-medium">{calculatedHint}</span>
-        </p>
-      )}
-
-      {/* RPE & Rest */}
-      <div className="flex items-center gap-1">
-        <Select
-          value={exercise.rpe?.toString() || ""}
-          onValueChange={(val) => onUpdate({ ...exercise, rpe: val ? parseInt(val) : null })}
-        >
-          <SelectTrigger className="h-6 w-14 text-[10px]">
-            <SelectValue placeholder="RPE" />
-          </SelectTrigger>
-          <SelectContent>
-            {[6, 7, 8, 9, 10].map((rpe) => (
-              <SelectItem key={rpe} value={rpe.toString()} className="text-xs">
-                RPE {rpe}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={exercise.restSeconds.toString()}
-          onValueChange={(val) => onUpdate({ ...exercise, restSeconds: parseInt(val) })}
-        >
-          <SelectTrigger className="h-6 flex-1 text-[10px]">
-            <SelectValue placeholder="Rest" />
-          </SelectTrigger>
-          <SelectContent>
-            {REST_OPTIONS.map((sec) => (
-              <SelectItem key={sec} value={sec.toString()} className="text-xs">
-                {sec >= 60 ? `${Math.floor(sec / 60)}:${(sec % 60).toString().padStart(2, '0')}` : `${sec}s`}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Notes */}
-      <Input
-        type="text"
-        value={exercise.notes}
-        onChange={(e) => onUpdate({ ...exercise, notes: e.target.value })}
-        className="h-6 text-[10px] px-1.5"
-        placeholder="Note..."
-      />
     </div>
   );
 }
 
-// Droppable day cell
+// Droppable day cell with slot support
 function DayCell({
   dayIndex,
   weekIndex,
   exercises,
-  oneRM,
   selectedExerciseId,
-  onUpdateExercise,
   onRemoveExercise,
   onToggleSuperset,
   onSelectExercise,
+  onAddSlot,
 }: {
   dayIndex: number;
   weekIndex: number;
   exercises: ProgramExercise[];
-  oneRM: number;
   selectedExerciseId?: string | null;
-  onUpdateExercise: (exerciseId: string, updated: ProgramExercise) => void;
   onRemoveExercise: (exerciseId: string) => void;
   onToggleSuperset: (exerciseId: string) => void;
   onSelectExercise?: (exercise: ProgramExercise) => void;
+  onAddSlot: () => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({
     id: `day-${weekIndex}-${dayIndex}`,
@@ -289,7 +239,11 @@ function DayCell({
   });
 
   // Get superset colors
-  const supersetGroups = [...new Set(exercises.filter(e => e.supersetGroup).map(e => e.supersetGroup))];
+  const supersetGroups = [
+    ...new Set(
+      exercises.filter((e) => e.supersetGroup && !e.isEmpty).map((e) => e.supersetGroup)
+    ),
+  ];
   const supersetColors: Record<string, string> = {};
   const colors = [
     "border-l-primary",
@@ -301,9 +255,10 @@ function DayCell({
     if (group) supersetColors[group] = colors[i % colors.length];
   });
 
-  const totalVolume = exercises.reduce((acc, ex) => {
+  const filledExercises = exercises.filter((e) => !e.isEmpty);
+  const totalVolume = filledExercises.reduce((acc, ex) => {
     const reps = parseInt(ex.reps) || 0;
-    return acc + (ex.sets * reps);
+    return acc + ex.sets * reps;
   }, 0);
 
   return (
@@ -318,9 +273,9 @@ function DayCell({
       {/* Day Header */}
       <div className="px-2 py-1.5 border-b border-border/50 bg-muted/30 flex items-center justify-between">
         <span className="text-xs font-semibold">{DAYS[dayIndex]}</span>
-        {exercises.length > 0 && (
+        {filledExercises.length > 0 && (
           <Badge variant="secondary" className="text-[9px] h-4 px-1.5">
-            {exercises.length} ex • {totalVolume} vol
+            {filledExercises.length} ex • {totalVolume} vol
           </Badge>
         )}
       </div>
@@ -328,35 +283,60 @@ function DayCell({
       {/* Exercise List */}
       <div className="flex-1 p-1.5 space-y-1.5 overflow-y-auto">
         <SortableContext
-          items={exercises.map(e => e.id)}
+          items={exercises.map((e) => e.id)}
           strategy={verticalListSortingStrategy}
         >
-          {exercises.map((exercise) => (
-            <SortableExercise
-              key={exercise.id}
-              exercise={exercise}
-              dayIndex={dayIndex}
-              weekIndex={weekIndex}
-              oneRM={oneRM}
-              isSelected={selectedExerciseId === exercise.id}
-              onUpdate={(updated) => onUpdateExercise(exercise.id, updated)}
-              onRemove={() => onRemoveExercise(exercise.id)}
-              onToggleSuperset={() => onToggleSuperset(exercise.id)}
-              onSelect={() => onSelectExercise?.(exercise)}
-              isInSuperset={!!exercise.supersetGroup}
-              supersetColor={exercise.supersetGroup ? supersetColors[exercise.supersetGroup] : undefined}
-            />
-          ))}
+          {exercises.map((exercise) =>
+            exercise.isEmpty ? (
+              <EmptySlot
+                key={exercise.id}
+                slotId={exercise.id}
+                dayIndex={dayIndex}
+                weekIndex={weekIndex}
+                onRemove={() => onRemoveExercise(exercise.id)}
+              />
+            ) : (
+              <SortableExercise
+                key={exercise.id}
+                exercise={exercise}
+                dayIndex={dayIndex}
+                weekIndex={weekIndex}
+                isSelected={selectedExerciseId === exercise.id}
+                onRemove={() => onRemoveExercise(exercise.id)}
+                onToggleSuperset={() => onToggleSuperset(exercise.id)}
+                onSelect={() => onSelectExercise?.(exercise)}
+                isInSuperset={!!exercise.supersetGroup}
+                supersetColor={
+                  exercise.supersetGroup
+                    ? supersetColors[exercise.supersetGroup]
+                    : undefined
+                }
+              />
+            )
+          )}
         </SortableContext>
 
         {exercises.length === 0 && (
-          <div className="h-full min-h-[100px] flex items-center justify-center">
+          <div className="h-full min-h-[80px] flex items-center justify-center">
             <div className="text-center">
               <Plus className="h-5 w-5 text-muted-foreground/30 mx-auto mb-1" />
               <p className="text-[10px] text-muted-foreground">Trascina qui</p>
             </div>
           </div>
         )}
+      </div>
+
+      {/* Add Slot Button */}
+      <div className="p-1.5 pt-0">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full h-7 text-[10px] text-muted-foreground hover:text-foreground border border-dashed border-muted-foreground/30 hover:border-muted-foreground/50"
+          onClick={onAddSlot}
+        >
+          <Plus className="h-3 w-3 mr-1" />
+          Aggiungi slot
+        </Button>
       </div>
     </div>
   );
@@ -366,13 +346,12 @@ interface WeekGridProps {
   currentWeek: number;
   totalWeeks: number;
   weekData: WeekProgram;
-  oneRM: number;
   selectedExerciseId?: string | null;
   onWeekChange: (week: number) => void;
-  onUpdateExercise: (dayIndex: number, exerciseId: string, updated: ProgramExercise) => void;
   onRemoveExercise: (dayIndex: number, exerciseId: string) => void;
   onToggleSuperset: (dayIndex: number, exerciseId: string) => void;
   onSelectExercise?: (dayIndex: number, exercise: ProgramExercise) => void;
+  onAddSlot: (dayIndex: number) => void;
   onCopyWeek: () => void;
   onClearWeek: () => void;
 }
@@ -381,13 +360,12 @@ export function WeekGrid({
   currentWeek,
   totalWeeks,
   weekData,
-  oneRM,
   selectedExerciseId,
   onWeekChange,
-  onUpdateExercise,
   onRemoveExercise,
   onToggleSuperset,
   onSelectExercise,
+  onAddSlot,
   onCopyWeek,
   onClearWeek,
 }: WeekGridProps) {
@@ -450,12 +428,11 @@ export function WeekGrid({
               dayIndex={dayIndex}
               weekIndex={currentWeek}
               exercises={weekData[dayIndex] || []}
-              oneRM={oneRM}
               selectedExerciseId={selectedExerciseId}
-              onUpdateExercise={(exerciseId, updated) => onUpdateExercise(dayIndex, exerciseId, updated)}
               onRemoveExercise={(exerciseId) => onRemoveExercise(dayIndex, exerciseId)}
               onToggleSuperset={(exerciseId) => onToggleSuperset(dayIndex, exerciseId)}
               onSelectExercise={(exercise) => onSelectExercise?.(dayIndex, exercise)}
+              onAddSlot={() => onAddSlot(dayIndex)}
             />
           ))}
         </div>
