@@ -6,8 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   Dialog,
   DialogContent,
@@ -46,7 +53,6 @@ import {
   Loader2,
   Filter,
   Play,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -56,7 +62,6 @@ import {
   MOVEMENT_PATTERNS,
   EXERCISE_TYPES,
   getMusclesGrouped,
-  getMuscleCategory,
 } from "@/lib/muscleTags";
 
 // Types
@@ -159,10 +164,11 @@ const muscleOptions: GroupedOptions[] = getMusclesGrouped().map((group) => ({
   })),
 }));
 
-// Macro categories for filtering
-const MACRO_CATEGORIES = Object.entries(MUSCLE_TAGS).map(([key, val]) => ({
+// Muscle groups for accordion filter (Macro -> Micro mapping)
+const MUSCLE_GROUPS = Object.entries(MUSCLE_TAGS).map(([key, val]) => ({
   key,
   label: val.label,
+  muscles: val.muscles as readonly string[],
 }));
 
 export default function ExerciseLibrary() {
@@ -171,8 +177,9 @@ export default function ExerciseLibrary() {
 
   // State
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedExerciseType, setSelectedExerciseType] = useState<string | null>(null);
   const [selectedPattern, setSelectedPattern] = useState<string | null>(null);
+  const [selectedMuscles, setSelectedMuscles] = useState<string[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null);
 
@@ -325,36 +332,56 @@ export default function ExerciseLibrary() {
         ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         ex.muscles.some((m) => m.toLowerCase().includes(searchQuery.toLowerCase()));
 
-      // Category filter
-      const matchesCategory =
-        !selectedCategory ||
-        ex.muscles.some((m) => {
-          const category = getMuscleCategory(m);
-          return category === MUSCLE_TAGS[selectedCategory as keyof typeof MUSCLE_TAGS]?.label;
-        });
+      // Exercise type filter
+      const matchesType =
+        !selectedExerciseType || ex.exercise_type === selectedExerciseType;
 
       // Pattern filter
       const matchesPattern = !selectedPattern || ex.movement_pattern === selectedPattern;
 
-      return matchesSearch && matchesCategory && matchesPattern;
+      // Muscle filter - check if any selected micro-muscle is in the exercise's muscles
+      const matchesMuscles =
+        selectedMuscles.length === 0 ||
+        ex.muscles.some((m) => selectedMuscles.includes(m));
+
+      return matchesSearch && matchesType && matchesPattern && matchesMuscles;
     });
-  }, [exercises, searchQuery, selectedCategory, selectedPattern]);
+  }, [exercises, searchQuery, selectedExerciseType, selectedPattern, selectedMuscles]);
 
   // Clear filters
   const clearFilters = () => {
-    setSelectedCategory(null);
+    setSelectedExerciseType(null);
     setSelectedPattern(null);
+    setSelectedMuscles([]);
     setSearchQuery("");
   };
 
-  const hasActiveFilters = selectedCategory || selectedPattern || searchQuery;
+  // Toggle muscle selection
+  const toggleMuscle = (muscle: string) => {
+    setSelectedMuscles((prev) =>
+      prev.includes(muscle) ? prev.filter((m) => m !== muscle) : [...prev, muscle]
+    );
+  };
+
+  // Toggle all muscles in a group
+  const toggleMuscleGroup = (muscles: readonly string[]) => {
+    const allSelected = muscles.every((m) => selectedMuscles.includes(m));
+    if (allSelected) {
+      setSelectedMuscles((prev) => prev.filter((m) => !muscles.includes(m)));
+    } else {
+      setSelectedMuscles((prev) => [...new Set([...prev, ...muscles])]);
+    }
+  };
+
+  const hasActiveFilters =
+    selectedExerciseType || selectedPattern || selectedMuscles.length > 0 || searchQuery;
 
   return (
     <CoachLayout>
       <div className="flex h-[calc(100vh-4rem)]">
         {/* Filter Sidebar */}
-        <div className="w-64 border-r border-border bg-card/50 p-4 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
+        <div className="w-72 border-r border-border bg-card/50 flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b border-border">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <Filter className="h-4 w-4 text-primary" />
               Filtri
@@ -366,49 +393,124 @@ export default function ExerciseLibrary() {
             )}
           </div>
 
-          {/* Macro Category Filter */}
-          <div className="space-y-2 mb-6">
-            <Label className="text-xs text-muted-foreground uppercase tracking-wider">
-              Categoria
-            </Label>
-            <div className="space-y-1">
-              {MACRO_CATEGORIES.map((cat) => (
-                <Button
-                  key={cat.key}
-                  variant={selectedCategory === cat.key ? "secondary" : "ghost"}
-                  size="sm"
-                  className="w-full justify-start text-sm h-8"
-                  onClick={() =>
-                    setSelectedCategory(selectedCategory === cat.key ? null : cat.key)
-                  }
-                >
-                  {cat.label}
-                </Button>
-              ))}
-            </div>
-          </div>
+          <ScrollArea className="flex-1">
+            <div className="p-4 space-y-6">
+              {/* Section 1: Exercise Type */}
+              <div className="space-y-3">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                  Tipo di Esercizio
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {EXERCISE_TYPES.map((type) => (
+                    <Button
+                      key={type.value}
+                      variant={selectedExerciseType === type.value ? "default" : "outline"}
+                      size="sm"
+                      className="text-xs h-7"
+                      onClick={() =>
+                        setSelectedExerciseType(
+                          selectedExerciseType === type.value ? null : type.value
+                        )
+                      }
+                    >
+                      {type.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
 
-          {/* Movement Pattern Filter */}
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground uppercase tracking-wider">
-              Pattern di Movimento
-            </Label>
-            <div className="space-y-1">
-              {MOVEMENT_PATTERNS.map((pattern) => (
-                <Button
-                  key={pattern.value}
-                  variant={selectedPattern === pattern.value ? "secondary" : "ghost"}
-                  size="sm"
-                  className="w-full justify-start text-sm h-8"
-                  onClick={() =>
-                    setSelectedPattern(selectedPattern === pattern.value ? null : pattern.value)
-                  }
-                >
-                  {pattern.label}
-                </Button>
-              ))}
+              {/* Section 2: Movement Pattern (Schema Motorio) */}
+              <div className="space-y-3">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                  Schema Motorio
+                </Label>
+                <div className="space-y-1">
+                  {MOVEMENT_PATTERNS.map((pattern) => (
+                    <Button
+                      key={pattern.value}
+                      variant={selectedPattern === pattern.value ? "secondary" : "ghost"}
+                      size="sm"
+                      className="w-full justify-start text-xs h-7"
+                      onClick={() =>
+                        setSelectedPattern(
+                          selectedPattern === pattern.value ? null : pattern.value
+                        )
+                      }
+                    >
+                      {pattern.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Section 3: Muscle Groups (Accordion) */}
+              <div className="space-y-3">
+                <Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                  Muscoli Primari
+                </Label>
+                <Accordion type="multiple" className="w-full">
+                  {MUSCLE_GROUPS.map((group) => {
+                    const groupMuscles = group.muscles;
+                    const selectedCount = groupMuscles.filter((m) =>
+                      selectedMuscles.includes(m)
+                    ).length;
+                    const allSelected =
+                      groupMuscles.length > 0 &&
+                      groupMuscles.every((m) => selectedMuscles.includes(m));
+
+                    return (
+                      <AccordionItem key={group.key} value={group.key} className="border-b-0">
+                        <AccordionTrigger className="py-2 hover:no-underline">
+                          <div className="flex items-center gap-2 text-sm">
+                            <span>{group.label}</span>
+                            {selectedCount > 0 && (
+                              <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+                                {selectedCount}
+                              </Badge>
+                            )}
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="pb-2">
+                          <div className="space-y-2 pl-1">
+                            {/* Select All checkbox */}
+                            <div className="flex items-center space-x-2 pb-1 border-b border-border/50">
+                              <Checkbox
+                                id={`all-${group.key}`}
+                                checked={allSelected}
+                                onCheckedChange={() => toggleMuscleGroup(groupMuscles)}
+                              />
+                              <label
+                                htmlFor={`all-${group.key}`}
+                                className="text-xs font-medium cursor-pointer"
+                              >
+                                Tutti ({group.label})
+                              </label>
+                            </div>
+                            {/* Individual muscle checkboxes */}
+                            {groupMuscles.map((muscle) => (
+                              <div key={muscle} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={muscle}
+                                  checked={selectedMuscles.includes(muscle)}
+                                  onCheckedChange={() => toggleMuscle(muscle)}
+                                />
+                                <label
+                                  htmlFor={muscle}
+                                  className="text-xs cursor-pointer text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                  {muscle}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
+              </div>
             </div>
-          </div>
+          </ScrollArea>
         </div>
 
         {/* Main Content */}
@@ -492,9 +594,9 @@ export default function ExerciseLibrary() {
                       </Select>
                     </div>
 
-                    {/* Movement Pattern */}
+                    {/* Movement Pattern (Schema Motorio) */}
                     <div className="space-y-2">
-                      <Label>Pattern di Movimento</Label>
+                      <Label>Schema Motorio</Label>
                       <Select value={formPattern} onValueChange={setFormPattern}>
                         <SelectTrigger>
                           <SelectValue placeholder="Seleziona pattern..." />
