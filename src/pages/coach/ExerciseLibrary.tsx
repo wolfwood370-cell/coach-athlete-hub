@@ -35,7 +35,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { MultiSelect, GroupedOptions } from "@/components/ui/multi-select";
 import {
   Search,
@@ -55,6 +54,7 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   MUSCLE_TAGS,
   MOVEMENT_PATTERNS,
+  EXERCISE_TYPES,
   getMusclesGrouped,
   getMuscleCategory,
 } from "@/lib/muscleTags";
@@ -65,9 +65,9 @@ interface Exercise {
   name: string;
   video_url: string | null;
   muscles: string[];
+  secondary_muscles: string[];
   movement_pattern: string | null;
-  default_rpe: number | null;
-  is_compound: boolean;
+  exercise_type: string;
   notes: string | null;
   coach_id: string;
   created_at: string;
@@ -79,73 +79,73 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
   {
     name: "Panca Inclinata con Manubri",
     video_url: null,
-    muscles: ["Pettorali (c. clavicolari)", "Deltoidi (anteriori)", "Tricipiti (capo lungo)"],
-    movement_pattern: "push",
-    default_rpe: 7,
-    is_compound: true,
+    muscles: ["Pettorali (c. clavicolari)"],
+    secondary_muscles: ["Deltoidi (anteriori)", "Tricipiti (capo lungo)"],
+    movement_pattern: "spinta_orizzontale",
+    exercise_type: "Multi-articolare",
     notes: null,
   },
   {
     name: "Stacco da Terra",
     video_url: null,
-    muscles: ["Erettori Spinali", "Grande Gluteo", "Ischiocrurali", "Quadricipiti", "Trapezi (superiori)"],
+    muscles: ["Erettori Spinali", "Grande Gluteo", "Ischiocrurali"],
+    secondary_muscles: ["Quadricipiti", "Trapezi (superiori)"],
     movement_pattern: "hinge",
-    default_rpe: 8,
-    is_compound: true,
+    exercise_type: "Multi-articolare",
     notes: null,
   },
   {
     name: "Lat Pulldown",
     video_url: null,
-    muscles: ["Gran Dorsale", "Bicipiti (capo lungo)", "Bicipiti (capo corto)"],
-    movement_pattern: "pull",
-    default_rpe: 7,
-    is_compound: true,
+    muscles: ["Gran Dorsale"],
+    secondary_muscles: ["Bicipiti (capo lungo)", "Bicipiti (capo corto)"],
+    movement_pattern: "tirata_verticale",
+    exercise_type: "Multi-articolare",
     notes: null,
   },
   {
     name: "Alzate Laterali",
     video_url: null,
     muscles: ["Deltoidi (mediali)"],
-    movement_pattern: "isolation",
-    default_rpe: 6,
-    is_compound: false,
+    secondary_muscles: [],
+    movement_pattern: null,
+    exercise_type: "Mono-articolare",
     notes: null,
   },
   {
     name: "Squat con Bilanciere",
     video_url: null,
-    muscles: ["Quadricipiti", "Grande Gluteo", "Erettori Spinali"],
+    muscles: ["Quadricipiti", "Grande Gluteo"],
+    secondary_muscles: ["Erettori Spinali"],
     movement_pattern: "squat",
-    default_rpe: 8,
-    is_compound: true,
+    exercise_type: "Multi-articolare",
     notes: null,
   },
   {
     name: "Leg Curl",
     video_url: null,
-    muscles: ["Ischiocrurali", "Polpacci (gastrocnemio)"],
-    movement_pattern: "isolation",
-    default_rpe: 6,
-    is_compound: false,
+    muscles: ["Ischiocrurali"],
+    secondary_muscles: ["Polpacci (gastrocnemio)"],
+    movement_pattern: null,
+    exercise_type: "Mono-articolare",
     notes: null,
   },
   {
     name: "Croci ai Cavi",
     video_url: null,
     muscles: ["Pettorali (c. sternali)", "Pettorali (c. costali)"],
-    movement_pattern: "isolation",
-    default_rpe: 6,
-    is_compound: false,
+    secondary_muscles: [],
+    movement_pattern: null,
+    exercise_type: "Mono-articolare",
     notes: null,
   },
   {
     name: "Rematore con Manubrio",
     video_url: null,
-    muscles: ["Gran Dorsale", "Trapezi (medi)", "Bicipiti (capo corto)"],
-    movement_pattern: "pull",
-    default_rpe: 7,
-    is_compound: true,
+    muscles: ["Gran Dorsale"],
+    secondary_muscles: ["Trapezi (medi)", "Bicipiti (capo corto)"],
+    movement_pattern: "tirata_orizzontale",
+    exercise_type: "Multi-articolare",
     notes: null,
   },
 ];
@@ -180,8 +180,9 @@ export default function ExerciseLibrary() {
   const [formName, setFormName] = useState("");
   const [formVideoUrl, setFormVideoUrl] = useState("");
   const [formMuscles, setFormMuscles] = useState<string[]>([]);
+  const [formSecondaryMuscles, setFormSecondaryMuscles] = useState<string[]>([]);
   const [formPattern, setFormPattern] = useState("");
-  const [formIsCompound, setFormIsCompound] = useState(true);
+  const [formExerciseType, setFormExerciseType] = useState("Multi-articolare");
 
   // Fetch exercises
   const { data: exercises = [], isLoading } = useQuery({
@@ -269,8 +270,9 @@ export default function ExerciseLibrary() {
     setFormName("");
     setFormVideoUrl("");
     setFormMuscles([]);
+    setFormSecondaryMuscles([]);
     setFormPattern("");
-    setFormIsCompound(true);
+    setFormExerciseType("Multi-articolare");
   };
 
   // Open edit dialog
@@ -279,8 +281,9 @@ export default function ExerciseLibrary() {
     setFormName(exercise.name);
     setFormVideoUrl(exercise.video_url || "");
     setFormMuscles(exercise.muscles || []);
+    setFormSecondaryMuscles(exercise.secondary_muscles || []);
     setFormPattern(exercise.movement_pattern || "");
-    setFormIsCompound(exercise.is_compound);
+    setFormExerciseType(exercise.exercise_type || "Multi-articolare");
     setDialogOpen(true);
   };
 
@@ -291,13 +294,18 @@ export default function ExerciseLibrary() {
       return;
     }
 
+    if (!formExerciseType) {
+      toast.error("Il tipo di esercizio è obbligatorio");
+      return;
+    }
+
     const exerciseData = {
       name: formName.trim(),
       video_url: formVideoUrl.trim() || null,
       muscles: formMuscles,
+      secondary_muscles: formSecondaryMuscles,
       movement_pattern: formPattern || null,
-      default_rpe: null,
-      is_compound: formIsCompound,
+      exercise_type: formExerciseType,
       notes: null,
     };
 
@@ -467,17 +475,21 @@ export default function ExerciseLibrary() {
                       />
                     </div>
 
-                    {/* Muscles Multi-Select */}
+                    {/* Exercise Type */}
                     <div className="space-y-2">
-                      <Label>Muscoli Primari *</Label>
-                      <MultiSelect
-                        options={muscleOptions}
-                        selected={formMuscles}
-                        onChange={setFormMuscles}
-                        placeholder="Seleziona muscoli target..."
-                        searchPlaceholder="Cerca muscolo..."
-                        emptyMessage="Nessun muscolo trovato"
-                      />
+                      <Label>Tipo di Esercizio *</Label>
+                      <Select value={formExerciseType} onValueChange={setFormExerciseType}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Seleziona tipo..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {EXERCISE_TYPES.map((t) => (
+                            <SelectItem key={t.value} value={t.value}>
+                              {t.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     {/* Movement Pattern */}
@@ -497,33 +509,30 @@ export default function ExerciseLibrary() {
                       </Select>
                     </div>
 
-                    {/* Exercise Type */}
-                    <div className="space-y-3">
-                      <Label>Tipo di Esercizio</Label>
-                      <RadioGroup
-                        value={formIsCompound ? "compound" : "isolation"}
-                        onValueChange={(value) => setFormIsCompound(value === "compound")}
-                        className="space-y-2"
-                      >
-                        <div className="flex items-center space-x-3 p-3 rounded-md border border-border hover:bg-accent/50 transition-colors">
-                          <RadioGroupItem value="compound" id="compound" />
-                          <Label htmlFor="compound" className="flex-1 cursor-pointer">
-                            <span className="font-medium">Esercizio Composto</span>
-                            <span className="text-muted-foreground text-sm block">
-                              Multi-articolare (es. Squat, Panca, Stacco)
-                            </span>
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-3 p-3 rounded-md border border-border hover:bg-accent/50 transition-colors">
-                          <RadioGroupItem value="isolation" id="isolation" />
-                          <Label htmlFor="isolation" className="flex-1 cursor-pointer">
-                            <span className="font-medium">Esercizio di Isolamento</span>
-                            <span className="text-muted-foreground text-sm block">
-                              Mono-articolare (es. Curl, Alzate Laterali)
-                            </span>
-                          </Label>
-                        </div>
-                      </RadioGroup>
+                    {/* Muscles Multi-Select */}
+                    <div className="space-y-2">
+                      <Label>Muscoli Primari</Label>
+                      <MultiSelect
+                        options={muscleOptions}
+                        selected={formMuscles}
+                        onChange={setFormMuscles}
+                        placeholder="Seleziona muscoli target..."
+                        searchPlaceholder="Cerca muscolo..."
+                        emptyMessage="Nessun muscolo trovato"
+                      />
+                    </div>
+
+                    {/* Secondary Muscles Multi-Select */}
+                    <div className="space-y-2">
+                      <Label>Muscoli Secondari</Label>
+                      <MultiSelect
+                        options={muscleOptions}
+                        selected={formSecondaryMuscles}
+                        onChange={setFormSecondaryMuscles}
+                        placeholder="Seleziona muscoli sinergici..."
+                        searchPlaceholder="Cerca muscolo..."
+                        emptyMessage="Nessun muscolo trovato"
+                      />
                     </div>
                   </div>
                   <DialogFooter>
@@ -616,9 +625,9 @@ export default function ExerciseLibrary() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                               <h4 className="font-semibold truncate">{exercise.name}</h4>
-                              {exercise.is_compound && (
+                              {exercise.exercise_type && (
                                 <Badge variant="outline" className="text-xs shrink-0">
-                                  Composto
+                                  {exercise.exercise_type}
                                 </Badge>
                               )}
                               {exercise.movement_pattern && (
