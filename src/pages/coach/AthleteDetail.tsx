@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,27 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { 
   ArrowLeft, 
   MoreHorizontal,
@@ -41,10 +62,16 @@ import {
   Heart,
   ChevronRight,
   Coffee,
-  Play
+  Play,
+  Trophy,
+  ChevronsUpDown,
+  Check,
+  Weight,
+  Repeat,
+  Hash
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, formatDistanceToNow, startOfWeek, endOfWeek, addDays, isAfter, isBefore, isSameDay, differenceInDays, differenceInWeeks } from "date-fns";
+import { format, formatDistanceToNow, startOfWeek, endOfWeek, addDays, isAfter, isBefore, isSameDay, differenceInDays, differenceInWeeks, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
 import { useAthleteAcwrData } from "@/hooks/useAthleteAcwrData";
 import { 
@@ -52,7 +79,372 @@ import {
   ChartTooltip, 
   ChartTooltipContent 
 } from "@/components/ui/chart";
-import { AreaChart, Area, XAxis, YAxis } from "recharts";
+import { AreaChart, Area, XAxis, YAxis, LineChart, Line, ResponsiveContainer } from "recharts";
+
+// Mock exercise list for the combobox
+const EXERCISE_LIST = [
+  { value: "back-squat", label: "Back Squat" },
+  { value: "bench-press", label: "Bench Press" },
+  { value: "deadlift", label: "Deadlift" },
+  { value: "overhead-press", label: "Overhead Press" },
+  { value: "barbell-row", label: "Barbell Row" },
+  { value: "pull-up", label: "Pull-Up" },
+  { value: "front-squat", label: "Front Squat" },
+  { value: "romanian-deadlift", label: "Romanian Deadlift" },
+  { value: "incline-bench", label: "Incline Bench Press" },
+  { value: "leg-press", label: "Leg Press" },
+];
+
+// Mock exercise history data generator
+const generateMockExerciseData = (exerciseValue: string) => {
+  const baseWeight = exerciseValue === "deadlift" ? 180 : 
+                     exerciseValue === "back-squat" ? 140 :
+                     exerciseValue === "bench-press" ? 100 :
+                     exerciseValue === "leg-press" ? 200 : 80;
+  
+  const history: Array<{
+    date: Date;
+    scheme: string;
+    bestWeight: number;
+    rpe: number;
+    estimated1RM: number;
+    totalVolume: number;
+    isPR: boolean;
+  }> = [];
+  
+  let currentMax = baseWeight;
+  
+  for (let i = 12; i >= 0; i--) {
+    const date = subMonths(new Date(), i * 0.25);
+    const reps = Math.floor(Math.random() * 5) + 3;
+    const sets = Math.floor(Math.random() * 3) + 3;
+    const weight = currentMax + Math.floor(Math.random() * 10) - 3;
+    const estimated1RM = Math.round(weight * (1 + reps / 30));
+    const isPR = weight > currentMax;
+    
+    if (isPR) currentMax = weight;
+    
+    history.push({
+      date,
+      scheme: `${sets}x${reps}`,
+      bestWeight: weight,
+      rpe: Math.floor(Math.random() * 3) + 7,
+      estimated1RM,
+      totalVolume: sets * reps * weight,
+      isPR
+    });
+  }
+  
+  return history;
+};
+
+// Exercise Stats Content Component
+function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) {
+  const [selectedExercise, setSelectedExercise] = useState(EXERCISE_LIST[0].value);
+  const [comboboxOpen, setComboboxOpen] = useState(false);
+  const [chartView, setChartView] = useState<"1rm" | "weight" | "volume">("1rm");
+
+  // Get exercise data based on selection
+  const exerciseData = useMemo(() => {
+    return generateMockExerciseData(selectedExercise);
+  }, [selectedExercise]);
+
+  // Calculate KPIs
+  const kpis = useMemo(() => {
+    if (exerciseData.length === 0) return { estimated1RM: 0, maxVolume: 0, frequency: 0 };
+    
+    const estimated1RM = Math.max(...exerciseData.map(d => d.estimated1RM));
+    const maxVolume = Math.max(...exerciseData.map(d => d.totalVolume));
+    const frequency = exerciseData.length;
+    
+    return { estimated1RM, maxVolume, frequency };
+  }, [exerciseData]);
+
+  // Chart data based on view
+  const chartData = useMemo(() => {
+    return exerciseData.map(d => ({
+      date: format(d.date, "MMM d"),
+      value: chartView === "1rm" ? d.estimated1RM : 
+             chartView === "weight" ? d.bestWeight : 
+             d.totalVolume,
+      isPR: d.isPR
+    }));
+  }, [exerciseData, chartView]);
+
+  const selectedLabel = EXERCISE_LIST.find(e => e.value === selectedExercise)?.label || "Select exercise";
+
+  return (
+    <div className="space-y-6">
+      {/* Exercise Selector Header */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <BarChart3 className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Exercise Performance</CardTitle>
+                <p className="text-sm text-muted-foreground">Track strength progression per exercise</p>
+              </div>
+            </div>
+            
+            {/* Exercise Combobox */}
+            <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={comboboxOpen}
+                  className="w-full sm:w-[240px] justify-between"
+                >
+                  <Dumbbell className="h-4 w-4 mr-2 shrink-0" />
+                  <span className="truncate">{selectedLabel}</span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[240px] p-0">
+                <Command>
+                  <CommandInput placeholder="Search exercise..." />
+                  <CommandList>
+                    <CommandEmpty>No exercise found.</CommandEmpty>
+                    <CommandGroup>
+                      {EXERCISE_LIST.map((exercise) => (
+                        <CommandItem
+                          key={exercise.value}
+                          value={exercise.value}
+                          onSelect={(currentValue) => {
+                            setSelectedExercise(currentValue);
+                            setComboboxOpen(false);
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedExercise === exercise.value ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {exercise.label}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Performance KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Estimated 1RM */}
+        <Card className="overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Estimated 1RM</p>
+                <p className="text-3xl font-bold text-foreground">{kpis.estimated1RM} kg</p>
+                <p className="text-xs text-muted-foreground mt-1">Calculated from best set</p>
+              </div>
+              <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Trophy className="h-7 w-7 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Max Volume */}
+        <Card className="overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Max Volume</p>
+                <p className="text-3xl font-bold text-foreground">{kpis.maxVolume.toLocaleString()} kg</p>
+                <p className="text-xs text-muted-foreground mt-1">Highest single session</p>
+              </div>
+              <div className="h-14 w-14 rounded-xl bg-chart-2/10 flex items-center justify-center">
+                <Weight className="h-7 w-7 text-chart-2" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Frequency */}
+        <Card className="overflow-hidden">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Frequency</p>
+                <p className="text-3xl font-bold text-foreground">{kpis.frequency}x</p>
+                <p className="text-xs text-muted-foreground mt-1">Last 3 months</p>
+              </div>
+              <div className="h-14 w-14 rounded-xl bg-chart-3/10 flex items-center justify-center">
+                <Repeat className="h-7 w-7 text-chart-3" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Progress Chart */}
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-2">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <CardTitle className="text-base">Progression Over Time</CardTitle>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={chartView === "1rm" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setChartView("1rm")}
+                className="text-xs"
+              >
+                Est. 1RM
+              </Button>
+              <Button
+                variant={chartView === "weight" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setChartView("weight")}
+                className="text-xs"
+              >
+                Max Weight
+              </Button>
+              <Button
+                variant={chartView === "volume" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setChartView("volume")}
+                className="text-xs"
+              >
+                Volume
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
+                <XAxis 
+                  dataKey="date" 
+                  stroke="hsl(var(--muted-foreground))" 
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis 
+                  stroke="hsl(var(--muted-foreground))" 
+                  fontSize={12}
+                  tickLine={false}
+                  axisLine={false}
+                  tickFormatter={(value) => chartView === "volume" ? `${(value / 1000).toFixed(1)}k` : `${value}`}
+                />
+                <ChartTooltip 
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const data = payload[0].payload;
+                    return (
+                      <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+                        <p className="text-sm font-medium text-foreground">{data.date}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {chartView === "1rm" ? "Est. 1RM" : chartView === "weight" ? "Max Weight" : "Volume"}: 
+                          <span className="font-semibold text-foreground ml-1">
+                            {chartView === "volume" ? `${data.value.toLocaleString()} kg` : `${data.value} kg`}
+                          </span>
+                        </p>
+                        {data.isPR && (
+                          <Badge variant="default" className="mt-1 text-xs bg-amber-500/20 text-amber-500 border-amber-500/30">
+                            <Trophy className="h-3 w-3 mr-1" /> PR!
+                          </Badge>
+                        )}
+                      </div>
+                    );
+                  }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="value"
+                  stroke="hsl(var(--primary))"
+                  strokeWidth={2}
+                  dot={(props) => {
+                    const { cx, cy, payload } = props;
+                    if (payload.isPR) {
+                      return (
+                        <g key={`dot-${cx}-${cy}`}>
+                          <circle cx={cx} cy={cy} r={6} fill="hsl(var(--primary))" />
+                          <circle cx={cx} cy={cy} r={3} fill="hsl(var(--primary-foreground))" />
+                        </g>
+                      );
+                    }
+                    return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={4} fill="hsl(var(--primary))" />;
+                  }}
+                  activeDot={{ r: 6, fill: "hsl(var(--primary))" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* History Table */}
+      <Card className="overflow-hidden">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Session History</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="overflow-x-auto -mx-6">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border/50">
+                  <TableHead className="pl-6">Date</TableHead>
+                  <TableHead>Scheme</TableHead>
+                  <TableHead>Best Weight</TableHead>
+                  <TableHead>RPE</TableHead>
+                  <TableHead className="pr-6 text-right">Est. 1RM</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {exerciseData.slice().reverse().slice(0, 10).map((session, idx) => (
+                  <TableRow key={idx} className="border-border/30">
+                    <TableCell className="pl-6 font-medium">
+                      <div className="flex items-center gap-2">
+                        {session.isPR && (
+                          <Trophy className="h-4 w-4 text-amber-500" />
+                        )}
+                        {format(session.date, "MMM d, yyyy")}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="font-mono">
+                        {session.scheme}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-semibold">{session.bestWeight} kg</TableCell>
+                    <TableCell>
+                      <Badge 
+                        variant="outline" 
+                        className={cn(
+                          "font-mono",
+                          session.rpe >= 9 ? "border-destructive/50 text-destructive" :
+                          session.rpe >= 8 ? "border-amber-500/50 text-amber-500" :
+                          "border-green-500/50 text-green-500"
+                        )}
+                      >
+                        {session.rpe}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="pr-6 text-right font-semibold">
+                      {session.estimated1RM} kg
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 export default function AthleteDetail() {
   const { id } = useParams<{ id: string }>();
@@ -1184,13 +1576,7 @@ export default function AthleteDetail() {
           </TabsContent>
 
           <TabsContent value="exercise-stats" className="space-y-6">
-            <Card className="p-8 text-center">
-              <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Exercise Stats</h3>
-              <p className="text-muted-foreground">
-                Statistiche dettagliate per ogni esercizio: PR, volume, progressione.
-              </p>
-            </Card>
+            <ExerciseStatsContent athleteId={id} />
           </TabsContent>
 
           <TabsContent value="advanced-stats" className="space-y-6">
