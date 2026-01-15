@@ -9,7 +9,6 @@ import {
   LogOut,
   Zap,
   ChevronLeft,
-  Layers,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
@@ -37,7 +36,6 @@ const mainNavItems = [
   { title: "Dashboard", url: "/coach", icon: LayoutDashboard },
   { title: "Athletes", url: "/coach/athletes", icon: Users },
   { title: "Programs", url: "/coach/programs", icon: Dumbbell },
-  { title: "Periodization", url: "/coach/periodization", icon: Layers },
   { title: "Calendar", url: "/coach/calendar", icon: Calendar },
   { title: "Messages", url: "/coach/messages", icon: MessageSquare },
   { title: "Analytics", url: "/coach/analytics", icon: BarChart3 },
