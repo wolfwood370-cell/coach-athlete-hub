@@ -1,7 +1,7 @@
-import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { ChevronUp, ChevronDown, X, GripVertical } from "lucide-react";
 
@@ -20,8 +20,6 @@ export const TRACKING_METRICS = [
 
 export type TrackingMetricValue = typeof TRACKING_METRICS[number]["value"];
 
-const MAX_METRICS = 5;
-
 interface TrackingMetricBuilderProps {
   value: string[];
   onChange: (value: string[]) => void;
@@ -31,7 +29,6 @@ export function TrackingMetricBuilder({ value, onChange }: TrackingMetricBuilder
   const selectedMetrics = value;
 
   const addMetric = (metricValue: string) => {
-    if (selectedMetrics.length >= MAX_METRICS) return;
     if (selectedMetrics.includes(metricValue)) return;
     onChange([...selectedMetrics, metricValue]);
   };
@@ -59,13 +56,8 @@ export function TrackingMetricBuilder({ value, onChange }: TrackingMetricBuilder
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <Label className="text-sm font-medium">Metriche di Tracking</Label>
-        <span className={cn(
-          "text-xs font-medium px-2 py-0.5 rounded-full",
-          selectedMetrics.length >= MAX_METRICS 
-            ? "bg-destructive/10 text-destructive" 
-            : "bg-primary/10 text-primary"
-        )}>
-          {selectedMetrics.length}/{MAX_METRICS} Selezionate
+        <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+          {selectedMetrics.length} Selezionate
         </span>
       </div>
 
@@ -77,7 +69,6 @@ export function TrackingMetricBuilder({ value, onChange }: TrackingMetricBuilder
         <div className="flex flex-wrap gap-2">
           {TRACKING_METRICS.map((metric) => {
             const isSelected = selectedMetrics.includes(metric.value);
-            const isDisabled = isSelected || selectedMetrics.length >= MAX_METRICS;
 
             return (
               <Badge
@@ -85,11 +76,11 @@ export function TrackingMetricBuilder({ value, onChange }: TrackingMetricBuilder
                 variant={isSelected ? "secondary" : "outline"}
                 className={cn(
                   "cursor-pointer transition-all select-none",
-                  isDisabled 
+                  isSelected 
                     ? "opacity-50 cursor-not-allowed" 
                     : "hover:bg-primary hover:text-primary-foreground hover:border-primary"
                 )}
-                onClick={() => !isDisabled && addMetric(metric.value)}
+                onClick={() => !isSelected && addMetric(metric.value)}
               >
                 {metric.label}
               </Badge>
@@ -110,57 +101,59 @@ export function TrackingMetricBuilder({ value, onChange }: TrackingMetricBuilder
             </p>
           </div>
         ) : (
-          <div className="space-y-1.5">
-            {selectedMetrics.map((metricValue, index) => (
-              <div
-                key={metricValue}
-                className="flex items-center gap-2 bg-secondary/50 rounded-lg px-3 py-2 border border-border"
-              >
-                <GripVertical className="h-4 w-4 text-muted-foreground/50" />
-                <span className="text-xs font-medium text-muted-foreground w-5">
-                  {index + 1}.
-                </span>
-                <span className="flex-1 text-sm font-medium">
-                  {getLabel(metricValue)}
-                </span>
+          <ScrollArea className="max-h-[200px]">
+            <div className="space-y-1.5 pr-3">
+              {selectedMetrics.map((metricValue, index) => (
+                <div
+                  key={metricValue}
+                  className="flex items-center gap-2 bg-secondary/50 rounded-lg px-3 py-2 border border-border"
+                >
+                  <GripVertical className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
+                  <span className="text-xs font-medium text-muted-foreground w-5 flex-shrink-0">
+                    {index + 1}.
+                  </span>
+                  <span className="flex-1 text-sm font-medium truncate">
+                    {getLabel(metricValue)}
+                  </span>
 
-                {/* Move buttons */}
-                <div className="flex items-center gap-0.5">
+                  {/* Move buttons */}
+                  <div className="flex items-center gap-0.5 flex-shrink-0">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => moveMetric(index, "up")}
+                      disabled={index === 0}
+                    >
+                      <ChevronUp className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => moveMetric(index, "down")}
+                      disabled={index === selectedMetrics.length - 1}
+                    >
+                      <ChevronDown className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Remove button */}
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="h-6 w-6"
-                    onClick={() => moveMetric(index, "up")}
-                    disabled={index === 0}
+                    className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
+                    onClick={() => removeMetric(metricValue)}
                   >
-                    <ChevronUp className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={() => moveMetric(index, "down")}
-                    disabled={index === selectedMetrics.length - 1}
-                  >
-                    <ChevronDown className="h-3.5 w-3.5" />
+                    <X className="h-4 w-4" />
                   </Button>
                 </div>
-
-                {/* Remove button */}
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                  onClick={() => removeMetric(metricValue)}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </ScrollArea>
         )}
       </div>
 

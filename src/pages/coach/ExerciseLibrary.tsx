@@ -557,7 +557,7 @@ export default function ExerciseLibrary() {
                     Nuovo Esercizio
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>
                       {editingExercise ? "Modifica Esercizio" : "Nuovo Esercizio"}
