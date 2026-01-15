@@ -528,7 +528,7 @@ export type Database = {
       program_exercises: {
         Row: {
           created_at: string
-          exercise_id: string
+          exercise_id: string | null
           id: string
           load_text: string | null
           notes: string | null
@@ -542,7 +542,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          exercise_id: string
+          exercise_id?: string | null
           id?: string
           load_text?: string | null
           notes?: string | null
@@ -556,7 +556,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
-          exercise_id?: string
+          exercise_id?: string | null
           id?: string
           load_text?: string | null
           notes?: string | null
@@ -928,7 +928,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      clone_program_week: {
+        Args: {
+          source_week_id: string
+          target_order_index: number
+          target_program_id: string
+        }
+        Returns: string
+      }
+      clone_program_workout: {
+        Args: { source_workout_id: string; target_day_id: string }
+        Returns: string
+      }
     }
     Enums: {
       phase_focus_type:
