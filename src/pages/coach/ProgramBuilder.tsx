@@ -679,7 +679,8 @@ export default function ProgramBuilder() {
     [currentWeek, program, supersetPendingId]
   );
 
-  // Copy day to other days (local state update - RPC would be used for DB sync)
+  // Copy day to other days
+  // Note: For persisted programs using program_plans schema, use supabase.rpc('clone_program_workout', ...)
   const [isCopyingDay, setIsCopyingDay] = useState(false);
   const [isCopyingWeek, setIsCopyingWeek] = useState(false);
 
@@ -696,7 +697,17 @@ export default function ProgramBuilder() {
       setIsCopyingDay(true);
       
       try {
-        // For now, do local state update (RPC would be used when saving to DB)
+        // Local state update for draft programs
+        // When using persisted program_plans, this would call the RPC:
+        // for (const targetDay of targetDays) {
+        //   const { data, error } = await supabase.rpc('clone_program_workout', {
+        //     source_workout_id: workoutDbId,
+        //     target_day_id: targetDayDbId
+        //   });
+        //   if (error) throw error;
+        // }
+        // queryClient.invalidateQueries({ queryKey: ['program-plan', programId] });
+
         setProgram((prev) => {
           const newProgram = { ...prev };
           const newWeek = { ...newProgram[currentWeek] };
@@ -720,10 +731,14 @@ export default function ProgramBuilder() {
         });
 
         toast.success(
-          `✅ Allenamento copiato in ${targetDays.length} giorni (${mode === "append" ? "aggiunto" : "sostituito"})`
+          `Workout copiato in ${targetDays.length} ${targetDays.length === 1 ? 'giorno' : 'giorni'}!`,
+          { description: mode === "append" ? "Esercizi aggiunti" : "Giornate sostituite" }
         );
       } catch (error) {
-        toast.error("Errore durante la copia dell'allenamento");
+        console.error("Copy day error:", error);
+        toast.error("Errore durante la copia", {
+          description: error instanceof Error ? error.message : "Riprova più tardi"
+        });
       } finally {
         setIsCopyingDay(false);
       }
@@ -732,15 +747,36 @@ export default function ProgramBuilder() {
   );
 
   // Copy week to other weeks
+  // Note: For persisted programs using program_plans schema, use supabase.rpc('clone_program_week', ...)
   const handleCopyWeekTo = useCallback(
     async (targetWeeks: number[]) => {
       const sourceWeek = program[currentWeek];
       if (!sourceWeek) return;
 
+      const hasExercises = Object.values(sourceWeek).some(
+        (exercises) => exercises.filter((e) => !e.isEmpty).length > 0
+      );
+      
+      if (!hasExercises) {
+        toast.error("Settimana vuota, niente da copiare");
+        return;
+      }
+
       setIsCopyingWeek(true);
 
       try {
-        // For now, do local state update (RPC would be used when saving to DB)
+        // Local state update for draft programs
+        // When using persisted program_plans, this would call the RPC:
+        // for (const targetWeekIndex of targetWeeks) {
+        //   const { data, error } = await supabase.rpc('clone_program_week', {
+        //     source_week_id: weekDbId,
+        //     target_program_id: programDbId,
+        //     target_order_index: targetWeekIndex
+        //   });
+        //   if (error) throw error;
+        // }
+        // queryClient.invalidateQueries({ queryKey: ['program-plan', programId] });
+
         setProgram((prev) => {
           const newProgram = { ...prev };
 
@@ -760,9 +796,14 @@ export default function ProgramBuilder() {
           return newProgram;
         });
 
-        toast.success(`✅ Settimana copiata in ${targetWeeks.length} settimane`);
+        toast.success(
+          `Settimana copiata in ${targetWeeks.length} ${targetWeeks.length === 1 ? 'settimana' : 'settimane'}!`
+        );
       } catch (error) {
-        toast.error("Errore durante la copia della settimana");
+        console.error("Copy week error:", error);
+        toast.error("Errore durante la copia della settimana", {
+          description: error instanceof Error ? error.message : "Riprova più tardi"
+        });
       } finally {
         setIsCopyingWeek(false);
       }
