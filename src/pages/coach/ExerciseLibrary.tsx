@@ -79,6 +79,7 @@ interface Exercise {
   coach_id: string;
   created_at: string;
   updated_at: string;
+  archived: boolean;
 }
 
 // Sample exercises for initial data
@@ -92,6 +93,7 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
     movement_pattern: "spinta_orizzontale",
     exercise_type: "Multi-articolare",
     notes: null,
+    archived: false,
   },
   {
     name: "Stacco da Terra",
@@ -102,6 +104,7 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
     movement_pattern: "hinge",
     exercise_type: "Multi-articolare",
     notes: null,
+    archived: false,
   },
   {
     name: "Lat Pulldown",
@@ -112,6 +115,7 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
     movement_pattern: "tirata_verticale",
     exercise_type: "Multi-articolare",
     notes: null,
+    archived: false,
   },
   {
     name: "Alzate Laterali",
@@ -122,6 +126,7 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
     movement_pattern: null,
     exercise_type: "Mono-articolare",
     notes: null,
+    archived: false,
   },
   {
     name: "Squat con Bilanciere",
@@ -132,6 +137,7 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
     movement_pattern: "squat",
     exercise_type: "Multi-articolare",
     notes: null,
+    archived: false,
   },
   {
     name: "Leg Curl",
@@ -142,6 +148,7 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
     movement_pattern: null,
     exercise_type: "Mono-articolare",
     notes: null,
+    archived: false,
   },
   {
     name: "Croci ai Cavi",
@@ -152,6 +159,7 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
     movement_pattern: null,
     exercise_type: "Mono-articolare",
     notes: null,
+    archived: false,
   },
   {
     name: "Rematore con Manubrio",
@@ -162,6 +170,7 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
     movement_pattern: "tirata_orizzontale",
     exercise_type: "Multi-articolare",
     notes: null,
+    archived: false,
   },
 ];
 
@@ -268,18 +277,21 @@ export default function ExerciseLibrary() {
     },
   });
 
-  // Delete exercise mutation
-  const deleteMutation = useMutation({
+  // Archive exercise mutation (soft delete)
+  const archiveMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("exercises").delete().eq("id", id);
+      const { error } = await supabase
+        .from("exercises")
+        .update({ archived: true })
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["exercises"] });
-      toast.success("Esercizio eliminato!");
+      toast.success("Esercizio archiviato!");
     },
     onError: (error) => {
-      toast.error("Errore nell'eliminazione: " + error.message);
+      toast.error("Errore nell'archiviazione: " + error.message);
     },
   });
 
@@ -328,6 +340,7 @@ export default function ExerciseLibrary() {
       movement_pattern: formPattern || null,
       exercise_type: formExerciseType,
       notes: null,
+      archived: false,
     };
 
     if (editingExercise) {
@@ -805,19 +818,19 @@ export default function ExerciseLibrary() {
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Elimina Esercizio</AlertDialogTitle>
+                                  <AlertDialogTitle>Archivia Esercizio</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    Sei sicuro di voler eliminare "{exercise.name}"? Questa azione
-                                    non può essere annullata.
+                                    Sei sicuro di voler archiviare "{exercise.name}"? L'esercizio
+                                    sarà nascosto dalla libreria ma i log degli atleti saranno preservati.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                   <AlertDialogCancel>Annulla</AlertDialogCancel>
                                   <AlertDialogAction
-                                    onClick={() => deleteMutation.mutate(exercise.id)}
+                                    onClick={() => archiveMutation.mutate(exercise.id)}
                                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                                   >
-                                    Elimina
+                                    Archivia
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
