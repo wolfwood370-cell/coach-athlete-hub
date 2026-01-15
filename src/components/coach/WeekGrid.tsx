@@ -1,4 +1,3 @@
-import { useCallback, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -62,9 +61,11 @@ function SortableExercise({
   dayIndex,
   weekIndex,
   oneRM,
+  isSelected,
   onUpdate,
   onRemove,
   onToggleSuperset,
+  onSelect,
   isInSuperset,
   supersetColor,
 }: {
@@ -72,9 +73,11 @@ function SortableExercise({
   dayIndex: number;
   weekIndex: number;
   oneRM: number;
+  isSelected?: boolean;
   onUpdate: (updated: ProgramExercise) => void;
   onRemove: () => void;
   onToggleSuperset: () => void;
+  onSelect?: () => void;
   isInSuperset: boolean;
   supersetColor?: string;
 }) {
@@ -112,9 +115,15 @@ function SortableExercise({
     <div
       ref={setNodeRef}
       style={style}
+      onClick={(e) => {
+        // Don't select if clicking on buttons or inputs
+        if ((e.target as HTMLElement).closest('button, input, select')) return;
+        onSelect?.();
+      }}
       className={cn(
-        "bg-background rounded-lg border p-2 space-y-1.5 group transition-all",
+        "bg-background rounded-lg border p-2 space-y-1.5 group transition-all cursor-pointer",
         isDragging && "opacity-50 shadow-lg ring-2 ring-primary",
+        isSelected && "ring-2 ring-primary border-primary bg-primary/5",
         isInSuperset && "border-l-4",
         supersetColor
       )}
@@ -258,17 +267,21 @@ function DayCell({
   weekIndex,
   exercises,
   oneRM,
+  selectedExerciseId,
   onUpdateExercise,
   onRemoveExercise,
   onToggleSuperset,
+  onSelectExercise,
 }: {
   dayIndex: number;
   weekIndex: number;
   exercises: ProgramExercise[];
   oneRM: number;
+  selectedExerciseId?: string | null;
   onUpdateExercise: (exerciseId: string, updated: ProgramExercise) => void;
   onRemoveExercise: (exerciseId: string) => void;
   onToggleSuperset: (exerciseId: string) => void;
+  onSelectExercise?: (exercise: ProgramExercise) => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({
     id: `day-${weekIndex}-${dayIndex}`,
@@ -325,9 +338,11 @@ function DayCell({
               dayIndex={dayIndex}
               weekIndex={weekIndex}
               oneRM={oneRM}
+              isSelected={selectedExerciseId === exercise.id}
               onUpdate={(updated) => onUpdateExercise(exercise.id, updated)}
               onRemove={() => onRemoveExercise(exercise.id)}
               onToggleSuperset={() => onToggleSuperset(exercise.id)}
+              onSelect={() => onSelectExercise?.(exercise)}
               isInSuperset={!!exercise.supersetGroup}
               supersetColor={exercise.supersetGroup ? supersetColors[exercise.supersetGroup] : undefined}
             />
@@ -352,10 +367,12 @@ interface WeekGridProps {
   totalWeeks: number;
   weekData: WeekProgram;
   oneRM: number;
+  selectedExerciseId?: string | null;
   onWeekChange: (week: number) => void;
   onUpdateExercise: (dayIndex: number, exerciseId: string, updated: ProgramExercise) => void;
   onRemoveExercise: (dayIndex: number, exerciseId: string) => void;
   onToggleSuperset: (dayIndex: number, exerciseId: string) => void;
+  onSelectExercise?: (dayIndex: number, exercise: ProgramExercise) => void;
   onCopyWeek: () => void;
   onClearWeek: () => void;
 }
@@ -365,10 +382,12 @@ export function WeekGrid({
   totalWeeks,
   weekData,
   oneRM,
+  selectedExerciseId,
   onWeekChange,
   onUpdateExercise,
   onRemoveExercise,
   onToggleSuperset,
+  onSelectExercise,
   onCopyWeek,
   onClearWeek,
 }: WeekGridProps) {
@@ -432,9 +451,11 @@ export function WeekGrid({
               weekIndex={currentWeek}
               exercises={weekData[dayIndex] || []}
               oneRM={oneRM}
+              selectedExerciseId={selectedExerciseId}
               onUpdateExercise={(exerciseId, updated) => onUpdateExercise(dayIndex, exerciseId, updated)}
               onRemoveExercise={(exerciseId) => onRemoveExercise(dayIndex, exerciseId)}
               onToggleSuperset={(exerciseId) => onToggleSuperset(dayIndex, exerciseId)}
+              onSelectExercise={(exercise) => onSelectExercise?.(dayIndex, exercise)}
             />
           ))}
         </div>

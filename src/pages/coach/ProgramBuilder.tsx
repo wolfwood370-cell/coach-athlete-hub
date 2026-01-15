@@ -14,6 +14,7 @@ import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
 import { CoachLayout } from "@/components/coach/CoachLayout";
 import { ExerciseLibrarySidebar, exerciseLibrary, type LibraryExercise } from "@/components/coach/ExerciseLibrarySidebar";
 import { WeekGrid, type ProgramExercise, type ProgramData, type WeekProgram } from "@/components/coach/WeekGrid";
+import { ExerciseContextEditor } from "@/components/coach/ExerciseContextEditor";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -275,6 +276,13 @@ export default function ProgramBuilder() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeExercise, setActiveExercise] = useState<LibraryExercise | null>(null);
   const [supersetPendingId, setSupersetPendingId] = useState<string | null>(null);
+  
+  // Right sidebar - selected exercise for editing
+  const [selectedExercise, setSelectedExercise] = useState<{
+    weekIndex: number;
+    dayIndex: number;
+    exercise: ProgramExercise;
+  } | null>(null);
 
   // DnD sensors
   const sensors = useSensors(
@@ -457,8 +465,45 @@ export default function ProgramBuilder() {
           [dayIndex]: prev[currentWeek][dayIndex].filter((ex) => ex.id !== exerciseId),
         },
       }));
+      // Clear selection if removing the selected exercise
+      if (selectedExercise?.exercise.id === exerciseId) {
+        setSelectedExercise(null);
+      }
+    },
+    [currentWeek, selectedExercise]
+  );
+  
+  // Select exercise for editing in context panel
+  const handleSelectExercise = useCallback(
+    (dayIndex: number, exercise: ProgramExercise) => {
+      setSelectedExercise({
+        weekIndex: currentWeek,
+        dayIndex,
+        exercise,
+      });
     },
     [currentWeek]
+  );
+  
+  // Update selected exercise from context editor
+  const handleContextEditorUpdate = useCallback(
+    (updated: ProgramExercise) => {
+      if (!selectedExercise) return;
+      
+      setProgram((prev) => ({
+        ...prev,
+        [selectedExercise.weekIndex]: {
+          ...prev[selectedExercise.weekIndex],
+          [selectedExercise.dayIndex]: prev[selectedExercise.weekIndex][selectedExercise.dayIndex].map((ex) =>
+            ex.id === updated.id ? updated : ex
+          ),
+        },
+      }));
+      
+      // Update the selected exercise state too
+      setSelectedExercise((prev) => prev ? { ...prev, exercise: updated } : null);
+    },
+    [selectedExercise]
   );
 
   // Toggle superset
@@ -733,14 +778,28 @@ export default function ProgramBuilder() {
               totalWeeks={TOTAL_WEEKS}
               weekData={weekData}
               oneRM={getOneRM()}
+              selectedExerciseId={selectedExercise?.exercise.id}
               onWeekChange={setCurrentWeek}
               onUpdateExercise={handleUpdateExercise}
               onRemoveExercise={handleRemoveExercise}
               onToggleSuperset={handleToggleSuperset}
+              onSelectExercise={handleSelectExercise}
               onCopyWeek={handleCopyWeek}
               onClearWeek={handleClearWeek}
             />
           </div>
+
+          {/* Right Sidebar - Context Editor */}
+          {selectedExercise && (
+            <ExerciseContextEditor
+              exercise={selectedExercise.exercise}
+              dayIndex={selectedExercise.dayIndex}
+              oneRM={getOneRM()}
+              onUpdate={handleContextEditorUpdate}
+              onClose={() => setSelectedExercise(null)}
+              className="w-72 flex-shrink-0"
+            />
+          )}
         </div>
 
         {/* Drag Overlay */}
