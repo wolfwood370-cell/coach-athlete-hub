@@ -804,13 +804,18 @@ export type Database = {
           duration_minutes: number | null
           duration_seconds: number | null
           exercises_data: Json
+          google_event_id: string | null
           id: string
           local_id: string | null
           notes: string | null
           program_id: string | null
+          program_workout_id: string | null
           rpe_global: number | null
+          scheduled_date: string | null
+          scheduled_start_time: string | null
           srpe: number | null
           started_at: string | null
+          status: Database["public"]["Enums"]["workout_log_status"]
           sync_status: string
           total_load_au: number | null
           workout_id: string
@@ -824,13 +829,18 @@ export type Database = {
           duration_minutes?: number | null
           duration_seconds?: number | null
           exercises_data?: Json
+          google_event_id?: string | null
           id?: string
           local_id?: string | null
           notes?: string | null
           program_id?: string | null
+          program_workout_id?: string | null
           rpe_global?: number | null
+          scheduled_date?: string | null
+          scheduled_start_time?: string | null
           srpe?: number | null
           started_at?: string | null
+          status?: Database["public"]["Enums"]["workout_log_status"]
           sync_status?: string
           total_load_au?: number | null
           workout_id: string
@@ -844,13 +854,18 @@ export type Database = {
           duration_minutes?: number | null
           duration_seconds?: number | null
           exercises_data?: Json
+          google_event_id?: string | null
           id?: string
           local_id?: string | null
           notes?: string | null
           program_id?: string | null
+          program_workout_id?: string | null
           rpe_global?: number | null
+          scheduled_date?: string | null
+          scheduled_start_time?: string | null
           srpe?: number | null
           started_at?: string | null
+          status?: Database["public"]["Enums"]["workout_log_status"]
           sync_status?: string
           total_load_au?: number | null
           workout_id?: string
@@ -861,6 +876,13 @@ export type Database = {
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workout_logs_program_workout_id_fkey"
+            columns: ["program_workout_id"]
+            isOneToOne: false
+            referencedRelation: "program_workouts"
             referencedColumns: ["id"]
           },
           {
@@ -957,6 +979,7 @@ export type Database = {
         | "peaking"
         | "transition"
       user_role: "coach" | "athlete"
+      workout_log_status: "scheduled" | "completed" | "missed"
       workout_status: "pending" | "in_progress" | "completed" | "skipped"
     }
     CompositeTypes: {
@@ -1095,6 +1118,7 @@ export const Constants = {
         "transition",
       ],
       user_role: ["coach", "athlete"],
+      workout_log_status: ["scheduled", "completed", "missed"],
       workout_status: ["pending", "in_progress", "completed", "skipped"],
     },
   },
