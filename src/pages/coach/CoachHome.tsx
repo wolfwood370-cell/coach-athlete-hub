@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { InviteAthleteDialog } from "@/components/coach/InviteAthleteDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -25,8 +25,12 @@ import {
   Activity,
   Flame,
   AlertCircle,
-  Clock
+  Clock,
+  Copy,
+  Check,
+  Wrench
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { it } from "date-fns/locale";
@@ -100,6 +104,19 @@ const getAlertConfig = (type: HighPriorityAlert["alertType"]) => {
 export default function CoachHome() {
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();
+  
+  // Developer Tools State
+  const [showUserId, setShowUserId] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyUserId = async () => {
+    if (user?.id) {
+      await navigator.clipboard.writeText(user.id);
+      setCopied(true);
+      toast.success("User ID copiato negli appunti!");
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
   
   const today = format(new Date(), 'yyyy-MM-dd');
   
@@ -400,6 +417,54 @@ export default function CoachHome() {
   return (
     <CoachLayout title="Command Center" subtitle="Chi ha bisogno della tua attenzione oggi?">
       <div className="space-y-6 animate-fade-in">
+        
+        {/* Developer Tools Card */}
+        {user && (
+          <Card className="border-dashed border-2 border-muted-foreground/30 bg-muted/30">
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <Wrench className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Developer Tools</p>
+                    <p className="text-xs text-muted-foreground">
+                      Usa questo ID per collegare l'atleta mock a te
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  {showUserId ? (
+                    <>
+                      <code className="text-xs bg-background px-3 py-2 rounded border font-mono select-all">
+                        {user.id}
+                      </code>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={handleCopyUserId}
+                        className="shrink-0"
+                      >
+                        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => setShowUserId(true)}
+                    >
+                      Mostra il mio User ID
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Empty State for New Coaches */}
         {!isLoading && athletes.length === 0 && (
           <Card className="p-12 text-center border-0 shadow-sm">
