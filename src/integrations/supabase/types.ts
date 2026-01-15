@@ -235,6 +235,8 @@ export type Database = {
           muscles: string[]
           name: string
           notes: string | null
+          secondary_muscles: string[]
+          tracking_fields: string[]
           updated_at: string
           video_url: string | null
         }
@@ -248,6 +250,8 @@ export type Database = {
           muscles?: string[]
           name: string
           notes?: string | null
+          secondary_muscles?: string[]
+          tracking_fields?: string[]
           updated_at?: string
           video_url?: string | null
         }
@@ -261,6 +265,8 @@ export type Database = {
           muscles?: string[]
           name?: string
           notes?: string | null
+          secondary_muscles?: string[]
+          tracking_fields?: string[]
           updated_at?: string
           video_url?: string | null
         }
