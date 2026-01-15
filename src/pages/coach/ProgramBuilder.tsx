@@ -15,6 +15,7 @@ import { CoachLayout } from "@/components/coach/CoachLayout";
 import { ExerciseLibrarySidebar, type LibraryExercise } from "@/components/coach/ExerciseLibrarySidebar";
 import { WeekGrid, type ProgramExercise, type ProgramData, type WeekProgram } from "@/components/coach/WeekGrid";
 import { ExerciseContextEditor } from "@/components/coach/ExerciseContextEditor";
+import { PeriodizationHeader } from "@/components/coach/PeriodizationHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -69,13 +70,13 @@ import { useAthleteHealthProfile, type FmsScore } from "@/hooks/useAthleteHealth
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
-const TOTAL_WEEKS = 4;
+const DEFAULT_WEEKS = 4;
 const DAYS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
-// Initialize empty program
-function createEmptyProgram(): ProgramData {
+// Initialize empty program with variable weeks
+function createEmptyProgram(weeks: number = DEFAULT_WEEKS): ProgramData {
   const program: ProgramData = {};
-  for (let w = 0; w < TOTAL_WEEKS; w++) {
+  for (let w = 0; w < weeks; w++) {
     program[w] = {};
     for (let d = 0; d < 7; d++) {
       program[w][d] = [];
@@ -268,7 +269,8 @@ export default function ProgramBuilder() {
 
   // State
   const [currentWeek, setCurrentWeek] = useState(0);
-  const [program, setProgram] = useState<ProgramData>(createEmptyProgram);
+  const [totalWeeks, setTotalWeeks] = useState(DEFAULT_WEEKS);
+  const [program, setProgram] = useState<ProgramData>(() => createEmptyProgram(DEFAULT_WEEKS));
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [programName, setProgramName] = useState("");
@@ -556,7 +558,7 @@ export default function ProgramBuilder() {
 
   // Copy week to next
   const handleCopyWeek = useCallback(() => {
-    if (currentWeek >= TOTAL_WEEKS - 1) return;
+    if (currentWeek >= totalWeeks - 1) return;
     
     setProgram((prev) => ({
       ...prev,
@@ -584,9 +586,32 @@ export default function ProgramBuilder() {
 
   // Reset entire program
   const handleResetProgram = useCallback(() => {
-    setProgram(createEmptyProgram());
+    setProgram(createEmptyProgram(totalWeeks));
     toast.success("Programma resettato");
+  }, [totalWeeks]);
+
+  // Handle weeks generated from periodization
+  const handleWeeksGenerated = useCallback((weeks: number) => {
+    setTotalWeeks(weeks);
+    // Expand program if needed
+    setProgram((prev) => {
+      const newProgram = { ...prev };
+      for (let w = Object.keys(prev).length; w < weeks; w++) {
+        newProgram[w] = {};
+        for (let d = 0; d < 7; d++) {
+          newProgram[w][d] = [];
+        }
+      }
+      return newProgram;
+    });
   }, []);
+
+  // Handle week navigation from timeline
+  const handleWeekFromTimeline = useCallback((weekIndex: number) => {
+    if (weekIndex >= 0 && weekIndex < totalWeeks) {
+      setCurrentWeek(weekIndex);
+    }
+  }, [totalWeeks]);
 
   // Save mutation
   const saveMutation = useMutation({
@@ -698,6 +723,15 @@ export default function ProgramBuilder() {
 
           {/* Main Content - Week Grid */}
           <div className="flex-1 flex flex-col min-w-0">
+            {/* Periodization Timeline Header */}
+            <PeriodizationHeader
+              athleteId={selectedAthlete?.id || null}
+              currentWeek={currentWeek}
+              totalWeeks={totalWeeks}
+              onWeeksGenerated={handleWeeksGenerated}
+              onWeekClick={handleWeekFromTimeline}
+            />
+            
             {/* Physical Readiness Banner */}
             {selectedAthlete && healthProfile && (
               <div className="mx-4 mt-2">
@@ -775,7 +809,7 @@ export default function ProgramBuilder() {
             {/* Week Grid */}
             <WeekGrid
               currentWeek={currentWeek}
-              totalWeeks={TOTAL_WEEKS}
+              totalWeeks={totalWeeks}
               weekData={weekData}
               oneRM={getOneRM()}
               selectedExerciseId={selectedExercise?.exercise.id}
