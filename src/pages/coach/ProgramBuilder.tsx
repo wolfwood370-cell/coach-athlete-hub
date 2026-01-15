@@ -13,7 +13,8 @@ import {
 import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
 import { CoachLayout } from "@/components/coach/CoachLayout";
 import { ExerciseLibrarySidebar, type LibraryExercise } from "@/components/coach/ExerciseLibrarySidebar";
-import { WeekGrid, type ProgramExercise, type ProgramData, type WeekProgram } from "@/components/coach/WeekGrid";
+import { MultiSessionDayGrid, type ProgramExercise, type WorkoutSession, type DayProgram, type ProgramData } from "@/components/coach/MultiSessionDayGrid";
+import { WeekTabs, type PhaseInfo } from "@/components/coach/WeekTabs";
 import { ExerciseContextEditor } from "@/components/coach/ExerciseContextEditor";
 import { PeriodizationHeader } from "@/components/coach/PeriodizationHeader";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,7 @@ import {
   CheckCircle2,
   Eye,
   FileText,
+  Copy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -67,19 +69,29 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { useFmsAlerts, checkExerciseContraindication } from "@/hooks/useFmsAlerts";
 import { useAthleteHealthProfile, type FmsScore } from "@/hooks/useAthleteHealthProfile";
-import { format } from "date-fns";
+import { usePeriodization } from "@/hooks/usePeriodization";
+import { format, parseISO, differenceInWeeks } from "date-fns";
 import { it } from "date-fns/locale";
 
 const DEFAULT_WEEKS = 4;
 const DAYS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 
-// Initialize empty program with variable weeks
+// Create default session for a day
+function createDefaultSession(weekIndex: number, dayIndex: number): WorkoutSession {
+  return {
+    id: `session-${weekIndex}-${dayIndex}-${Date.now()}`,
+    name: "Sessione",
+    exercises: [],
+  };
+}
+
+// Initialize empty program with sessions structure
 function createEmptyProgram(weeks: number = DEFAULT_WEEKS): ProgramData {
   const program: ProgramData = {};
   for (let w = 0; w < weeks; w++) {
     program[w] = {};
     for (let d = 0; d < 7; d++) {
-      program[w][d] = [];
+      program[w][d] = [createDefaultSession(w, d)];
     }
   }
   return program;
@@ -283,6 +295,7 @@ export default function ProgramBuilder() {
   const [selectedExercise, setSelectedExercise] = useState<{
     weekIndex: number;
     dayIndex: number;
+    sessionId: string;
     exercise: ProgramExercise;
   } | null>(null);
 
@@ -323,6 +336,20 @@ export default function ProgramBuilder() {
   // Comprehensive health profile for selected athlete
   const { data: healthProfile, isLoading: loadingHealth } = useAthleteHealthProfile(selectedAthlete?.id || null);
   
+  // Periodization phases for the athlete
+  const { phases } = usePeriodization(selectedAthlete?.id || null);
+  
+  // Convert phases to PhaseInfo format for WeekTabs
+  const phaseInfos: PhaseInfo[] = useMemo(() => {
+    return phases.map(p => ({
+      id: p.id,
+      name: p.name,
+      focus_type: p.focus_type,
+      start_date: p.start_date,
+      end_date: p.end_date,
+    }));
+  }, [phases]);
+  
   // UI state for health banner
   const [healthBannerExpanded, setHealthBannerExpanded] = useState(false);
   const [healthDetailsDialogOpen, setHealthDetailsDialogOpen] = useState(false);
@@ -351,8 +378,11 @@ export default function ProgramBuilder() {
   // Stats
   const totalExercises = useMemo(() => {
     return Object.values(program).reduce(
-      (acc, week) => acc + Object.values(week).reduce((a, day) => a + day.length, 0),
-      0
+      (weekAcc, week) => weekAcc + Object.values(week).reduce(
+        (dayAcc, sessions) => dayAcc + sessions.reduce(
+          (sessAcc, session) => sessAcc + session.exercises.length, 0
+        ), 0
+      ), 0
     );
   }, [program]);
 
@@ -375,10 +405,10 @@ export default function ProgramBuilder() {
 
     if (!over) return;
 
-    // Library exercise dropped on day cell
-    if (active.data.current?.type === "library-exercise" && over.data.current?.type === "day-cell") {
+    // Library exercise dropped on session cell
+    if (active.data.current?.type === "library-exercise" && over.data.current?.type === "session-cell") {
       const libraryExercise = active.data.current.exercise as LibraryExercise;
-      const { weekIndex, dayIndex } = over.data.current;
+      const { weekIndex, dayIndex, sessionId } = over.data.current;
 
       // Check for contraindications before adding
       if (fmsAlerts?.flags && fmsAlerts.flags.length > 0) {
@@ -410,46 +440,118 @@ export default function ProgramBuilder() {
         ...prev,
         [weekIndex]: {
           ...prev[weekIndex],
-          [dayIndex]: [...(prev[weekIndex]?.[dayIndex] || []), newExercise],
+          [dayIndex]: prev[weekIndex][dayIndex].map((session) =>
+            session.id === sessionId
+              ? { ...session, exercises: [...session.exercises, newExercise] }
+              : session
+          ),
         },
       }));
       return;
     }
 
-    // Reorder within same day
+    // Reorder within same session
     if (active.data.current?.type === "program-exercise" && over.data.current?.type === "program-exercise") {
       const activeData = active.data.current;
       const overData = over.data.current;
 
-      if (activeData.dayIndex === overData.dayIndex && activeData.weekIndex === overData.weekIndex) {
-        const { weekIndex, dayIndex } = activeData;
-        const exercises = [...(program[weekIndex]?.[dayIndex] || [])];
-        const oldIndex = exercises.findIndex((e) => e.id === active.id);
-        const newIndex = exercises.findIndex((e) => e.id === over.id);
+      if (
+        activeData.dayIndex === overData.dayIndex &&
+        activeData.weekIndex === overData.weekIndex &&
+        activeData.sessionId === overData.sessionId
+      ) {
+        const { weekIndex, dayIndex, sessionId } = activeData;
+        
+        setProgram((prev) => ({
+          ...prev,
+          [weekIndex]: {
+            ...prev[weekIndex],
+            [dayIndex]: prev[weekIndex][dayIndex].map((session) => {
+              if (session.id !== sessionId) return session;
+              
+              const exercises = [...session.exercises];
+              const oldIndex = exercises.findIndex((e) => e.id === active.id);
+              const newIndex = exercises.findIndex((e) => e.id === over.id);
 
-        if (oldIndex !== -1 && newIndex !== -1) {
-          const reordered = arrayMove(exercises, oldIndex, newIndex);
-          setProgram((prev) => ({
-            ...prev,
-            [weekIndex]: {
-              ...prev[weekIndex],
-              [dayIndex]: reordered,
-            },
-          }));
-        }
+              if (oldIndex !== -1 && newIndex !== -1) {
+                return { ...session, exercises: arrayMove(exercises, oldIndex, newIndex) };
+              }
+              return session;
+            }),
+          },
+        }));
       }
     }
-  }, [program]);
+  }, [fmsAlerts]);
 
-  // Update exercise
-  const handleUpdateExercise = useCallback(
-    (dayIndex: number, exerciseId: string, updated: ProgramExercise) => {
+  // Add session to a day
+  const handleAddSession = useCallback((dayIndex: number) => {
+    const newSession: WorkoutSession = {
+      id: `session-${currentWeek}-${dayIndex}-${Date.now()}`,
+      name: "Nuova Sessione",
+      exercises: [],
+    };
+
+    setProgram((prev) => ({
+      ...prev,
+      [currentWeek]: {
+        ...prev[currentWeek],
+        [dayIndex]: [...(prev[currentWeek]?.[dayIndex] || []), newSession],
+      },
+    }));
+  }, [currentWeek]);
+
+  // Update session
+  const handleUpdateSession = useCallback(
+    (dayIndex: number, sessionId: string, updates: Partial<WorkoutSession>) => {
       setProgram((prev) => ({
         ...prev,
         [currentWeek]: {
           ...prev[currentWeek],
-          [dayIndex]: prev[currentWeek][dayIndex].map((ex) =>
-            ex.id === exerciseId ? updated : ex
+          [dayIndex]: prev[currentWeek][dayIndex].map((session) =>
+            session.id === sessionId ? { ...session, ...updates } : session
+          ),
+        },
+      }));
+    },
+    [currentWeek]
+  );
+
+  // Remove session (keep at least one)
+  const handleRemoveSession = useCallback(
+    (dayIndex: number, sessionId: string) => {
+      setProgram((prev) => {
+        const sessions = prev[currentWeek]?.[dayIndex] || [];
+        if (sessions.length <= 1) return prev;
+
+        return {
+          ...prev,
+          [currentWeek]: {
+            ...prev[currentWeek],
+            [dayIndex]: sessions.filter((s) => s.id !== sessionId),
+          },
+        };
+      });
+    },
+    [currentWeek]
+  );
+
+  // Update exercise
+  const handleUpdateExercise = useCallback(
+    (dayIndex: number, sessionId: string, exerciseId: string, updated: ProgramExercise) => {
+      setProgram((prev) => ({
+        ...prev,
+        [currentWeek]: {
+          ...prev[currentWeek],
+          [dayIndex]: prev[currentWeek][dayIndex].map((session) =>
+            session.id === sessionId
+              ? {
+                  ...session,
+                  exercises: session.exercises.map((ex) =>
+                    ex.id === exerciseId ? updated : ex
+                  ),
+                }
+              : session
           ),
         },
       }));
@@ -459,12 +561,19 @@ export default function ProgramBuilder() {
 
   // Remove exercise
   const handleRemoveExercise = useCallback(
-    (dayIndex: number, exerciseId: string) => {
+    (dayIndex: number, sessionId: string, exerciseId: string) => {
       setProgram((prev) => ({
         ...prev,
         [currentWeek]: {
           ...prev[currentWeek],
-          [dayIndex]: prev[currentWeek][dayIndex].filter((ex) => ex.id !== exerciseId),
+          [dayIndex]: prev[currentWeek][dayIndex].map((session) =>
+            session.id === sessionId
+              ? {
+                  ...session,
+                  exercises: session.exercises.filter((ex) => ex.id !== exerciseId),
+                }
+              : session
+          ),
         },
       }));
       // Clear selection if removing the selected exercise
@@ -477,10 +586,11 @@ export default function ProgramBuilder() {
   
   // Select exercise for editing in context panel
   const handleSelectExercise = useCallback(
-    (dayIndex: number, exercise: ProgramExercise) => {
+    (dayIndex: number, sessionId: string, exercise: ProgramExercise) => {
       setSelectedExercise({
         weekIndex: currentWeek,
         dayIndex,
+        sessionId,
         exercise,
       });
     },
@@ -496,8 +606,15 @@ export default function ProgramBuilder() {
         ...prev,
         [selectedExercise.weekIndex]: {
           ...prev[selectedExercise.weekIndex],
-          [selectedExercise.dayIndex]: prev[selectedExercise.weekIndex][selectedExercise.dayIndex].map((ex) =>
-            ex.id === updated.id ? updated : ex
+          [selectedExercise.dayIndex]: prev[selectedExercise.weekIndex][selectedExercise.dayIndex].map((session) =>
+            session.id === selectedExercise.sessionId
+              ? {
+                  ...session,
+                  exercises: session.exercises.map((ex) =>
+                    ex.id === updated.id ? updated : ex
+                  ),
+                }
+              : session
           ),
         },
       }));
@@ -510,10 +627,12 @@ export default function ProgramBuilder() {
 
   // Toggle superset
   const handleToggleSuperset = useCallback(
-    (dayIndex: number, exerciseId: string) => {
-      const exercises = program[currentWeek]?.[dayIndex] || [];
-      const exercise = exercises.find((e) => e.id === exerciseId);
+    (dayIndex: number, sessionId: string, exerciseId: string) => {
+      const sessions = program[currentWeek]?.[dayIndex] || [];
+      const session = sessions.find((s) => s.id === sessionId);
+      if (!session) return;
       
+      const exercise = session.exercises.find((e) => e.id === exerciseId);
       if (!exercise) return;
 
       // If already in superset, remove it
@@ -522,8 +641,15 @@ export default function ProgramBuilder() {
           ...prev,
           [currentWeek]: {
             ...prev[currentWeek],
-            [dayIndex]: prev[currentWeek][dayIndex].map((ex) =>
-              ex.id === exerciseId ? { ...ex, supersetGroup: undefined } : ex
+            [dayIndex]: prev[currentWeek][dayIndex].map((s) =>
+              s.id === sessionId
+                ? {
+                    ...s,
+                    exercises: s.exercises.map((ex) =>
+                      ex.id === exerciseId ? { ...ex, supersetGroup: undefined } : ex
+                    ),
+                  }
+                : s
             ),
           },
         }));
@@ -543,10 +669,17 @@ export default function ProgramBuilder() {
         ...prev,
         [currentWeek]: {
           ...prev[currentWeek],
-          [dayIndex]: prev[currentWeek][dayIndex].map((ex) =>
-            ex.id === exerciseId || ex.id === supersetPendingId
-              ? { ...ex, supersetGroup: groupId }
-              : ex
+          [dayIndex]: prev[currentWeek][dayIndex].map((s) =>
+            s.id === sessionId
+              ? {
+                  ...s,
+                  exercises: s.exercises.map((ex) =>
+                    ex.id === exerciseId || ex.id === supersetPendingId
+                      ? { ...ex, supersetGroup: groupId }
+                      : ex
+                  ),
+                }
+              : s
           ),
         },
       }));
@@ -563,23 +696,29 @@ export default function ProgramBuilder() {
     setProgram((prev) => ({
       ...prev,
       [currentWeek + 1]: Object.fromEntries(
-        Object.entries(prev[currentWeek]).map(([day, exercises]) => [
+        Object.entries(prev[currentWeek]).map(([day, sessions]) => [
           day,
-          exercises.map((ex) => ({
-            ...ex,
-            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          sessions.map((session) => ({
+            ...session,
+            id: `session-${currentWeek + 1}-${day}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+            exercises: session.exercises.map((ex) => ({
+              ...ex,
+              id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            })),
           })),
         ])
       ),
     }));
     toast.success(`Settimana ${currentWeek + 1} copiata in settimana ${currentWeek + 2}`);
-  }, [currentWeek]);
+  }, [currentWeek, totalWeeks]);
 
   // Clear week
   const handleClearWeek = useCallback(() => {
     setProgram((prev) => ({
       ...prev,
-      [currentWeek]: Object.fromEntries(Array.from({ length: 7 }, (_, d) => [d, []])),
+      [currentWeek]: Object.fromEntries(
+        Array.from({ length: 7 }, (_, d) => [d, [createDefaultSession(currentWeek, d)]])
+      ),
     }));
     toast.success(`Settimana ${currentWeek + 1} svuotata`);
   }, [currentWeek]);
@@ -599,7 +738,7 @@ export default function ProgramBuilder() {
       for (let w = Object.keys(prev).length; w < weeks; w++) {
         newProgram[w] = {};
         for (let d = 0; d < 7; d++) {
-          newProgram[w][d] = [];
+          newProgram[w][d] = [createDefaultSession(w, d)];
         }
       }
       return newProgram;
@@ -632,7 +771,7 @@ export default function ProgramBuilder() {
         athlete_id: string;
         title: string;
         description: string | null;
-        structure: ProgramExercise[];
+        structure: any;
         status: "pending" | "in_progress" | "completed" | "skipped";
         scheduled_date: string | null;
         estimated_duration: number | null;
@@ -643,9 +782,11 @@ export default function ProgramBuilder() {
       for (const athleteId of athleteIds) {
         for (const [weekStr, days] of Object.entries(structure)) {
           const weekIndex = parseInt(weekStr);
-          for (const [dayStr, exercises] of Object.entries(days)) {
+          for (const [dayStr, sessions] of Object.entries(days)) {
             const dayIndex = parseInt(dayStr);
-            if (exercises.length > 0) {
+            const allExercises = sessions.flatMap((s) => s.exercises);
+            
+            if (allExercises.length > 0) {
               const scheduledDate = new Date(today);
               scheduledDate.setDate(today.getDate() + weekIndex * 7 + dayIndex);
 
@@ -653,11 +794,11 @@ export default function ProgramBuilder() {
                 coach_id: user.id,
                 athlete_id: athleteId,
                 title: `${title} - S${weekIndex + 1} ${DAYS[dayIndex]}`,
-                description: null,
-                structure: exercises,
+                description: sessions.map((s) => s.name).join(" + "),
+                structure: sessions,
                 status: "pending",
                 scheduled_date: scheduledDate.toISOString().split("T")[0],
-                estimated_duration: exercises.length * 10,
+                estimated_duration: allExercises.length * 10,
               });
             }
           }
@@ -709,6 +850,11 @@ export default function ProgramBuilder() {
     );
   };
 
+  // Convert selected exercise for context editor compatibility
+  const contextEditorExercise = selectedExercise?.exercise ? {
+    ...selectedExercise.exercise,
+  } : null;
+
   return (
     <CoachLayout title="Program Builder" subtitle="Crea schede di allenamento drag & drop">
       <DndContext
@@ -721,9 +867,9 @@ export default function ProgramBuilder() {
           {/* Left Sidebar - Exercise Library */}
           <ExerciseLibrarySidebar className="w-64 flex-shrink-0" />
 
-          {/* Main Content - Week Grid */}
-          <div className="flex-1 flex flex-col min-w-0">
-            {/* Periodization Timeline Header */}
+          {/* Main Content */}
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            {/* TOP ROW: Periodization Timeline Header */}
             <PeriodizationHeader
               athleteId={selectedAthlete?.id || null}
               currentWeek={currentWeek}
@@ -786,9 +932,13 @@ export default function ProgramBuilder() {
                 <Badge variant="outline" className="text-xs">
                   {totalExercises} esercizi
                 </Badge>
-                <Button variant="outline" size="sm" onClick={handleResetProgram} className="h-8">
+                <Button variant="outline" size="sm" onClick={handleCopyWeek} className="h-8">
+                  <Copy className="h-3.5 w-3.5 mr-1.5" />
+                  Copia Sett.
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleClearWeek} className="h-8">
                   <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-                  Reset
+                  Pulisci
                 </Button>
                 <Button
                   size="sm"
@@ -806,30 +956,37 @@ export default function ProgramBuilder() {
               </div>
             </div>
 
-            {/* Week Grid */}
-            <WeekGrid
+            {/* MIDDLE ROW: Week Tabs with Phase Colors */}
+            <WeekTabs
               currentWeek={currentWeek}
               totalWeeks={totalWeeks}
+              phases={phaseInfos}
+              onWeekChange={setCurrentWeek}
+            />
+
+            {/* MAIN SECTION: Multi-Session Day Grid */}
+            <MultiSessionDayGrid
+              currentWeek={currentWeek}
               weekData={weekData}
               oneRM={getOneRM()}
               selectedExerciseId={selectedExercise?.exercise.id}
-              onWeekChange={setCurrentWeek}
+              onAddSession={handleAddSession}
+              onUpdateSession={handleUpdateSession}
+              onRemoveSession={handleRemoveSession}
               onUpdateExercise={handleUpdateExercise}
               onRemoveExercise={handleRemoveExercise}
               onToggleSuperset={handleToggleSuperset}
               onSelectExercise={handleSelectExercise}
-              onCopyWeek={handleCopyWeek}
-              onClearWeek={handleClearWeek}
             />
           </div>
 
           {/* Right Sidebar - Context Editor */}
-          {selectedExercise && (
+          {selectedExercise && contextEditorExercise && (
             <ExerciseContextEditor
-              exercise={selectedExercise.exercise}
+              exercise={contextEditorExercise as any}
               dayIndex={selectedExercise.dayIndex}
               oneRM={getOneRM()}
-              onUpdate={handleContextEditorUpdate}
+              onUpdate={(updated) => handleContextEditorUpdate(updated as ProgramExercise)}
               onClose={() => setSelectedExercise(null)}
               className="w-72 flex-shrink-0"
             />
