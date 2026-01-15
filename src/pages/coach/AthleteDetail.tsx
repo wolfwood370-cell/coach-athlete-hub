@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CoachLayout } from "@/components/coach/CoachLayout";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,11 +33,23 @@ import {
   XCircle,
   Brain,
   Calendar,
-  Clock
+  Clock,
+  Zap,
+  Flame,
+  Target,
+  AlertTriangle,
+  Heart
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, startOfWeek, addDays, isAfter, isBefore, isSameDay } from "date-fns";
 import { it } from "date-fns/locale";
+import { useAthleteAcwrData } from "@/hooks/useAthleteAcwrData";
+import { 
+  ChartContainer, 
+  ChartTooltip, 
+  ChartTooltipContent 
+} from "@/components/ui/chart";
+import { AreaChart, Area, XAxis, YAxis } from "recharts";
 
 export default function AthleteDetail() {
   const { id } = useParams<{ id: string }>();
@@ -60,7 +72,7 @@ export default function AthleteDetail() {
     enabled: !!id,
   });
 
-  // Fetch active injuries to determine status
+  // Fetch active injuries
   const { data: injuries } = useQuery({
     queryKey: ["athlete-injuries", id],
     queryFn: async () => {
@@ -117,6 +129,70 @@ export default function AthleteDetail() {
     enabled: !!id,
   });
 
+  // Fetch today's readiness (daily_metrics)
+  const { data: todayMetrics } = useQuery({
+    queryKey: ["athlete-today-metrics", id],
+    queryFn: async () => {
+      if (!id) return null;
+      const today = new Date().toISOString().split("T")[0];
+      const { data, error } = await supabase
+        .from("daily_metrics")
+        .select("*")
+        .eq("user_id", id)
+        .eq("date", today)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!id,
+  });
+
+  // Fetch weight trend (30 days)
+  const { data: weightTrend } = useQuery({
+    queryKey: ["athlete-weight-trend", id],
+    queryFn: async () => {
+      if (!id) return [];
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const { data, error } = await supabase
+        .from("daily_metrics")
+        .select("date, weight_kg")
+        .eq("user_id", id)
+        .gte("date", thirtyDaysAgo.toISOString().split("T")[0])
+        .order("date", { ascending: true });
+      
+      if (error) throw error;
+      return data?.filter(d => d.weight_kg !== null) || [];
+    },
+    enabled: !!id,
+  });
+
+  // Fetch this week's workouts for compliance
+  const { data: weeklyWorkouts } = useQuery({
+    queryKey: ["athlete-weekly-workouts", id],
+    queryFn: async () => {
+      if (!id) return [];
+      const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 }); // Monday
+      const weekEnd = addDays(weekStart, 6);
+      
+      const { data, error } = await supabase
+        .from("workout_logs")
+        .select("completed_at, workout_id")
+        .eq("athlete_id", id)
+        .not("completed_at", "is", null)
+        .gte("completed_at", weekStart.toISOString())
+        .lte("completed_at", addDays(weekEnd, 1).toISOString());
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!id,
+  });
+
+  // ACWR Data
+  const { data: acwrData, isLoading: acwrLoading } = useAthleteAcwrData(id);
+
   // Determine status
   const hasActiveInjuries = injuries && injuries.length > 0;
   const athleteStatus = hasActiveInjuries ? "injured" : "active";
@@ -142,6 +218,124 @@ export default function AthleteDetail() {
     };
     return neurotype ? types[neurotype] || neurotype : null;
   };
+
+  // Calculate readiness score (based on available data)
+  const calculateReadinessScore = () => {
+    if (!todayMetrics) return null;
+    
+    // Use subjective_readiness if available, otherwise calculate from metrics
+    if (todayMetrics.subjective_readiness) {
+      return Math.round(todayMetrics.subjective_readiness * 10); // Scale 1-10 to 10-100
+    }
+    
+    // Simple formula based on available metrics
+    let score = 70; // Base score
+    
+    if (todayMetrics.sleep_hours) {
+      if (todayMetrics.sleep_hours >= 7) score += 10;
+      else if (todayMetrics.sleep_hours < 5) score -= 20;
+    }
+    
+    if (todayMetrics.hrv_rmssd) {
+      // Higher HRV is generally better
+      if (todayMetrics.hrv_rmssd > 50) score += 10;
+      else if (todayMetrics.hrv_rmssd < 30) score -= 10;
+    }
+    
+    if (todayMetrics.resting_hr) {
+      // Lower resting HR is generally better for athletes
+      if (todayMetrics.resting_hr < 55) score += 5;
+      else if (todayMetrics.resting_hr > 70) score -= 10;
+    }
+    
+    return Math.max(0, Math.min(100, Math.round(score)));
+  };
+
+  // Calculate TDEE (simplified estimation)
+  const calculateTDEE = () => {
+    const onboarding = profile?.onboarding_data as Record<string, unknown> | null;
+    const weight = weightTrend?.length ? weightTrend[weightTrend.length - 1].weight_kg : (onboarding?.weight as number);
+    const height = onboarding?.height as number;
+    
+    if (!weight) return null;
+    
+    // Simplified Harris-Benedict for male (we'd need gender for accuracy)
+    // BMR = 88.362 + (13.397 × weight) + (4.799 × height) - (5.677 × age)
+    const baseBMR = 88 + (13.4 * weight) + (height ? 4.8 * height : 800) - (5.7 * 30); // assuming 30 years
+    const activityMultiplier = 1.55; // Moderately active
+    
+    return Math.round(baseBMR * activityMultiplier);
+  };
+
+  // Weekly compliance calculation
+  const getWeeklyCompliance = () => {
+    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+    const today = new Date();
+    const days = [];
+    
+    for (let i = 0; i < 7; i++) {
+      const day = addDays(weekStart, i);
+      const dayName = format(day, "EEE", { locale: it });
+      const isFuture = isAfter(day, today);
+      const isToday = isSameDay(day, today);
+      
+      // Check if workout was logged on this day
+      const hasWorkout = weeklyWorkouts?.some(w => {
+        if (!w.completed_at) return false;
+        return isSameDay(new Date(w.completed_at), day);
+      });
+      
+      let status: "completed" | "rest" | "missed" | "future" = "future";
+      if (!isFuture) {
+        status = hasWorkout ? "completed" : (isToday ? "rest" : "missed");
+      }
+      
+      days.push({ day: dayName, date: day, status, isToday });
+    }
+    
+    const completedDays = days.filter(d => d.status === "completed").length;
+    const pastDays = days.filter(d => d.status !== "future").length;
+    const adherence = pastDays > 0 ? Math.round((completedDays / Math.max(pastDays, 1)) * 100) : 0;
+    
+    return { days, adherence, completedDays };
+  };
+
+  // Get pain status
+  const getPainStatus = () => {
+    if (injuries && injuries.length > 0) {
+      const primaryInjury = injuries[0];
+      // Map status to severity display
+      const severityMap: Record<string, string> = {
+        "active": "moderate",
+        "recovering": "mild",
+        "healed": "none"
+      };
+      return {
+        hasPain: true,
+        location: primaryInjury.body_zone || "Unknown",
+        severity: severityMap[primaryInjury.status] || "moderate",
+        description: primaryInjury.description,
+        count: injuries.length
+      };
+    }
+    
+    return { hasPain: false };
+  };
+
+  const readinessScore = calculateReadinessScore();
+  const tdeeValue = calculateTDEE();
+  const weeklyCompliance = getWeeklyCompliance();
+  const painStatus = getPainStatus();
+
+  // Readiness color based on score
+  const getReadinessColor = (score: number | null) => {
+    if (score === null) return { text: "text-muted-foreground", bg: "bg-muted", stroke: "stroke-muted-foreground" };
+    if (score < 40) return { text: "text-destructive", bg: "bg-destructive/10", stroke: "stroke-destructive" };
+    if (score < 70) return { text: "text-warning", bg: "bg-warning/10", stroke: "stroke-warning" };
+    return { text: "text-success", bg: "bg-success/10", stroke: "stroke-success" };
+  };
+
+  const readinessColors = getReadinessColor(readinessScore);
 
   // Loading state
   if (profileLoading) {
@@ -227,7 +421,6 @@ export default function AthleteDetail() {
 
                 {/* Metadata Tags */}
                 <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                  {/* Neurotype Tag */}
                   {profile.neurotype && (
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-sm">
                       <Brain className="h-3.5 w-3.5 text-primary" />
@@ -236,7 +429,6 @@ export default function AthleteDetail() {
                     </div>
                   )}
 
-                  {/* Program Tag */}
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-sm">
                     <Calendar className="h-3.5 w-3.5 text-primary" />
                     <span className="text-muted-foreground">Program:</span>
@@ -245,7 +437,6 @@ export default function AthleteDetail() {
                     </span>
                   </div>
 
-                  {/* Last Active Tag */}
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-sm">
                     <Clock className="h-3.5 w-3.5 text-primary" />
                     <span className="text-muted-foreground">Last Active:</span>
@@ -328,17 +519,274 @@ export default function AthleteDetail() {
             </TabsList>
           </div>
 
-          {/* Tab Contents - Placeholders */}
+          {/* Overview Tab - Bento Grid */}
           <TabsContent value="overview" className="space-y-6">
-            <Card className="p-8 text-center">
-              <Activity className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Overview</h3>
-              <p className="text-muted-foreground">
-                Dashboard panoramica dell'atleta con ACWR, trend peso, ultimo allenamento e infortuni attivi.
-              </p>
-            </Card>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              
+              {/* Card 1: Readiness & Load */}
+              <Card className="md:col-span-1 lg:col-span-2 overflow-hidden">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Zap className="h-4 w-4 text-primary" />
+                    Readiness & Load
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-6">
+                    {/* Circular Gauge for Readiness */}
+                    <div className="relative flex-shrink-0">
+                      <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
+                        {/* Background circle */}
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="42"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="8"
+                          className="text-muted/30"
+                        />
+                        {/* Progress circle */}
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="42"
+                          fill="none"
+                          strokeWidth="8"
+                          strokeLinecap="round"
+                          strokeDasharray={`${(readinessScore || 0) * 2.64} 264`}
+                          className={readinessColors.stroke}
+                        />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <span className={cn("text-2xl font-bold tabular-nums", readinessColors.text)}>
+                          {readinessScore ?? "—"}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                          Readiness
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* ACWR Display */}
+                    <div className="flex-1 space-y-3">
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">ACWR (Acute:Chronic)</p>
+                        {acwrLoading ? (
+                          <Skeleton className="h-10 w-20" />
+                        ) : acwrData?.status === "insufficient-data" ? (
+                          <p className="text-2xl font-bold text-muted-foreground">—</p>
+                        ) : (
+                          <div className="flex items-baseline gap-2">
+                            <span className={cn(
+                              "text-3xl font-bold tabular-nums",
+                              acwrData?.status === "optimal" && "text-success",
+                              acwrData?.status === "warning" && "text-warning",
+                              acwrData?.status === "high-risk" && "text-destructive"
+                            )}>
+                              {acwrData?.ratio?.toFixed(2) || "—"}
+                            </span>
+                            <Badge variant="secondary" className={cn(
+                              "text-[10px]",
+                              acwrData?.status === "optimal" && "bg-success/10 text-success",
+                              acwrData?.status === "warning" && "bg-warning/10 text-warning",
+                              acwrData?.status === "high-risk" && "bg-destructive/10 text-destructive"
+                            )}>
+                              {acwrData?.label || "N/A"}
+                            </Badge>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {acwrData && acwrData.status !== "insufficient-data" && (
+                        <div className="flex gap-4 text-xs text-muted-foreground">
+                          <span>Acuto: <strong className="text-foreground">{acwrData.acuteLoad}</strong></span>
+                          <span>Cronico: <strong className="text-foreground">{acwrData.chronicLoad}</strong></span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Card 2: Metabolism / TDEE */}
+              <Card className="md:col-span-1 lg:col-span-2 overflow-hidden">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Flame className="h-4 w-4 text-orange-500" />
+                    Metabolism (TDEE Tracker)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4">
+                    {/* TDEE Big Metric */}
+                    <div className="flex-shrink-0 text-center">
+                      <p className="text-xs text-muted-foreground mb-1">Est. TDEE</p>
+                      <p className="text-3xl font-bold text-foreground tabular-nums">
+                        {tdeeValue ? tdeeValue.toLocaleString() : "—"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">kcal/day</p>
+                    </div>
+
+                    {/* Weight Chart */}
+                    <div className="flex-1 h-20">
+                      {!weightTrend || weightTrend.length === 0 ? (
+                        <div className="h-full flex items-center justify-center text-muted-foreground text-xs">
+                          Nessun dato peso
+                        </div>
+                      ) : (
+                        <ChartContainer
+                          config={{
+                            weight: { label: "Peso", color: "hsl(var(--primary))" },
+                          }}
+                          className="h-full w-full"
+                        >
+                          <AreaChart data={weightTrend}>
+                            <defs>
+                              <linearGradient id="weightGradientOverview" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <XAxis dataKey="date" hide />
+                            <YAxis hide domain={["dataMin - 1", "dataMax + 1"]} />
+                            <ChartTooltip content={<ChartTooltipContent />} />
+                            <Area
+                              type="monotone"
+                              dataKey="weight_kg"
+                              stroke="hsl(var(--primary))"
+                              fill="url(#weightGradientOverview)"
+                              strokeWidth={2}
+                            />
+                          </AreaChart>
+                        </ChartContainer>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {weightTrend && weightTrend.length > 0 && (
+                    <div className="flex justify-between text-xs text-muted-foreground mt-3 pt-3 border-t border-border/50">
+                      <span>30d Min: <strong className="text-foreground">{Math.min(...weightTrend.map(w => w.weight_kg!))} kg</strong></span>
+                      <span>Current: <strong className="text-foreground">{weightTrend[weightTrend.length - 1].weight_kg} kg</strong></span>
+                      <span>30d Max: <strong className="text-foreground">{Math.max(...weightTrend.map(w => w.weight_kg!))} kg</strong></span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Card 3: Weekly Compliance */}
+              <Card className="md:col-span-1 lg:col-span-2 overflow-hidden">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    Weekly Compliance
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {/* Week dots */}
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    {weeklyCompliance.days.map((day, idx) => (
+                      <div key={idx} className="flex flex-col items-center gap-1.5">
+                        <span className="text-[10px] text-muted-foreground uppercase font-medium">
+                          {day.day.slice(0, 2)}
+                        </span>
+                        <div className={cn(
+                          "w-8 h-8 rounded-full flex items-center justify-center transition-all",
+                          day.status === "completed" && "bg-success text-success-foreground",
+                          day.status === "rest" && "bg-muted text-muted-foreground",
+                          day.status === "missed" && "bg-destructive/20 text-destructive border-2 border-destructive/50",
+                          day.status === "future" && "bg-muted/30 text-muted-foreground/50 border border-dashed border-muted-foreground/30",
+                          day.isToday && "ring-2 ring-primary ring-offset-2 ring-offset-background"
+                        )}>
+                          {day.status === "completed" && <CheckCircle2 className="h-4 w-4" />}
+                          {day.status === "missed" && <XCircle className="h-4 w-4" />}
+                          {day.status === "rest" && <span className="text-xs">—</span>}
+                          {day.status === "future" && <span className="text-xs">•</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Adherence percentage */}
+                  <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                    <span className="text-sm text-muted-foreground">Weekly Adherence</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
+                        <div 
+                          className={cn(
+                            "h-full rounded-full transition-all",
+                            weeklyCompliance.adherence >= 80 && "bg-success",
+                            weeklyCompliance.adherence >= 50 && weeklyCompliance.adherence < 80 && "bg-warning",
+                            weeklyCompliance.adherence < 50 && "bg-destructive"
+                          )}
+                          style={{ width: `${weeklyCompliance.adherence}%` }}
+                        />
+                      </div>
+                      <span className={cn(
+                        "text-lg font-bold tabular-nums",
+                        weeklyCompliance.adherence >= 80 && "text-success",
+                        weeklyCompliance.adherence >= 50 && weeklyCompliance.adherence < 80 && "text-warning",
+                        weeklyCompliance.adherence < 50 && "text-destructive"
+                      )}>
+                        {weeklyCompliance.adherence}%
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Card 4: Pain Status */}
+              <Card className={cn(
+                "md:col-span-1 lg:col-span-2 overflow-hidden transition-colors",
+                painStatus.hasPain && "border-destructive/50 bg-destructive/5"
+              )}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium flex items-center gap-2">
+                    <Heart className={cn("h-4 w-4", painStatus.hasPain ? "text-destructive" : "text-success")} />
+                    Pain Status
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {painStatus.hasPain ? (
+                    <div className="flex items-center gap-4">
+                      <div className="h-14 w-14 rounded-full bg-destructive/10 flex items-center justify-center">
+                        <AlertTriangle className="h-7 w-7 text-destructive" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-destructive text-lg">Active Issue Detected</p>
+                        <p className="text-sm text-muted-foreground">
+                          {'location' in painStatus && String(painStatus.location)}:{' '}
+                          <span className="capitalize font-medium text-foreground">
+                            {'severity' in painStatus && String(painStatus.severity)}
+                          </span>
+                        </p>
+                        {'count' in painStatus && typeof painStatus.count === 'number' && painStatus.count > 1 && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            +{painStatus.count - 1} altri infortuni attivi
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-4">
+                      <div className="h-14 w-14 rounded-full bg-success/10 flex items-center justify-center">
+                        <CheckCircle2 className="h-7 w-7 text-success" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-success text-lg">All Clear ✅</p>
+                        <p className="text-sm text-muted-foreground">
+                          Nessun infortunio o dolore segnalato
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+            </div>
           </TabsContent>
 
+          {/* Other Tab Placeholders */}
           <TabsContent value="program" className="space-y-6">
             <Card className="p-8 text-center">
               <Dumbbell className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
