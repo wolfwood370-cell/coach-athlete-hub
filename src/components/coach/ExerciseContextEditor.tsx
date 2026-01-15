@@ -207,14 +207,14 @@ export function ExerciseContextEditor({
             <div className="space-y-1.5">
               <Label htmlFor="rpe" className="text-xs">RPE (Rate of Perceived Exertion)</Label>
               <Select
-                value={localExercise.rpe?.toString() || ""}
-                onValueChange={(val) => handleChange("rpe", val ? parseInt(val) : null)}
+                value={localExercise.rpe?.toString() || "none"}
+                onValueChange={(val) => handleChange("rpe", val === "none" ? null : parseFloat(val))}
               >
-                <SelectTrigger id="rpe" className="h-9">
+              <SelectTrigger id="rpe" className="h-9">
                   <SelectValue placeholder="Seleziona RPE" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nessuno</SelectItem>
+                  <SelectItem value="none">Nessuno</SelectItem>
                   {[6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((rpe) => (
                     <SelectItem key={rpe} value={rpe.toString()}>
                       RPE {rpe} {rpe >= 9.5 ? "- Massimale" : rpe >= 8.5 ? "- Molto duro" : rpe >= 7 ? "- Moderato" : "- Leggero"}
