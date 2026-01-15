@@ -1,71 +1,81 @@
 import { useState, useMemo } from "react";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { MultiSelect, GroupedOptions } from "@/components/ui/multi-select";
 import { 
   Dumbbell, 
   Search, 
   ChevronRight,
-  Flame,
-  Target,
-  Zap
+  Plus,
+  Loader2,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  MUSCLE_TAGS,
+  MOVEMENT_PATTERNS,
+  EXERCISE_TYPES,
+  getMusclesGrouped,
+} from "@/lib/muscleTags";
+import { TrackingMetricBuilder } from "@/components/coach/TrackingMetricBuilder";
 
-// Exercise library with categories and metadata
-export const exerciseLibrary = [
-  // Compound Lifts
-  { id: "squat", name: "Squat", category: "Gambe", muscle: "Quadricipiti", defaultPercent: 85, compound: true },
-  { id: "bench", name: "Panca Piana", category: "Petto", muscle: "Pettorali", defaultPercent: 75, compound: true },
-  { id: "deadlift", name: "Stacco da Terra", category: "Schiena", muscle: "Erettori", defaultPercent: 90, compound: true },
-  { id: "ohp", name: "Military Press", category: "Spalle", muscle: "Deltoidi", defaultPercent: 55, compound: true },
-  { id: "row", name: "Rematore Bilanciere", category: "Schiena", muscle: "Dorsali", defaultPercent: 65, compound: true },
-  { id: "rdl", name: "Stacco Rumeno", category: "Gambe", muscle: "Femorali", defaultPercent: 70, compound: true },
-  { id: "front-squat", name: "Front Squat", category: "Gambe", muscle: "Quadricipiti", defaultPercent: 75, compound: true },
-  
-  // Pull Exercises
-  { id: "pullups", name: "Trazioni", category: "Schiena", muscle: "Dorsali", defaultPercent: 0, compound: true },
-  { id: "latpull", name: "Lat Machine", category: "Schiena", muscle: "Dorsali", defaultPercent: 50, compound: false },
-  { id: "cable-row", name: "Pulley Basso", category: "Schiena", muscle: "Dorsali", defaultPercent: 45, compound: false },
-  { id: "face-pull", name: "Face Pull", category: "Spalle", muscle: "Deltoidi Post.", defaultPercent: 20, compound: false },
-  
-  // Push Exercises
-  { id: "incline-bench", name: "Panca Inclinata", category: "Petto", muscle: "Pettorali Alto", defaultPercent: 65, compound: true },
-  { id: "dips", name: "Dips", category: "Petto", muscle: "Pettorali", defaultPercent: 0, compound: true },
-  { id: "flyes", name: "Croci ai Cavi", category: "Petto", muscle: "Pettorali", defaultPercent: 15, compound: false },
-  { id: "lateral-raise", name: "Alzate Laterali", category: "Spalle", muscle: "Deltoidi Lat.", defaultPercent: 10, compound: false },
-  
-  // Leg Exercises
-  { id: "legpress", name: "Leg Press", category: "Gambe", muscle: "Quadricipiti", defaultPercent: 120, compound: true },
-  { id: "leg-curl", name: "Leg Curl", category: "Gambe", muscle: "Femorali", defaultPercent: 35, compound: false },
-  { id: "leg-ext", name: "Leg Extension", category: "Gambe", muscle: "Quadricipiti", defaultPercent: 40, compound: false },
-  { id: "lunges", name: "Affondi", category: "Gambe", muscle: "Quadricipiti", defaultPercent: 40, compound: true },
-  { id: "hip-thrust", name: "Hip Thrust", category: "Gambe", muscle: "Glutei", defaultPercent: 80, compound: true },
-  
-  // Arms
-  { id: "curls", name: "Curl Bicipiti", category: "Braccia", muscle: "Bicipiti", defaultPercent: 25, compound: false },
-  { id: "hammer-curl", name: "Hammer Curl", category: "Braccia", muscle: "Brachiale", defaultPercent: 20, compound: false },
-  { id: "triceps-pushdown", name: "Tricipiti Cavo", category: "Braccia", muscle: "Tricipiti", defaultPercent: 20, compound: false },
-  { id: "skull-crusher", name: "Skull Crusher", category: "Braccia", muscle: "Tricipiti", defaultPercent: 30, compound: false },
-  
-  // Core
-  { id: "plank", name: "Plank", category: "Core", muscle: "Addominali", defaultPercent: 0, compound: false },
-  { id: "cable-crunch", name: "Crunch ai Cavi", category: "Core", muscle: "Retto Addominale", defaultPercent: 30, compound: false },
-  { id: "ab-wheel", name: "Ab Wheel Rollout", category: "Core", muscle: "Core", defaultPercent: 0, compound: false },
-];
+// Types
+export interface LibraryExercise {
+  id: string;
+  name: string;
+  video_url: string | null;
+  muscles: string[];
+  secondary_muscles: string[];
+  tracking_fields: string[];
+  movement_pattern: string | null;
+  exercise_type: string;
+  notes: string | null;
+  coach_id: string;
+  created_at: string;
+  updated_at: string;
+  archived: boolean;
+}
 
-export type LibraryExercise = typeof exerciseLibrary[0];
+// Macro muscle categories for compact filter
+const MACRO_MUSCLES = Object.entries(MUSCLE_TAGS).map(([key, val]) => ({
+  value: key,
+  label: val.label,
+  muscles: val.muscles as readonly string[],
+}));
 
-const categoryIcons: Record<string, React.ReactNode> = {
-  "Gambe": <Flame className="h-3 w-3" />,
-  "Petto": <Target className="h-3 w-3" />,
-  "Schiena": <Zap className="h-3 w-3" />,
-  "Spalle": <Target className="h-3 w-3" />,
-  "Braccia": <Dumbbell className="h-3 w-3" />,
-  "Core": <Target className="h-3 w-3" />,
-};
+// Convert muscle tags to grouped options for MultiSelect
+const muscleOptions: GroupedOptions[] = getMusclesGrouped().map((group) => ({
+  group: group.category,
+  options: group.muscles.map((muscle) => ({
+    value: muscle,
+    label: muscle,
+  })),
+}));
 
 // Draggable exercise item
 function DraggableExercise({ exercise }: { exercise: LibraryExercise }) {
@@ -96,13 +106,23 @@ function DraggableExercise({ exercise }: { exercise: LibraryExercise }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{exercise.name}</p>
-        <p className="text-[10px] text-muted-foreground">{exercise.muscle}</p>
+        <div className="flex flex-wrap gap-0.5 mt-0.5">
+          {exercise.muscles.slice(0, 2).map((muscle) => (
+            <Badge 
+              key={muscle} 
+              variant="secondary" 
+              className="text-[9px] h-4 px-1 bg-primary/10 text-primary border-0"
+            >
+              {muscle.split(" ")[0]}
+            </Badge>
+          ))}
+          {exercise.muscles.length > 2 && (
+            <Badge variant="outline" className="text-[9px] h-4 px-1">
+              +{exercise.muscles.length - 2}
+            </Badge>
+          )}
+        </div>
       </div>
-      {exercise.compound && (
-        <Badge variant="secondary" className="text-[9px] h-4 px-1.5">
-          Comp
-        </Badge>
-      )}
       <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
     </div>
   );
@@ -113,47 +133,287 @@ interface ExerciseLibrarySidebarProps {
 }
 
 export function ExerciseLibrarySidebar({ className }: ExerciseLibrarySidebarProps) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  // Filter state
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<string>("all");
+  const [selectedPattern, setSelectedPattern] = useState<string>("all");
+  const [selectedMacroMuscle, setSelectedMacroMuscle] = useState<string>("all");
 
-  const categories = useMemo(() => 
-    [...new Set(exerciseLibrary.map(ex => ex.category))],
-    []
-  );
+  // Create dialog state
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [formName, setFormName] = useState("");
+  const [formVideoUrl, setFormVideoUrl] = useState("");
+  const [formMuscles, setFormMuscles] = useState<string[]>([]);
+  const [formSecondaryMuscles, setFormSecondaryMuscles] = useState<string[]>([]);
+  const [formTrackingFields, setFormTrackingFields] = useState<string[]>(["sets", "reps", "weight"]);
+  const [formPattern, setFormPattern] = useState("");
+  const [formExerciseType, setFormExerciseType] = useState("Multi-articolare");
 
+  // Fetch exercises from Supabase
+  const { data: exercises = [], isLoading } = useQuery({
+    queryKey: ["exercises", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from("exercises")
+        .select("*")
+        .eq("coach_id", user.id)
+        .eq("archived", false)
+        .order("name");
+      if (error) throw error;
+      return data as LibraryExercise[];
+    },
+    enabled: !!user?.id,
+  });
+
+  // Create exercise mutation
+  const createMutation = useMutation({
+    mutationFn: async (exercise: Omit<LibraryExercise, "id" | "coach_id" | "created_at" | "updated_at">) => {
+      if (!user?.id) throw new Error("Not authenticated");
+      const { data, error } = await supabase
+        .from("exercises")
+        .insert({
+          ...exercise,
+          coach_id: user.id,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["exercises"] });
+      toast.success("Esercizio creato con successo!");
+      resetForm();
+      setDialogOpen(false);
+    },
+    onError: (error) => {
+      toast.error("Errore nella creazione: " + error.message);
+    },
+  });
+
+  // Reset form
+  const resetForm = () => {
+    setFormName("");
+    setFormVideoUrl("");
+    setFormMuscles([]);
+    setFormSecondaryMuscles([]);
+    setFormTrackingFields(["sets", "reps", "weight"]);
+    setFormPattern("");
+    setFormExerciseType("Multi-articolare");
+  };
+
+  // Handle form submit
+  const handleSubmit = () => {
+    if (!formName.trim()) {
+      toast.error("Il nome è obbligatorio");
+      return;
+    }
+
+    if (!formExerciseType) {
+      toast.error("Il tipo di esercizio è obbligatorio");
+      return;
+    }
+
+    createMutation.mutate({
+      name: formName.trim(),
+      video_url: formVideoUrl.trim() || null,
+      muscles: formMuscles,
+      secondary_muscles: formSecondaryMuscles,
+      tracking_fields: formTrackingFields,
+      movement_pattern: formPattern || null,
+      exercise_type: formExerciseType,
+      notes: null,
+      archived: false,
+    });
+  };
+
+  // Get muscles for selected macro category
+  const selectedMacroMuscles = useMemo(() => {
+    if (selectedMacroMuscle === "all") return [];
+    const macro = MACRO_MUSCLES.find(m => m.value === selectedMacroMuscle);
+    return macro ? [...macro.muscles] : [];
+  }, [selectedMacroMuscle]);
+
+  // Filter exercises
   const filteredExercises = useMemo(() => {
-    return exerciseLibrary.filter(ex => {
+    return exercises.filter(ex => {
+      // Search filter
       const matchesSearch = searchQuery === "" || 
         ex.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        ex.muscle.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesCategory = !selectedCategory || ex.category === selectedCategory;
-      return matchesSearch && matchesCategory;
-    });
-  }, [searchQuery, selectedCategory]);
+        ex.muscles.some(m => m.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  const groupedExercises = useMemo(() => {
-    const groups: Record<string, LibraryExercise[]> = {};
-    filteredExercises.forEach(ex => {
-      if (!groups[ex.category]) groups[ex.category] = [];
-      groups[ex.category].push(ex);
+      // Type filter
+      const matchesType = selectedType === "all" || ex.exercise_type === selectedType;
+
+      // Pattern filter
+      const matchesPattern = selectedPattern === "all" || ex.movement_pattern === selectedPattern;
+
+      // Macro muscle filter - check if any of the exercise's muscles are in the selected macro category
+      const matchesMuscle = selectedMacroMuscle === "all" || 
+        ex.muscles.some(m => selectedMacroMuscles.includes(m));
+
+      return matchesSearch && matchesType && matchesPattern && matchesMuscle;
     });
-    return groups;
-  }, [filteredExercises]);
+  }, [exercises, searchQuery, selectedType, selectedPattern, selectedMacroMuscle, selectedMacroMuscles]);
+
+  // Check if any filter is active
+  const hasActiveFilters = selectedType !== "all" || selectedPattern !== "all" || selectedMacroMuscle !== "all";
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSelectedType("all");
+    setSelectedPattern("all");
+    setSelectedMacroMuscle("all");
+    setSearchQuery("");
+  };
 
   return (
     <div className={cn("flex flex-col h-full bg-card border-r border-border", className)}>
       {/* Header */}
-      <div className="p-4 border-b border-border/50">
-        <h3 className="text-sm font-semibold flex items-center gap-2">
-          <Dumbbell className="h-4 w-4 text-primary" />
-          Libreria Esercizi
-        </h3>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          Trascina nell griglia
-        </p>
-        
-        {/* Search */}
-        <div className="relative mt-3">
+      <div className="p-3 border-b border-border/50 space-y-3">
+        {/* Title Row */}
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold flex items-center gap-2">
+            <Dumbbell className="h-4 w-4 text-primary" />
+            Libreria Esercizi
+          </h3>
+          <Dialog open={dialogOpen} onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) resetForm();
+          }}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Nuovo Esercizio</DialogTitle>
+                <DialogDescription>
+                  Aggiungi un nuovo esercizio alla libreria
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                {/* Name */}
+                <div className="space-y-2">
+                  <Label htmlFor="name">Nome *</Label>
+                  <Input
+                    id="name"
+                    value={formName}
+                    onChange={(e) => setFormName(e.target.value)}
+                    placeholder="es. Panca Piana con Bilanciere"
+                  />
+                </div>
+
+                {/* Video URL */}
+                <div className="space-y-2">
+                  <Label htmlFor="video">Video URL</Label>
+                  <Input
+                    id="video"
+                    value={formVideoUrl}
+                    onChange={(e) => setFormVideoUrl(e.target.value)}
+                    placeholder="https://youtube.com/watch?v=..."
+                  />
+                </div>
+
+                {/* Exercise Type */}
+                <div className="space-y-2">
+                  <Label>Tipo di Esercizio *</Label>
+                  <Select value={formExerciseType} onValueChange={setFormExerciseType}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleziona tipo..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {EXERCISE_TYPES.map((t) => (
+                        <SelectItem key={t.value} value={t.value}>
+                          {t.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Tracking Metrics Builder */}
+                <div className="border border-border rounded-lg p-4 bg-secondary/20">
+                  <TrackingMetricBuilder
+                    value={formTrackingFields}
+                    onChange={setFormTrackingFields}
+                  />
+                </div>
+
+                {/* Movement Pattern */}
+                <div className="space-y-2">
+                  <Label>Schema Motorio</Label>
+                  <Select value={formPattern} onValueChange={setFormPattern}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Seleziona pattern..." />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {MOVEMENT_PATTERNS.map((p) => (
+                        <SelectItem key={p.value} value={p.value}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Muscles Multi-Select */}
+                <div className="space-y-2">
+                  <Label>Muscoli Primari</Label>
+                  <MultiSelect
+                    options={muscleOptions}
+                    selected={formMuscles}
+                    onChange={setFormMuscles}
+                    placeholder="Seleziona muscoli target..."
+                    searchPlaceholder="Cerca muscolo..."
+                    emptyMessage="Nessun muscolo trovato"
+                  />
+                </div>
+
+                {/* Secondary Muscles Multi-Select */}
+                <div className="space-y-2">
+                  <Label>Muscoli Secondari</Label>
+                  <MultiSelect
+                    options={muscleOptions}
+                    selected={formSecondaryMuscles}
+                    onChange={setFormSecondaryMuscles}
+                    placeholder="Seleziona muscoli sinergici..."
+                    searchPlaceholder="Cerca muscolo..."
+                    emptyMessage="Nessun muscolo trovato"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDialogOpen(false);
+                    resetForm();
+                  }}
+                >
+                  Annulla
+                </Button>
+                <Button
+                  onClick={handleSubmit}
+                  disabled={createMutation.isPending}
+                >
+                  {createMutation.isPending && (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  )}
+                  Crea Esercizio
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             type="text"
@@ -164,55 +424,114 @@ export function ExerciseLibrarySidebar({ className }: ExerciseLibrarySidebarProp
           />
         </div>
 
-        {/* Category Filter */}
-        <div className="flex flex-wrap gap-1.5 mt-3">
-          <Badge
-            variant={selectedCategory === null ? "default" : "outline"}
-            className="cursor-pointer text-[10px] h-5"
-            onClick={() => setSelectedCategory(null)}
-          >
-            Tutti
-          </Badge>
-          {categories.map(cat => (
-            <Badge
-              key={cat}
-              variant={selectedCategory === cat ? "default" : "outline"}
-              className="cursor-pointer text-[10px] h-5"
-              onClick={() => setSelectedCategory(cat === selectedCategory ? null : cat)}
-            >
-              {cat}
-            </Badge>
-          ))}
+        {/* Compact Filters Row */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
+              Filtri
+            </span>
+            {hasActiveFilters && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="h-5 px-1.5 text-[10px]"
+                onClick={clearFilters}
+              >
+                <X className="h-3 w-3 mr-0.5" />
+                Reset
+              </Button>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-1 gap-1.5">
+            {/* Type Filter */}
+            <Select value={selectedType} onValueChange={setSelectedType}>
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                <SelectItem value="all">Tutti i tipi</SelectItem>
+                {EXERCISE_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Pattern Filter */}
+            <Select value={selectedPattern} onValueChange={setSelectedPattern}>
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue placeholder="Schema" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                <SelectItem value="all">Tutti gli schemi</SelectItem>
+                {MOVEMENT_PATTERNS.map((p) => (
+                  <SelectItem key={p.value} value={p.value}>
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Muscle Filter */}
+            <Select value={selectedMacroMuscle} onValueChange={setSelectedMacroMuscle}>
+              <SelectTrigger className="h-7 text-xs">
+                <SelectValue placeholder="Muscolo" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                <SelectItem value="all">Tutti i muscoli</SelectItem>
+                {MACRO_MUSCLES.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
       {/* Exercise List */}
       <ScrollArea className="flex-1">
-        <div className="p-3 space-y-4">
-          {Object.entries(groupedExercises).map(([category, exercises]) => (
-            <div key={category}>
-              <div className="flex items-center gap-1.5 mb-2 px-1">
-                {categoryIcons[category]}
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground">
-                  {category}
-                </span>
-                <Badge variant="secondary" className="text-[9px] h-4 px-1.5 ml-auto">
-                  {exercises.length}
-                </Badge>
-              </div>
-              <div className="space-y-1.5">
-                {exercises.map(exercise => (
-                  <DraggableExercise key={exercise.id} exercise={exercise} />
-                ))}
-              </div>
+        <div className="p-3 space-y-1.5">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
-          ))}
-
-          {filteredExercises.length === 0 && (
+          ) : filteredExercises.length === 0 ? (
             <div className="text-center py-8">
               <Dumbbell className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-              <p className="text-sm text-muted-foreground">Nessun esercizio trovato</p>
+              <p className="text-sm text-muted-foreground">
+                {exercises.length === 0 
+                  ? "Nessun esercizio" 
+                  : "Nessun risultato"}
+              </p>
+              {exercises.length === 0 && (
+                <Button 
+                  variant="link" 
+                  size="sm" 
+                  className="mt-2 text-xs"
+                  onClick={() => setDialogOpen(true)}
+                >
+                  Crea il primo esercizio
+                </Button>
+              )}
             </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between px-1 mb-2">
+                <span className="text-[10px] text-muted-foreground">
+                  {filteredExercises.length} eserciz{filteredExercises.length === 1 ? "io" : "i"}
+                </span>
+                <span className="text-[10px] text-muted-foreground">
+                  Trascina nella griglia →
+                </span>
+              </div>
+              {filteredExercises.map(exercise => (
+                <DraggableExercise key={exercise.id} exercise={exercise} />
+              ))}
+            </>
           )}
         </div>
       </ScrollArea>
