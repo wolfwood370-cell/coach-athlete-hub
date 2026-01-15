@@ -226,6 +226,7 @@ export type Database = {
       }
       exercises: {
         Row: {
+          archived: boolean
           coach_id: string
           created_at: string
           default_rpe: number | null
@@ -241,6 +242,7 @@ export type Database = {
           video_url: string | null
         }
         Insert: {
+          archived?: boolean
           coach_id: string
           created_at?: string
           default_rpe?: number | null
@@ -256,6 +258,7 @@ export type Database = {
           video_url?: string | null
         }
         Update: {
+          archived?: boolean
           coach_id?: string
           created_at?: string
           default_rpe?: number | null
