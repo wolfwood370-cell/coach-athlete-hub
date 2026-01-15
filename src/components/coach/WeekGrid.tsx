@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -8,11 +9,22 @@ import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import {
   GripVertical,
   Trash2,
@@ -23,6 +35,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
+  Calendar,
+  Layers,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,13 +52,14 @@ export interface ProgramExercise {
   restSeconds: number;
   notes: string;
   supersetGroup?: string;
-  isEmpty?: boolean; // Empty slot placeholder
+  isEmpty?: boolean;
 }
 
-export type WeekProgram = Record<number, ProgramExercise[]>; // dayIndex -> exercises
-export type ProgramData = Record<number, WeekProgram>; // weekIndex -> days
+export type WeekProgram = Record<number, ProgramExercise[]>;
+export type ProgramData = Record<number, WeekProgram>;
 
 const DAYS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+const DAYS_FULL = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
 
 // Empty slot - droppable placeholder
 function EmptySlot({
@@ -127,7 +142,6 @@ function SortableExercise({
     transition,
   };
 
-  // Build summary string
   const summary = [
     exercise.sets ? `${exercise.sets}x${exercise.reps || "?"}` : null,
     exercise.load || null,
@@ -162,10 +176,7 @@ function SortableExercise({
         </button>
 
         <div className="flex-1 min-w-0">
-          <p
-            className="text-[11px] font-medium truncate"
-            title={exercise.name}
-          >
+          <p className="text-[11px] font-medium truncate" title={exercise.name}>
             {exercise.name}
           </p>
           {summary && (
@@ -223,6 +234,7 @@ function DayCell({
   onToggleSuperset,
   onSelectExercise,
   onAddSlot,
+  onCopyDay,
 }: {
   dayIndex: number;
   weekIndex: number;
@@ -232,13 +244,13 @@ function DayCell({
   onToggleSuperset: (exerciseId: string) => void;
   onSelectExercise?: (exercise: ProgramExercise) => void;
   onAddSlot: () => void;
+  onCopyDay: () => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({
     id: `day-${weekIndex}-${dayIndex}`,
     data: { type: "day-cell", weekIndex, dayIndex },
   });
 
-  // Get superset colors
   const supersetGroups = [
     ...new Set(
       exercises.filter((e) => e.supersetGroup && !e.isEmpty).map((e) => e.supersetGroup)
@@ -271,13 +283,30 @@ function DayCell({
       )}
     >
       {/* Day Header */}
-      <div className="px-2 py-1.5 border-b border-border/50 bg-muted/30 flex items-center justify-between">
+      <div className="px-2 py-1.5 border-b border-border/50 bg-muted/30 flex items-center justify-between group">
         <span className="text-xs font-semibold">{DAYS[dayIndex]}</span>
-        {filledExercises.length > 0 && (
-          <Badge variant="secondary" className="text-[9px] h-4 px-1.5">
-            {filledExercises.length} ex • {totalVolume} vol
-          </Badge>
-        )}
+        <div className="flex items-center gap-1">
+          {filledExercises.length > 0 && (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 opacity-0 group-hover:opacity-100"
+                    onClick={onCopyDay}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Copia allenamento</TooltipContent>
+              </Tooltip>
+              <Badge variant="secondary" className="text-[9px] h-4 px-1.5">
+                {filledExercises.length} ex
+              </Badge>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Exercise List */}
@@ -342,6 +371,196 @@ function DayCell({
   );
 }
 
+// Copy Day Dialog
+function CopyDayDialog({
+  open,
+  onOpenChange,
+  sourceDayIndex,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  sourceDayIndex: number;
+  onConfirm: (targetDays: number[], mode: "append" | "overwrite") => void;
+}) {
+  const [selectedDays, setSelectedDays] = useState<number[]>([]);
+  const [mode, setMode] = useState<"append" | "overwrite">("append");
+
+  const handleConfirm = () => {
+    if (selectedDays.length > 0) {
+      onConfirm(selectedDays, mode);
+      setSelectedDays([]);
+      setMode("append");
+      onOpenChange(false);
+    }
+  };
+
+  const toggleDay = (dayIndex: number) => {
+    setSelectedDays((prev) =>
+      prev.includes(dayIndex)
+        ? prev.filter((d) => d !== dayIndex)
+        : [...prev, dayIndex]
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-primary" />
+            Copia Allenamento
+          </DialogTitle>
+          <DialogDescription>
+            Copia da: <strong>{DAYS_FULL[sourceDayIndex]}</strong>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Seleziona giorni destinazione</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {DAYS_FULL.map((day, idx) =>
+                idx !== sourceDayIndex ? (
+                  <div
+                    key={idx}
+                    className={cn(
+                      "flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors border",
+                      selectedDays.includes(idx)
+                        ? "bg-primary/10 border-primary"
+                        : "hover:bg-secondary border-transparent"
+                    )}
+                    onClick={() => toggleDay(idx)}
+                  >
+                    <Checkbox checked={selectedDays.includes(idx)} />
+                    <span className="text-sm">{day}</span>
+                  </div>
+                ) : null
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Modalità</Label>
+            <RadioGroup value={mode} onValueChange={(v) => setMode(v as "append" | "overwrite")}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="append" id="append" />
+                <Label htmlFor="append" className="text-sm cursor-pointer">
+                  Aggiungi (mantieni esercizi esistenti)
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="overwrite" id="overwrite" />
+                <Label htmlFor="overwrite" className="text-sm cursor-pointer">
+                  Sovrascrivi (sostituisci tutto)
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Annulla
+          </Button>
+          <Button onClick={handleConfirm} disabled={selectedDays.length === 0}>
+            <Copy className="h-4 w-4 mr-2" />
+            Copia in {selectedDays.length} giorni
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// Copy Week Dialog
+function CopyWeekDialog({
+  open,
+  onOpenChange,
+  sourceWeek,
+  totalWeeks,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  sourceWeek: number;
+  totalWeeks: number;
+  onConfirm: (targetWeeks: number[]) => void;
+}) {
+  const [selectedWeeks, setSelectedWeeks] = useState<number[]>([]);
+
+  const handleConfirm = () => {
+    if (selectedWeeks.length > 0) {
+      onConfirm(selectedWeeks);
+      setSelectedWeeks([]);
+      onOpenChange(false);
+    }
+  };
+
+  const toggleWeek = (weekIndex: number) => {
+    setSelectedWeeks((prev) =>
+      prev.includes(weekIndex)
+        ? prev.filter((w) => w !== weekIndex)
+        : [...prev, weekIndex]
+    );
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Layers className="h-5 w-5 text-primary" />
+            Copia Settimana
+          </DialogTitle>
+          <DialogDescription>
+            Copia da: <strong>Settimana {sourceWeek + 1}</strong>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Seleziona settimane destinazione</Label>
+            <div className="grid grid-cols-3 gap-2">
+              {Array.from({ length: totalWeeks }, (_, idx) =>
+                idx !== sourceWeek ? (
+                  <div
+                    key={idx}
+                    className={cn(
+                      "flex items-center justify-center gap-2 p-2 rounded-lg cursor-pointer transition-colors border",
+                      selectedWeeks.includes(idx)
+                        ? "bg-primary/10 border-primary"
+                        : "hover:bg-secondary border-transparent"
+                    )}
+                    onClick={() => toggleWeek(idx)}
+                  >
+                    <Checkbox checked={selectedWeeks.includes(idx)} />
+                    <span className="text-sm">Sett. {idx + 1}</span>
+                  </div>
+                ) : null
+              )}
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            ⚠️ Le settimane selezionate verranno <strong>sostituite</strong> completamente.
+          </p>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Annulla
+          </Button>
+          <Button onClick={handleConfirm} disabled={selectedWeeks.length === 0}>
+            <Layers className="h-4 w-4 mr-2" />
+            Copia in {selectedWeeks.length} settimane
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 interface WeekGridProps {
   currentWeek: number;
   totalWeeks: number;
@@ -352,7 +571,8 @@ interface WeekGridProps {
   onToggleSuperset: (dayIndex: number, exerciseId: string) => void;
   onSelectExercise?: (dayIndex: number, exercise: ProgramExercise) => void;
   onAddSlot: (dayIndex: number) => void;
-  onCopyWeek: () => void;
+  onCopyDay: (sourceDayIndex: number, targetDays: number[], mode: "append" | "overwrite") => void;
+  onCopyWeekTo: (targetWeeks: number[]) => void;
   onClearWeek: () => void;
 }
 
@@ -366,9 +586,23 @@ export function WeekGrid({
   onToggleSuperset,
   onSelectExercise,
   onAddSlot,
-  onCopyWeek,
+  onCopyDay,
+  onCopyWeekTo,
   onClearWeek,
 }: WeekGridProps) {
+  const [copyDayDialogOpen, setCopyDayDialogOpen] = useState(false);
+  const [copyDaySource, setCopyDaySource] = useState(0);
+  const [copyWeekDialogOpen, setCopyWeekDialogOpen] = useState(false);
+
+  const handleOpenCopyDayDialog = (dayIndex: number) => {
+    setCopyDaySource(dayIndex);
+    setCopyDayDialogOpen(true);
+  };
+
+  const handleCopyDayConfirm = (targetDays: number[], mode: "append" | "overwrite") => {
+    onCopyDay(copyDaySource, targetDays, mode);
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Week Navigation */}
@@ -400,12 +634,17 @@ export function WeekGrid({
         <div className="flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="outline" size="sm" className="h-7 text-xs" onClick={onCopyWeek}>
-                <Copy className="h-3 w-3 mr-1" />
-                Copia
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setCopyWeekDialogOpen(true)}
+              >
+                <Layers className="h-3 w-3 mr-1" />
+                Copia Sett.
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Copia in settimana successiva</TooltipContent>
+            <TooltipContent>Copia settimana in altre settimane</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -433,10 +672,28 @@ export function WeekGrid({
               onToggleSuperset={(exerciseId) => onToggleSuperset(dayIndex, exerciseId)}
               onSelectExercise={(exercise) => onSelectExercise?.(dayIndex, exercise)}
               onAddSlot={() => onAddSlot(dayIndex)}
+              onCopyDay={() => handleOpenCopyDayDialog(dayIndex)}
             />
           ))}
         </div>
       </ScrollArea>
+
+      {/* Copy Day Dialog */}
+      <CopyDayDialog
+        open={copyDayDialogOpen}
+        onOpenChange={setCopyDayDialogOpen}
+        sourceDayIndex={copyDaySource}
+        onConfirm={handleCopyDayConfirm}
+      />
+
+      {/* Copy Week Dialog */}
+      <CopyWeekDialog
+        open={copyWeekDialogOpen}
+        onOpenChange={setCopyWeekDialogOpen}
+        sourceWeek={currentWeek}
+        totalWeeks={totalWeeks}
+        onConfirm={onCopyWeekTo}
+      />
     </div>
   );
 }

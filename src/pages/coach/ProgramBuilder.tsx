@@ -679,26 +679,75 @@ export default function ProgramBuilder() {
     [currentWeek, program, supersetPendingId]
   );
 
-  // Copy week to next
-  const handleCopyWeek = useCallback(() => {
-    if (currentWeek >= totalWeeks - 1) return;
+  // Copy day to other days
+  const handleCopyDay = useCallback(
+    (sourceDayIndex: number, targetDays: number[], mode: "append" | "overwrite") => {
+      const sourceExercises = program[currentWeek]?.[sourceDayIndex] || [];
+      const filledExercises = sourceExercises.filter((e) => !e.isEmpty);
+      
+      if (filledExercises.length === 0) {
+        toast.error("Nessun esercizio da copiare");
+        return;
+      }
 
-    setProgram((prev) => ({
-      ...prev,
-      [currentWeek + 1]: Object.fromEntries(
-        Object.entries(prev[currentWeek]).map(([day, exercises]) => [
-          day,
-          exercises.map((ex) => ({
+      setProgram((prev) => {
+        const newProgram = { ...prev };
+        const newWeek = { ...newProgram[currentWeek] };
+
+        for (const targetDay of targetDays) {
+          const existingExercises = mode === "append" 
+            ? (newWeek[targetDay] || []).filter((e) => !e.isEmpty)
+            : [];
+
+          const copiedExercises = filledExercises.map((ex) => ({
             ...ex,
             id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          })),
-        ])
-      ),
-    }));
-    toast.success(
-      `Settimana ${currentWeek + 1} copiata in settimana ${currentWeek + 2}`
-    );
-  }, [currentWeek, totalWeeks]);
+            supersetGroup: undefined, // Clear superset links on copy
+          }));
+
+          newWeek[targetDay] = [...existingExercises, ...copiedExercises];
+        }
+
+        newProgram[currentWeek] = newWeek;
+        return newProgram;
+      });
+
+      toast.success(
+        `Allenamento copiato in ${targetDays.length} giorni (${mode === "append" ? "aggiunto" : "sostituito"})`
+      );
+    },
+    [currentWeek, program]
+  );
+
+  // Copy week to other weeks
+  const handleCopyWeekTo = useCallback(
+    (targetWeeks: number[]) => {
+      const sourceWeek = program[currentWeek];
+      if (!sourceWeek) return;
+
+      setProgram((prev) => {
+        const newProgram = { ...prev };
+
+        for (const targetWeekIndex of targetWeeks) {
+          newProgram[targetWeekIndex] = Object.fromEntries(
+            Object.entries(sourceWeek).map(([day, exercises]) => [
+              day,
+              exercises.filter((e) => !e.isEmpty).map((ex) => ({
+                ...ex,
+                id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                supersetGroup: undefined,
+              })),
+            ])
+          );
+        }
+
+        return newProgram;
+      });
+
+      toast.success(`Settimana copiata in ${targetWeeks.length} settimane`);
+    },
+    [currentWeek, program]
+  );
 
   // Clear week
   const handleClearWeek = useCallback(() => {
@@ -920,14 +969,6 @@ export default function ProgramBuilder() {
                 <Badge variant="outline" className="text-xs">
                   {totalExercises} esercizi
                 </Badge>
-                <Button variant="outline" size="sm" onClick={handleCopyWeek} className="h-8">
-                  <Copy className="h-3.5 w-3.5 mr-1.5" />
-                  Copia Sett.
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleClearWeek} className="h-8">
-                  <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-                  Pulisci
-                </Button>
                 <Button
                   size="sm"
                   className="h-8 gradient-primary"
@@ -963,7 +1004,8 @@ export default function ProgramBuilder() {
               onToggleSuperset={handleToggleSuperset}
               onSelectExercise={handleSelectExercise}
               onAddSlot={handleAddSlot}
-              onCopyWeek={handleCopyWeek}
+              onCopyDay={handleCopyDay}
+              onCopyWeekTo={handleCopyWeekTo}
               onClearWeek={handleClearWeek}
             />
           </div>
