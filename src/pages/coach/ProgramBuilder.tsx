@@ -437,7 +437,7 @@ export default function ProgramBuilder() {
           }
         }
 
-        // Replace empty slot with actual exercise
+        // Replace empty slot with actual exercise - include snapshot fields
         setProgram((prev) => ({
           ...prev,
           [weekIndex]: {
@@ -455,6 +455,9 @@ export default function ProgramBuilder() {
                     restSeconds: 90,
                     notes: "",
                     isEmpty: false,
+                    // Snapshot configuration at time of adding
+                    snapshotTrackingFields: [...libraryExercise.tracking_fields],
+                    snapshotMuscles: [...libraryExercise.muscles],
                   }
                 : ex
             ),
@@ -495,6 +498,9 @@ export default function ProgramBuilder() {
           restSeconds: 90,
           notes: "",
           isEmpty: false,
+          // Snapshot configuration at time of adding
+          snapshotTrackingFields: [...libraryExercise.tracking_fields],
+          snapshotMuscles: [...libraryExercise.muscles],
         };
 
         setProgram((prev) => ({

@@ -537,6 +537,8 @@ export type Database = {
           rest: string | null
           rpe: string | null
           sets: number | null
+          snapshot_muscles: string[] | null
+          snapshot_tracking_fields: string[] | null
           sort_order: number
           tempo: string | null
         }
@@ -551,6 +553,8 @@ export type Database = {
           rest?: string | null
           rpe?: string | null
           sets?: number | null
+          snapshot_muscles?: string[] | null
+          snapshot_tracking_fields?: string[] | null
           sort_order?: number
           tempo?: string | null
         }
@@ -565,6 +569,8 @@ export type Database = {
           rest?: string | null
           rpe?: string | null
           sets?: number | null
+          snapshot_muscles?: string[] | null
+          snapshot_tracking_fields?: string[] | null
           sort_order?: number
           tempo?: string | null
         }

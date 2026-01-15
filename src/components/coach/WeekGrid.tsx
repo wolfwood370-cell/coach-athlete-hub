@@ -53,6 +53,9 @@ export interface ProgramExercise {
   notes: string;
   supersetGroup?: string;
   isEmpty?: boolean;
+  // Snapshot fields - frozen at time of adding to program
+  snapshotTrackingFields?: string[];
+  snapshotMuscles?: string[];
 }
 
 export type WeekProgram = Record<number, ProgramExercise[]>;
