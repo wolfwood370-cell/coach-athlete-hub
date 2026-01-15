@@ -224,6 +224,48 @@ export type Database = {
           },
         ]
       }
+      exercises: {
+        Row: {
+          coach_id: string
+          created_at: string
+          default_rpe: number | null
+          id: string
+          is_compound: boolean
+          movement_pattern: string | null
+          muscles: string[]
+          name: string
+          notes: string | null
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          default_rpe?: number | null
+          id?: string
+          is_compound?: boolean
+          movement_pattern?: string | null
+          muscles?: string[]
+          name: string
+          notes?: string | null
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          default_rpe?: number | null
+          id?: string
+          is_compound?: boolean
+          movement_pattern?: string | null
+          muscles?: string[]
+          name?: string
+          notes?: string | null
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
       fms_tests: {
         Row: {
           active_straight_leg_l: number | null
