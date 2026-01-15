@@ -63,6 +63,7 @@ import {
   EXERCISE_TYPES,
   getMusclesGrouped,
 } from "@/lib/muscleTags";
+import { TrackingMetricBuilder } from "@/components/coach/TrackingMetricBuilder";
 
 // Types
 interface Exercise {
@@ -71,6 +72,7 @@ interface Exercise {
   video_url: string | null;
   muscles: string[];
   secondary_muscles: string[];
+  tracking_fields: string[];
   movement_pattern: string | null;
   exercise_type: string;
   notes: string | null;
@@ -86,6 +88,7 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
     video_url: null,
     muscles: ["Pettorali (c. clavicolari)"],
     secondary_muscles: ["Deltoidi (anteriori)", "Tricipiti (capo lungo)"],
+    tracking_fields: ["sets", "reps", "weight", "rpe"],
     movement_pattern: "spinta_orizzontale",
     exercise_type: "Multi-articolare",
     notes: null,
@@ -95,6 +98,7 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
     video_url: null,
     muscles: ["Erettori Spinali", "Grande Gluteo", "Ischiocrurali"],
     secondary_muscles: ["Quadricipiti", "Trapezi (superiori)"],
+    tracking_fields: ["sets", "reps", "weight", "rpe", "tempo"],
     movement_pattern: "hinge",
     exercise_type: "Multi-articolare",
     notes: null,
@@ -104,6 +108,7 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
     video_url: null,
     muscles: ["Gran Dorsale"],
     secondary_muscles: ["Bicipiti (capo lungo)", "Bicipiti (capo corto)"],
+    tracking_fields: ["sets", "reps", "weight", "rpe"],
     movement_pattern: "tirata_verticale",
     exercise_type: "Multi-articolare",
     notes: null,
@@ -113,6 +118,7 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
     video_url: null,
     muscles: ["Deltoidi (mediali)"],
     secondary_muscles: [],
+    tracking_fields: ["sets", "reps", "weight"],
     movement_pattern: null,
     exercise_type: "Mono-articolare",
     notes: null,
@@ -122,6 +128,7 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
     video_url: null,
     muscles: ["Quadricipiti", "Grande Gluteo"],
     secondary_muscles: ["Erettori Spinali"],
+    tracking_fields: ["sets", "reps", "weight", "rpe", "tempo"],
     movement_pattern: "squat",
     exercise_type: "Multi-articolare",
     notes: null,
@@ -131,6 +138,7 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
     video_url: null,
     muscles: ["Ischiocrurali"],
     secondary_muscles: ["Polpacci (gastrocnemio)"],
+    tracking_fields: ["sets", "reps", "weight"],
     movement_pattern: null,
     exercise_type: "Mono-articolare",
     notes: null,
@@ -140,6 +148,7 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
     video_url: null,
     muscles: ["Pettorali (c. sternali)", "Pettorali (c. costali)"],
     secondary_muscles: [],
+    tracking_fields: ["sets", "reps", "weight"],
     movement_pattern: null,
     exercise_type: "Mono-articolare",
     notes: null,
@@ -149,6 +158,7 @@ const SAMPLE_EXERCISES: Omit<Exercise, "id" | "coach_id" | "created_at" | "updat
     video_url: null,
     muscles: ["Gran Dorsale"],
     secondary_muscles: ["Trapezi (medi)", "Bicipiti (capo corto)"],
+    tracking_fields: ["sets", "reps", "weight", "rpe"],
     movement_pattern: "tirata_orizzontale",
     exercise_type: "Multi-articolare",
     notes: null,
@@ -188,6 +198,7 @@ export default function ExerciseLibrary() {
   const [formVideoUrl, setFormVideoUrl] = useState("");
   const [formMuscles, setFormMuscles] = useState<string[]>([]);
   const [formSecondaryMuscles, setFormSecondaryMuscles] = useState<string[]>([]);
+  const [formTrackingFields, setFormTrackingFields] = useState<string[]>(["sets", "reps", "weight"]);
   const [formPattern, setFormPattern] = useState("");
   const [formExerciseType, setFormExerciseType] = useState("Multi-articolare");
 
@@ -278,6 +289,7 @@ export default function ExerciseLibrary() {
     setFormVideoUrl("");
     setFormMuscles([]);
     setFormSecondaryMuscles([]);
+    setFormTrackingFields(["sets", "reps", "weight"]);
     setFormPattern("");
     setFormExerciseType("Multi-articolare");
   };
@@ -289,6 +301,7 @@ export default function ExerciseLibrary() {
     setFormVideoUrl(exercise.video_url || "");
     setFormMuscles(exercise.muscles || []);
     setFormSecondaryMuscles(exercise.secondary_muscles || []);
+    setFormTrackingFields(exercise.tracking_fields || ["sets", "reps", "weight"]);
     setFormPattern(exercise.movement_pattern || "");
     setFormExerciseType(exercise.exercise_type || "Multi-articolare");
     setDialogOpen(true);
@@ -311,6 +324,7 @@ export default function ExerciseLibrary() {
       video_url: formVideoUrl.trim() || null,
       muscles: formMuscles,
       secondary_muscles: formSecondaryMuscles,
+      tracking_fields: formTrackingFields,
       movement_pattern: formPattern || null,
       exercise_type: formExerciseType,
       notes: null,
@@ -592,6 +606,14 @@ export default function ExerciseLibrary() {
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    {/* Tracking Metrics Builder */}
+                    <div className="border border-border rounded-lg p-4 bg-secondary/20">
+                      <TrackingMetricBuilder
+                        value={formTrackingFields}
+                        onChange={setFormTrackingFields}
+                      />
                     </div>
 
                     {/* Movement Pattern (Schema Motorio) */}
