@@ -72,8 +72,15 @@ import {
   Plus,
   Ruler,
   TrendingDown,
-  CircleDot
+  CircleDot,
+  Upload,
+  Image,
+  Grid3X3,
+  Columns2,
+  X as XIcon,
+  User
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -1382,6 +1389,312 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
   );
 }
 
+// Mock progress photos data
+const generateMockProgressPhotos = () => {
+  const poses = ["front", "side", "back"] as const;
+  const dates = [
+    new Date(2025, 0, 12), // Jan 12
+    new Date(2025, 0, 5),  // Jan 5
+    new Date(2024, 11, 29), // Dec 29
+    new Date(2024, 11, 22), // Dec 22
+    new Date(2024, 11, 15), // Dec 15
+  ];
+  
+  return dates.map((date) => ({
+    date,
+    dateLabel: format(date, "MMM d, yyyy"),
+    photos: poses.map((pose) => ({
+      id: `${format(date, "yyyy-MM-dd")}-${pose}`,
+      pose,
+      // Using placeholder.svg as mock image
+      url: "/placeholder.svg",
+    })),
+  }));
+};
+
+// Progress Pics Content Component
+function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedDates, setSelectedDates] = useState<string[]>([]);
+  const [selectedPose, setSelectedPose] = useState<"front" | "side" | "back">("front");
+  
+  // Mock data
+  const progressData = useMemo(() => generateMockProgressPhotos(), []);
+  
+  // Handle date selection for comparison
+  const handleDateSelect = (dateLabel: string) => {
+    if (!compareMode) return;
+    
+    setSelectedDates(prev => {
+      if (prev.includes(dateLabel)) {
+        return prev.filter(d => d !== dateLabel);
+      }
+      if (prev.length >= 2) {
+        return [prev[1], dateLabel];
+      }
+      return [...prev, dateLabel];
+    });
+  };
+  
+  // Get photos for comparison
+  const comparisonPhotos = useMemo(() => {
+    if (selectedDates.length !== 2) return null;
+    
+    const [date1, date2] = selectedDates;
+    const session1 = progressData.find(s => s.dateLabel === date1);
+    const session2 = progressData.find(s => s.dateLabel === date2);
+    
+    if (!session1 || !session2) return null;
+    
+    return {
+      before: {
+        date: session1.dateLabel,
+        photo: session1.photos.find(p => p.pose === selectedPose),
+      },
+      after: {
+        date: session2.dateLabel,
+        photo: session2.photos.find(p => p.pose === selectedPose),
+      },
+    };
+  }, [selectedDates, selectedPose, progressData]);
+
+  const poseLabels = {
+    front: "Front",
+    side: "Side",
+    back: "Back",
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Controls */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Camera className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Progress Photos</CardTitle>
+                <p className="text-sm text-muted-foreground">Visual transformation tracking</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              {/* Compare Mode Toggle */}
+              <div className="flex items-center gap-2">
+                <Columns2 className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Compare</span>
+                <Switch
+                  checked={compareMode}
+                  onCheckedChange={(checked) => {
+                    setCompareMode(checked);
+                    if (!checked) setSelectedDates([]);
+                  }}
+                />
+              </div>
+              
+              {/* Upload Button */}
+              <Button className="gap-2">
+                <Upload className="h-4 w-4" />
+                Upload Check-in Photos
+              </Button>
+            </div>
+          </div>
+          
+          {/* Compare Mode Instructions */}
+          {compareMode && (
+            <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
+              <p className="text-sm text-foreground">
+                <strong>Compare Mode Active:</strong> Select two dates below to compare progress side-by-side.
+                {selectedDates.length === 1 && " (1/2 selected)"}
+                {selectedDates.length === 2 && " (2/2 selected - viewing comparison)"}
+              </p>
+            </div>
+          )}
+        </CardHeader>
+      </Card>
+
+      {/* Comparison View */}
+      {compareMode && selectedDates.length === 2 && comparisonPhotos && (
+        <Card className="overflow-hidden">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Columns2 className="h-5 w-5 text-primary" />
+                Side-by-Side Comparison
+              </CardTitle>
+              
+              {/* Pose Selector */}
+              <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+                {(["front", "side", "back"] as const).map((pose) => (
+                  <Button
+                    key={pose}
+                    variant={selectedPose === pose ? "default" : "ghost"}
+                    size="sm"
+                    className="text-xs px-3"
+                    onClick={() => setSelectedPose(pose)}
+                  >
+                    {poseLabels[pose]}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              {/* Before */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Badge variant="secondary" className="text-xs">Before</Badge>
+                  <span className="text-sm text-muted-foreground">{comparisonPhotos.before.date}</span>
+                </div>
+                <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden relative">
+                  {comparisonPhotos.before.photo ? (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
+                      <User className="h-24 w-24 text-muted-foreground/30" />
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Image className="h-12 w-12 text-muted-foreground/30" />
+                    </div>
+                  )}
+                  <Badge className="absolute bottom-2 left-2 capitalize">{selectedPose}</Badge>
+                </div>
+              </div>
+              
+              {/* After */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Badge variant="default" className="text-xs bg-green-500 hover:bg-green-600">After</Badge>
+                  <span className="text-sm text-muted-foreground">{comparisonPhotos.after.date}</span>
+                </div>
+                <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden relative">
+                  {comparisonPhotos.after.photo ? (
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
+                      <User className="h-24 w-24 text-muted-foreground/30" />
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <Image className="h-12 w-12 text-muted-foreground/30" />
+                    </div>
+                  )}
+                  <Badge className="absolute bottom-2 left-2 capitalize">{selectedPose}</Badge>
+                </div>
+              </div>
+            </div>
+            
+            {/* Clear Selection */}
+            <div className="flex justify-center mt-4">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="gap-2"
+                onClick={() => setSelectedDates([])}
+              >
+                <XIcon className="h-4 w-4" />
+                Clear Selection
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Gallery Grid by Date */}
+      <div className="space-y-6">
+        {progressData.map((session) => (
+          <Card 
+            key={session.dateLabel}
+            className={cn(
+              "overflow-hidden transition-all cursor-pointer",
+              compareMode && "hover:ring-2 hover:ring-primary/50",
+              compareMode && selectedDates.includes(session.dateLabel) && "ring-2 ring-primary"
+            )}
+            onClick={() => handleDateSelect(session.dateLabel)}
+          >
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
+                    <Calendar className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base">{session.dateLabel}</CardTitle>
+                    <p className="text-xs text-muted-foreground">
+                      {formatDistanceToNow(session.date, { addSuffix: true })}
+                    </p>
+                  </div>
+                </div>
+                
+                {compareMode && (
+                  <div className={cn(
+                    "h-6 w-6 rounded-full border-2 flex items-center justify-center transition-colors",
+                    selectedDates.includes(session.dateLabel) 
+                      ? "bg-primary border-primary" 
+                      : "border-muted-foreground/30"
+                  )}>
+                    {selectedDates.includes(session.dateLabel) && (
+                      <Check className="h-4 w-4 text-primary-foreground" />
+                    )}
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-3">
+                {session.photos.map((photo) => (
+                  <div 
+                    key={photo.id}
+                    className="relative aspect-[3/4] bg-muted rounded-lg overflow-hidden group"
+                  >
+                    {/* Placeholder Photo */}
+                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
+                      <User className="h-12 w-12 text-muted-foreground/30" />
+                    </div>
+                    
+                    {/* Pose Badge */}
+                    <Badge 
+                      variant="secondary" 
+                      className="absolute bottom-2 left-2 text-xs capitalize"
+                    >
+                      {photo.pose}
+                    </Badge>
+                    
+                    {/* Hover Overlay */}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="secondary" size="sm" className="gap-1">
+                          <Grid3X3 className="h-3 w-3" />
+                          View
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Empty State (if no photos) */}
+      {progressData.length === 0 && (
+        <Card className="p-12 text-center">
+          <Camera className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
+          <h3 className="text-lg font-semibold mb-2">No Progress Photos Yet</h3>
+          <p className="text-muted-foreground mb-4">
+            Upload check-in photos to track visual progress over time.
+          </p>
+          <Button className="gap-2">
+            <Upload className="h-4 w-4" />
+            Upload First Photos
+          </Button>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export default function AthleteDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -2524,13 +2837,7 @@ export default function AthleteDetail() {
           </TabsContent>
 
           <TabsContent value="progress-pics" className="space-y-6">
-            <Card className="p-8 text-center">
-              <Camera className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Progress Pics</h3>
-              <p className="text-muted-foreground">
-                Galleria foto di progressione fisica nel tempo.
-              </p>
-            </Card>
+            <ProgressPicsContent athleteId={id} />
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
