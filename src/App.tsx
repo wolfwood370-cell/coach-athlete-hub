@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import CoachHome from "./pages/coach/CoachHome";
 import CoachAthletes from "./pages/coach/CoachAthletes";
+import AthleteDetail from "./pages/coach/AthleteDetail";
 import CoachCalendar from "./pages/coach/CoachCalendar";
 import CoachMessages from "./pages/coach/CoachMessages";
 import CoachAnalytics from "./pages/coach/CoachAnalytics";
@@ -60,6 +61,7 @@ const App = () => (
               {/* Coach Routes */}
               <Route path="/coach" element={<CoachHome />} />
               <Route path="/coach/athletes" element={<CoachAthletes />} />
+              <Route path="/coach/athlete/:id" element={<AthleteDetail />} />
               <Route path="/coach/programs" element={<ProgramBuilder />} />
               <Route path="/coach/periodization" element={<Periodization />} />
               <Route path="/coach/calendar" element={<CoachCalendar />} />
