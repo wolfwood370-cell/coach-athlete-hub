@@ -26,7 +26,6 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import {
-  GripVertical,
   Trash2,
   Link2,
   Unlink,
@@ -83,10 +82,10 @@ function EmptySlot({
     <div
       ref={setNodeRef}
       className={cn(
-        "relative border-2 border-dashed rounded-lg p-3 text-center transition-all group",
+        "relative border-2 border-dashed rounded-lg p-4 text-center transition-all group min-h-[52px] flex items-center justify-center",
         isOver
-          ? "border-primary bg-primary/10"
-          : "border-muted-foreground/30 bg-muted/20 hover:border-muted-foreground/50"
+          ? "border-primary bg-primary/10 scale-[1.02]"
+          : "border-muted-foreground/40 bg-muted/10 opacity-70 hover:opacity-90 hover:border-muted-foreground/60"
       )}
     >
       <Button
@@ -97,14 +96,14 @@ function EmptySlot({
       >
         <Trash2 className="h-3 w-3" />
       </Button>
-      <p className="text-[10px] text-muted-foreground">
-        Trascina qui un esercizio
+      <p className="text-[10px] text-muted-foreground/80 font-medium">
+        Trascina esercizio qui
       </p>
     </div>
   );
 }
 
-// Compact sortable exercise card
+// Compact sortable exercise card with drag handle
 function SortableExercise({
   exercise,
   dayIndex,
@@ -130,6 +129,7 @@ function SortableExercise({
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -143,83 +143,114 @@ function SortableExercise({
     transition,
   };
 
-  const summary = [
-    exercise.sets ? `${exercise.sets}x${exercise.reps || "?"}` : null,
-    exercise.load || null,
-    exercise.rpe ? `RPE ${exercise.rpe}` : null,
-  ]
-    .filter(Boolean)
-    .join(" @ ");
+  // Compact summary: Sets x Reps + RPE only
+  const setsReps = exercise.sets ? `${exercise.sets}×${exercise.reps || "?"}` : null;
+  const rpeText = exercise.rpe ? `RPE ${exercise.rpe}` : null;
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       onClick={(e) => {
-        if ((e.target as HTMLElement).closest("button")) return;
+        // Prevent click when clicking buttons or drag handle
+        if ((e.target as HTMLElement).closest("button, [data-drag-handle]")) return;
         onSelect?.();
       }}
       className={cn(
-        "bg-background rounded-lg border p-2 group transition-all cursor-pointer",
-        isDragging && "opacity-50 shadow-lg ring-2 ring-primary",
+        "bg-card rounded-lg border shadow-sm transition-all",
+        isDragging && "opacity-50 shadow-lg ring-2 ring-primary z-50",
         isSelected && "ring-2 ring-primary border-primary bg-primary/5",
         isInSuperset && "border-l-4",
-        supersetColor
+        supersetColor,
+        !isDragging && "hover:shadow-md"
       )}
     >
-      <div className="flex items-center gap-1.5">
+      <div className="flex items-stretch">
+        {/* Drag Handle - distinct touch target for mobile */}
         <button
+          ref={setActivatorNodeRef}
           {...attributes}
           {...listeners}
-          className="p-0.5 rounded hover:bg-secondary cursor-grab active:cursor-grabbing flex-shrink-0"
+          data-drag-handle
+          className={cn(
+            "flex items-center justify-center px-1.5 rounded-l-lg border-r border-border/50",
+            "bg-muted/30 hover:bg-muted cursor-grab active:cursor-grabbing",
+            "touch-none select-none flex-shrink-0"
+          )}
         >
-          <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+          <div className="flex flex-col gap-[2px]">
+            <div className="flex gap-[2px]">
+              <span className="w-[3px] h-[3px] rounded-full bg-muted-foreground/50" />
+              <span className="w-[3px] h-[3px] rounded-full bg-muted-foreground/50" />
+            </div>
+            <div className="flex gap-[2px]">
+              <span className="w-[3px] h-[3px] rounded-full bg-muted-foreground/50" />
+              <span className="w-[3px] h-[3px] rounded-full bg-muted-foreground/50" />
+            </div>
+            <div className="flex gap-[2px]">
+              <span className="w-[3px] h-[3px] rounded-full bg-muted-foreground/50" />
+              <span className="w-[3px] h-[3px] rounded-full bg-muted-foreground/50" />
+            </div>
+          </div>
         </button>
 
-        <div className="flex-1 min-w-0">
-          <p className="text-[11px] font-medium truncate" title={exercise.name}>
-            {exercise.name}
-          </p>
-          {summary && (
-            <p className="text-[9px] text-muted-foreground truncate">
-              {summary}
-            </p>
-          )}
+        {/* Card Content */}
+        <div className="flex-1 p-2 min-w-0 group cursor-pointer">
+          <div className="flex items-center gap-1.5">
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-medium truncate leading-tight" title={exercise.name}>
+                {exercise.name}
+              </p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {setsReps && (
+                  <span className="text-[10px] font-medium text-foreground/80">
+                    {setsReps}
+                  </span>
+                )}
+                {rpeText && (
+                  <span className="text-[9px] text-muted-foreground bg-muted/50 px-1 py-0.5 rounded">
+                    {rpeText}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Action buttons - visible on hover */}
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "h-5 w-5 flex-shrink-0",
+                      isInSuperset && "text-primary opacity-100"
+                    )}
+                    onClick={onToggleSuperset}
+                  >
+                    {isInSuperset ? (
+                      <Unlink className="h-3 w-3" />
+                    ) : (
+                      <Link2 className="h-3 w-3" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  {isInSuperset ? "Rimuovi dal superset" : "Collega in superset"}
+                </TooltipContent>
+              </Tooltip>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-5 w-5 text-destructive hover:text-destructive flex-shrink-0"
+                onClick={onRemove}
+              >
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </div>
+          </div>
         </div>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "h-5 w-5 flex-shrink-0",
-                isInSuperset
-                  ? "text-primary"
-                  : "text-muted-foreground opacity-0 group-hover:opacity-100"
-              )}
-              onClick={onToggleSuperset}
-            >
-              {isInSuperset ? (
-                <Unlink className="h-3 w-3" />
-              ) : (
-                <Link2 className="h-3 w-3" />
-              )}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="top" className="text-xs">
-            {isInSuperset ? "Rimuovi dal superset" : "Collega in superset"}
-          </TooltipContent>
-        </Tooltip>
-
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-5 w-5 text-destructive opacity-0 group-hover:opacity-100 hover:text-destructive flex-shrink-0"
-          onClick={onRemove}
-        >
-          <Trash2 className="h-3 w-3" />
-        </Button>
       </div>
     </div>
   );
