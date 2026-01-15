@@ -1,78 +1,48 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CoachLayout } from "@/components/coach/CoachLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner";
-import { useAthleteAcwrData } from "@/hooks/useAthleteAcwrData";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
   ArrowLeft, 
-  Settings, 
-  Activity, 
-  TrendingUp, 
-  AlertTriangle, 
-  AlertOctagon, 
-  Scale, 
+  MoreHorizontal,
+  Activity,
   Dumbbell,
-  Calendar,
-  User,
-  ClipboardList,
-  Save,
-  Loader2,
+  BarChart3,
+  TrendingUp,
+  Scale,
+  Camera,
+  Settings,
+  Pencil,
+  Archive,
+  MessageSquare,
   CheckCircle2,
   XCircle,
+  Brain,
+  Calendar,
   Clock
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { format, formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { it } from "date-fns/locale";
-import { 
-  ChartContainer, 
-  ChartTooltip, 
-  ChartTooltipContent 
-} from "@/components/ui/chart";
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Area, AreaChart } from "recharts";
-
-const NEUROTYPE_OPTIONS = [
-  { value: "1A", label: "1A - Dominant Dopamine" },
-  { value: "1B", label: "1B - Adrenaline Seeker" },
-  { value: "2A", label: "2A - Balanced Pleaser" },
-  { value: "2B", label: "2B - Anxious Perfectionist" },
-  { value: "3", label: "3 - Serotonin Dominant" },
-];
-
-interface ProfileFormData {
-  full_name: string;
-  neurotype: string | null;
-  height_cm: number | null;
-  weight_kg: number | null;
-  injuries_notes: string;
-}
 
 export default function AthleteDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState("overview");
-  
-  // Form state
-  const [formData, setFormData] = useState<ProfileFormData>({
-    full_name: "",
-    neurotype: null,
-    height_cm: null,
-    weight_kg: null,
-    injuries_notes: "",
-  });
 
   // Fetch athlete profile
   const { data: profile, isLoading: profileLoading } = useQuery({
@@ -90,57 +60,7 @@ export default function AthleteDetail() {
     enabled: !!id,
   });
 
-  // Fetch weight trend (daily_metrics)
-  const { data: weightTrend } = useQuery({
-    queryKey: ["athlete-weight-trend", id],
-    queryFn: async () => {
-      if (!id) return [];
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      
-      const { data, error } = await supabase
-        .from("daily_metrics")
-        .select("date, weight_kg")
-        .eq("user_id", id)
-        .gte("date", thirtyDaysAgo.toISOString().split("T")[0])
-        .order("date", { ascending: true });
-      
-      if (error) throw error;
-      return data?.filter(d => d.weight_kg !== null) || [];
-    },
-    enabled: !!id,
-  });
-
-  // Fetch latest workout
-  const { data: latestWorkout } = useQuery({
-    queryKey: ["athlete-latest-workout", id],
-    queryFn: async () => {
-      if (!id) return null;
-      const { data, error } = await supabase
-        .from("workout_logs")
-        .select(`
-          id,
-          completed_at,
-          rpe_global,
-          duration_minutes,
-          duration_seconds,
-          notes,
-          workout_id,
-          workouts (title)
-        `)
-        .eq("athlete_id", id)
-        .not("completed_at", "is", null)
-        .order("completed_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!id,
-  });
-
-  // Fetch active injuries
+  // Fetch active injuries to determine status
   const { data: injuries } = useQuery({
     queryKey: ["athlete-injuries", id],
     queryFn: async () => {
@@ -151,7 +71,6 @@ export default function AthleteDetail() {
         .eq("athlete_id", id)
         .neq("status", "healed")
         .order("injury_date", { ascending: false });
-      
       if (error) throw error;
       return data || [];
     },
@@ -164,7 +83,6 @@ export default function AthleteDetail() {
     queryFn: async () => {
       if (!id) return null;
       const today = new Date().toISOString().split("T")[0];
-      
       const { data, error } = await supabase
         .from("training_phases")
         .select("*")
@@ -174,69 +92,32 @@ export default function AthleteDetail() {
         .order("start_date", { ascending: false })
         .limit(1)
         .maybeSingle();
-      
       if (error) throw error;
       return data;
     },
     enabled: !!id,
   });
 
-  // ACWR Data
-  const { data: acwrData, isLoading: acwrLoading } = useAthleteAcwrData(id);
-
-  // Update form when profile loads
-  useEffect(() => {
-    if (profile) {
-      const onboardingData = profile.onboarding_data as Record<string, unknown> | null;
-      setFormData({
-        full_name: profile.full_name || "",
-        neurotype: profile.neurotype || null,
-        height_cm: (onboardingData?.height as number) || null,
-        weight_kg: (onboardingData?.weight as number) || null,
-        injuries_notes: (onboardingData?.injuries as string) || "",
-      });
-    }
-  }, [profile]);
-
-  // Save profile mutation
-  const saveProfileMutation = useMutation({
-    mutationFn: async (data: ProfileFormData) => {
-      if (!id) throw new Error("No athlete ID");
-      
-      const currentOnboarding = (profile?.onboarding_data as Record<string, unknown>) || {};
-      const updatedOnboarding = {
-        ...currentOnboarding,
-        height: data.height_cm,
-        weight: data.weight_kg,
-        injuries: data.injuries_notes,
-      };
-
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: data.full_name,
-          neurotype: data.neurotype,
-          onboarding_data: updatedOnboarding,
-        })
-        .eq("id", id);
-
+  // Fetch latest workout for "Last Active"
+  const { data: latestWorkout } = useQuery({
+    queryKey: ["athlete-latest-workout", id],
+    queryFn: async () => {
+      if (!id) return null;
+      const { data, error } = await supabase
+        .from("workout_logs")
+        .select("completed_at")
+        .eq("athlete_id", id)
+        .not("completed_at", "is", null)
+        .order("completed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["athlete-profile", id] });
-      toast.success("Profilo aggiornato con successo");
-    },
-    onError: (error) => {
-      console.error("Error saving profile:", error);
-      toast.error("Errore nel salvare il profilo");
-    },
+    enabled: !!id,
   });
 
-  const handleSaveProfile = () => {
-    saveProfileMutation.mutate(formData);
-  };
-
-  // Determine injury status
+  // Determine status
   const hasActiveInjuries = injuries && injuries.length > 0;
   const athleteStatus = hasActiveInjuries ? "injured" : "active";
 
@@ -250,51 +131,32 @@ export default function AthleteDetail() {
       .slice(0, 2);
   };
 
-  // ACWR Status Config
-  const getAcwrStatusConfig = () => {
-    switch (acwrData?.status) {
-      case "optimal":
-        return {
-          icon: TrendingUp,
-          color: "text-success",
-          bgColor: "bg-success/10",
-          borderColor: "border-success/30",
-        };
-      case "warning":
-        return {
-          icon: AlertTriangle,
-          color: "text-warning",
-          bgColor: "bg-warning/10",
-          borderColor: "border-warning/30",
-        };
-      case "high-risk":
-        return {
-          icon: AlertOctagon,
-          color: "text-destructive",
-          bgColor: "bg-destructive/10",
-          borderColor: "border-destructive/30",
-        };
-      default:
-        return {
-          icon: Activity,
-          color: "text-muted-foreground",
-          bgColor: "bg-muted",
-          borderColor: "border-border",
-        };
-    }
+  // Get neurotype label
+  const getNeurotypeLabel = (neurotype: string | null) => {
+    const types: Record<string, string> = {
+      "1A": "1A - Dominant",
+      "1B": "1B - Seeker",
+      "2A": "2A - Balanced",
+      "2B": "2B - Perfectionist",
+      "3": "3 - Serotonin",
+    };
+    return neurotype ? types[neurotype] || neurotype : null;
   };
 
+  // Loading state
   if (profileLoading) {
     return (
       <CoachLayout title="Caricamento..." subtitle="">
         <div className="space-y-6">
-          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-48 w-full rounded-xl" />
+          <Skeleton className="h-12 w-full" />
           <Skeleton className="h-96 w-full" />
         </div>
       </CoachLayout>
     );
   }
 
+  // Not found state
   if (!profile) {
     return (
       <CoachLayout title="Atleta non trovato" subtitle="">
@@ -309,461 +171,231 @@ export default function AthleteDetail() {
     );
   }
 
-  const acwrConfig = getAcwrStatusConfig();
-  const AcwrIcon = acwrConfig.icon;
-
   return (
-    <CoachLayout 
-      title={profile.full_name || "Atleta"} 
-      subtitle="Scheda Performance"
-    >
+    <CoachLayout title="" subtitle="">
       <div className="space-y-6 animate-fade-in">
         {/* Back Button */}
         <Button 
           variant="ghost" 
           size="sm" 
           onClick={() => navigate("/coach/athletes")}
-          className="mb-2"
+          className="-ml-2"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Torna al Roster
         </Button>
 
-        {/* Header Card */}
-        <Card className="overflow-hidden">
-          <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6">
-            <div className="flex items-center gap-6">
-              {/* Avatar */}
-              <Avatar className="h-20 w-20 border-4 border-background shadow-lg">
+        {/* Header Section */}
+        <Card className="overflow-hidden border-0 shadow-lg">
+          <div className="bg-gradient-to-br from-primary/15 via-primary/5 to-transparent p-6 md:p-8">
+            <div className="flex flex-col md:flex-row md:items-start gap-6">
+              {/* Large Avatar */}
+              <Avatar className="h-24 w-24 md:h-28 md:w-28 border-4 border-background shadow-xl ring-2 ring-primary/20">
                 <AvatarImage src={profile.avatar_url || undefined} alt={profile.full_name || ""} />
-                <AvatarFallback className="bg-primary text-primary-foreground text-xl font-bold">
+                <AvatarFallback className="bg-primary text-primary-foreground text-2xl md:text-3xl font-bold">
                   {getInitials(profile.full_name || "A")}
                 </AvatarFallback>
               </Avatar>
 
-              {/* Info */}
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <h1 className="text-2xl font-bold text-foreground">
+              {/* Info Section */}
+              <div className="flex-1 space-y-4">
+                {/* Name and Status */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <h1 className="text-2xl md:text-3xl font-bold text-foreground">
                     {profile.full_name || "Nome non disponibile"}
                   </h1>
                   <Badge 
                     variant={athleteStatus === "injured" ? "destructive" : "secondary"}
                     className={cn(
-                      "text-xs font-medium",
-                      athleteStatus === "active" && "bg-success/10 text-success border-success/30"
+                      "text-xs font-semibold px-3 py-1 w-fit",
+                      athleteStatus === "active" && "bg-success/15 text-success border-success/30 hover:bg-success/20"
                     )}
                   >
                     {athleteStatus === "injured" ? (
                       <>
-                        <XCircle className="h-3 w-3 mr-1" />
+                        <XCircle className="h-3.5 w-3.5 mr-1.5" />
                         Infortunato
                       </>
                     ) : (
                       <>
-                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
                         Attivo
                       </>
                     )}
                   </Badge>
                 </div>
-                
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+
+                {/* Metadata Tags */}
+                <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                  {/* Neurotype Tag */}
                   {profile.neurotype && (
-                    <span className="flex items-center gap-1">
-                      <Activity className="h-4 w-4" />
-                      Neurotype: <span className="font-medium text-foreground">{profile.neurotype}</span>
-                    </span>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-sm">
+                      <Brain className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-muted-foreground">Neurotype:</span>
+                      <span className="font-medium text-foreground">{getNeurotypeLabel(profile.neurotype)}</span>
+                    </div>
                   )}
-                  {latestWorkout?.completed_at && (
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      Ultimo allenamento:{" "}
-                      <span className="font-medium text-foreground">
-                        {formatDistanceToNow(new Date(latestWorkout.completed_at), { addSuffix: true, locale: it })}
-                      </span>
+
+                  {/* Program Tag */}
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-sm">
+                    <Calendar className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-muted-foreground">Program:</span>
+                    <span className="font-medium text-foreground">
+                      {currentPhase?.name || "Nessun programma"}
                     </span>
-                  )}
+                  </div>
+
+                  {/* Last Active Tag */}
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-sm">
+                    <Clock className="h-3.5 w-3.5 text-primary" />
+                    <span className="text-muted-foreground">Last Active:</span>
+                    <span className="font-medium text-foreground">
+                      {latestWorkout?.completed_at 
+                        ? formatDistanceToNow(new Date(latestWorkout.completed_at), { addSuffix: true, locale: it })
+                        : "Mai"
+                      }
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Settings Button */}
-              <Button variant="outline" size="icon" className="flex-shrink-0">
-                <Settings className="h-4 w-4" />
-              </Button>
+              {/* Actions Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" className="shrink-0">
+                    <MoreHorizontal className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48 bg-popover">
+                  <DropdownMenuItem className="cursor-pointer">
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem className="cursor-pointer">
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Message
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive">
+                    <Archive className="h-4 w-4 mr-2" />
+                    Archive
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </Card>
 
-        {/* Tabs */}
+        {/* Navigation Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="bg-muted/50 p-1">
-            <TabsTrigger value="overview" className="gap-2">
-              <Activity className="h-4 w-4" />
-              Overview
-            </TabsTrigger>
-            <TabsTrigger value="profile" className="gap-2">
-              <User className="h-4 w-4" />
-              Profilo & Bio
-            </TabsTrigger>
-            <TabsTrigger value="program" className="gap-2">
-              <ClipboardList className="h-4 w-4" />
-              Programma
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+            <TabsList className="bg-muted/50 p-1 h-auto flex-wrap md:flex-nowrap w-max md:w-full">
+              <TabsTrigger value="overview" className="gap-2 text-xs md:text-sm px-3 py-2">
+                <Activity className="h-4 w-4" />
+                <span className="hidden sm:inline">Overview</span>
+                <span className="sm:hidden">Overview</span>
+              </TabsTrigger>
+              <TabsTrigger value="program" className="gap-2 text-xs md:text-sm px-3 py-2">
+                <Dumbbell className="h-4 w-4" />
+                <span className="hidden sm:inline">Workout Program</span>
+                <span className="sm:hidden">Program</span>
+              </TabsTrigger>
+              <TabsTrigger value="exercise-stats" className="gap-2 text-xs md:text-sm px-3 py-2">
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Exercise Stats</span>
+                <span className="sm:hidden">Stats</span>
+              </TabsTrigger>
+              <TabsTrigger value="advanced-stats" className="gap-2 text-xs md:text-sm px-3 py-2">
+                <TrendingUp className="h-4 w-4" />
+                <span className="hidden sm:inline">Advanced Stats</span>
+                <span className="sm:hidden">Advanced</span>
+              </TabsTrigger>
+              <TabsTrigger value="body-metrics" className="gap-2 text-xs md:text-sm px-3 py-2">
+                <Scale className="h-4 w-4" />
+                <span className="hidden sm:inline">Body Metrics</span>
+                <span className="sm:hidden">Metrics</span>
+              </TabsTrigger>
+              <TabsTrigger value="progress-pics" className="gap-2 text-xs md:text-sm px-3 py-2">
+                <Camera className="h-4 w-4" />
+                <span className="hidden sm:inline">Progress Pics</span>
+                <span className="sm:hidden">Photos</span>
+              </TabsTrigger>
+              <TabsTrigger value="settings" className="gap-2 text-xs md:text-sm px-3 py-2">
+                <Settings className="h-4 w-4" />
+                <span className="hidden sm:inline">Settings</span>
+                <span className="sm:hidden">Settings</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-          {/* Overview Tab */}
+          {/* Tab Contents - Placeholders */}
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              
-              {/* ACWR Card */}
-              <Card className={cn("border-2", acwrConfig.borderColor)}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <AcwrIcon className={cn("h-4 w-4", acwrConfig.color)} />
-                    Rischio ACWR
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {acwrLoading ? (
-                    <Skeleton className="h-16 w-full" />
-                  ) : acwrData?.status === "insufficient-data" ? (
-                    <div className="text-center py-4">
-                      <p className="text-2xl font-bold text-muted-foreground">—</p>
-                      <p className="text-xs text-muted-foreground mt-1">Dati insufficienti</p>
-                    </div>
-                  ) : (
-                    <div className={cn("rounded-lg p-4", acwrConfig.bgColor)}>
-                      <p className={cn("text-3xl font-bold tabular-nums", acwrConfig.color)}>
-                        {acwrData?.ratio?.toFixed(2) || "—"}
-                      </p>
-                      <p className={cn("text-sm font-medium mt-1", acwrConfig.color)}>
-                        {acwrData?.label}
-                      </p>
-                      <div className="flex gap-4 mt-3 text-xs text-muted-foreground">
-                        <span>Acuto: <strong className="text-foreground">{acwrData?.acuteLoad}</strong></span>
-                        <span>Cronico: <strong className="text-foreground">{acwrData?.chronicLoad}</strong></span>
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Weight Trend Card */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Scale className="h-4 w-4 text-muted-foreground" />
-                    Trend Peso (30gg)
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {!weightTrend || weightTrend.length === 0 ? (
-                    <div className="h-24 flex items-center justify-center text-muted-foreground text-sm">
-                      Nessun dato disponibile
-                    </div>
-                  ) : (
-                    <div className="h-24">
-                      <ChartContainer
-                        config={{
-                          weight: { label: "Peso", color: "hsl(var(--primary))" },
-                        }}
-                      >
-                        <AreaChart data={weightTrend}>
-                          <defs>
-                            <linearGradient id="weightGradient" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                              <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <XAxis dataKey="date" hide />
-                          <YAxis hide domain={["dataMin - 1", "dataMax + 1"]} />
-                          <ChartTooltip content={<ChartTooltipContent />} />
-                          <Area
-                            type="monotone"
-                            dataKey="weight_kg"
-                            stroke="hsl(var(--primary))"
-                            fill="url(#weightGradient)"
-                            strokeWidth={2}
-                          />
-                        </AreaChart>
-                      </ChartContainer>
-                    </div>
-                  )}
-                  {weightTrend && weightTrend.length > 0 && (
-                    <div className="flex justify-between text-xs text-muted-foreground mt-2">
-                      <span>Min: {Math.min(...weightTrend.map(w => w.weight_kg!))} kg</span>
-                      <span>Max: {Math.max(...weightTrend.map(w => w.weight_kg!))} kg</span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Last Workout Card */}
-              <Card>
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Dumbbell className="h-4 w-4 text-muted-foreground" />
-                    Ultimo Allenamento
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {!latestWorkout ? (
-                    <div className="text-center py-4">
-                      <p className="text-muted-foreground text-sm">Nessun allenamento completato</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div>
-                        <p className="font-semibold text-foreground">
-                          {(latestWorkout.workouts as { title: string } | null)?.title || "Allenamento"}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {latestWorkout.completed_at && format(new Date(latestWorkout.completed_at), "d MMMM yyyy, HH:mm", { locale: it })}
-                        </p>
-                      </div>
-                      <div className="flex gap-4">
-                        {latestWorkout.rpe_global && (
-                          <div className="text-center">
-                            <p className="text-lg font-bold text-primary">{latestWorkout.rpe_global}</p>
-                            <p className="text-[10px] text-muted-foreground uppercase">RPE</p>
-                          </div>
-                        )}
-                        {(latestWorkout.duration_minutes || latestWorkout.duration_seconds) && (
-                          <div className="text-center">
-                            <p className="text-lg font-bold text-foreground">
-                              {latestWorkout.duration_minutes || Math.round((latestWorkout.duration_seconds || 0) / 60)}
-                            </p>
-                            <p className="text-[10px] text-muted-foreground uppercase">Min</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-            </div>
-
-            {/* Active Injuries Section */}
-            {hasActiveInjuries && (
-              <Card className="border-destructive/30">
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium flex items-center gap-2 text-destructive">
-                    <AlertTriangle className="h-4 w-4" />
-                    Infortuni Attivi ({injuries.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {injuries.map((injury) => (
-                      <div 
-                        key={injury.id} 
-                        className="flex items-center justify-between p-3 bg-destructive/5 rounded-lg"
-                      >
-                        <div>
-                          <p className="font-medium text-foreground">{injury.body_zone}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {injury.description || "Nessuna descrizione"}
-                          </p>
-                        </div>
-                        <Badge variant="outline" className="text-xs">
-                          {injury.status === "in_rehab" ? "In Riabilitazione" : injury.status}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </TabsContent>
-
-          {/* Profile & Bio Tab */}
-          <TabsContent value="profile" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Informazioni Atleta</CardTitle>
-                <CardDescription>
-                  Modifica i dati anagrafici e biometrici dell'atleta
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Name */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="full_name">Nome Completo</Label>
-                    <Input
-                      id="full_name"
-                      value={formData.full_name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
-                      placeholder="Mario Rossi"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="neurotype">Neurotype</Label>
-                    <Select
-                      value={formData.neurotype || ""}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, neurotype: value }))}
-                    >
-                      <SelectTrigger id="neurotype" className="bg-background">
-                        <SelectValue placeholder="Seleziona neurotype" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-popover border-border">
-                        {NEUROTYPE_OPTIONS.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            {option.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                {/* Biometrics */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="height">Altezza (cm)</Label>
-                    <Input
-                      id="height"
-                      type="number"
-                      value={formData.height_cm || ""}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        height_cm: e.target.value ? Number(e.target.value) : null 
-                      }))}
-                      placeholder="175"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="weight">Peso (kg)</Label>
-                    <Input
-                      id="weight"
-                      type="number"
-                      step="0.1"
-                      value={formData.weight_kg || ""}
-                      onChange={(e) => setFormData(prev => ({ 
-                        ...prev, 
-                        weight_kg: e.target.value ? Number(e.target.value) : null 
-                      }))}
-                      placeholder="70"
-                    />
-                  </div>
-                </div>
-
-                {/* Injuries Notes */}
-                <div className="space-y-2">
-                  <Label htmlFor="injuries">Note Infortuni / Limitazioni</Label>
-                  <Textarea
-                    id="injuries"
-                    value={formData.injuries_notes}
-                    onChange={(e) => setFormData(prev => ({ ...prev, injuries_notes: e.target.value }))}
-                    placeholder="Es: Precedente infortunio al ginocchio sinistro, evitare carichi elevati..."
-                    rows={4}
-                  />
-                </div>
-
-                {/* Save Button */}
-                <div className="flex justify-end pt-4 border-t">
-                  <Button 
-                    onClick={handleSaveProfile}
-                    disabled={saveProfileMutation.isPending}
-                    className="gradient-primary"
-                  >
-                    {saveProfileMutation.isPending ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Salvataggio...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="h-4 w-4 mr-2" />
-                        Salva Modifiche
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
+            <Card className="p-8 text-center">
+              <Activity className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Overview</h3>
+              <p className="text-muted-foreground">
+                Dashboard panoramica dell'atleta con ACWR, trend peso, ultimo allenamento e infortuni attivi.
+              </p>
             </Card>
           </TabsContent>
 
-          {/* Program Tab */}
           <TabsContent value="program" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Fase di Allenamento Attuale
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {!currentPhase ? (
-                  <div className="text-center py-8">
-                    <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-                      <ClipboardList className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    <p className="text-muted-foreground mb-4">
-                      Nessuna fase di allenamento attiva per questo atleta
-                    </p>
-                    <Button 
-                      onClick={() => navigate("/coach/periodization")}
-                      className="gradient-primary"
-                    >
-                      Crea Piano di Periodizzazione
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h3 className="text-lg font-semibold text-foreground">
-                          {currentPhase.name}
-                        </h3>
-                        <p className="text-sm text-muted-foreground">
-                          {currentPhase.focus_type}
-                        </p>
-                      </div>
-                      <Badge variant="secondary">
-                        In Corso
-                      </Badge>
-                    </div>
+            <Card className="p-8 text-center">
+              <Dumbbell className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Workout Program</h3>
+              <p className="text-muted-foreground">
+                Gestione del programma di allenamento assegnato all'atleta.
+              </p>
+            </Card>
+          </TabsContent>
 
-                    <div className="grid grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-                      <div>
-                        <p className="text-xs text-muted-foreground uppercase">Inizio</p>
-                        <p className="font-medium">
-                          {format(new Date(currentPhase.start_date), "d MMM yyyy", { locale: it })}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground uppercase">Fine</p>
-                        <p className="font-medium">
-                          {format(new Date(currentPhase.end_date), "d MMM yyyy", { locale: it })}
-                        </p>
-                      </div>
-                    </div>
+          <TabsContent value="exercise-stats" className="space-y-6">
+            <Card className="p-8 text-center">
+              <BarChart3 className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Exercise Stats</h3>
+              <p className="text-muted-foreground">
+                Statistiche dettagliate per ogni esercizio: PR, volume, progressione.
+              </p>
+            </Card>
+          </TabsContent>
 
-                    {currentPhase.notes && (
-                      <div className="p-4 border rounded-lg">
-                        <p className="text-xs text-muted-foreground uppercase mb-2">Note</p>
-                        <p className="text-sm text-foreground">{currentPhase.notes}</p>
-                      </div>
-                    )}
+          <TabsContent value="advanced-stats" className="space-y-6">
+            <Card className="p-8 text-center">
+              <TrendingUp className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Advanced Stats</h3>
+              <p className="text-muted-foreground">
+                Analisi avanzate: frequenza, volume settimanale, distribuzione muscolare.
+              </p>
+            </Card>
+          </TabsContent>
 
-                    <div className="pt-4 border-t">
-                      <Button 
-                        onClick={() => navigate("/coach/programs")}
-                        variant="outline"
-                        className="w-full"
-                      >
-                        <ClipboardList className="h-4 w-4 mr-2" />
-                        Apri Program Builder
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
+          <TabsContent value="body-metrics" className="space-y-6">
+            <Card className="p-8 text-center">
+              <Scale className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Body Metrics</h3>
+              <p className="text-muted-foreground">
+                Trend peso, composizione corporea, circonferenze.
+              </p>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="progress-pics" className="space-y-6">
+            <Card className="p-8 text-center">
+              <Camera className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Progress Pics</h3>
+              <p className="text-muted-foreground">
+                Galleria foto di progressione fisica nel tempo.
+              </p>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-6">
+            <Card className="p-8 text-center">
+              <Settings className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
+              <h3 className="text-lg font-semibold mb-2">Settings</h3>
+              <p className="text-muted-foreground">
+                Impostazioni profilo atleta, notifiche, e gestione account.
+              </p>
             </Card>
           </TabsContent>
         </Tabs>
