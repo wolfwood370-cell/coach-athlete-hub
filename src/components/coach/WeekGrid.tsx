@@ -37,6 +37,7 @@ import {
   Plus,
   Calendar,
   Layers,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -376,11 +377,13 @@ function CopyDayDialog({
   open,
   onOpenChange,
   sourceDayIndex,
+  isLoading,
   onConfirm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sourceDayIndex: number;
+  isLoading?: boolean;
   onConfirm: (targetDays: number[], mode: "append" | "overwrite") => void;
 }) {
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
@@ -389,10 +392,16 @@ function CopyDayDialog({
   const handleConfirm = () => {
     if (selectedDays.length > 0) {
       onConfirm(selectedDays, mode);
+    }
+  };
+
+  // Reset state when dialog closes
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
       setSelectedDays([]);
       setMode("append");
-      onOpenChange(false);
     }
+    onOpenChange(isOpen);
   };
 
   const toggleDay = (dayIndex: number) => {
@@ -404,7 +413,7 @@ function CopyDayDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -460,11 +469,15 @@ function CopyDayDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isLoading}>
             Annulla
           </Button>
-          <Button onClick={handleConfirm} disabled={selectedDays.length === 0}>
-            <Copy className="h-4 w-4 mr-2" />
+          <Button onClick={handleConfirm} disabled={selectedDays.length === 0 || isLoading}>
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Copy className="h-4 w-4 mr-2" />
+            )}
             Copia in {selectedDays.length} giorni
           </Button>
         </DialogFooter>
@@ -479,12 +492,14 @@ function CopyWeekDialog({
   onOpenChange,
   sourceWeek,
   totalWeeks,
+  isLoading,
   onConfirm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   sourceWeek: number;
   totalWeeks: number;
+  isLoading?: boolean;
   onConfirm: (targetWeeks: number[]) => void;
 }) {
   const [selectedWeeks, setSelectedWeeks] = useState<number[]>([]);
@@ -492,9 +507,15 @@ function CopyWeekDialog({
   const handleConfirm = () => {
     if (selectedWeeks.length > 0) {
       onConfirm(selectedWeeks);
-      setSelectedWeeks([]);
-      onOpenChange(false);
     }
+  };
+
+  // Reset state when dialog closes
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      setSelectedWeeks([]);
+    }
+    onOpenChange(isOpen);
   };
 
   const toggleWeek = (weekIndex: number) => {
@@ -506,7 +527,7 @@ function CopyWeekDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -548,11 +569,15 @@ function CopyWeekDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => handleOpenChange(false)} disabled={isLoading}>
             Annulla
           </Button>
-          <Button onClick={handleConfirm} disabled={selectedWeeks.length === 0}>
-            <Layers className="h-4 w-4 mr-2" />
+          <Button onClick={handleConfirm} disabled={selectedWeeks.length === 0 || isLoading}>
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Layers className="h-4 w-4 mr-2" />
+            )}
             Copia in {selectedWeeks.length} settimane
           </Button>
         </DialogFooter>
@@ -566,6 +591,8 @@ interface WeekGridProps {
   totalWeeks: number;
   weekData: WeekProgram;
   selectedExerciseId?: string | null;
+  isCopyingDay?: boolean;
+  isCopyingWeek?: boolean;
   onWeekChange: (week: number) => void;
   onRemoveExercise: (dayIndex: number, exerciseId: string) => void;
   onToggleSuperset: (dayIndex: number, exerciseId: string) => void;
@@ -574,6 +601,8 @@ interface WeekGridProps {
   onCopyDay: (sourceDayIndex: number, targetDays: number[], mode: "append" | "overwrite") => void;
   onCopyWeekTo: (targetWeeks: number[]) => void;
   onClearWeek: () => void;
+  onCopyDayDialogClose?: () => void;
+  onCopyWeekDialogClose?: () => void;
 }
 
 export function WeekGrid({
@@ -581,6 +610,8 @@ export function WeekGrid({
   totalWeeks,
   weekData,
   selectedExerciseId,
+  isCopyingDay,
+  isCopyingWeek,
   onWeekChange,
   onRemoveExercise,
   onToggleSuperset,
@@ -589,6 +620,8 @@ export function WeekGrid({
   onCopyDay,
   onCopyWeekTo,
   onClearWeek,
+  onCopyDayDialogClose,
+  onCopyWeekDialogClose,
 }: WeekGridProps) {
   const [copyDayDialogOpen, setCopyDayDialogOpen] = useState(false);
   const [copyDaySource, setCopyDaySource] = useState(0);
@@ -601,6 +634,17 @@ export function WeekGrid({
 
   const handleCopyDayConfirm = (targetDays: number[], mode: "append" | "overwrite") => {
     onCopyDay(copyDaySource, targetDays, mode);
+  };
+
+  // Close dialogs when copy operation completes
+  const handleCopyDayDialogChange = (open: boolean) => {
+    setCopyDayDialogOpen(open);
+    if (!open) onCopyDayDialogClose?.();
+  };
+
+  const handleCopyWeekDialogChange = (open: boolean) => {
+    setCopyWeekDialogOpen(open);
+    if (!open) onCopyWeekDialogClose?.();
   };
 
   return (
@@ -681,17 +725,19 @@ export function WeekGrid({
       {/* Copy Day Dialog */}
       <CopyDayDialog
         open={copyDayDialogOpen}
-        onOpenChange={setCopyDayDialogOpen}
+        onOpenChange={handleCopyDayDialogChange}
         sourceDayIndex={copyDaySource}
+        isLoading={isCopyingDay}
         onConfirm={handleCopyDayConfirm}
       />
 
       {/* Copy Week Dialog */}
       <CopyWeekDialog
         open={copyWeekDialogOpen}
-        onOpenChange={setCopyWeekDialogOpen}
+        onOpenChange={handleCopyWeekDialogChange}
         sourceWeek={currentWeek}
         totalWeeks={totalWeeks}
+        isLoading={isCopyingWeek}
         onConfirm={onCopyWeekTo}
       />
     </div>
