@@ -679,9 +679,12 @@ export default function ProgramBuilder() {
     [currentWeek, program, supersetPendingId]
   );
 
-  // Copy day to other days
+  // Copy day to other days (local state update - RPC would be used for DB sync)
+  const [isCopyingDay, setIsCopyingDay] = useState(false);
+  const [isCopyingWeek, setIsCopyingWeek] = useState(false);
+
   const handleCopyDay = useCallback(
-    (sourceDayIndex: number, targetDays: number[], mode: "append" | "overwrite") => {
+    async (sourceDayIndex: number, targetDays: number[], mode: "append" | "overwrite") => {
       const sourceExercises = program[currentWeek]?.[sourceDayIndex] || [];
       const filledExercises = sourceExercises.filter((e) => !e.isEmpty);
       
@@ -690,61 +693,79 @@ export default function ProgramBuilder() {
         return;
       }
 
-      setProgram((prev) => {
-        const newProgram = { ...prev };
-        const newWeek = { ...newProgram[currentWeek] };
+      setIsCopyingDay(true);
+      
+      try {
+        // For now, do local state update (RPC would be used when saving to DB)
+        setProgram((prev) => {
+          const newProgram = { ...prev };
+          const newWeek = { ...newProgram[currentWeek] };
 
-        for (const targetDay of targetDays) {
-          const existingExercises = mode === "append" 
-            ? (newWeek[targetDay] || []).filter((e) => !e.isEmpty)
-            : [];
+          for (const targetDay of targetDays) {
+            const existingExercises = mode === "append" 
+              ? (newWeek[targetDay] || []).filter((e) => !e.isEmpty)
+              : [];
 
-          const copiedExercises = filledExercises.map((ex) => ({
-            ...ex,
-            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            supersetGroup: undefined, // Clear superset links on copy
-          }));
+            const copiedExercises = filledExercises.map((ex) => ({
+              ...ex,
+              id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              supersetGroup: undefined, // Clear superset links on copy
+            }));
 
-          newWeek[targetDay] = [...existingExercises, ...copiedExercises];
-        }
+            newWeek[targetDay] = [...existingExercises, ...copiedExercises];
+          }
 
-        newProgram[currentWeek] = newWeek;
-        return newProgram;
-      });
+          newProgram[currentWeek] = newWeek;
+          return newProgram;
+        });
 
-      toast.success(
-        `Allenamento copiato in ${targetDays.length} giorni (${mode === "append" ? "aggiunto" : "sostituito"})`
-      );
+        toast.success(
+          `✅ Allenamento copiato in ${targetDays.length} giorni (${mode === "append" ? "aggiunto" : "sostituito"})`
+        );
+      } catch (error) {
+        toast.error("Errore durante la copia dell'allenamento");
+      } finally {
+        setIsCopyingDay(false);
+      }
     },
     [currentWeek, program]
   );
 
   // Copy week to other weeks
   const handleCopyWeekTo = useCallback(
-    (targetWeeks: number[]) => {
+    async (targetWeeks: number[]) => {
       const sourceWeek = program[currentWeek];
       if (!sourceWeek) return;
 
-      setProgram((prev) => {
-        const newProgram = { ...prev };
+      setIsCopyingWeek(true);
 
-        for (const targetWeekIndex of targetWeeks) {
-          newProgram[targetWeekIndex] = Object.fromEntries(
-            Object.entries(sourceWeek).map(([day, exercises]) => [
-              day,
-              exercises.filter((e) => !e.isEmpty).map((ex) => ({
-                ...ex,
-                id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                supersetGroup: undefined,
-              })),
-            ])
-          );
-        }
+      try {
+        // For now, do local state update (RPC would be used when saving to DB)
+        setProgram((prev) => {
+          const newProgram = { ...prev };
 
-        return newProgram;
-      });
+          for (const targetWeekIndex of targetWeeks) {
+            newProgram[targetWeekIndex] = Object.fromEntries(
+              Object.entries(sourceWeek).map(([day, exercises]) => [
+                day,
+                exercises.filter((e) => !e.isEmpty).map((ex) => ({
+                  ...ex,
+                  id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  supersetGroup: undefined,
+                })),
+              ])
+            );
+          }
 
-      toast.success(`Settimana copiata in ${targetWeeks.length} settimane`);
+          return newProgram;
+        });
+
+        toast.success(`✅ Settimana copiata in ${targetWeeks.length} settimane`);
+      } catch (error) {
+        toast.error("Errore durante la copia della settimana");
+      } finally {
+        setIsCopyingWeek(false);
+      }
     },
     [currentWeek, program]
   );
@@ -999,6 +1020,8 @@ export default function ProgramBuilder() {
               totalWeeks={totalWeeks}
               weekData={weekData}
               selectedExerciseId={selectedExercise?.exercise.id}
+              isCopyingDay={isCopyingDay}
+              isCopyingWeek={isCopyingWeek}
               onWeekChange={setCurrentWeek}
               onRemoveExercise={handleRemoveExercise}
               onToggleSuperset={handleToggleSuperset}
