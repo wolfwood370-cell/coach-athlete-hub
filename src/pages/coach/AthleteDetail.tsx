@@ -68,10 +68,25 @@ import {
   Check,
   Weight,
   Repeat,
-  Hash
+  Hash,
+  Plus,
+  Ruler,
+  TrendingDown,
+  CircleDot
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { format, formatDistanceToNow, startOfWeek, endOfWeek, addDays, isAfter, isBefore, isSameDay, differenceInDays, differenceInWeeks, subMonths } from "date-fns";
+import { format, formatDistanceToNow, startOfWeek, endOfWeek, addDays, subDays, isAfter, isBefore, isSameDay, differenceInDays, differenceInWeeks, subMonths } from "date-fns";
 import { it } from "date-fns/locale";
 import { useAthleteAcwrData } from "@/hooks/useAthleteAcwrData";
 import { 
@@ -901,6 +916,468 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
           </div>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+// Generate mock weight data with trend calculation
+const generateMockWeightData = () => {
+  const data: Array<{
+    date: Date;
+    dateLabel: string;
+    weight: number;
+    trend: number | null;
+  }> = [];
+  
+  const today = new Date();
+  let baseWeight = 82 + (Math.random() * 4 - 2); // Starting around 80-84kg
+  
+  for (let i = 59; i >= 0; i--) {
+    const date = subDays(today, i);
+    // Add some natural fluctuation
+    const dailyFluctuation = (Math.random() * 1.2 - 0.6); // +/- 0.6kg daily fluctuation
+    const progressTrend = -0.02; // Slight downward trend (cutting phase)
+    
+    baseWeight += progressTrend + (Math.random() * 0.1 - 0.05);
+    const weight = Math.round((baseWeight + dailyFluctuation) * 10) / 10;
+    
+    data.push({
+      date,
+      dateLabel: format(date, "MMM d"),
+      weight,
+      trend: null,
+    });
+  }
+  
+  // Calculate 7-day moving average (trend line)
+  for (let i = 6; i < data.length; i++) {
+    const windowWeights = data.slice(i - 6, i + 1).map(d => d.weight);
+    const average = windowWeights.reduce((sum, w) => sum + w, 0) / windowWeights.length;
+    data[i].trend = Math.round(average * 10) / 10;
+  }
+  
+  return data;
+};
+
+// Generate mock body measurements
+const generateMockMeasurements = () => {
+  const today = new Date();
+  const measurementTypes = [
+    { key: "waist", label: "Waist", unit: "cm", baseValue: 84, change: -0.3 },
+    { key: "chest", label: "Chest", unit: "cm", baseValue: 104, change: 0.1 },
+    { key: "thigh", label: "Thigh", unit: "cm", baseValue: 58, change: 0.2 },
+    { key: "arm", label: "Arm", unit: "cm", baseValue: 38, change: 0.15 },
+  ];
+  
+  return measurementTypes.map(type => {
+    const history: Array<{ date: Date; value: number }> = [];
+    let value = type.baseValue;
+    
+    for (let i = 8; i >= 0; i--) {
+      const date = subDays(today, i * 7); // Weekly measurements
+      value += type.change + (Math.random() * 0.4 - 0.2);
+      history.push({
+        date,
+        value: Math.round(value * 10) / 10,
+      });
+    }
+    
+    const latestValue = history[history.length - 1]?.value ?? type.baseValue;
+    const previousValue = history[history.length - 2]?.value ?? type.baseValue;
+    const weeklyChange = Math.round((latestValue - previousValue) * 10) / 10;
+    
+    return {
+      ...type,
+      latestValue,
+      weeklyChange,
+      history,
+    };
+  });
+};
+
+// Mini sparkline component for measurements
+function MiniSparkline({ data, color = "hsl(var(--primary))" }: { data: Array<{ value: number }>; color?: string }) {
+  if (!data.length) return null;
+  
+  const values = data.map(d => d.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min || 1;
+  
+  const points = values.map((value, i) => {
+    const x = (i / (values.length - 1)) * 100;
+    const y = 100 - ((value - min) / range) * 80 - 10; // 10-90% range
+    return `${x},${y}`;
+  }).join(" ");
+  
+  return (
+    <svg viewBox="0 0 100 40" className="w-full h-10 overflow-visible">
+      <polyline
+        points={points}
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle
+        cx={100}
+        cy={100 - ((values[values.length - 1] - min) / range) * 80 - 10}
+        r="3"
+        fill={color}
+      />
+    </svg>
+  );
+}
+
+// Body Metrics Content Component
+function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newMetric, setNewMetric] = useState({
+    weight: "",
+    waist: "",
+    chest: "",
+    thigh: "",
+    arm: "",
+  });
+  
+  // Mock data (in production, fetch from daily_metrics)
+  const weightData = useMemo(() => generateMockWeightData(), []);
+  const measurements = useMemo(() => generateMockMeasurements(), []);
+  
+  // Calculate weight stats
+  const weightStats = useMemo(() => {
+    const recentData = weightData.filter(d => d.trend !== null);
+    if (recentData.length < 2) return { currentTrend: 0, weeklyChange: 0 };
+    
+    const currentTrend = recentData[recentData.length - 1]?.trend ?? 0;
+    const weekAgoTrend = recentData[recentData.length - 8]?.trend ?? currentTrend;
+    const weeklyChange = Math.round((currentTrend - weekAgoTrend) * 10) / 10;
+    
+    return { currentTrend, weeklyChange };
+  }, [weightData]);
+  
+  // Chart data for last 30 days
+  const chartData = useMemo(() => {
+    return weightData.slice(-30).map(d => ({
+      date: d.dateLabel,
+      weight: d.weight,
+      trend: d.trend,
+    }));
+  }, [weightData]);
+
+  const handleAddMetric = () => {
+    // In production, this would save to Supabase
+    console.log("Adding metric:", newMetric);
+    setIsAddDialogOpen(false);
+    setNewMetric({ weight: "", waist: "", chest: "", thigh: "", arm: "" });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Add Button */}
+      <Card>
+        <CardHeader className="pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                <Scale className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Body Composition Tracking</CardTitle>
+                <p className="text-sm text-muted-foreground">Weight trends & circumference measurements</p>
+              </div>
+            </div>
+            
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Log Measurement
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Log New Measurements</DialogTitle>
+                  <DialogDescription>
+                    Enter today's body measurements for the athlete.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="weight">Weight (kg)</Label>
+                      <Input
+                        id="weight"
+                        type="number"
+                        step="0.1"
+                        placeholder="82.5"
+                        value={newMetric.weight}
+                        onChange={(e) => setNewMetric(prev => ({ ...prev, weight: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="waist">Waist (cm)</Label>
+                      <Input
+                        id="waist"
+                        type="number"
+                        step="0.1"
+                        placeholder="84.0"
+                        value={newMetric.waist}
+                        onChange={(e) => setNewMetric(prev => ({ ...prev, waist: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="chest">Chest (cm)</Label>
+                      <Input
+                        id="chest"
+                        type="number"
+                        step="0.1"
+                        placeholder="104.0"
+                        value={newMetric.chest}
+                        onChange={(e) => setNewMetric(prev => ({ ...prev, chest: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="thigh">Thigh (cm)</Label>
+                      <Input
+                        id="thigh"
+                        type="number"
+                        step="0.1"
+                        placeholder="58.0"
+                        value={newMetric.thigh}
+                        onChange={(e) => setNewMetric(prev => ({ ...prev, thigh: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="arm">Arm (cm)</Label>
+                      <Input
+                        id="arm"
+                        type="number"
+                        step="0.1"
+                        placeholder="38.0"
+                        value={newMetric.arm}
+                        onChange={(e) => setNewMetric(prev => ({ ...prev, arm: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddMetric}>
+                    Save Measurements
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Weight Analysis Section (Left - 2 columns) */}
+        <Card className="lg:col-span-2 overflow-hidden">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                Weight Trend Analysis
+              </CardTitle>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Info className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-[280px]">
+                    <p className="text-sm">
+                      <strong>7-Day Moving Average</strong><br />
+                      The solid line shows your true weight trend, smoothing out daily fluctuations from water retention, food timing, etc.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {/* Stats Row */}
+            <div className="flex items-center gap-6 mb-4 pb-4 border-b border-border/50">
+              <div>
+                <p className="text-sm text-muted-foreground">Current Trend</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {weightStats.currentTrend.toFixed(1)} kg
+                </p>
+              </div>
+              <div className="h-10 w-px bg-border" />
+              <div>
+                <p className="text-sm text-muted-foreground">Weekly Change</p>
+                <p className={cn(
+                  "text-2xl font-bold",
+                  weightStats.weeklyChange < 0 ? "text-green-500" : 
+                  weightStats.weeklyChange > 0 ? "text-amber-500" : "text-muted-foreground"
+                )}>
+                  {weightStats.weeklyChange > 0 ? "+" : ""}{weightStats.weeklyChange.toFixed(1)} kg
+                </p>
+              </div>
+            </div>
+
+            {/* Chart */}
+            <div className="h-[280px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="hsl(var(--muted-foreground))" 
+                    fontSize={10}
+                    tickLine={false}
+                    axisLine={false}
+                    interval={4}
+                  />
+                  <YAxis 
+                    stroke="hsl(var(--muted-foreground))" 
+                    fontSize={12}
+                    tickLine={false}
+                    axisLine={false}
+                    domain={['dataMin - 1', 'dataMax + 1']}
+                    tickFormatter={(value) => `${value}kg`}
+                  />
+                  <ChartTooltip 
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const data = payload[0].payload;
+                      return (
+                        <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+                          <p className="text-sm font-medium text-foreground">{data.date}</p>
+                          <div className="space-y-1 mt-1">
+                            <p className="text-sm text-muted-foreground flex items-center gap-2">
+                              <CircleDot className="h-3 w-3 text-muted-foreground/50" />
+                              Actual: <span className="font-semibold text-foreground">{data.weight} kg</span>
+                            </p>
+                            {data.trend && (
+                              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                                <div className="w-3 h-0.5 bg-primary rounded" />
+                                Trend: <span className="font-semibold text-primary">{data.trend} kg</span>
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+                  {/* Raw weight as dots */}
+                  <Line
+                    type="monotone"
+                    dataKey="weight"
+                    stroke="hsl(var(--muted-foreground))"
+                    strokeWidth={0}
+                    dot={{ fill: "hsl(var(--muted-foreground))", r: 2, opacity: 0.4 }}
+                    activeDot={{ r: 4, fill: "hsl(var(--foreground))" }}
+                  />
+                  {/* Trend line (7-day MA) */}
+                  <Line
+                    type="monotone"
+                    dataKey="trend"
+                    stroke="hsl(var(--primary))"
+                    strokeWidth={3}
+                    dot={false}
+                    activeDot={{ r: 5, fill: "hsl(var(--primary))" }}
+                    connectNulls
+                  />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Legend */}
+            <div className="flex items-center justify-center gap-6 pt-4 border-t border-border/50">
+              <div className="flex items-center gap-2">
+                <CircleDot className="h-3 w-3 text-muted-foreground/50" />
+                <span className="text-xs text-muted-foreground">Daily Weight</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-4 h-0.5 bg-primary rounded" />
+                <span className="text-xs text-muted-foreground">7-Day Trend</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Body Measurements Grid (Right - 1 column) */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+            <Ruler className="h-4 w-4" />
+            Body Measurements
+          </h3>
+          
+          {measurements.map((measurement) => (
+            <Card key={measurement.key} className="overflow-hidden">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-foreground">
+                    {measurement.label}
+                  </span>
+                  <Badge 
+                    variant="outline" 
+                    className={cn(
+                      "text-xs",
+                      measurement.weeklyChange < 0 && measurement.key === "waist" ? "text-green-500 border-green-500/30" :
+                      measurement.weeklyChange > 0 && measurement.key !== "waist" ? "text-green-500 border-green-500/30" :
+                      measurement.weeklyChange !== 0 ? "text-amber-500 border-amber-500/30" :
+                      ""
+                    )}
+                  >
+                    {measurement.weeklyChange > 0 ? "+" : ""}{measurement.weeklyChange} {measurement.unit}
+                  </Badge>
+                </div>
+                
+                <div className="flex items-end justify-between gap-4">
+                  <div>
+                    <p className="text-2xl font-bold text-foreground">
+                      {measurement.latestValue}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{measurement.unit}</p>
+                  </div>
+                  
+                  <div className="flex-1 max-w-[80px]">
+                    <MiniSparkline 
+                      data={measurement.history} 
+                      color={
+                        measurement.key === "waist" 
+                          ? "hsl(var(--success))" 
+                          : "hsl(var(--primary))"
+                      }
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+          
+          {/* Quick Summary Card */}
+          <Card className="bg-muted/50">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Target className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium">Weekly Summary</span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Weight trending {weightStats.weeklyChange < 0 ? "down" : "stable"}, 
+                waist {(measurements.find(m => m.key === "waist")?.weeklyChange ?? 0) < 0 ? "decreasing" : "stable"}. 
+                {weightStats.weeklyChange < 0 && (measurements.find(m => m.key === "waist")?.weeklyChange ?? 0) < 0 
+                  ? " Good progress on the cut!" 
+                  : " Maintaining composition."}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }
@@ -2043,13 +2520,7 @@ export default function AthleteDetail() {
           </TabsContent>
 
           <TabsContent value="body-metrics" className="space-y-6">
-            <Card className="p-8 text-center">
-              <Scale className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Body Metrics</h3>
-              <p className="text-muted-foreground">
-                Trend peso, composizione corporea, circonferenze.
-              </p>
-            </Card>
+            <BodyMetricsContent athleteId={id} />
           </TabsContent>
 
           <TabsContent value="progress-pics" className="space-y-6">
