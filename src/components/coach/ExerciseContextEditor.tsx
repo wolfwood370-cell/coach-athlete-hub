@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -14,6 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Dumbbell,
   X,
@@ -24,12 +30,28 @@ import {
   FileText,
   Zap,
   Timer,
+  Settings2,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ProgramExercise } from "@/components/coach/WeekGrid";
 
 const REST_OPTIONS = [30, 45, 60, 90, 120, 180, 240, 300];
 const DAYS = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
+
+// Available tracking fields that can be added
+const ALL_TRACKING_FIELDS = [
+  { value: "sets", label: "Serie" },
+  { value: "reps", label: "Ripetizioni" },
+  { value: "weight", label: "Peso (kg)" },
+  { value: "rpe", label: "RPE" },
+  { value: "rest", label: "Recupero" },
+  { value: "tempo", label: "Tempo" },
+  { value: "rir", label: "RIR" },
+  { value: "distance", label: "Distanza" },
+  { value: "time", label: "Tempo (durata)" },
+  { value: "calories", label: "Calorie" },
+];
 
 interface ExerciseContextEditorProps {
   exercise: ProgramExercise;
@@ -49,6 +71,7 @@ export function ExerciseContextEditor({
   className,
 }: ExerciseContextEditorProps) {
   const [localExercise, setLocalExercise] = useState<ProgramExercise>(exercise);
+  const [trackingFieldsOpen, setTrackingFieldsOpen] = useState(false);
 
   // Sync when exercise changes externally
   useEffect(() => {
@@ -70,6 +93,15 @@ export function ExerciseContextEditor({
     value: ProgramExercise[K]
   ) => {
     setLocalExercise((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Toggle tracking field
+  const handleToggleTrackingField = (field: string) => {
+    const currentFields = localExercise.snapshotTrackingFields || [];
+    const newFields = currentFields.includes(field)
+      ? currentFields.filter((f) => f !== field)
+      : [...currentFields, field];
+    handleChange("snapshotTrackingFields", newFields);
   };
 
   // Calculate kg from percentage
@@ -94,6 +126,8 @@ export function ExerciseContextEditor({
     }
     return `${seconds}s`;
   };
+
+  const activeTrackingFields = localExercise.snapshotTrackingFields || [];
 
   return (
     <div className={cn("flex flex-col h-full bg-card border-l border-border", className)}>
@@ -120,6 +154,22 @@ export function ExerciseContextEditor({
             <X className="h-4 w-4" />
           </Button>
         </div>
+
+        {/* Snapshot Muscles Badge */}
+        {localExercise.snapshotMuscles && localExercise.snapshotMuscles.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {localExercise.snapshotMuscles.slice(0, 3).map((muscle) => (
+              <Badge key={muscle} variant="secondary" className="text-[9px] h-4 px-1.5">
+                {muscle}
+              </Badge>
+            ))}
+            {localExercise.snapshotMuscles.length > 3 && (
+              <Badge variant="outline" className="text-[9px] h-4 px-1.5">
+                +{localExercise.snapshotMuscles.length - 3}
+              </Badge>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Content */}
@@ -256,9 +306,6 @@ export function ExerciseContextEditor({
                 </SelectContent>
               </Select>
             </div>
-
-            {/* Tempo (optional - if needed later) */}
-            {/* You can add tempo input here for advanced users */}
           </div>
 
           <Separator />
@@ -277,6 +324,55 @@ export function ExerciseContextEditor({
               className="min-h-[80px] text-sm resize-none"
             />
           </div>
+
+          <Separator />
+
+          {/* Tracking Fields Configuration - Collapsible */}
+          <Collapsible open={trackingFieldsOpen} onOpenChange={setTrackingFieldsOpen}>
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-between h-8 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <span className="flex items-center gap-2">
+                  <Settings2 className="h-3.5 w-3.5" />
+                  Campi Tracciamento ({activeTrackingFields.length})
+                </span>
+                <ChevronDown className={cn(
+                  "h-3.5 w-3.5 transition-transform",
+                  trackingFieldsOpen && "rotate-180"
+                )} />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="pt-3 space-y-2">
+                <p className="text-[10px] text-muted-foreground mb-2">
+                  Personalizza i campi per questa istanza specifica
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {ALL_TRACKING_FIELDS.map((field) => (
+                    <div
+                      key={field.value}
+                      className={cn(
+                        "flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors border",
+                        activeTrackingFields.includes(field.value)
+                          ? "bg-primary/10 border-primary/30"
+                          : "hover:bg-secondary border-transparent"
+                      )}
+                      onClick={() => handleToggleTrackingField(field.value)}
+                    >
+                      <Checkbox
+                        checked={activeTrackingFields.includes(field.value)}
+                        className="h-3.5 w-3.5"
+                      />
+                      <span className="text-xs">{field.label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           {/* Superset Info */}
           {localExercise.supersetGroup && (
