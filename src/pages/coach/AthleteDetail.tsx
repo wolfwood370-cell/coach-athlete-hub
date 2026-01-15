@@ -1,9 +1,9 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CoachLayout } from "@/components/coach/CoachLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -37,6 +37,25 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { 
   ArrowLeft, 
   MoreHorizontal,
@@ -78,7 +97,14 @@ import {
   Grid3X3,
   Columns2,
   X as XIcon,
-  User
+  User,
+  Mail,
+  Phone,
+  Trash2,
+  Save,
+  Loader2,
+  Shield,
+  GraduationCap
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -105,6 +131,7 @@ import { AreaChart, Area, XAxis, YAxis, LineChart, Line, ResponsiveContainer, Ba
 import { Tooltip } from "@/components/ui/tooltip";
 import { TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info, ShieldAlert, ShieldCheck, Gauge } from "lucide-react";
+import { toast } from "sonner";
 
 // Mock exercise list for the combobox
 const EXERCISE_LIST = [
@@ -1695,6 +1722,418 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
   );
 }
 
+// Training status options
+const TRAINING_STATUS_OPTIONS = [
+  { value: "active", label: "Active", color: "bg-success text-success-foreground" },
+  { value: "injured", label: "Injured", color: "bg-destructive text-destructive-foreground" },
+  { value: "on_hold", label: "On Hold", color: "bg-warning text-warning-foreground" },
+];
+
+// Experience level options
+const EXPERIENCE_LEVELS = [
+  { value: "beginner", label: "Beginner" },
+  { value: "intermediate", label: "Intermediate" },
+  { value: "advanced", label: "Advanced" },
+  { value: "elite", label: "Elite" },
+];
+
+// Neurotype options
+const NEUROTYPE_OPTIONS = [
+  { value: "1A", label: "Type 1A", description: "Dopamine dominant - Novelty seeker" },
+  { value: "1B", label: "Type 1B", description: "Dopamine dominant - Thrill seeker" },
+  { value: "2A", label: "Type 2A", description: "Adrenaline dominant - Flexible" },
+  { value: "2B", label: "Type 2B", description: "Adrenaline dominant - Reward-driven" },
+  { value: "3", label: "Type 3", description: "Serotonin dominant - Consistency-focused" },
+];
+
+// Settings Content Component
+function SettingsContent({ 
+  athleteId, 
+  profile, 
+  onProfileUpdate 
+}: { 
+  athleteId: string | undefined; 
+  profile: any;
+  onProfileUpdate: () => void;
+}) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  
+  // Form state
+  const [neurotype, setNeurotype] = useState(profile?.neurotype || "");
+  const [trainingStatus, setTrainingStatus] = useState(
+    (profile?.settings as any)?.training_status || "active"
+  );
+  const [experienceLevel, setExperienceLevel] = useState(
+    (profile?.settings as any)?.experience_level || "intermediate"
+  );
+  const [fullName, setFullName] = useState(profile?.full_name || "");
+  const [coachNotes, setCoachNotes] = useState(
+    (profile?.settings as any)?.coach_notes || ""
+  );
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Get status badge config
+  const getStatusConfig = (status: string) => {
+    return TRAINING_STATUS_OPTIONS.find(s => s.value === status) || TRAINING_STATUS_OPTIONS[0];
+  };
+
+  // Save profile mutation
+  const saveProfileMutation = useMutation({
+    mutationFn: async () => {
+      if (!athleteId) throw new Error("No athlete ID");
+      
+      const updatedSettings = {
+        ...(profile?.settings || {}),
+        training_status: trainingStatus,
+        experience_level: experienceLevel,
+        coach_notes: coachNotes,
+      };
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: fullName,
+          neurotype: neurotype || null,
+          settings: updatedSettings,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", athleteId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Profile saved successfully");
+      queryClient.invalidateQueries({ queryKey: ["athlete-profile", athleteId] });
+      onProfileUpdate();
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to save: ${error.message}`);
+    },
+  });
+
+  // Archive athlete mutation
+  const archiveAthleteMutation = useMutation({
+    mutationFn: async () => {
+      if (!athleteId) throw new Error("No athlete ID");
+      
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          settings: {
+            ...(profile?.settings || {}),
+            archived: true,
+            archived_at: new Date().toISOString(),
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", athleteId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Athlete archived successfully");
+      navigate("/coach/athletes");
+    },
+    onError: (error: any) => {
+      toast.error(`Failed to archive: ${error.message}`);
+    },
+  });
+
+  const handleSave = () => {
+    setIsSaving(true);
+    saveProfileMutation.mutate();
+    setIsSaving(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Card 1: Coaching Configuration */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Brain className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Performance Parameters</CardTitle>
+              <CardDescription>Configure training algorithms and athlete classification</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Neurotype */}
+          <div className="grid gap-2">
+            <Label htmlFor="neurotype" className="flex items-center gap-2">
+              <Brain className="h-4 w-4 text-muted-foreground" />
+              Neurotype
+            </Label>
+            <Select value={neurotype} onValueChange={setNeurotype}>
+              <SelectTrigger id="neurotype" className="w-full">
+                <SelectValue placeholder="Select neurotype" />
+              </SelectTrigger>
+              <SelectContent>
+                {NEUROTYPE_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    <div className="flex flex-col">
+                      <span className="font-medium">{option.label}</span>
+                      <span className="text-xs text-muted-foreground">{option.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Affects program volume, intensity, and recovery recommendations
+            </p>
+          </div>
+
+          {/* Training Status */}
+          <div className="grid gap-2">
+            <Label htmlFor="training-status" className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-muted-foreground" />
+              Training Status
+            </Label>
+            <div className="flex items-center gap-3">
+              <Select value={trainingStatus} onValueChange={setTrainingStatus}>
+                <SelectTrigger id="training-status" className="w-full">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TRAINING_STATUS_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Badge className={cn("shrink-0", getStatusConfig(trainingStatus).color)}>
+                {getStatusConfig(trainingStatus).label}
+              </Badge>
+            </div>
+          </div>
+
+          {/* Experience Level */}
+          <div className="grid gap-2">
+            <Label htmlFor="experience" className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4 text-muted-foreground" />
+              Experience Level
+            </Label>
+            <Select value={experienceLevel} onValueChange={setExperienceLevel}>
+              <SelectTrigger id="experience" className="w-full">
+                <SelectValue placeholder="Select level" />
+              </SelectTrigger>
+              <SelectContent>
+                {EXPERIENCE_LEVELS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Card 2: Personal Details */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-chart-2/10 flex items-center justify-center">
+              <User className="h-5 w-5 text-chart-2" />
+            </div>
+            <div>
+              <CardTitle className="text-lg">Profile Information</CardTitle>
+              <CardDescription>Personal details and contact information</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Avatar */}
+          <div className="flex items-center gap-4">
+            <Avatar className="h-20 w-20 border-2 border-border">
+              <AvatarImage src={profile?.avatar_url || ""} />
+              <AvatarFallback className="text-xl bg-muted">
+                {profile?.full_name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "?"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="space-y-2">
+              <Button variant="outline" size="sm" disabled>
+                <Camera className="h-4 w-4 mr-2" />
+                Change Photo
+              </Button>
+              <p className="text-xs text-muted-foreground">Photo upload coming soon</p>
+            </div>
+          </div>
+
+          {/* Full Name */}
+          <div className="grid gap-2">
+            <Label htmlFor="full-name" className="flex items-center gap-2">
+              <User className="h-4 w-4 text-muted-foreground" />
+              Full Name
+            </Label>
+            <Input 
+              id="full-name" 
+              value={fullName} 
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="Enter full name"
+            />
+          </div>
+
+          {/* Email (read-only) */}
+          <div className="grid gap-2">
+            <Label htmlFor="email" className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-muted-foreground" />
+              Email
+            </Label>
+            <Input 
+              id="email" 
+              value={athleteId || ""}
+              disabled
+              className="bg-muted/50 text-muted-foreground cursor-not-allowed"
+            />
+            <p className="text-xs text-muted-foreground">
+              Login email cannot be changed by coach
+            </p>
+          </div>
+
+          {/* Coach Notes */}
+          <div className="grid gap-2">
+            <Label htmlFor="coach-notes" className="flex items-center gap-2">
+              <Phone className="h-4 w-4 text-muted-foreground" />
+              Private Coach Notes
+            </Label>
+            <Textarea 
+              id="coach-notes" 
+              value={coachNotes}
+              onChange={(e) => setCoachNotes(e.target.value)}
+              placeholder="Phone, emergency contact, training preferences, etc."
+              rows={4}
+              className="resize-none"
+            />
+            <p className="text-xs text-muted-foreground">
+              Only visible to you. Use for personal notes and contact info.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Save Button */}
+      <div className="flex justify-end">
+        <Button 
+          onClick={handleSave} 
+          disabled={saveProfileMutation.isPending}
+          className="min-w-[140px]"
+        >
+          {saveProfileMutation.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <Save className="h-4 w-4 mr-2" />
+              Save Changes
+            </>
+          )}
+        </Button>
+      </div>
+
+      {/* Card 3: Danger Zone */}
+      <Card className="border-destructive/50">
+        <CardHeader>
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+            </div>
+            <div>
+              <CardTitle className="text-lg text-destructive">Danger Zone</CardTitle>
+              <CardDescription>Irreversible actions for this athlete</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Archive Athlete */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-lg border border-border bg-muted/30">
+            <div>
+              <h4 className="font-medium text-foreground">Archive Athlete</h4>
+              <p className="text-sm text-muted-foreground">
+                Hide from active roster but keep all data
+              </p>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="secondary" className="shrink-0">
+                  <Archive className="h-4 w-4 mr-2" />
+                  Archive
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Archive this athlete?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will hide {profile?.full_name || "this athlete"} from your active roster. 
+                    All training data will be preserved and can be restored later.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={() => archiveAthleteMutation.mutate()}
+                    disabled={archiveAthleteMutation.isPending}
+                  >
+                    {archiveAthleteMutation.isPending ? "Archiving..." : "Archive Athlete"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+
+          {/* Delete Athlete */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-lg border border-destructive/30 bg-destructive/5">
+            <div>
+              <h4 className="font-medium text-destructive">Delete Athlete</h4>
+              <p className="text-sm text-muted-foreground">
+                Permanently remove athlete and all training logs
+              </p>
+            </div>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" className="shrink-0">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-destructive">Delete this athlete permanently?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete 
+                    {profile?.full_name ? ` ${profile.full_name}'s` : " this athlete's"} profile, 
+                    all workout logs, metrics, and training history.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    disabled
+                  >
+                    Delete Permanently
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+          <p className="text-xs text-muted-foreground text-center">
+            ⚠️ Permanent deletion is currently disabled for safety
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function AthleteDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -2841,13 +3280,11 @@ export default function AthleteDetail() {
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">
-            <Card className="p-8 text-center">
-              <Settings className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Settings</h3>
-              <p className="text-muted-foreground">
-                Impostazioni profilo atleta, notifiche, e gestione account.
-              </p>
-            </Card>
+            <SettingsContent 
+              athleteId={id} 
+              profile={profile}
+              onProfileUpdate={() => {}}
+            />
           </TabsContent>
         </Tabs>
       </div>
