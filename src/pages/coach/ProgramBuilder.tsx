@@ -12,7 +12,7 @@ import {
 } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates, arrayMove } from "@dnd-kit/sortable";
 import { CoachLayout } from "@/components/coach/CoachLayout";
-import { ExerciseLibrarySidebar, exerciseLibrary, type LibraryExercise } from "@/components/coach/ExerciseLibrarySidebar";
+import { ExerciseLibrarySidebar, type LibraryExercise } from "@/components/coach/ExerciseLibrarySidebar";
 import { WeekGrid, type ProgramExercise, type ProgramData, type WeekProgram } from "@/components/coach/WeekGrid";
 import { ExerciseContextEditor } from "@/components/coach/ExerciseContextEditor";
 import { Button } from "@/components/ui/button";
@@ -96,7 +96,7 @@ function DragOverlayContent({ exercise }: { exercise: LibraryExercise | null }) 
         </div>
         <div>
           <p className="text-sm font-medium">{exercise.name}</p>
-          <p className="text-[10px] text-muted-foreground">{exercise.muscle}</p>
+          <p className="text-[10px] text-muted-foreground">{exercise.muscles?.[0] || ""}</p>
         </div>
       </div>
     </div>
@@ -398,7 +398,7 @@ export default function ProgramBuilder() {
         name: libraryExercise.name,
         sets: 3,
         reps: "8",
-        load: libraryExercise.defaultPercent > 0 ? `${libraryExercise.defaultPercent}%` : "",
+        load: "",
         rpe: null,
         restSeconds: 90,
         notes: "",
