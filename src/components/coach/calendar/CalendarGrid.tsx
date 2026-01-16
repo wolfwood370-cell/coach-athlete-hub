@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -12,6 +13,9 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  CalendarDays,
+  Phone,
+  Video,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -29,8 +33,6 @@ import {
   endOfWeek,
   addWeeks,
   subWeeks,
-  eachHourOfInterval,
-  setHours,
 } from "date-fns";
 import { it } from "date-fns/locale";
 
@@ -48,23 +50,46 @@ export interface ScheduledWorkoutLog {
   program_workout_id: string | null;
 }
 
-interface CalendarGridProps {
-  workoutLogs: ScheduledWorkoutLog[];
-  onDateSelect: (date: Date) => void;
-  selectedDate: Date;
-  view: "month" | "week" | "day";
-  onViewChange: (view: "month" | "week" | "day") => void;
-  currentDate: Date;
-  onDateChange: (date: Date) => void;
+export interface CalendarAppointment {
+  id: string;
+  title: string;
+  type: "check-in" | "pt-session" | "other";
+  date: string;
+  time: string;
 }
 
-// Droppable Day Cell
+export interface GoogleBusySlot {
+  id: string;
+  title: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+}
+
+interface CalendarGridProps {
+  workoutLogs: ScheduledWorkoutLog[];
+  appointments?: CalendarAppointment[];
+  googleBusySlots?: GoogleBusySlot[];
+  onDateSelect: (date: Date) => void;
+  selectedDate: Date;
+  view: "month" | "week";
+  onViewChange: (view: "month" | "week") => void;
+  currentDate: Date;
+  onDateChange: (date: Date) => void;
+  showGoogleEvents: boolean;
+  onToggleGoogleEvents: (show: boolean) => void;
+}
+
+// Droppable Day Cell for Month View
 function DroppableDayCell({
   date,
   isSelected,
   isCurrentMonth,
   isTodayDate,
   workouts,
+  appointments,
+  busySlots,
+  showGoogleEvents,
   onClick,
 }: {
   date: Date;
@@ -72,6 +97,9 @@ function DroppableDayCell({
   isCurrentMonth: boolean;
   isTodayDate: boolean;
   workouts: ScheduledWorkoutLog[];
+  appointments: CalendarAppointment[];
+  busySlots: GoogleBusySlot[];
+  showGoogleEvents: boolean;
   onClick: () => void;
 }) {
   const dateKey = format(date, "yyyy-MM-dd");
@@ -81,70 +109,89 @@ function DroppableDayCell({
   });
 
   const hasWorkouts = workouts.length > 0;
-  const scheduledCount = workouts.filter((w) => w.status === "scheduled").length;
-  const completedCount = workouts.filter((w) => w.status === "completed").length;
+  const hasAppointments = appointments.length > 0;
+  const hasBusySlots = showGoogleEvents && busySlots.length > 0;
+  const totalEvents = workouts.length + appointments.length + (showGoogleEvents ? busySlots.length : 0);
 
   return (
     <button
       ref={setNodeRef}
       onClick={onClick}
       className={cn(
-        "min-h-[80px] p-1.5 rounded-lg transition-all relative flex flex-col border",
-        "hover:bg-muted/50",
+        "min-h-[100px] p-2 rounded-xl transition-all relative flex flex-col text-left",
+        "hover:bg-muted/50 border border-transparent",
         !isCurrentMonth && "opacity-40",
-        isSelected && "ring-2 ring-primary bg-primary/5",
-        isTodayDate && !isSelected && "bg-muted/80",
-        isOver && "ring-2 ring-primary bg-primary/10 scale-[1.02]",
-        "border-border/30"
+        isSelected && "ring-2 ring-primary bg-primary/5 border-primary/20",
+        isTodayDate && !isSelected && "bg-accent/50 border-accent",
+        isOver && "ring-2 ring-primary bg-primary/10 scale-[1.02] border-primary"
       )}
     >
-      <span
-        className={cn(
-          "text-sm font-medium self-start",
-          isTodayDate && "text-primary font-bold"
+      {/* Day Number */}
+      <div className="flex items-center justify-between mb-1">
+        <span
+          className={cn(
+            "text-sm font-semibold",
+            isTodayDate && "bg-primary text-primary-foreground h-6 w-6 rounded-full flex items-center justify-center"
+          )}
+        >
+          {format(date, "d")}
+        </span>
+        {totalEvents > 0 && (
+          <Badge variant="secondary" className="text-[10px] h-4 px-1.5">
+            {totalEvents}
+          </Badge>
         )}
-      >
-        {format(date, "d")}
-      </span>
+      </div>
 
-      {/* Workout indicators */}
-      {hasWorkouts && (
-        <div className="flex-1 flex flex-col justify-end gap-0.5 mt-1">
-          {workouts.slice(0, 2).map((workout) => (
-            <div
-              key={workout.id}
-              className={cn(
-                "text-[10px] px-1.5 py-0.5 rounded truncate text-left",
-                workout.status === "scheduled" &&
-                  "bg-primary/10 text-primary",
-                workout.status === "completed" &&
-                  "bg-success/10 text-success",
-                workout.status === "missed" &&
-                  "bg-destructive/10 text-destructive"
-              )}
-            >
-              {workout.workout_name}
-            </div>
-          ))}
-          {workouts.length > 2 && (
-            <span className="text-[10px] text-muted-foreground px-1">
-              +{workouts.length - 2} altri
-            </span>
-          )}
-        </div>
-      )}
+      {/* Events */}
+      <div className="flex-1 flex flex-col gap-0.5 overflow-hidden">
+        {/* Workouts - Blue */}
+        {workouts.slice(0, 2).map((workout) => (
+          <div
+            key={workout.id}
+            className={cn(
+              "text-[10px] px-1.5 py-0.5 rounded truncate font-medium flex items-center gap-1",
+              workout.status === "scheduled" && "bg-primary/15 text-primary",
+              workout.status === "completed" && "bg-success/15 text-success",
+              workout.status === "missed" && "bg-destructive/15 text-destructive"
+            )}
+          >
+            {workout.status === "scheduled" && <Clock className="h-2.5 w-2.5 shrink-0" />}
+            {workout.status === "completed" && <CheckCircle2 className="h-2.5 w-2.5 shrink-0" />}
+            {workout.status === "missed" && <XCircle className="h-2.5 w-2.5 shrink-0" />}
+            <span className="truncate">{workout.workout_name}</span>
+          </div>
+        ))}
 
-      {/* Status dots */}
-      {hasWorkouts && (
-        <div className="absolute top-1 right-1 flex gap-0.5">
-          {scheduledCount > 0 && (
-            <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-          )}
-          {completedCount > 0 && (
-            <div className="h-1.5 w-1.5 rounded-full bg-success" />
-          )}
-        </div>
-      )}
+        {/* Appointments - Green */}
+        {appointments.slice(0, 1).map((apt) => (
+          <div
+            key={apt.id}
+            className="text-[10px] px-1.5 py-0.5 rounded truncate font-medium flex items-center gap-1 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+          >
+            {apt.type === "check-in" && <Phone className="h-2.5 w-2.5 shrink-0" />}
+            {apt.type === "pt-session" && <Video className="h-2.5 w-2.5 shrink-0" />}
+            <span className="truncate">{apt.title}</span>
+          </div>
+        ))}
+
+        {/* Google Busy Slots - Gray */}
+        {showGoogleEvents && busySlots.slice(0, 1).map((slot) => (
+          <div
+            key={slot.id}
+            className="text-[10px] px-1.5 py-0.5 rounded truncate font-medium bg-muted text-muted-foreground"
+          >
+            {slot.title || "Busy"}
+          </div>
+        ))}
+
+        {/* Overflow indicator */}
+        {totalEvents > 3 && (
+          <span className="text-[10px] text-muted-foreground px-1">
+            +{totalEvents - 3} altri
+          </span>
+        )}
+      </div>
     </button>
   );
 }
@@ -153,11 +200,17 @@ function DroppableDayCell({
 function WeekViewRow({
   date,
   workouts,
+  appointments,
+  busySlots,
+  showGoogleEvents,
   isSelected,
   onClick,
 }: {
   date: Date;
   workouts: ScheduledWorkoutLog[];
+  appointments: CalendarAppointment[];
+  busySlots: GoogleBusySlot[];
+  showGoogleEvents: boolean;
   isSelected: boolean;
   onClick: () => void;
 }) {
@@ -174,7 +227,7 @@ function WeekViewRow({
       ref={setNodeRef}
       onClick={onClick}
       className={cn(
-        "flex items-stretch border-b border-border/30 min-h-[100px] cursor-pointer hover:bg-muted/30 transition-colors",
+        "flex items-stretch border-b border-border/30 min-h-[120px] cursor-pointer hover:bg-muted/20 transition-colors",
         isSelected && "bg-primary/5",
         isOver && "bg-primary/10"
       )}
@@ -182,66 +235,120 @@ function WeekViewRow({
       {/* Day label */}
       <div
         className={cn(
-          "w-20 shrink-0 p-2 border-r border-border/30 flex flex-col items-center justify-center",
-          isTodayDate && "bg-primary/5"
+          "w-24 shrink-0 p-3 border-r border-border/30 flex flex-col items-center justify-center",
+          isTodayDate && "bg-accent/30"
         )}
       >
-        <span className="text-[10px] uppercase text-muted-foreground">
+        <span className="text-xs uppercase text-muted-foreground font-medium">
           {format(date, "EEE", { locale: it })}
         </span>
         <span
           className={cn(
-            "text-lg font-semibold tabular-nums",
+            "text-2xl font-bold tabular-nums mt-0.5",
             isTodayDate && "text-primary"
           )}
         >
           {format(date, "d")}
         </span>
+        <span className="text-[10px] text-muted-foreground">
+          {format(date, "MMM", { locale: it })}
+        </span>
       </div>
 
-      {/* Workouts */}
-      <div className="flex-1 p-2 space-y-1">
-        {workouts.length === 0 ? (
-          <p className="text-xs text-muted-foreground italic">
-            Trascina un workout qui
+      {/* Events */}
+      <div className="flex-1 p-3 space-y-2">
+        {workouts.length === 0 && appointments.length === 0 && (!showGoogleEvents || busySlots.length === 0) ? (
+          <p className="text-sm text-muted-foreground/60 italic">
+            Trascina qui un workout per programmarlo
           </p>
         ) : (
-          workouts.map((workout) => (
-            <div
-              key={workout.id}
-              className={cn(
-                "flex items-center gap-2 p-2 rounded-md text-sm",
-                workout.status === "scheduled" && "bg-primary/10 text-primary",
-                workout.status === "completed" && "bg-success/10 text-success",
-                workout.status === "missed" &&
-                  "bg-destructive/10 text-destructive"
-              )}
-            >
-              {workout.status === "scheduled" && (
-                <Clock className="h-3.5 w-3.5 shrink-0" />
-              )}
-              {workout.status === "completed" && (
-                <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-              )}
-              {workout.status === "missed" && (
-                <XCircle className="h-3.5 w-3.5 shrink-0" />
-              )}
-              <span className="font-medium truncate flex-1">
-                {workout.workout_name}
-              </span>
-              <Avatar className="h-5 w-5">
-                <AvatarImage src={workout.avatar_url || undefined} />
-                <AvatarFallback className="text-[8px]">
-                  {workout.athlete_name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")
-                    .toUpperCase()
-                    .slice(0, 2)}
-                </AvatarFallback>
-              </Avatar>
-            </div>
-          ))
+          <>
+            {/* Workouts */}
+            {workouts.map((workout) => (
+              <div
+                key={workout.id}
+                className={cn(
+                  "flex items-center gap-3 p-2.5 rounded-lg",
+                  workout.status === "scheduled" && "bg-primary/10 border border-primary/20",
+                  workout.status === "completed" && "bg-success/10 border border-success/20",
+                  workout.status === "missed" && "bg-destructive/10 border border-destructive/20"
+                )}
+              >
+                <div
+                  className={cn(
+                    "h-8 w-8 rounded-lg flex items-center justify-center shrink-0",
+                    workout.status === "scheduled" && "bg-primary/20",
+                    workout.status === "completed" && "bg-success/20",
+                    workout.status === "missed" && "bg-destructive/20"
+                  )}
+                >
+                  {workout.status === "scheduled" && <Clock className="h-4 w-4 text-primary" />}
+                  {workout.status === "completed" && <CheckCircle2 className="h-4 w-4 text-success" />}
+                  {workout.status === "missed" && <XCircle className="h-4 w-4 text-destructive" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{workout.workout_name}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {workout.scheduled_start_time?.slice(0, 5) || "Orario libero"}
+                  </p>
+                </div>
+                <Avatar className="h-6 w-6">
+                  <AvatarImage src={workout.avatar_url || undefined} />
+                  <AvatarFallback className="text-[8px]">
+                    {workout.athlete_name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()
+                      .slice(0, 2)}
+                  </AvatarFallback>
+                </Avatar>
+              </div>
+            ))}
+
+            {/* Appointments */}
+            {appointments.map((apt) => (
+              <div
+                key={apt.id}
+                className="flex items-center gap-3 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20"
+              >
+                <div className="h-8 w-8 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
+                  {apt.type === "check-in" && <Phone className="h-4 w-4 text-emerald-500" />}
+                  {apt.type === "pt-session" && <Video className="h-4 w-4 text-emerald-500" />}
+                  {apt.type === "other" && <CalendarDays className="h-4 w-4 text-emerald-500" />}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate text-emerald-700 dark:text-emerald-400">
+                    {apt.title}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">{apt.time}</p>
+                </div>
+              </div>
+            ))}
+
+            {/* Google Busy Slots */}
+            {showGoogleEvents && busySlots.map((slot) => (
+              <div
+                key={slot.id}
+                className="flex items-center gap-3 p-2.5 rounded-lg bg-muted border border-border/50"
+              >
+                <div className="h-8 w-8 rounded-lg bg-muted-foreground/10 flex items-center justify-center shrink-0">
+                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate text-muted-foreground">
+                    {slot.title || "Occupato"}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {slot.startTime} - {slot.endTime}
+                  </p>
+                </div>
+                <Badge variant="secondary" className="text-[10px]">
+                  Google
+                </Badge>
+              </div>
+            ))}
+          </>
         )}
       </div>
     </div>
@@ -250,12 +357,16 @@ function WeekViewRow({
 
 export function CalendarGrid({
   workoutLogs,
+  appointments = [],
+  googleBusySlots = [],
   onDateSelect,
   selectedDate,
   view,
   onViewChange,
   currentDate,
   onDateChange,
+  showGoogleEvents,
+  onToggleGoogleEvents,
 }: CalendarGridProps) {
   // Group workouts by date
   const workoutsByDate = useMemo(() => {
@@ -267,6 +378,26 @@ export function CalendarGrid({
     });
     return grouped;
   }, [workoutLogs]);
+
+  // Group appointments by date
+  const appointmentsByDate = useMemo(() => {
+    const grouped: Record<string, CalendarAppointment[]> = {};
+    appointments.forEach((apt) => {
+      if (!grouped[apt.date]) grouped[apt.date] = [];
+      grouped[apt.date].push(apt);
+    });
+    return grouped;
+  }, [appointments]);
+
+  // Group busy slots by date
+  const busySlotsByDate = useMemo(() => {
+    const grouped: Record<string, GoogleBusySlot[]> = {};
+    googleBusySlots.forEach((slot) => {
+      if (!grouped[slot.date]) grouped[slot.date] = [];
+      grouped[slot.date].push(slot);
+    });
+    return grouped;
+  }, [googleBusySlots]);
 
   // Get days based on view
   const days = useMemo(() => {
@@ -281,32 +412,26 @@ export function CalendarGrid({
       const paddingDays: (Date | null)[] = Array(startDay).fill(null);
 
       return [...paddingDays, ...monthDays];
-    } else if (view === "week") {
+    } else {
       const start = startOfWeek(currentDate, { weekStartsOn: 1 });
       const end = endOfWeek(currentDate, { weekStartsOn: 1 });
       return eachDayOfInterval({ start, end });
-    } else {
-      return [currentDate];
     }
   }, [currentDate, view]);
 
   const handlePrev = () => {
     if (view === "month") {
       onDateChange(subMonths(currentDate, 1));
-    } else if (view === "week") {
-      onDateChange(subWeeks(currentDate, 1));
     } else {
-      onDateChange(new Date(currentDate.getTime() - 86400000));
+      onDateChange(subWeeks(currentDate, 1));
     }
   };
 
   const handleNext = () => {
     if (view === "month") {
       onDateChange(addMonths(currentDate, 1));
-    } else if (view === "week") {
-      onDateChange(addWeeks(currentDate, 1));
     } else {
-      onDateChange(new Date(currentDate.getTime() + 86400000));
+      onDateChange(addWeeks(currentDate, 1));
     }
   };
 
@@ -319,12 +444,10 @@ export function CalendarGrid({
   const title = useMemo(() => {
     if (view === "month") {
       return format(currentDate, "MMMM yyyy", { locale: it });
-    } else if (view === "week") {
+    } else {
       const start = startOfWeek(currentDate, { weekStartsOn: 1 });
       const end = endOfWeek(currentDate, { weekStartsOn: 1 });
       return `${format(start, "d MMM", { locale: it })} - ${format(end, "d MMM yyyy", { locale: it })}`;
-    } else {
-      return format(currentDate, "EEEE d MMMM yyyy", { locale: it });
     }
   }, [currentDate, view]);
 
@@ -336,40 +459,52 @@ export function CalendarGrid({
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-9 w-9"
             onClick={handlePrev}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h2 className="text-lg font-semibold capitalize min-w-[200px] text-center">
+          <h2 className="text-lg font-bold capitalize min-w-[220px] text-center">
             {title}
           </h2>
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-9 w-9"
             onClick={handleNext}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={handleToday}>
+          <Button variant="outline" size="sm" onClick={handleToday} className="ml-2">
             Oggi
           </Button>
         </div>
 
-        <Tabs value={view} onValueChange={(v) => onViewChange(v as any)}>
-          <TabsList className="h-8">
-            <TabsTrigger value="month" className="text-xs px-3">
-              Mese
-            </TabsTrigger>
-            <TabsTrigger value="week" className="text-xs px-3">
-              Settimana
-            </TabsTrigger>
-            <TabsTrigger value="day" className="text-xs px-3">
-              Giorno
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        <div className="flex items-center gap-4">
+          {/* Google Calendar Toggle */}
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={showGoogleEvents}
+              onCheckedChange={onToggleGoogleEvents}
+              id="google-events"
+            />
+            <label htmlFor="google-events" className="text-sm text-muted-foreground cursor-pointer">
+              Mostra Google Calendar
+            </label>
+          </div>
+
+          {/* View Toggle */}
+          <Tabs value={view} onValueChange={(v) => onViewChange(v as any)}>
+            <TabsList className="h-9">
+              <TabsTrigger value="month" className="text-xs px-4">
+                Mese
+              </TabsTrigger>
+              <TabsTrigger value="week" className="text-xs px-4">
+                Settimana
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
       {/* Calendar Content */}
@@ -377,11 +512,11 @@ export function CalendarGrid({
         {view === "month" && (
           <>
             {/* Weekday Headers */}
-            <div className="grid grid-cols-7 gap-1 mb-2">
+            <div className="grid grid-cols-7 gap-2 mb-2">
               {WEEKDAYS.map((day) => (
                 <div
                   key={day}
-                  className="text-center text-xs font-medium text-muted-foreground py-2"
+                  className="text-center text-xs font-semibold text-muted-foreground py-2 uppercase tracking-wide"
                 >
                   {day}
                 </div>
@@ -389,14 +524,16 @@ export function CalendarGrid({
             </div>
 
             {/* Month Grid */}
-            <div className="grid grid-cols-7 gap-1 auto-rows-fr">
+            <div className="grid grid-cols-7 gap-2 auto-rows-fr">
               {days.map((day, idx) => {
                 if (!day) {
-                  return <div key={`empty-${idx}`} className="min-h-[80px]" />;
+                  return <div key={`empty-${idx}`} className="min-h-[100px]" />;
                 }
 
                 const dateKey = format(day, "yyyy-MM-dd");
                 const dayWorkouts = workoutsByDate[dateKey] || [];
+                const dayAppointments = appointmentsByDate[dateKey] || [];
+                const dayBusySlots = busySlotsByDate[dateKey] || [];
 
                 return (
                   <DroppableDayCell
@@ -406,6 +543,9 @@ export function CalendarGrid({
                     isCurrentMonth={isSameMonth(day, currentDate)}
                     isTodayDate={isToday(day)}
                     workouts={dayWorkouts}
+                    appointments={dayAppointments}
+                    busySlots={dayBusySlots}
+                    showGoogleEvents={showGoogleEvents}
                     onClick={() => onDateSelect(day)}
                   />
                 );
@@ -416,16 +556,21 @@ export function CalendarGrid({
 
         {view === "week" && (
           <ScrollArea className="h-full">
-            <div className="space-y-0 border border-border/30 rounded-lg overflow-hidden">
+            <div className="border border-border/30 rounded-xl overflow-hidden">
               {(days as Date[]).map((day) => {
                 const dateKey = format(day, "yyyy-MM-dd");
                 const dayWorkouts = workoutsByDate[dateKey] || [];
+                const dayAppointments = appointmentsByDate[dateKey] || [];
+                const dayBusySlots = busySlotsByDate[dateKey] || [];
 
                 return (
                   <WeekViewRow
                     key={dateKey}
                     date={day}
                     workouts={dayWorkouts}
+                    appointments={dayAppointments}
+                    busySlots={dayBusySlots}
+                    showGoogleEvents={showGoogleEvents}
                     isSelected={isSameDay(day, selectedDate)}
                     onClick={() => onDateSelect(day)}
                   />
@@ -434,35 +579,32 @@ export function CalendarGrid({
             </div>
           </ScrollArea>
         )}
-
-        {view === "day" && (
-          <ScrollArea className="h-full">
-            <div className="border border-border/30 rounded-lg overflow-hidden">
-              <WeekViewRow
-                date={currentDate}
-                workouts={workoutsByDate[format(currentDate, "yyyy-MM-dd")] || []}
-                isSelected={true}
-                onClick={() => {}}
-              />
-            </div>
-          </ScrollArea>
-        )}
       </div>
 
       {/* Legend */}
-      <div className="flex items-center gap-4 pt-4 border-t border-border/50 text-xs text-muted-foreground">
+      <div className="flex items-center justify-center gap-6 pt-4 border-t border-border/50 text-xs text-muted-foreground">
         <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full bg-primary" />
-          <span>Programmato</span>
+          <div className="h-2.5 w-2.5 rounded-full bg-primary" />
+          <span>Workout</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full bg-success" />
+          <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+          <span>Appuntamenti</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="h-2.5 w-2.5 rounded-full bg-success" />
           <span>Completato</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="h-2 w-2 rounded-full bg-destructive" />
+          <div className="h-2.5 w-2.5 rounded-full bg-destructive" />
           <span>Mancato</span>
         </div>
+        {showGoogleEvents && (
+          <div className="flex items-center gap-1.5">
+            <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground" />
+            <span>Google</span>
+          </div>
+        )}
       </div>
     </div>
   );
