@@ -1,13 +1,28 @@
 import { CoachLayout } from "@/components/coach/CoachLayout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { useEffect } from "react";
-import { BarChart3, TrendingUp, Users, Activity } from "lucide-react";
+import { useEffect, useState } from "react";
+import { useCoachAthletes } from "@/hooks/useCoachData";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { MetabolicChart } from "@/components/coach/analytics/MetabolicChart";
+import { StrengthChart } from "@/components/coach/analytics/StrengthChart";
+import { VolumeIntensityChart } from "@/components/coach/analytics/VolumeIntensityChart";
+import { AcwrGauge } from "@/components/coach/analytics/AcwrGauge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Users } from "lucide-react";
 
 export default function CoachAnalytics() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
+  const { data: athletes, isLoading: athletesLoading } = useCoachAthletes();
+  const [selectedAthleteId, setSelectedAthleteId] = useState<string | undefined>();
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -15,70 +30,79 @@ export default function CoachAnalytics() {
     }
   }, [authLoading, user, navigate]);
 
+  // Auto-select first athlete when loaded
+  useEffect(() => {
+    if (athletes && athletes.length > 0 && !selectedAthleteId) {
+      setSelectedAthleteId(athletes[0].id);
+    }
+  }, [athletes, selectedAthleteId]);
+
+  const selectedAthlete = athletes?.find((a) => a.id === selectedAthleteId);
+
   return (
-    <CoachLayout title="Analytics" subtitle="Team performance insights">
+    <CoachLayout title="Analytics" subtitle="Performance insights & trends">
       <div className="space-y-6 animate-fade-in">
-        {/* Stats Overview */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { label: "Total Athletes", value: "0", icon: Users, color: "primary" },
-            { label: "Avg Compliance", value: "—%", icon: TrendingUp, color: "success" },
-            { label: "Avg Readiness", value: "—", icon: Activity, color: "warning" },
-            { label: "Weekly Sessions", value: "0", icon: BarChart3, color: "primary" },
-          ].map((stat) => (
-            <Card key={stat.label} className="border-0 shadow-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs text-muted-foreground uppercase tracking-wider">
-                      {stat.label}
-                    </p>
-                    <p className="text-2xl font-bold mt-1">{stat.value}</p>
-                  </div>
-                  <div className={`p-2 rounded-lg bg-${stat.color}/10`}>
-                    <stat.icon className={`h-5 w-5 text-${stat.color}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        {/* Athlete Selector */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Users className="h-4 w-4" />
+            <span>Athlete:</span>
+          </div>
+          {athletesLoading ? (
+            <Skeleton className="h-10 w-[200px]" />
+          ) : athletes && athletes.length > 0 ? (
+            <Select value={selectedAthleteId} onValueChange={setSelectedAthleteId}>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Select athlete">
+                  {selectedAthlete && (
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-5 w-5">
+                        <AvatarImage src={selectedAthlete.avatar_url ?? undefined} />
+                        <AvatarFallback className="text-[10px]">
+                          {selectedAthlete.full_name?.slice(0, 2).toUpperCase() ?? "??"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{selectedAthlete.full_name}</span>
+                    </div>
+                  )}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {athletes.map((athlete) => (
+                  <SelectItem key={athlete.id} value={athlete.id}>
+                    <div className="flex items-center gap-2">
+                      <Avatar className="h-5 w-5">
+                        <AvatarImage src={athlete.avatar_url ?? undefined} />
+                        <AvatarFallback className="text-[10px]">
+                          {athlete.full_name?.slice(0, 2).toUpperCase() ?? "??"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{athlete.full_name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : (
+            <p className="text-sm text-muted-foreground">No athletes found</p>
+          )}
         </div>
 
-        {/* Charts Placeholder */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="border-0 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold">Team Load Trend</CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                  <TrendingUp className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">No data available</h3>
-                <p className="text-sm text-muted-foreground max-w-md">
-                  Team analytics will appear as your athletes complete workouts and log their metrics.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Section A: Metabolic Chart (Full Width) */}
+        <MetabolicChart athleteId={selectedAthleteId} />
 
-          <Card className="border-0 shadow-sm">
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold">Compliance Distribution</CardTitle>
-            </CardHeader>
-            <CardContent className="p-6">
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
-                  <BarChart3 className="h-8 w-8 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">No data available</h3>
-                <p className="text-sm text-muted-foreground max-w-md">
-                  Compliance data will appear as your athletes start following their assigned programs.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Section B: Performance Metrics (2 Columns) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <StrengthChart athleteId={selectedAthleteId} />
+          <VolumeIntensityChart athleteId={selectedAthleteId} />
+        </div>
+
+        {/* Section C: Workload Management */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <AcwrGauge athleteId={selectedAthleteId} />
+          </div>
+          {/* Optional: Add more cards here in the future */}
         </div>
       </div>
     </CoachLayout>
