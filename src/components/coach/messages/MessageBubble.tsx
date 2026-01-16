@@ -145,6 +145,22 @@ function VideoPreviewCard({ embed, content }: { embed: NonNullable<ReturnType<ty
   );
 }
 
+function NativeVideoBubble({ url }: { url: string }) {
+  return (
+    <div className="rounded-xl overflow-hidden max-w-[300px] border bg-card">
+      <video
+        src={url}
+        controls
+        preload="metadata"
+        className="w-full h-auto"
+        style={{ maxHeight: '200px' }}
+      >
+        Il tuo browser non supporta il video.
+      </video>
+    </div>
+  );
+}
+
 export function MessageBubble({ message, isOwn, showAvatar = true }: MessageBubbleProps) {
   const videoEmbed = message.media_type === 'loom' || message.media_type === 'text' 
     ? detectVideoEmbed(message.content) 
@@ -156,7 +172,7 @@ export function MessageBubble({ message, isOwn, showAvatar = true }: MessageBubb
   };
 
   const renderContent = () => {
-    // If it's a video embed
+    // If it's a video embed (Loom/YouTube)
     if (videoEmbed) {
       return <VideoPreviewCard embed={videoEmbed} content={message.content} />;
     }
@@ -174,6 +190,9 @@ export function MessageBubble({ message, isOwn, showAvatar = true }: MessageBubb
 
       case 'image':
         return <ImageBubble url={message.media_url || '/placeholder.svg'} />;
+
+      case 'video_native':
+        return <NativeVideoBubble url={message.media_url || ''} />;
 
       default:
         return (
