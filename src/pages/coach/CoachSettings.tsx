@@ -86,6 +86,18 @@ const DAY_NAMES = [
   { value: "0", label: "Domenica" },
 ];
 
+// Preset brand colors for coaches
+const PRESET_COLORS = [
+  { value: "#3b82f6", name: "Blue", label: "Blu" },
+  { value: "#6366f1", name: "Indigo", label: "Indaco" },
+  { value: "#8b5cf6", name: "Violet", label: "Viola" },
+  { value: "#ec4899", name: "Pink", label: "Rosa" },
+  { value: "#ef4444", name: "Red", label: "Rosso" },
+  { value: "#f97316", name: "Orange", label: "Arancione" },
+  { value: "#22c55e", name: "Green", label: "Verde" },
+  { value: "#14b8a6", name: "Teal", label: "Teal" },
+];
+
 const DEFAULT_PREFERENCES: Preferences = {
   unit: "kg",
   checkin_day: 1,
@@ -221,9 +233,9 @@ export default function CoachSettings() {
         avatarUrl = await uploadFile(avatarFile, "coach-avatars", user.id);
       }
 
-      // Upload logo if changed
+      // Upload logo if changed (use coach-branding bucket)
       if (logoFile) {
-        logoUrl = await uploadFile(logoFile, "coach-logos", user.id);
+        logoUrl = await uploadFile(logoFile, "coach-branding", user.id);
       }
 
       const { error } = await supabase
@@ -411,26 +423,46 @@ export default function CoachSettings() {
                       placeholder="Mario Rossi"
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="brandColor">Colore Brand</Label>
-                    <div className="flex items-center gap-3">
+                  <div className="space-y-3">
+                    <Label>Colore Brand</Label>
+                    <div className="grid grid-cols-4 gap-2">
+                      {PRESET_COLORS.map((color) => (
+                        <button
+                          key={color.value}
+                          type="button"
+                          onClick={() => setBrandColor(color.value)}
+                          className={cn(
+                            "h-12 rounded-lg border-2 transition-all flex items-center justify-center",
+                            brandColor === color.value
+                              ? "border-foreground ring-2 ring-foreground ring-offset-2 ring-offset-background"
+                              : "border-transparent hover:scale-105"
+                          )}
+                          style={{ backgroundColor: color.value }}
+                          title={color.label}
+                        >
+                          {brandColor === color.value && (
+                            <CheckCircle2 className="h-5 w-5 text-white drop-shadow-md" />
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-3 mt-2">
                       <input
                         type="color"
                         value={brandColor}
                         onChange={(e) => setBrandColor(e.target.value)}
-                        className="h-10 w-16 rounded-lg border border-border cursor-pointer"
+                        className="h-8 w-10 rounded border border-border cursor-pointer"
+                        title="Colore personalizzato"
                       />
                       <Input
-                        id="brandColor"
                         value={brandColor.toUpperCase()}
                         onChange={(e) => setBrandColor(e.target.value)}
-                        placeholder="#6366F1"
+                        placeholder="#3B82F6"
                         className="w-28 font-mono text-sm"
                       />
-                      <div 
-                        className="h-10 flex-1 rounded-lg border border-border"
-                        style={{ backgroundColor: brandColor }}
-                      />
+                      <span className="text-xs text-muted-foreground">
+                        o scegli un colore personalizzato
+                      </span>
                     </div>
                   </div>
                 </div>
