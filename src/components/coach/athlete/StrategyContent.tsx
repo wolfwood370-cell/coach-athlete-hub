@@ -63,10 +63,18 @@ import {
   Dumbbell,
   Coffee
 } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
 import { format, addDays, startOfWeek } from "date-fns";
-import { it } from "date-fns/locale";
+
+// Define chart data type for proper TypeScript typing
+interface MacroChartEntry {
+  name: string;
+  value: number;
+  grams: number;
+  kcal: number;
+  color: string;
+}
 
 interface StrategyContentProps {
   athleteId: string | undefined;
@@ -162,6 +170,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
 
   // Strategy mode state
   const [strategyMode, setStrategyMode] = useState<StrategyMode>('static');
+  const [hasInitializedCycling, setHasInitializedCycling] = useState(false);
   
   // Static targets state
   const [calories, setCalories] = useState(2000);
@@ -172,6 +181,54 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
   // Cycling targets state
   const [onDayTargets, setOnDayTargets] = useState<MacroTargets>({ calories: 2800, protein: 200, carbs: 300, fats: 80 });
   const [offDayTargets, setOffDayTargets] = useState<MacroTargets>({ calories: 2200, protein: 180, carbs: 200, fats: 70 });
+
+  // Handle strategy mode changes - smart defaults
+  const handleStrategyModeChange = (newMode: StrategyMode) => {
+    if (newMode === 'cycling_on_off' && !hasInitializedCycling && strategyMode === 'static') {
+      // Pre-fill cycling targets with current static values
+      const staticTargets: MacroTargets = { calories, protein, carbs, fats };
+      setOnDayTargets({
+        calories: Math.round(calories * 1.15), // +15% for training days
+        protein: protein,
+        carbs: Math.round(carbs * 1.3), // +30% carbs on training
+        fats: fats,
+      });
+      setOffDayTargets({
+        calories: Math.round(calories * 0.85), // -15% for rest days
+        protein: protein,
+        carbs: Math.round(carbs * 0.7), // -30% carbs on rest
+        fats: Math.round(fats * 1.1), // Slightly higher fats
+      });
+      setHasInitializedCycling(true);
+    }
+    setStrategyMode(newMode);
+  };
+
+  // Math Guard: Calculate actual calories from macros
+  const calculateCaloriesFromMacros = (targets: MacroTargets) => {
+    return (targets.protein * 4) + (targets.carbs * 4) + (targets.fats * 9);
+  };
+
+  const staticCalculatedCalories = calculateCaloriesFromMacros({ calories, protein, carbs, fats });
+  const onDayCalculatedCalories = calculateCaloriesFromMacros(onDayTargets);
+  const offDayCalculatedCalories = calculateCaloriesFromMacros(offDayTargets);
+
+  const staticCalorieDiff = Math.abs(calories - staticCalculatedCalories);
+  const onDayCalorieDiff = Math.abs(onDayTargets.calories - onDayCalculatedCalories);
+  const offDayCalorieDiff = Math.abs(offDayTargets.calories - offDayCalculatedCalories);
+
+  // Auto-fix functions for Math Guard
+  const autoFixStaticCalories = () => {
+    setCalories(staticCalculatedCalories);
+  };
+
+  const autoFixOnDayCalories = () => {
+    setOnDayTargets(prev => ({ ...prev, calories: onDayCalculatedCalories }));
+  };
+
+  const autoFixOffDayCalories = () => {
+    setOffDayTargets(prev => ({ ...prev, calories: offDayCalculatedCalories }));
+  };
   
   // Smart assistant state
   const [weeklyAvgGoal, setWeeklyAvgGoal] = useState(2500);
@@ -475,7 +532,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
   });
 
   // Calculate macro data for donut chart
-  const getMacroChartData = (targets: MacroTargets) => {
+  const getMacroChartData = (targets: MacroTargets): MacroChartEntry[] => {
     const proteinCals = targets.protein * 4;
     const carbsCals = targets.carbs * 4;
     const fatsCals = targets.fats * 9;
@@ -537,7 +594,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
   }, [strategyMode, onDayTargets.calories, offDayTargets.calories, trainingDaysPerWeek]);
 
   // Custom Donut Chart component
-  const MacroDonutChart = ({ data, title, totalCals }: { data: typeof staticMacroData; title: string; totalCals: number }) => (
+  const MacroDonutChart = ({ data, title, totalCals }: { data: MacroChartEntry[]; title: string; totalCals: number }) => (
     <div className="flex flex-col items-center">
       <p className="text-sm font-medium mb-2">{title}</p>
       <div className="w-[200px] h-[200px] relative">
@@ -559,7 +616,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
             <Tooltip
               content={({ active, payload }) => {
                 if (!active || !payload?.length) return null;
-                const d = payload[0].payload;
+                const d = payload[0].payload as MacroChartEntry;
                 return (
                   <div className="bg-popover border border-border rounded-lg p-2 shadow-lg text-xs">
                     <p className="font-medium" style={{ color: d.color }}>{d.name}</p>
@@ -589,81 +646,147 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
     </div>
   );
 
+  // Math Guard Badge component
+  const MathGuardBadge = ({ 
+    targetCalories, 
+    calculatedCalories, 
+    onAutoFix 
+  }: { 
+    targetCalories: number; 
+    calculatedCalories: number; 
+    onAutoFix: () => void;
+  }) => {
+    const diff = Math.abs(targetCalories - calculatedCalories);
+    const showWarning = diff > 50;
+    
+    if (!showWarning) return null;
+    
+    return (
+      <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+        <Badge variant="outline" className="gap-1 text-amber-600 border-amber-500/50">
+          <span className="text-amber-500">⚠️</span>
+          Δ {diff} kcal
+        </Badge>
+        <span className="text-xs text-amber-600">
+          Macro = {calculatedCalories} kcal
+        </span>
+        <Button 
+          size="sm" 
+          variant="outline" 
+          className="h-6 text-xs ml-auto border-amber-500/50 text-amber-600 hover:bg-amber-500/10"
+          onClick={onAutoFix}
+        >
+          <Zap className="h-3 w-3 mr-1" />
+          Auto-Fix
+        </Button>
+      </div>
+    );
+  };
+
   // Macro Input Grid component
   const MacroInputGrid = ({ 
     targets, 
     setTargets, 
-    label 
+    label,
+    calculatedCalories,
+    onAutoFix
   }: { 
     targets: MacroTargets; 
     setTargets: (t: MacroTargets) => void; 
     label: string;
-  }) => (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        {label === "Training" ? (
-          <Dumbbell className="h-4 w-4 text-orange-500" />
-        ) : (
-          <Coffee className="h-4 w-4 text-blue-500" />
-        )}
-        <span className="font-medium text-sm">{label}</span>
-      </div>
-      
-      <div className="space-y-3">
-        <div>
-          <Label className="text-xs text-muted-foreground">Calorie</Label>
-          <div className="flex items-center gap-2">
-            <Input
-              type="number"
-              value={targets.calories}
-              onChange={(e) => setTargets({ ...targets, calories: Number(e.target.value) })}
-              className="w-24 h-9"
-            />
-            <span className="text-xs text-muted-foreground">kcal</span>
-          </div>
+    calculatedCalories: number;
+    onAutoFix: () => void;
+  }) => {
+    const calorieDiff = Math.abs(targets.calories - calculatedCalories);
+    const showWarning = calorieDiff > 50;
+    
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          {label === "Training Days" ? (
+            <Dumbbell className="h-4 w-4 text-orange-500" />
+          ) : (
+            <Coffee className="h-4 w-4 text-blue-500" />
+          )}
+          <span className="font-medium text-sm">{label}</span>
         </div>
         
-        <div className="grid grid-cols-3 gap-2">
+        <div className="space-y-3">
           <div>
-            <Label className="text-xs flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: MACRO_COLORS.protein }} />
-              Prot
-            </Label>
-            <Input
-              type="number"
-              value={targets.protein}
-              onChange={(e) => setTargets({ ...targets, protein: Number(e.target.value) })}
-              className="h-8 text-sm"
-            />
+            <Label className="text-xs text-muted-foreground">Calorie</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                value={targets.calories}
+                onChange={(e) => setTargets({ ...targets, calories: Number(e.target.value) })}
+                className="w-24 h-9"
+              />
+              <span className="text-xs text-muted-foreground">kcal</span>
+            </div>
           </div>
-          <div>
-            <Label className="text-xs flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: MACRO_COLORS.carbs }} />
-              Carb
-            </Label>
-            <Input
-              type="number"
-              value={targets.carbs}
-              onChange={(e) => setTargets({ ...targets, carbs: Number(e.target.value) })}
-              className="h-8 text-sm"
-            />
-          </div>
-          <div>
-            <Label className="text-xs flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: MACRO_COLORS.fats }} />
-              Grassi
-            </Label>
-            <Input
-              type="number"
-              value={targets.fats}
-              onChange={(e) => setTargets({ ...targets, fats: Number(e.target.value) })}
-              className="h-8 text-sm"
-            />
+          
+          {/* Math Guard Warning */}
+          {showWarning && (
+            <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+              <Badge variant="outline" className="gap-1 text-amber-600 border-amber-500/50 text-xs">
+                ⚠️ Δ{calorieDiff}
+              </Badge>
+              <span className="text-xs text-amber-600 hidden sm:inline">
+                Macro = {calculatedCalories}
+              </span>
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                className="h-6 text-xs ml-auto text-amber-600"
+                onClick={onAutoFix}
+              >
+                <Zap className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+          
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <Label className="text-xs flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: MACRO_COLORS.protein }} />
+                Prot
+              </Label>
+              <Input
+                type="number"
+                value={targets.protein}
+                onChange={(e) => setTargets({ ...targets, protein: Number(e.target.value) })}
+                className="h-8 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: MACRO_COLORS.carbs }} />
+                Carb
+              </Label>
+              <Input
+                type="number"
+                value={targets.carbs}
+                onChange={(e) => setTargets({ ...targets, carbs: Number(e.target.value) })}
+                className="h-8 text-sm"
+              />
+            </div>
+            <div>
+              <Label className="text-xs flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: MACRO_COLORS.fats }} />
+                Grassi
+              </Label>
+              <Input
+                type="number"
+                value={targets.fats}
+                onChange={(e) => setTargets({ ...targets, fats: Number(e.target.value) })}
+                className="h-8 text-sm"
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   if (planLoading || habitsLoading || athleteHabitsLoading) {
     return (
@@ -691,7 +814,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
             </div>
             
             {/* Strategy Mode Toggle */}
-            <Tabs value={strategyMode} onValueChange={(v) => setStrategyMode(v as StrategyMode)}>
+            <Tabs value={strategyMode} onValueChange={(v) => handleStrategyModeChange(v as StrategyMode)}>
               <TabsList>
                 <TabsTrigger value="static" className="gap-1.5">
                   <Target className="h-3.5 w-3.5" />
@@ -709,7 +832,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
         <CardContent className="space-y-6">
           {strategyMode === 'static' ? (
             /* STATIC MODE */
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Left: Inputs */}
               <div className="space-y-5">
                 {/* Calories */}
@@ -780,6 +903,13 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
                     </div>
                   </div>
                 </div>
+                
+                {/* Math Guard for Static Mode */}
+                <MathGuardBadge 
+                  targetCalories={calories}
+                  calculatedCalories={staticCalculatedCalories}
+                  onAutoFix={autoFixStaticCalories}
+                />
               </div>
 
               {/* Right: Donut Chart */}
@@ -857,13 +987,15 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
               </div>
 
               {/* Two-column inputs + charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Training Days */}
                 <div className="p-4 rounded-xl border border-orange-500/30 bg-orange-500/5">
                   <MacroInputGrid 
                     targets={onDayTargets}
                     setTargets={setOnDayTargets}
                     label="Training Days"
+                    calculatedCalories={onDayCalculatedCalories}
+                    onAutoFix={autoFixOnDayCalories}
                   />
                   <div className="mt-4">
                     <MacroDonutChart 
@@ -880,6 +1012,8 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
                     targets={offDayTargets}
                     setTargets={setOffDayTargets}
                     label="Rest Days"
+                    calculatedCalories={offDayCalculatedCalories}
+                    onAutoFix={autoFixOffDayCalories}
                   />
                   <div className="mt-4">
                     <MacroDonutChart 
@@ -896,7 +1030,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
           <Separator />
 
           {/* Strategy Type & Weight Goal - Common to both modes */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Strategy Type */}
             <div className="space-y-2">
               <Label className="text-sm font-medium">Fase Goal</Label>
