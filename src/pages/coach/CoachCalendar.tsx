@@ -401,23 +401,23 @@ export default function CoachCalendar() {
   const selectedAthlete = athletes.find((a) => a.id === selectedAthleteId);
 
   return (
-    <CoachLayout title="Calendario" subtitle="Pianifica allenamenti e appuntamenti">
+    <CoachLayout title="Calendario" subtitle="Drag & Drop Scheduler">
       <DndContext
         sensors={sensors}
         collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex gap-6 h-[calc(100vh-12rem)] animate-fade-in">
+        <div className="flex gap-4 h-[calc(100vh-10rem)] animate-fade-in overflow-hidden">
           {/* ===== LEFT SIDEBAR: PROGRAMS DRAWER (25%) ===== */}
-          <Card className="w-[320px] shrink-0 border-0 shadow-md flex flex-col overflow-hidden">
+          <Card className="w-[25%] min-w-[280px] max-w-[360px] shrink-0 border shadow-sm flex flex-col overflow-hidden">
             <ProgramsDrawer />
           </Card>
 
           {/* ===== MAIN AREA: CALENDAR GRID (75%) ===== */}
-          <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             {/* Toolbar */}
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between mb-3 px-1">
               {/* Athlete Selector */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -428,16 +428,16 @@ export default function CoachCalendar() {
                   value={selectedAthleteId || ""}
                   onValueChange={setSelectedAthleteId}
                 >
-                  <SelectTrigger className="w-52 h-10">
+                  <SelectTrigger className="w-48 h-9">
                     <SelectValue placeholder="Seleziona atleta" />
                   </SelectTrigger>
                   <SelectContent>
                     {athletes.map((athlete) => (
                       <SelectItem key={athlete.id} value={athlete.id}>
                         <div className="flex items-center gap-2">
-                          <Avatar className="h-6 w-6">
+                          <Avatar className="h-5 w-5">
                             <AvatarImage src={athlete.avatar_url || undefined} />
-                            <AvatarFallback className="text-[10px]">
+                            <AvatarFallback className="text-[9px]">
                               {(athlete.full_name || "A")
                                 .split(" ")
                                 .map((n) => n[0])
@@ -446,7 +446,7 @@ export default function CoachCalendar() {
                                 .slice(0, 2)}
                             </AvatarFallback>
                           </Avatar>
-                          <span>{athlete.full_name || "Atleta"}</span>
+                          <span className="text-sm">{athlete.full_name || "Atleta"}</span>
                         </div>
                       </SelectItem>
                     ))}
@@ -455,30 +455,30 @@ export default function CoachCalendar() {
               </div>
 
               {/* Google Calendar Button (Placeholder) */}
-              <Button variant="outline" size="sm" disabled className="gap-2">
+              <Button variant="outline" size="sm" disabled className="gap-2 h-9">
                 <ExternalLink className="h-4 w-4" />
                 Connetti Google Calendar
               </Button>
             </div>
 
             {/* Calendar Grid */}
-            <Card className="flex-1 border-0 shadow-md overflow-hidden">
-              <CardContent className="p-5 h-full">
+            <Card className="flex-1 border shadow-sm overflow-hidden">
+              <CardContent className="p-4 h-full">
                 {!selectedAthleteId ? (
                   <div className="h-full flex items-center justify-center">
                     <div className="text-center">
-                      <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
-                        <Calendar className="h-8 w-8 text-muted-foreground" />
+                      <div className="h-14 w-14 rounded-xl bg-muted flex items-center justify-center mx-auto mb-3">
+                        <Calendar className="h-7 w-7 text-muted-foreground" />
                       </div>
-                      <p className="text-base font-semibold">Seleziona un atleta</p>
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-sm font-semibold">Seleziona un atleta</p>
+                      <p className="text-xs text-muted-foreground mt-1">
                         Scegli un atleta per visualizzare il calendario
                       </p>
                     </div>
                   </div>
                 ) : logsLoading ? (
                   <div className="h-full flex items-center justify-center">
-                    <div className="animate-pulse text-muted-foreground">
+                    <div className="animate-pulse text-sm text-muted-foreground">
                       Caricamento calendario...
                     </div>
                   </div>
