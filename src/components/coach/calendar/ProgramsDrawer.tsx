@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,6 +11,8 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -19,6 +21,9 @@ import {
   Dumbbell,
   GripVertical,
   ChevronRight,
+  Search,
+  FileStack,
+  Layout,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -49,7 +54,7 @@ interface ProgramWorkout {
   name: string;
   description: string | null;
   sort_order: number;
-  day_number?: number; // Added for scheduling context
+  day_number?: number;
 }
 
 interface WeekWithWorkouts extends ProgramWeek {
@@ -86,6 +91,7 @@ function DraggableWorkout({
     ? {
         transform: CSS.Translate.toString(transform),
         opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 1000 : undefined,
       }
     : undefined;
 
@@ -94,22 +100,24 @@ function DraggableWorkout({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center gap-2 p-2 rounded-md bg-muted/50 hover:bg-muted transition-colors cursor-grab active:cursor-grabbing group",
+        "flex items-center gap-2 p-2.5 rounded-lg bg-card border border-border/50 hover:border-primary/30 hover:bg-muted/50 transition-all cursor-grab active:cursor-grabbing group shadow-sm",
         isDragging && "ring-2 ring-primary shadow-lg"
       )}
       {...attributes}
       {...listeners}
     >
-      <GripVertical className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-      <Dumbbell className="h-3.5 w-3.5 text-primary shrink-0" />
-      <span className="text-xs font-medium truncate flex-1">
-        {workout.name}
-      </span>
-      {workout.day_number !== undefined && (
-        <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
-          G{workout.day_number}
-        </Badge>
-      )}
+      <GripVertical className="h-4 w-4 text-muted-foreground opacity-50 group-hover:opacity-100 transition-opacity shrink-0" />
+      <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+        <Dumbbell className="h-4 w-4 text-primary" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{workout.name}</p>
+        {workout.day_number !== undefined && (
+          <p className="text-[10px] text-muted-foreground">
+            Giorno {workout.day_number}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -138,6 +146,7 @@ function DraggableWeek({
     ? {
         transform: CSS.Translate.toString(transform),
         opacity: isDragging ? 0.5 : 1,
+        zIndex: isDragging ? 1000 : undefined,
       }
     : undefined;
 
@@ -146,19 +155,19 @@ function DraggableWeek({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center gap-2 px-2 py-1 rounded bg-primary/5 hover:bg-primary/10 cursor-grab active:cursor-grabbing transition-colors",
+        "flex items-center gap-2 p-2 rounded-lg bg-accent/50 hover:bg-accent cursor-grab active:cursor-grabbing transition-colors",
         isDragging && "ring-2 ring-primary shadow-lg"
       )}
       {...attributes}
       {...listeners}
     >
-      <GripVertical className="h-3 w-3 text-muted-foreground shrink-0" />
-      <Calendar className="h-3 w-3 text-primary shrink-0" />
-      <span className="text-xs font-medium flex-1">
+      <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+      <Calendar className="h-4 w-4 text-primary shrink-0" />
+      <span className="text-sm font-medium flex-1 truncate">
         {week.name || `Settimana ${week.week_order}`}
       </span>
-      <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
-        {workoutCount}
+      <Badge variant="secondary" className="text-[10px] h-5 px-2">
+        {workoutCount} workout
       </Badge>
     </div>
   );
@@ -166,11 +175,13 @@ function DraggableWeek({
 
 export function ProgramsDrawer() {
   const { user } = useAuth();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<"programs" | "templates">("programs");
   const [expandedPlans, setExpandedPlans] = useState<string[]>([]);
   const [expandedWeeks, setExpandedWeeks] = useState<string[]>([]);
 
   // Fetch all program plans with nested structure
-  const { data: programs = [], isLoading } = useQuery({
+  const { data: allPrograms = [], isLoading } = useQuery({
     queryKey: ["calendar-programs", user?.id],
     queryFn: async () => {
       if (!user) return [];
@@ -225,7 +236,6 @@ export function ProgramsDrawer() {
 
       const workoutsMap = new Map<string, ProgramWorkout[]>();
       workouts?.forEach((workout) => {
-        // Find day number for this workout
         const day = days?.find((d) => d.id === workout.program_day_id);
         const workoutWithDay = { ...workout, day_number: day?.day_number };
 
@@ -234,7 +244,7 @@ export function ProgramsDrawer() {
         workoutsMap.set(workout.program_day_id, existing);
       });
 
-      // Group workouts by week (flatten from days)
+      // Group workouts by week
       const weekWorkoutsMap = new Map<string, ProgramWorkout[]>();
       weeks?.forEach((week) => {
         const weekDays = daysMap.get(week.id) || [];
@@ -265,104 +275,186 @@ export function ProgramsDrawer() {
     enabled: !!user,
   });
 
+  // Filter programs based on tab and search
+  const filteredPrograms = useMemo(() => {
+    let programs = allPrograms;
+
+    // Filter by tab
+    if (activeTab === "templates") {
+      programs = programs.filter((p) => p.is_template);
+    } else {
+      programs = programs.filter((p) => !p.is_template);
+    }
+
+    // Filter by search
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      programs = programs.filter(
+        (p) =>
+          p.name.toLowerCase().includes(query) ||
+          p.weeks.some(
+            (w) =>
+              w.name?.toLowerCase().includes(query) ||
+              w.workouts.some((wo) => wo.name.toLowerCase().includes(query))
+          )
+      );
+    }
+
+    return programs;
+  }, [allPrograms, activeTab, searchQuery]);
+
   if (isLoading) {
     return (
       <div className="p-4 space-y-3">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-12 w-full" />
+        <Skeleton className="h-9 w-full" />
+        <Skeleton className="h-9 w-full" />
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-14 w-full" />
         ))}
       </div>
     );
   }
 
-  if (!programs.length) {
-    return (
-      <div className="p-6 text-center">
-        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
-          <FolderOpen className="h-6 w-6 text-muted-foreground" />
+  return (
+    <div className="flex flex-col h-full">
+      {/* Header with Search and Tabs */}
+      <div className="p-4 space-y-3 border-b border-border/50">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Cerca programmi, workout..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 h-9 bg-muted/50 border-0"
+          />
         </div>
-        <p className="text-sm font-medium">Nessun programma</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Crea un programma nel Program Builder
+
+        {/* Tabs */}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
+          <TabsList className="w-full h-9">
+            <TabsTrigger value="programs" className="flex-1 text-xs gap-1.5">
+              <Layout className="h-3.5 w-3.5" />
+              Programmi
+            </TabsTrigger>
+            <TabsTrigger value="templates" className="flex-1 text-xs gap-1.5">
+              <FileStack className="h-3.5 w-3.5" />
+              Template
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      </div>
+
+      {/* Programs List */}
+      <ScrollArea className="flex-1">
+        <div className="p-3">
+          {filteredPrograms.length === 0 ? (
+            <div className="py-12 text-center">
+              <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
+                <FolderOpen className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm font-medium">
+                {searchQuery
+                  ? "Nessun risultato"
+                  : activeTab === "templates"
+                    ? "Nessun template"
+                    : "Nessun programma"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {searchQuery
+                  ? "Prova con altri termini"
+                  : "Crea un programma nel Program Builder"}
+              </p>
+            </div>
+          ) : (
+            <Accordion
+              type="multiple"
+              value={expandedPlans}
+              onValueChange={setExpandedPlans}
+              className="space-y-2"
+            >
+              {filteredPrograms.map((plan) => (
+                <AccordionItem
+                  key={plan.id}
+                  value={plan.id}
+                  className="border rounded-xl bg-card overflow-hidden shadow-sm"
+                >
+                  <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/30">
+                    <div className="flex items-center gap-3 text-left">
+                      <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <FolderOpen className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate">
+                          {plan.name}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {plan.weeks.length} settimane •{" "}
+                          {plan.weeks.reduce((acc, w) => acc + w.workouts.length, 0)}{" "}
+                          workout
+                        </p>
+                      </div>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="px-3 pb-3">
+                    <Accordion
+                      type="multiple"
+                      value={expandedWeeks}
+                      onValueChange={setExpandedWeeks}
+                      className="space-y-2"
+                    >
+                      {plan.weeks.map((week) => (
+                        <AccordionItem
+                          key={week.id}
+                          value={week.id}
+                          className="border-0"
+                        >
+                          {/* Draggable Week Header */}
+                          <div className="flex items-center gap-1">
+                            <div className="flex-1">
+                              <DraggableWeek
+                                week={week}
+                                planId={plan.id}
+                                workoutCount={week.workouts.length}
+                              />
+                            </div>
+                            <AccordionTrigger className="p-2 hover:no-underline hover:bg-muted/50 rounded-lg [&>svg]:hidden">
+                              <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
+                            </AccordionTrigger>
+                          </div>
+                          <AccordionContent className="pt-2 pl-2 space-y-2">
+                            {week.workouts.length === 0 ? (
+                              <p className="text-xs text-muted-foreground px-3 py-2 italic">
+                                Nessun workout in questa settimana
+                              </p>
+                            ) : (
+                              week.workouts.map((workout) => (
+                                <DraggableWorkout
+                                  key={workout.id}
+                                  workout={workout}
+                                  weekId={week.id}
+                                  planId={plan.id}
+                                />
+                              ))
+                            )}
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          )}
+        </div>
+      </ScrollArea>
+
+      {/* Footer Hint */}
+      <div className="p-3 border-t border-border/50 bg-muted/30">
+        <p className="text-[11px] text-muted-foreground text-center">
+          💡 Trascina workout o settimane sul calendario per programmarli
         </p>
       </div>
-    );
-  }
-
-  return (
-    <ScrollArea className="h-full">
-      <div className="p-3">
-        <Accordion
-          type="multiple"
-          value={expandedPlans}
-          onValueChange={setExpandedPlans}
-          className="space-y-2"
-        >
-          {programs.map((plan) => (
-            <AccordionItem
-              key={plan.id}
-              value={plan.id}
-              className="border rounded-lg bg-card overflow-hidden"
-            >
-              <AccordionTrigger className="px-3 py-2 hover:no-underline hover:bg-muted/50">
-                <div className="flex items-center gap-2 text-left">
-                  <FolderOpen className="h-4 w-4 text-primary shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{plan.name}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {plan.weeks.length} settimane
-                    </p>
-                  </div>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="px-2 pb-2">
-                <Accordion
-                  type="multiple"
-                  value={expandedWeeks}
-                  onValueChange={setExpandedWeeks}
-                  className="space-y-1"
-                >
-                  {plan.weeks.map((week) => (
-                    <AccordionItem
-                      key={week.id}
-                      value={week.id}
-                      className="border-0"
-                    >
-                      {/* Draggable Week Header */}
-                      <div className="flex items-center gap-1">
-                        <DraggableWeek
-                          week={week}
-                          planId={plan.id}
-                          workoutCount={week.workouts.length}
-                        />
-                        <AccordionTrigger className="p-1 hover:no-underline hover:bg-muted/50 rounded [&>svg]:hidden">
-                          <ChevronRight className="h-3.5 w-3.5 text-muted-foreground transition-transform duration-200 [[data-state=open]>&]:rotate-90" />
-                        </AccordionTrigger>
-                      </div>
-                      <AccordionContent className="pt-1 pl-4 space-y-1">
-                        {week.workouts.length === 0 ? (
-                          <p className="text-[10px] text-muted-foreground px-2 py-1">
-                            Nessun workout
-                          </p>
-                        ) : (
-                          week.workouts.map((workout) => (
-                            <DraggableWorkout
-                              key={workout.id}
-                              workout={workout}
-                              weekId={week.id}
-                              planId={plan.id}
-                            />
-                          ))
-                        )}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </div>
-    </ScrollArea>
+    </div>
   );
 }

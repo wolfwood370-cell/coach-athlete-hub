@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,14 +16,14 @@ import { ProgramsDrawer } from "@/components/coach/calendar/ProgramsDrawer";
 import {
   CalendarGrid,
   ScheduledWorkoutLog,
+  CalendarAppointment,
+  GoogleBusySlot,
 } from "@/components/coach/calendar/CalendarGrid";
 import { ScheduleWeekDialog } from "@/components/coach/calendar/ScheduleWeekDialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScheduleConfirmDialog } from "@/components/coach/calendar/ScheduleConfirmDialog";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -37,23 +37,17 @@ import { toast } from "sonner";
 import {
   Dumbbell,
   Calendar,
-  Clock,
-  CheckCircle2,
-  XCircle,
   ExternalLink,
-  FolderOpen,
+  Users,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 import {
   format,
   startOfMonth,
   endOfMonth,
-  isSameDay,
   addDays,
   startOfWeek,
   endOfWeek,
 } from "date-fns";
-import { it } from "date-fns/locale";
 
 // Types for drag data
 interface DraggedWorkout {
@@ -74,6 +68,19 @@ interface Athlete {
   avatar_url: string | null;
 }
 
+// Mock Google Calendar busy slots (for UI preparation)
+const MOCK_GOOGLE_BUSY_SLOTS: GoogleBusySlot[] = [
+  { id: "g1", title: "Riunione Team", date: format(new Date(), "yyyy-MM-dd"), startTime: "10:00", endTime: "11:00" },
+  { id: "g2", title: "Call Cliente", date: format(addDays(new Date(), 1), "yyyy-MM-dd"), startTime: "14:00", endTime: "15:00" },
+  { id: "g3", title: "Appuntamento", date: format(addDays(new Date(), 3), "yyyy-MM-dd"), startTime: "09:00", endTime: "10:30" },
+];
+
+// Mock appointments
+const MOCK_APPOINTMENTS: CalendarAppointment[] = [
+  { id: "a1", title: "Check-in Marco", type: "check-in", date: format(addDays(new Date(), 2), "yyyy-MM-dd"), time: "16:00" },
+  { id: "a2", title: "PT Session - Luca", type: "pt-session", date: format(addDays(new Date(), 4), "yyyy-MM-dd"), time: "11:00" },
+];
+
 export default function CoachCalendar() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -82,16 +89,20 @@ export default function CoachCalendar() {
   // State
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [calendarView, setCalendarView] = useState<"month" | "week" | "day">(
-    "month"
-  );
-  const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(
-    null
-  );
+  const [calendarView, setCalendarView] = useState<"month" | "week">("month");
+  const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null);
+  const [showGoogleEvents, setShowGoogleEvents] = useState(false);
 
   // Drag state
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeDragData, setActiveDragData] = useState<any>(null);
+
+  // Confirmation dialog state
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingSchedule, setPendingSchedule] = useState<{
+    workout: DraggedWorkout;
+    targetDate: Date;
+  } | null>(null);
 
   // Week scheduling dialog
   const [weekDialogOpen, setWeekDialogOpen] = useState(false);
@@ -141,25 +152,19 @@ export default function CoachCalendar() {
   }, [athletes, selectedAthleteId]);
 
   // Calculate date range based on view
-  const dateRange = (() => {
+  const dateRange = useMemo(() => {
     if (calendarView === "month") {
       return {
         start: format(startOfMonth(currentDate), "yyyy-MM-dd"),
         end: format(endOfMonth(currentDate), "yyyy-MM-dd"),
       };
-    } else if (calendarView === "week") {
+    } else {
       return {
-        start: format(
-          startOfWeek(currentDate, { weekStartsOn: 1 }),
-          "yyyy-MM-dd"
-        ),
+        start: format(startOfWeek(currentDate, { weekStartsOn: 1 }), "yyyy-MM-dd"),
         end: format(endOfWeek(currentDate, { weekStartsOn: 1 }), "yyyy-MM-dd"),
       };
-    } else {
-      const dateKey = format(currentDate, "yyyy-MM-dd");
-      return { start: dateKey, end: dateKey };
     }
-  })();
+  }, [currentDate, calendarView]);
 
   // Fetch workout logs for calendar
   const { data: workoutLogs = [], isLoading: logsLoading } = useQuery({
@@ -279,32 +284,25 @@ export default function CoachCalendar() {
       setActiveId(null);
       setActiveDragData(null);
 
-      if (!over || !selectedAthleteId) return;
+      if (!over) return;
 
       const dropData = over.data.current;
       if (dropData?.type !== "calendar-day") return;
 
       const targetDate = dropData.date as Date;
-      const targetDateKey = format(targetDate, "yyyy-MM-dd");
-
       const dragData = active.data.current;
 
-      // Handle single workout drop
+      // Handle single workout drop - show confirmation dialog
       if (dragData?.type === "calendar-workout") {
         const workout = dragData.workout as DraggedWorkout;
-        scheduleWorkoutMutation.mutate({
-          programWorkoutId: workout.id,
-          workoutName: workout.name,
-          athleteId: selectedAthleteId,
-          scheduledDate: targetDateKey,
-        });
+        setPendingSchedule({ workout, targetDate });
+        setConfirmDialogOpen(true);
       }
 
       // Handle week drop (Smart Paste)
       if (dragData?.type === "calendar-week") {
         const week = dragData.week as DraggedWeek;
 
-        // We need to fetch workouts for this week
         fetchWeekWorkouts(week.id, dragData.planId).then((workouts) => {
           if (workouts.length === 0) {
             toast.error("Questa settimana non ha workout");
@@ -321,7 +319,7 @@ export default function CoachCalendar() {
         });
       }
     },
-    [selectedAthleteId, scheduleWorkoutMutation]
+    []
   );
 
   // Fetch workouts for a week (for Smart Paste)
@@ -329,7 +327,6 @@ export default function CoachCalendar() {
     weekId: string,
     _planId: string
   ): Promise<DraggedWorkout[]> => {
-    // Get days for this week
     const { data: days, error: daysError } = await supabase
       .from("program_days")
       .select("id, day_number")
@@ -338,7 +335,6 @@ export default function CoachCalendar() {
 
     if (daysError || !days?.length) return [];
 
-    // Get workouts for these days
     const dayIds = days.map((d) => d.id);
     const { data: workouts, error: workoutsError } = await supabase
       .from("program_workouts")
@@ -348,7 +344,6 @@ export default function CoachCalendar() {
 
     if (workoutsError || !workouts?.length) return [];
 
-    // Map day_number to workouts
     const dayMap = new Map(days.map((d) => [d.id, d.day_number]));
     return workouts.map((w) => ({
       id: w.id,
@@ -357,13 +352,33 @@ export default function CoachCalendar() {
     }));
   };
 
+  // Handle single workout confirmation
+  const handleConfirmSchedule = useCallback(
+    async (athleteId: string) => {
+      if (!pendingSchedule) return;
+
+      const { workout, targetDate } = pendingSchedule;
+      const targetDateKey = format(targetDate, "yyyy-MM-dd");
+
+      await scheduleWorkoutMutation.mutateAsync({
+        programWorkoutId: workout.id,
+        workoutName: workout.name,
+        athleteId,
+        scheduledDate: targetDateKey,
+      });
+
+      setConfirmDialogOpen(false);
+      setPendingSchedule(null);
+    },
+    [pendingSchedule, scheduleWorkoutMutation]
+  );
+
   // Handle week schedule confirmation
   const handleConfirmWeekSchedule = useCallback(async () => {
     if (!pendingWeekSchedule || !selectedAthleteId) return;
 
     const { workouts, startDate } = pendingWeekSchedule;
 
-    // Schedule all workouts
     for (const workout of workouts) {
       const dayOffset = (workout.day_number ?? 1) - 1;
       const scheduledDate = format(addDays(startDate, dayOffset), "yyyy-MM-dd");
@@ -383,16 +398,10 @@ export default function CoachCalendar() {
     );
   }, [pendingWeekSchedule, selectedAthleteId, scheduleWorkoutMutation]);
 
-  // Get selected day's workouts
-  const selectedDateKey = format(selectedDate, "yyyy-MM-dd");
-  const selectedDayWorkouts = workoutLogs.filter(
-    (log) => log.scheduled_date === selectedDateKey
-  );
-
   const selectedAthlete = athletes.find((a) => a.id === selectedAthleteId);
 
   return (
-    <CoachLayout title="Calendario" subtitle="Pianifica gli allenamenti">
+    <CoachLayout title="Calendario" subtitle="Pianifica allenamenti e appuntamenti">
       <DndContext
         sensors={sensors}
         collisionDetection={pointerWithin}
@@ -400,45 +409,35 @@ export default function CoachCalendar() {
         onDragEnd={handleDragEnd}
       >
         <div className="flex gap-6 h-[calc(100vh-12rem)] animate-fade-in">
-          {/* ===== LEFT SIDEBAR: PROGRAMS DRAWER ===== */}
-          <Card className="w-80 shrink-0 border-0 shadow-sm flex flex-col">
-            <CardHeader className="pb-2 shrink-0">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <FolderOpen className="h-4 w-4 text-primary" />
-                  Programmi
-                </CardTitle>
-              </div>
-              <p className="text-[10px] text-muted-foreground">
-                Trascina workout o settimane sul calendario
-              </p>
-            </CardHeader>
-            <CardContent className="flex-1 p-0 overflow-hidden">
-              <ProgramsDrawer />
-            </CardContent>
+          {/* ===== LEFT SIDEBAR: PROGRAMS DRAWER (25%) ===== */}
+          <Card className="w-[320px] shrink-0 border-0 shadow-md flex flex-col overflow-hidden">
+            <ProgramsDrawer />
           </Card>
 
-          {/* ===== MAIN AREA: CALENDAR ===== */}
+          {/* ===== MAIN AREA: CALENDAR GRID (75%) ===== */}
           <div className="flex-1 flex flex-col min-w-0">
             {/* Toolbar */}
             <div className="flex items-center justify-between mb-4">
               {/* Athlete Selector */}
               <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">Atleta:</span>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Users className="h-4 w-4" />
+                  <span>Atleta:</span>
+                </div>
                 <Select
                   value={selectedAthleteId || ""}
                   onValueChange={setSelectedAthleteId}
                 >
-                  <SelectTrigger className="w-48 h-9">
+                  <SelectTrigger className="w-52 h-10">
                     <SelectValue placeholder="Seleziona atleta" />
                   </SelectTrigger>
                   <SelectContent>
                     {athletes.map((athlete) => (
                       <SelectItem key={athlete.id} value={athlete.id}>
                         <div className="flex items-center gap-2">
-                          <Avatar className="h-5 w-5">
+                          <Avatar className="h-6 w-6">
                             <AvatarImage src={athlete.avatar_url || undefined} />
-                            <AvatarFallback className="text-[8px]">
+                            <AvatarFallback className="text-[10px]">
                               {(athlete.full_name || "A")
                                 .split(" ")
                                 .map((n) => n[0])
@@ -456,159 +455,67 @@ export default function CoachCalendar() {
               </div>
 
               {/* Google Calendar Button (Placeholder) */}
-              <Button variant="outline" size="sm" disabled>
-                <ExternalLink className="h-4 w-4 mr-2" />
+              <Button variant="outline" size="sm" disabled className="gap-2">
+                <ExternalLink className="h-4 w-4" />
                 Connetti Google Calendar
               </Button>
             </div>
 
             {/* Calendar Grid */}
-            <Card className="flex-1 border-0 shadow-sm overflow-hidden">
-              <CardContent className="p-4 h-full">
+            <Card className="flex-1 border-0 shadow-md overflow-hidden">
+              <CardContent className="p-5 h-full">
                 {!selectedAthleteId ? (
                   <div className="h-full flex items-center justify-center">
                     <div className="text-center">
-                      <Calendar className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                      <p className="text-sm font-medium">
-                        Seleziona un atleta
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+                        <Calendar className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <p className="text-base font-semibold">Seleziona un atleta</p>
+                      <p className="text-sm text-muted-foreground mt-1">
                         Scegli un atleta per visualizzare il calendario
                       </p>
                     </div>
                   </div>
                 ) : logsLoading ? (
-                  <div className="space-y-4">
-                    <Skeleton className="h-8 w-64" />
-                    <Skeleton className="h-96 w-full" />
+                  <div className="h-full flex items-center justify-center">
+                    <div className="animate-pulse text-muted-foreground">
+                      Caricamento calendario...
+                    </div>
                   </div>
                 ) : (
                   <CalendarGrid
                     workoutLogs={workoutLogs}
+                    appointments={MOCK_APPOINTMENTS}
+                    googleBusySlots={MOCK_GOOGLE_BUSY_SLOTS}
                     onDateSelect={setSelectedDate}
                     selectedDate={selectedDate}
                     view={calendarView}
                     onViewChange={setCalendarView}
                     currentDate={currentDate}
                     onDateChange={setCurrentDate}
+                    showGoogleEvents={showGoogleEvents}
+                    onToggleGoogleEvents={setShowGoogleEvents}
                   />
                 )}
               </CardContent>
             </Card>
           </div>
-
-          {/* ===== RIGHT SIDEBAR: SELECTED DAY DETAILS ===== */}
-          <Card className="w-72 shrink-0 border-0 shadow-sm flex flex-col">
-            <CardHeader className="pb-2 shrink-0">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold capitalize">
-                  {format(selectedDate, "EEEE d MMM", { locale: it })}
-                </CardTitle>
-                <Badge variant="secondary" className="tabular-nums">
-                  {selectedDayWorkouts.length}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-1 p-0 overflow-hidden">
-              {selectedDayWorkouts.length === 0 ? (
-                <div className="p-6 text-center">
-                  <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
-                    <Calendar className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    Nessun workout
-                  </p>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    Trascina un workout qui
-                  </p>
-                </div>
-              ) : (
-                <ScrollArea className="h-full">
-                  <div className="p-2 space-y-2">
-                    {selectedDayWorkouts.map((workout) => (
-                      <div
-                        key={workout.id}
-                        className={cn(
-                          "p-3 rounded-lg transition-colors",
-                          workout.status === "scheduled" &&
-                            "bg-primary/5 border border-primary/20",
-                          workout.status === "completed" &&
-                            "bg-success/5 border border-success/20",
-                          workout.status === "missed" &&
-                            "bg-destructive/5 border border-destructive/20"
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={cn(
-                              "h-8 w-8 rounded-full flex items-center justify-center shrink-0",
-                              workout.status === "scheduled" && "bg-primary/10",
-                              workout.status === "completed" && "bg-success/10",
-                              workout.status === "missed" && "bg-destructive/10"
-                            )}
-                          >
-                            {workout.status === "scheduled" && (
-                              <Clock className="h-4 w-4 text-primary" />
-                            )}
-                            {workout.status === "completed" && (
-                              <CheckCircle2 className="h-4 w-4 text-success" />
-                            )}
-                            {workout.status === "missed" && (
-                              <XCircle className="h-4 w-4 text-destructive" />
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">
-                              {workout.workout_name}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Avatar className="h-4 w-4">
-                                <AvatarImage
-                                  src={workout.avatar_url || undefined}
-                                />
-                                <AvatarFallback className="text-[6px]">
-                                  {workout.athlete_name
-                                    .split(" ")
-                                    .map((n) => n[0])
-                                    .join("")
-                                    .toUpperCase()
-                                    .slice(0, 2)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="text-[10px] text-muted-foreground truncate">
-                                {workout.athlete_name}
-                              </span>
-                            </div>
-                            {workout.scheduled_start_time && (
-                              <p className="text-[10px] text-muted-foreground mt-1">
-                                {workout.scheduled_start_time.slice(0, 5)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              )}
-            </CardContent>
-          </Card>
         </div>
 
         {/* Drag Overlay */}
         <DragOverlay>
           {activeId && activeDragData?.type === "calendar-workout" && (
-            <div className="flex items-center gap-2 p-2 rounded-md bg-primary text-primary-foreground shadow-lg">
-              <Dumbbell className="h-3.5 w-3.5" />
-              <span className="text-xs font-medium">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-primary text-primary-foreground shadow-xl">
+              <Dumbbell className="h-4 w-4" />
+              <span className="text-sm font-medium">
                 {activeDragData.workout.name}
               </span>
             </div>
           )}
           {activeId && activeDragData?.type === "calendar-week" && (
-            <div className="flex items-center gap-2 p-2 rounded-md bg-primary text-primary-foreground shadow-lg">
-              <Calendar className="h-3.5 w-3.5" />
-              <span className="text-xs font-medium">
+            <div className="flex items-center gap-2 p-3 rounded-lg bg-primary text-primary-foreground shadow-xl">
+              <Calendar className="h-4 w-4" />
+              <span className="text-sm font-medium">
                 {activeDragData.week.name ||
                   `Settimana ${activeDragData.week.week_order}`}
               </span>
@@ -616,6 +523,20 @@ export default function CoachCalendar() {
           )}
         </DragOverlay>
       </DndContext>
+
+      {/* Single Workout Confirmation Dialog */}
+      {pendingSchedule && (
+        <ScheduleConfirmDialog
+          open={confirmDialogOpen}
+          onOpenChange={setConfirmDialogOpen}
+          workoutName={pendingSchedule.workout.name}
+          targetDate={pendingSchedule.targetDate}
+          athletes={athletes}
+          selectedAthleteId={selectedAthleteId}
+          onConfirm={handleConfirmSchedule}
+          isScheduling={scheduleWorkoutMutation.isPending}
+        />
+      )}
 
       {/* Week Scheduling Dialog */}
       {pendingWeekSchedule && (
