@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -55,19 +56,38 @@ import {
   Sparkles,
   Apple,
   Trash2,
-  ToggleLeft,
-  ToggleRight
+  Zap,
+  Calendar,
+  Calculator,
+  RefreshCw,
+  Dumbbell,
+  Coffee
 } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
+import { format, addDays, startOfWeek } from "date-fns";
+import { it } from "date-fns/locale";
 
 interface StrategyContentProps {
   athleteId: string | undefined;
 }
 
 type StrategyType = 'cut' | 'maintain' | 'bulk';
+type StrategyMode = 'static' | 'cycling_on_off' | 'custom_daily';
 type HabitCategory = 'recovery' | 'nutrition' | 'mindset';
 type HabitFrequency = 'daily' | 'weekly' | 'as_needed';
+
+interface MacroTargets {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+}
+
+interface CyclingTargets {
+  on: MacroTargets;
+  off: MacroTargets;
+}
 
 interface NutritionPlan {
   id: string;
@@ -78,6 +98,8 @@ interface NutritionPlan {
   carbs_g: number;
   fats_g: number;
   strategy_type: StrategyType;
+  strategy_mode: StrategyMode;
+  cycling_targets: CyclingTargets | null;
   weekly_weight_goal: number;
   active: boolean;
   notes: string | null;
@@ -106,6 +128,12 @@ interface AthleteHabit {
   habit?: HabitLibraryItem;
 }
 
+interface ScheduledWorkout {
+  date: string;
+  hasWorkout: boolean;
+  workoutName?: string;
+}
+
 const CATEGORY_CONFIG: Record<HabitCategory, { label: string; icon: React.ElementType; color: string }> = {
   recovery: { label: "Recovery", icon: Moon, color: "text-blue-500" },
   nutrition: { label: "Nutrition", icon: Apple, color: "text-green-500" },
@@ -118,15 +146,39 @@ const STRATEGY_CONFIG: Record<StrategyType, { label: string; icon: React.Element
   bulk: { label: "Bulk", icon: TrendingUp, color: "text-green-500", description: "Surplus calorico per aumento massa" },
 };
 
+// Macro colors as per requirements
+const MACRO_COLORS = {
+  protein: "#EF4444", // Red
+  fats: "#EAB308",    // Yellow
+  carbs: "#22C55E",   // Green
+};
+
+// Day labels in Italian
+const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
+
 export function StrategyContent({ athleteId }: StrategyContentProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // Form state for nutrition plan
+  // Strategy mode state
+  const [strategyMode, setStrategyMode] = useState<StrategyMode>('static');
+  
+  // Static targets state
   const [calories, setCalories] = useState(2000);
   const [protein, setProtein] = useState(150);
   const [carbs, setCarbs] = useState(200);
   const [fats, setFats] = useState(70);
+  
+  // Cycling targets state
+  const [onDayTargets, setOnDayTargets] = useState<MacroTargets>({ calories: 2800, protein: 200, carbs: 300, fats: 80 });
+  const [offDayTargets, setOffDayTargets] = useState<MacroTargets>({ calories: 2200, protein: 180, carbs: 200, fats: 70 });
+  
+  // Smart assistant state
+  const [weeklyAvgGoal, setWeeklyAvgGoal] = useState(2500);
+  const [trainingDaysPerWeek, setTrainingDaysPerWeek] = useState(4);
+  const [autoCalcEnabled, setAutoCalcEnabled] = useState(false);
+  
+  // Other form state
   const [strategyType, setStrategyType] = useState<StrategyType>('maintain');
   const [weeklyWeightGoal, setWeeklyWeightGoal] = useState(0);
 
@@ -152,20 +204,69 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
         .maybeSingle();
       
       if (error) throw error;
-      return data as NutritionPlan | null;
+      if (!data) return null;
+      
+      // Transform the data to match our interface
+      return {
+        ...data,
+        strategy_mode: (data.strategy_mode || 'static') as StrategyMode,
+        cycling_targets: data.cycling_targets as unknown as CyclingTargets | null,
+      } as NutritionPlan;
+    },
+    enabled: !!athleteId,
+  });
+
+  // Fetch scheduled workouts for this week
+  const { data: weekSchedule } = useQuery({
+    queryKey: ["athlete-week-schedule", athleteId],
+    queryFn: async () => {
+      if (!athleteId) return [];
+      
+      const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+      const weekEnd = addDays(weekStart, 6);
+      
+      const { data, error } = await supabase
+        .from("workout_logs")
+        .select("scheduled_date, status, workout_id")
+        .eq("athlete_id", athleteId)
+        .gte("scheduled_date", format(weekStart, "yyyy-MM-dd"))
+        .lte("scheduled_date", format(weekEnd, "yyyy-MM-dd"));
+      
+      if (error) throw error;
+      
+      // Create 7-day array
+      const schedule: ScheduledWorkout[] = [];
+      for (let i = 0; i < 7; i++) {
+        const date = format(addDays(weekStart, i), "yyyy-MM-dd");
+        const workoutsOnDay = data?.filter(w => w.scheduled_date === date) || [];
+        schedule.push({
+          date,
+          hasWorkout: workoutsOnDay.length > 0,
+          workoutName: workoutsOnDay.length > 0 ? `${workoutsOnDay.length} sessione/i` : undefined,
+        });
+      }
+      
+      return schedule;
     },
     enabled: !!athleteId,
   });
 
   // Update form when plan loads
-  useMemo(() => {
+  useEffect(() => {
     if (nutritionPlan) {
+      setStrategyMode((nutritionPlan.strategy_mode as StrategyMode) || 'static');
       setCalories(nutritionPlan.daily_calories);
       setProtein(nutritionPlan.protein_g);
       setCarbs(nutritionPlan.carbs_g);
       setFats(nutritionPlan.fats_g);
       setStrategyType(nutritionPlan.strategy_type as StrategyType);
       setWeeklyWeightGoal(Number(nutritionPlan.weekly_weight_goal) || 0);
+      
+      if (nutritionPlan.cycling_targets) {
+        const ct = nutritionPlan.cycling_targets as CyclingTargets;
+        if (ct.on) setOnDayTargets(ct.on);
+        if (ct.off) setOffDayTargets(ct.off);
+      }
     }
   }, [nutritionPlan]);
 
@@ -205,6 +306,28 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
     enabled: !!athleteId,
   });
 
+  // Smart Assistant: Auto-calculate rest day calories
+  const calculateRestDayCalories = () => {
+    const restDays = 7 - trainingDaysPerWeek;
+    if (restDays <= 0) return offDayTargets.calories;
+    
+    const neededRestCals = (weeklyAvgGoal * 7 - (onDayTargets.calories * trainingDaysPerWeek)) / restDays;
+    return Math.max(1200, Math.round(neededRestCals));
+  };
+
+  const applySmartCalc = () => {
+    const restCals = calculateRestDayCalories();
+    // Scale macros proportionally
+    const ratio = restCals / onDayTargets.calories;
+    setOffDayTargets({
+      calories: restCals,
+      protein: Math.round(onDayTargets.protein * 0.9), // Keep protein high
+      carbs: Math.round(onDayTargets.carbs * ratio * 0.8), // Lower carbs on rest days
+      fats: Math.round(onDayTargets.fats * ratio * 1.1), // Slightly higher fats
+    });
+    toast.success("Calorie giorni di riposo calcolate!");
+  };
+
   // Save nutrition plan mutation
   const savePlanMutation = useMutation({
     mutationFn: async () => {
@@ -219,20 +342,26 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
           .eq("active", true);
       }
 
+      const cyclingTargetsJson = strategyMode === 'cycling_on_off' 
+        ? JSON.parse(JSON.stringify({ on: onDayTargets, off: offDayTargets }))
+        : null;
+
       // Insert new plan
       const { error } = await supabase
         .from("nutrition_plans")
-        .insert({
+        .insert([{
           athlete_id: athleteId,
           coach_id: user.id,
-          daily_calories: calories,
-          protein_g: protein,
-          carbs_g: carbs,
-          fats_g: fats,
+          daily_calories: strategyMode === 'static' ? calories : onDayTargets.calories,
+          protein_g: strategyMode === 'static' ? protein : onDayTargets.protein,
+          carbs_g: strategyMode === 'static' ? carbs : onDayTargets.carbs,
+          fats_g: strategyMode === 'static' ? fats : onDayTargets.fats,
           strategy_type: strategyType,
+          strategy_mode: strategyMode,
+          cycling_targets: cyclingTargetsJson,
           weekly_weight_goal: weeklyWeightGoal,
           active: true,
-        });
+        }]);
 
       if (error) throw error;
     },
@@ -345,19 +474,41 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
     },
   });
 
-  // Calculate macro percentages for pie chart
-  const macroData = useMemo(() => {
-    const proteinCals = protein * 4;
-    const carbsCals = carbs * 4;
-    const fatsCals = fats * 9;
+  // Calculate macro data for donut chart
+  const getMacroChartData = (targets: MacroTargets) => {
+    const proteinCals = targets.protein * 4;
+    const carbsCals = targets.carbs * 4;
+    const fatsCals = targets.fats * 9;
     const total = proteinCals + carbsCals + fatsCals;
 
     return [
-      { name: "Proteine", value: Math.round((proteinCals / total) * 100), grams: protein, color: "hsl(var(--chart-1))" },
-      { name: "Carboidrati", value: Math.round((carbsCals / total) * 100), grams: carbs, color: "hsl(var(--chart-2))" },
-      { name: "Grassi", value: Math.round((fatsCals / total) * 100), grams: fats, color: "hsl(var(--chart-3))" },
+      { 
+        name: "Proteine", 
+        value: Math.round((proteinCals / total) * 100), 
+        grams: targets.protein, 
+        kcal: proteinCals,
+        color: MACRO_COLORS.protein 
+      },
+      { 
+        name: "Carboidrati", 
+        value: Math.round((carbsCals / total) * 100), 
+        grams: targets.carbs, 
+        kcal: carbsCals,
+        color: MACRO_COLORS.carbs 
+      },
+      { 
+        name: "Grassi", 
+        value: Math.round((fatsCals / total) * 100), 
+        grams: targets.fats, 
+        kcal: fatsCals,
+        color: MACRO_COLORS.fats 
+      },
     ];
-  }, [protein, carbs, fats]);
+  };
+
+  const staticMacroData = useMemo(() => getMacroChartData({ calories, protein, carbs, fats }), [calories, protein, carbs, fats]);
+  const onDayMacroData = useMemo(() => getMacroChartData(onDayTargets), [onDayTargets]);
+  const offDayMacroData = useMemo(() => getMacroChartData(offDayTargets), [offDayTargets]);
 
   // Get habits not yet assigned to this athlete
   const availableHabits = useMemo(() => {
@@ -377,6 +528,143 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
     }, {} as Record<HabitCategory, AthleteHabit[]>);
   }, [athleteHabits]);
 
+  // Calculate weekly average from cycling targets
+  const currentWeeklyAverage = useMemo(() => {
+    if (strategyMode !== 'cycling_on_off') return null;
+    const trainingCals = onDayTargets.calories * trainingDaysPerWeek;
+    const restCals = offDayTargets.calories * (7 - trainingDaysPerWeek);
+    return Math.round((trainingCals + restCals) / 7);
+  }, [strategyMode, onDayTargets.calories, offDayTargets.calories, trainingDaysPerWeek]);
+
+  // Custom Donut Chart component
+  const MacroDonutChart = ({ data, title, totalCals }: { data: typeof staticMacroData; title: string; totalCals: number }) => (
+    <div className="flex flex-col items-center">
+      <p className="text-sm font-medium mb-2">{title}</p>
+      <div className="w-[200px] h-[200px] relative">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              cx="50%"
+              cy="50%"
+              innerRadius={55}
+              outerRadius={80}
+              paddingAngle={3}
+              dataKey="value"
+            >
+              {data.map((entry, index) => (
+                <Cell key={`cell-${index}`} fill={entry.color} />
+              ))}
+            </Pie>
+            <Tooltip
+              content={({ active, payload }) => {
+                if (!active || !payload?.length) return null;
+                const d = payload[0].payload;
+                return (
+                  <div className="bg-popover border border-border rounded-lg p-2 shadow-lg text-xs">
+                    <p className="font-medium" style={{ color: d.color }}>{d.name}</p>
+                    <p>{d.grams}g • {d.kcal} kcal</p>
+                    <p className="text-muted-foreground">{d.value}% del totale</p>
+                  </div>
+                );
+              }}
+            />
+          </PieChart>
+        </ResponsiveContainer>
+        {/* Center label */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <span className="text-xl font-bold">{totalCals}</span>
+          <span className="text-xs text-muted-foreground">kcal</span>
+        </div>
+      </div>
+      {/* Legend */}
+      <div className="flex gap-3 mt-3 text-xs">
+        {data.map((entry) => (
+          <div key={entry.name} className="flex items-center gap-1">
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
+            <span>{entry.grams}g</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  // Macro Input Grid component
+  const MacroInputGrid = ({ 
+    targets, 
+    setTargets, 
+    label 
+  }: { 
+    targets: MacroTargets; 
+    setTargets: (t: MacroTargets) => void; 
+    label: string;
+  }) => (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        {label === "Training" ? (
+          <Dumbbell className="h-4 w-4 text-orange-500" />
+        ) : (
+          <Coffee className="h-4 w-4 text-blue-500" />
+        )}
+        <span className="font-medium text-sm">{label}</span>
+      </div>
+      
+      <div className="space-y-3">
+        <div>
+          <Label className="text-xs text-muted-foreground">Calorie</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              value={targets.calories}
+              onChange={(e) => setTargets({ ...targets, calories: Number(e.target.value) })}
+              className="w-24 h-9"
+            />
+            <span className="text-xs text-muted-foreground">kcal</span>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-3 gap-2">
+          <div>
+            <Label className="text-xs flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: MACRO_COLORS.protein }} />
+              Prot
+            </Label>
+            <Input
+              type="number"
+              value={targets.protein}
+              onChange={(e) => setTargets({ ...targets, protein: Number(e.target.value) })}
+              className="h-8 text-sm"
+            />
+          </div>
+          <div>
+            <Label className="text-xs flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: MACRO_COLORS.carbs }} />
+              Carb
+            </Label>
+            <Input
+              type="number"
+              value={targets.carbs}
+              onChange={(e) => setTargets({ ...targets, carbs: Number(e.target.value) })}
+              className="h-8 text-sm"
+            />
+          </div>
+          <div>
+            <Label className="text-xs flex items-center gap-1">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: MACRO_COLORS.fats }} />
+              Grassi
+            </Label>
+            <Input
+              type="number"
+              value={targets.fats}
+              onChange={(e) => setTargets({ ...targets, fats: Number(e.target.value) })}
+              className="h-8 text-sm"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   if (planLoading || habitsLoading || athleteHabitsLoading) {
     return (
       <div className="space-y-6">
@@ -391,190 +679,318 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
       {/* Section A: Nutrition Protocol */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-xl bg-orange-500/10 flex items-center justify-center">
-              <Flame className="h-6 w-6 text-orange-500" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-xl bg-orange-500/10 flex items-center justify-center">
+                <Flame className="h-6 w-6 text-orange-500" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Protocollo Nutrizionale v2.0</CardTitle>
+                <CardDescription>Target statici o cycling training/rest</CardDescription>
+              </div>
             </div>
-            <div>
-              <CardTitle className="text-lg">Protocollo Nutrizionale</CardTitle>
-              <CardDescription>Definisci calorie, macro e obiettivo settimanale</CardDescription>
-            </div>
+            
+            {/* Strategy Mode Toggle */}
+            <Tabs value={strategyMode} onValueChange={(v) => setStrategyMode(v as StrategyMode)}>
+              <TabsList>
+                <TabsTrigger value="static" className="gap-1.5">
+                  <Target className="h-3.5 w-3.5" />
+                  Static
+                </TabsTrigger>
+                <TabsTrigger value="cycling_on_off" className="gap-1.5">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Cycling
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
         </CardHeader>
+        
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left: Inputs */}
-            <div className="space-y-5">
-              {/* Calories */}
-              <div className="space-y-2">
-                <Label htmlFor="calories" className="text-sm font-medium">
-                  Calorie Giornaliere
-                </Label>
-                <div className="flex items-center gap-3">
-                  <Input
-                    id="calories"
-                    type="number"
-                    value={calories}
-                    onChange={(e) => setCalories(Number(e.target.value))}
-                    className="w-28 text-lg font-semibold"
-                  />
-                  <span className="text-muted-foreground">kcal</span>
+          {strategyMode === 'static' ? (
+            /* STATIC MODE */
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left: Inputs */}
+              <div className="space-y-5">
+                {/* Calories */}
+                <div className="space-y-2">
+                  <Label htmlFor="calories" className="text-sm font-medium">
+                    Calorie Giornaliere
+                  </Label>
+                  <div className="flex items-center gap-3">
+                    <Input
+                      id="calories"
+                      type="number"
+                      value={calories}
+                      onChange={(e) => setCalories(Number(e.target.value))}
+                      className="w-28 text-lg font-semibold"
+                    />
+                    <span className="text-muted-foreground">kcal</span>
+                  </div>
+                </div>
+
+                {/* Macros */}
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="protein" className="text-sm font-medium flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: MACRO_COLORS.protein }} />
+                      Proteine
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="protein"
+                        type="number"
+                        value={protein}
+                        onChange={(e) => setProtein(Number(e.target.value))}
+                        className="w-20"
+                      />
+                      <span className="text-xs text-muted-foreground">g</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="carbs" className="text-sm font-medium flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: MACRO_COLORS.carbs }} />
+                      Carbs
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="carbs"
+                        type="number"
+                        value={carbs}
+                        onChange={(e) => setCarbs(Number(e.target.value))}
+                        className="w-20"
+                      />
+                      <span className="text-xs text-muted-foreground">g</span>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="fats" className="text-sm font-medium flex items-center gap-1.5">
+                      <div className="w-2 h-2 rounded-full" style={{ backgroundColor: MACRO_COLORS.fats }} />
+                      Grassi
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="fats"
+                        type="number"
+                        value={fats}
+                        onChange={(e) => setFats(Number(e.target.value))}
+                        className="w-20"
+                      />
+                      <span className="text-xs text-muted-foreground">g</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Macros */}
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="protein" className="text-sm font-medium flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full bg-[hsl(var(--chart-1))]" />
-                    Proteine
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="protein"
-                      type="number"
-                      value={protein}
-                      onChange={(e) => setProtein(Number(e.target.value))}
-                      className="w-20"
-                    />
-                    <span className="text-xs text-muted-foreground">g</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="carbs" className="text-sm font-medium flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full bg-[hsl(var(--chart-2))]" />
-                    Carbs
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="carbs"
-                      type="number"
-                      value={carbs}
-                      onChange={(e) => setCarbs(Number(e.target.value))}
-                      className="w-20"
-                    />
-                    <span className="text-xs text-muted-foreground">g</span>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="fats" className="text-sm font-medium flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full bg-[hsl(var(--chart-3))]" />
-                    Grassi
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      id="fats"
-                      type="number"
-                      value={fats}
-                      onChange={(e) => setFats(Number(e.target.value))}
-                      className="w-20"
-                    />
-                    <span className="text-xs text-muted-foreground">g</span>
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Strategy Type */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Fase Goal</Label>
-                <Select value={strategyType} onValueChange={(v) => setStrategyType(v as StrategyType)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(STRATEGY_CONFIG).map(([key, config]) => (
-                      <SelectItem key={key} value={key}>
-                        <div className="flex items-center gap-2">
-                          <config.icon className={cn("h-4 w-4", config.color)} />
-                          <span>{config.label}</span>
-                          <span className="text-xs text-muted-foreground ml-1">
-                            — {config.description}
-                          </span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Weekly Weight Goal Slider */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm font-medium">
-                    Variazione Peso Settimanale Target
-                  </Label>
-                  <Badge variant="outline" className="font-mono">
-                    {weeklyWeightGoal > 0 ? "+" : ""}{weeklyWeightGoal.toFixed(1)}%
-                  </Badge>
-                </div>
-                <Slider
-                  value={[weeklyWeightGoal]}
-                  onValueChange={(v) => setWeeklyWeightGoal(v[0])}
-                  min={-1.5}
-                  max={1.5}
-                  step={0.1}
-                  className="w-full"
+              {/* Right: Donut Chart */}
+              <div className="flex items-center justify-center">
+                <MacroDonutChart 
+                  data={staticMacroData} 
+                  title="Distribuzione Macro" 
+                  totalCals={calories}
                 />
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>-1.5% (Cut aggressivo)</span>
-                  <span>0%</span>
-                  <span>+1.5% (Bulk)</span>
+              </div>
+            </div>
+          ) : (
+            /* CYCLING MODE */
+            <div className="space-y-6">
+              {/* Smart Assistant */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-primary/5 to-primary/10 border border-primary/20">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Calculator className="h-5 w-5 text-primary" />
+                    <span className="font-medium">Smart Assistant</span>
+                  </div>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={applySmartCalc}
+                    className="gap-1.5"
+                  >
+                    <Zap className="h-3.5 w-3.5" />
+                    Auto-calcola Rest Days
+                  </Button>
+                </div>
+                
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Media Settimanale Target</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        value={weeklyAvgGoal}
+                        onChange={(e) => setWeeklyAvgGoal(Number(e.target.value))}
+                        className="h-9"
+                      />
+                      <span className="text-xs text-muted-foreground">kcal</span>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Giorni Allenamento</Label>
+                    <Select 
+                      value={trainingDaysPerWeek.toString()} 
+                      onValueChange={(v) => setTrainingDaysPerWeek(Number(v))}
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[2, 3, 4, 5, 6].map(d => (
+                          <SelectItem key={d} value={d.toString()}>{d} giorni</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Media Attuale</Label>
+                    <div className="h-9 flex items-center">
+                      <Badge variant={
+                        currentWeeklyAverage && Math.abs(currentWeeklyAverage - weeklyAvgGoal) < 50 
+                          ? "default" 
+                          : "secondary"
+                      } className="text-sm">
+                        {currentWeeklyAverage || '—'} kcal/giorno
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Two-column inputs + charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Training Days */}
+                <div className="p-4 rounded-xl border border-orange-500/30 bg-orange-500/5">
+                  <MacroInputGrid 
+                    targets={onDayTargets}
+                    setTargets={setOnDayTargets}
+                    label="Training Days"
+                  />
+                  <div className="mt-4">
+                    <MacroDonutChart 
+                      data={onDayMacroData} 
+                      title="" 
+                      totalCals={onDayTargets.calories}
+                    />
+                  </div>
+                </div>
+                
+                {/* Rest Days */}
+                <div className="p-4 rounded-xl border border-blue-500/30 bg-blue-500/5">
+                  <MacroInputGrid 
+                    targets={offDayTargets}
+                    setTargets={setOffDayTargets}
+                    label="Rest Days"
+                  />
+                  <div className="mt-4">
+                    <MacroDonutChart 
+                      data={offDayMacroData} 
+                      title="" 
+                      totalCals={offDayTargets.calories}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
+          )}
 
-            {/* Right: Pie Chart */}
-            <div className="flex flex-col items-center justify-center">
-              <div className="w-full h-[250px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={macroData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={4}
-                      dataKey="value"
-                    >
-                      {macroData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (!active || !payload?.length) return null;
-                        const data = payload[0].payload;
-                        return (
-                          <div className="bg-popover border border-border rounded-lg p-2 shadow-lg">
-                            <p className="text-sm font-medium">{data.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {data.grams}g ({data.value}%)
-                            </p>
-                          </div>
-                        );
-                      }}
-                    />
-                    <Legend
-                      formatter={(value) => (
-                        <span className="text-sm">{value}</span>
-                      )}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+          <Separator />
+
+          {/* Strategy Type & Weight Goal - Common to both modes */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Strategy Type */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Fase Goal</Label>
+              <Select value={strategyType} onValueChange={(v) => setStrategyType(v as StrategyType)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(STRATEGY_CONFIG).map(([key, config]) => (
+                    <SelectItem key={key} value={key}>
+                      <div className="flex items-center gap-2">
+                        <config.icon className={cn("h-4 w-4", config.color)} />
+                        <span>{config.label}</span>
+                        <span className="text-xs text-muted-foreground ml-1">
+                          — {config.description}
+                        </span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Weekly Weight Goal Slider */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">
+                  Variazione Peso Settimanale Target
+                </Label>
+                <Badge variant="outline" className="font-mono">
+                  {weeklyWeightGoal > 0 ? "+" : ""}{weeklyWeightGoal.toFixed(1)}%
+                </Badge>
               </div>
-              
-              {/* Calculated totals */}
-              <div className="text-center mt-2 p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground">Calorie dai macro</p>
-                <p className="text-lg font-semibold">
-                  {(protein * 4) + (carbs * 4) + (fats * 9)} kcal
-                </p>
+              <Slider
+                value={[weeklyWeightGoal]}
+                onValueChange={(v) => setWeeklyWeightGoal(v[0])}
+                min={-1.5}
+                max={1.5}
+                step={0.1}
+                className="w-full"
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>-1.5% (Cut)</span>
+                <span>0%</span>
+                <span>+1.5% (Bulk)</span>
               </div>
             </div>
           </div>
+
+          {/* Dynamic Week Preview - Only for cycling mode */}
+          {strategyMode === 'cycling_on_off' && weekSchedule && (
+            <>
+              <Separator />
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <Label className="text-sm font-medium">Preview Settimana</Label>
+                </div>
+                <div className="grid grid-cols-7 gap-2">
+                  {weekSchedule.map((day, i) => {
+                    const isTraining = day.hasWorkout;
+                    const dayCalories = isTraining ? onDayTargets.calories : offDayTargets.calories;
+                    
+                    return (
+                      <div 
+                        key={day.date}
+                        className={cn(
+                          "p-2 rounded-lg text-center transition-all",
+                          isTraining 
+                            ? "bg-orange-500/10 border border-orange-500/30" 
+                            : "bg-muted/50 border border-border"
+                        )}
+                      >
+                        <p className="text-xs font-medium">{DAY_LABELS[i]}</p>
+                        <div className="mt-1">
+                          {isTraining ? (
+                            <Dumbbell className="h-3.5 w-3.5 mx-auto text-orange-500" />
+                          ) : (
+                            <Coffee className="h-3.5 w-3.5 mx-auto text-muted-foreground" />
+                          )}
+                        </div>
+                        <p className={cn(
+                          "text-xs mt-1 font-mono",
+                          isTraining ? "text-orange-600" : "text-muted-foreground"
+                        )}>
+                          {dayCalories}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Save Button */}
           <div className="flex justify-end pt-4 border-t">
