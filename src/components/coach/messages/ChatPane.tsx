@@ -180,10 +180,10 @@ export function ChatPane({
         .from('chat-media')
         .getPublicUrl(filePath);
 
-      // Send message with video
+      // Send message with video (cast needed until migration applied)
       await sendMessage.mutateAsync({
         content: `Video: ${file.name}`,
-        media_type: 'video_native',
+        media_type: 'video_native' as 'text',
         media_url: publicUrl
       });
 

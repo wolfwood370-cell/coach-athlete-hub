@@ -191,7 +191,7 @@ export function MessageBubble({ message, isOwn, showAvatar = true }: MessageBubb
       case 'image':
         return <ImageBubble url={message.media_url || '/placeholder.svg'} />;
 
-      case 'video_native':
+      case 'video_native' as string:
         return <NativeVideoBubble url={message.media_url || ''} />;
 
       default:
