@@ -44,9 +44,9 @@ import {
   format,
   startOfMonth,
   endOfMonth,
-  addDays,
   startOfWeek,
   endOfWeek,
+  addDays,
 } from "date-fns";
 
 // Types for drag data
@@ -292,6 +292,12 @@ export default function CoachCalendar() {
       const targetDate = dropData.date as Date;
       const dragData = active.data.current;
 
+      // Check if athlete is selected before any scheduling
+      if (!selectedAthleteId) {
+        toast.error("Seleziona prima un atleta");
+        return;
+      }
+
       // Handle single workout drop - show confirmation dialog
       if (dragData?.type === "calendar-workout") {
         const workout = dragData.workout as DraggedWorkout;
@@ -319,7 +325,7 @@ export default function CoachCalendar() {
         });
       }
     },
-    []
+    [selectedAthleteId]
   );
 
   // Fetch workouts for a week (for Smart Paste)
@@ -352,10 +358,10 @@ export default function CoachCalendar() {
     }));
   };
 
-  // Handle single workout confirmation
+  // Handle single workout confirmation - now uses selectedAthleteId directly
   const handleConfirmSchedule = useCallback(
-    async (athleteId: string) => {
-      if (!pendingSchedule) return;
+    async () => {
+      if (!pendingSchedule || !selectedAthleteId) return;
 
       const { workout, targetDate } = pendingSchedule;
       const targetDateKey = format(targetDate, "yyyy-MM-dd");
@@ -363,40 +369,85 @@ export default function CoachCalendar() {
       await scheduleWorkoutMutation.mutateAsync({
         programWorkoutId: workout.id,
         workoutName: workout.name,
-        athleteId,
+        athleteId: selectedAthleteId,
         scheduledDate: targetDateKey,
       });
 
       setConfirmDialogOpen(false);
       setPendingSchedule(null);
     },
-    [pendingSchedule, scheduleWorkoutMutation]
+    [pendingSchedule, selectedAthleteId, scheduleWorkoutMutation]
   );
 
-  // Handle week schedule confirmation
+  // Handle week schedule confirmation - uses RPC function
   const handleConfirmWeekSchedule = useCallback(async () => {
     if (!pendingWeekSchedule || !selectedAthleteId) return;
 
-    const { workouts, startDate } = pendingWeekSchedule;
+    const { week, startDate } = pendingWeekSchedule;
+    const startDateKey = format(startDate, "yyyy-MM-dd");
 
-    for (const workout of workouts) {
-      const dayOffset = (workout.day_number ?? 1) - 1;
-      const scheduledDate = format(addDays(startDate, dayOffset), "yyyy-MM-dd");
-
-      await scheduleWorkoutMutation.mutateAsync({
-        programWorkoutId: workout.id,
-        workoutName: workout.name,
-        athleteId: selectedAthleteId,
-        scheduledDate,
+    try {
+      const { data, error } = await supabase.rpc("schedule_program_week", {
+        p_week_id: week.id,
+        p_start_date: startDateKey,
+        p_athlete_id: selectedAthleteId,
       });
-    }
 
-    setWeekDialogOpen(false);
-    setPendingWeekSchedule(null);
-    toast.success(
-      `${workouts.length} workout programmati per ${pendingWeekSchedule.week.name || `Settimana ${pendingWeekSchedule.week.week_order}`}`
-    );
-  }, [pendingWeekSchedule, selectedAthleteId, scheduleWorkoutMutation]);
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ["calendar-workout-logs"] });
+      setWeekDialogOpen(false);
+      setPendingWeekSchedule(null);
+      toast.success(
+        `${data} workout programmati per ${week.name || `Settimana ${week.week_order}`}`
+      );
+    } catch (error) {
+      console.error("Week schedule error:", error);
+      toast.error("Errore nella programmazione della settimana");
+    }
+  }, [pendingWeekSchedule, selectedAthleteId, queryClient]);
+
+  // Delete workout log mutation
+  const deleteWorkoutLogMutation = useMutation({
+    mutationFn: async (logId: string) => {
+      // First get the workout_id to delete it too
+      const { data: log, error: fetchError } = await supabase
+        .from("workout_logs")
+        .select("workout_id")
+        .eq("id", logId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Delete the workout log
+      const { error: logDeleteError } = await supabase
+        .from("workout_logs")
+        .delete()
+        .eq("id", logId);
+
+      if (logDeleteError) throw logDeleteError;
+
+      // Delete the associated workout if exists
+      if (log?.workout_id) {
+        await supabase
+          .from("workouts")
+          .delete()
+          .eq("id", log.workout_id);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["calendar-workout-logs"] });
+      toast.success("Workout rimosso dal calendario");
+    },
+    onError: (error) => {
+      console.error("Delete error:", error);
+      toast.error("Errore nella rimozione del workout");
+    },
+  });
+
+  const handleDeleteWorkoutLog = useCallback((logId: string) => {
+    deleteWorkoutLogMutation.mutate(logId);
+  }, [deleteWorkoutLogMutation]);
 
   const selectedAthlete = athletes.find((a) => a.id === selectedAthleteId);
 
@@ -495,6 +546,7 @@ export default function CoachCalendar() {
                     onDateChange={setCurrentDate}
                     showGoogleEvents={showGoogleEvents}
                     onToggleGoogleEvents={setShowGoogleEvents}
+                    onDeleteWorkout={handleDeleteWorkoutLog}
                   />
                 )}
               </CardContent>
@@ -525,14 +577,13 @@ export default function CoachCalendar() {
       </DndContext>
 
       {/* Single Workout Confirmation Dialog */}
-      {pendingSchedule && (
+      {pendingSchedule && selectedAthleteId && (
         <ScheduleConfirmDialog
           open={confirmDialogOpen}
           onOpenChange={setConfirmDialogOpen}
           workoutName={pendingSchedule.workout.name}
           targetDate={pendingSchedule.targetDate}
-          athletes={athletes}
-          selectedAthleteId={selectedAthleteId}
+          athleteName={selectedAthlete?.full_name || "Atleta"}
           onConfirm={handleConfirmSchedule}
           isScheduling={scheduleWorkoutMutation.isPending}
         />
