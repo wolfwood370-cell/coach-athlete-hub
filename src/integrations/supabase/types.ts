@@ -626,11 +626,13 @@ export type Database = {
           carbs_g: number
           coach_id: string
           created_at: string
+          cycling_targets: Json | null
           daily_calories: number
           fats_g: number
           id: string
           notes: string | null
           protein_g: number
+          strategy_mode: string
           strategy_type: string
           updated_at: string
           weekly_weight_goal: number | null
@@ -641,11 +643,13 @@ export type Database = {
           carbs_g?: number
           coach_id: string
           created_at?: string
+          cycling_targets?: Json | null
           daily_calories?: number
           fats_g?: number
           id?: string
           notes?: string | null
           protein_g?: number
+          strategy_mode?: string
           strategy_type?: string
           updated_at?: string
           weekly_weight_goal?: number | null
@@ -656,11 +660,13 @@ export type Database = {
           carbs_g?: number
           coach_id?: string
           created_at?: string
+          cycling_targets?: Json | null
           daily_calories?: number
           fats_g?: number
           id?: string
           notes?: string | null
           protein_g?: number
+          strategy_mode?: string
           strategy_type?: string
           updated_at?: string
           weekly_weight_goal?: number | null
