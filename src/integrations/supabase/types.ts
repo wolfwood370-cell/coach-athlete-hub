@@ -968,6 +968,10 @@ export type Database = {
         Args: { source_workout_id: string; target_day_id: string }
         Returns: string
       }
+      schedule_program_week: {
+        Args: { p_athlete_id: string; p_start_date: string; p_week_id: string }
+        Returns: number
+      }
     }
     Enums: {
       phase_focus_type:
