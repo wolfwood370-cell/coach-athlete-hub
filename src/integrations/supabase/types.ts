@@ -676,44 +676,59 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          bio: string | null
+          brand_color: string | null
           coach_id: string | null
           created_at: string
           full_name: string | null
           id: string
+          logo_url: string | null
           neurotype: string | null
           onboarding_completed: boolean
           onboarding_data: Json | null
           one_rm_data: Json | null
+          preferences: Json | null
           role: Database["public"]["Enums"]["user_role"]
           settings: Json
+          social_links: Json | null
           updated_at: string
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
+          brand_color?: string | null
           coach_id?: string | null
           created_at?: string
           full_name?: string | null
           id: string
+          logo_url?: string | null
           neurotype?: string | null
           onboarding_completed?: boolean
           onboarding_data?: Json | null
           one_rm_data?: Json | null
+          preferences?: Json | null
           role?: Database["public"]["Enums"]["user_role"]
           settings?: Json
+          social_links?: Json | null
           updated_at?: string
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
+          brand_color?: string | null
           coach_id?: string | null
           created_at?: string
           full_name?: string | null
           id?: string
+          logo_url?: string | null
           neurotype?: string | null
           onboarding_completed?: boolean
           onboarding_data?: Json | null
           one_rm_data?: Json | null
+          preferences?: Json | null
           role?: Database["public"]["Enums"]["user_role"]
           settings?: Json
+          social_links?: Json | null
           updated_at?: string
         }
         Relationships: [
