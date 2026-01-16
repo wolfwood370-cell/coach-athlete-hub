@@ -66,6 +66,7 @@ import {
   Scale,
   Camera,
   Settings,
+  Utensils,
   Pencil,
   Archive,
   MessageSquare,
@@ -132,6 +133,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Info, ShieldAlert, ShieldCheck, Gauge } from "lucide-react";
 import { toast } from "sonner";
+import { StrategyContent } from "@/components/coach/athlete/StrategyContent";
 
 // Mock exercise list for the combobox
 const EXERCISE_LIST = [
@@ -2745,6 +2747,11 @@ export default function AthleteDetail() {
                 <span className="hidden sm:inline">Progress Pics</span>
                 <span className="sm:hidden">Photos</span>
               </TabsTrigger>
+              <TabsTrigger value="strategy" className="gap-2 text-xs md:text-sm px-3 py-2">
+                <Utensils className="h-4 w-4" />
+                <span className="hidden sm:inline">Strategy</span>
+                <span className="sm:hidden">Strategy</span>
+              </TabsTrigger>
               <TabsTrigger value="settings" className="gap-2 text-xs md:text-sm px-3 py-2">
                 <Settings className="h-4 w-4" />
                 <span className="hidden sm:inline">Settings</span>
@@ -3277,6 +3284,10 @@ export default function AthleteDetail() {
 
           <TabsContent value="progress-pics" className="space-y-6">
             <ProgressPicsContent athleteId={id} />
+          </TabsContent>
+
+          <TabsContent value="strategy" className="space-y-6">
+            <StrategyContent athleteId={id} />
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-6">

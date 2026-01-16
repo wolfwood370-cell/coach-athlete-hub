@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      athlete_habits: {
+        Row: {
+          active: boolean
+          athlete_id: string
+          created_at: string
+          frequency: string
+          habit_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          athlete_id: string
+          created_at?: string
+          frequency?: string
+          habit_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          athlete_id?: string
+          created_at?: string
+          frequency?: string
+          habit_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_habits_habit_id_fkey"
+            columns: ["habit_id"]
+            isOneToOne: false
+            referencedRelation: "habits_library"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_participants: {
         Row: {
           id: string
@@ -406,6 +444,36 @@ export type Database = {
           },
         ]
       }
+      habits_library: {
+        Row: {
+          category: string
+          coach_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          coach_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          coach_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       injuries: {
         Row: {
           athlete_id: string
@@ -550,6 +618,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      nutrition_plans: {
+        Row: {
+          active: boolean
+          athlete_id: string
+          carbs_g: number
+          coach_id: string
+          created_at: string
+          daily_calories: number
+          fats_g: number
+          id: string
+          notes: string | null
+          protein_g: number
+          strategy_type: string
+          updated_at: string
+          weekly_weight_goal: number | null
+        }
+        Insert: {
+          active?: boolean
+          athlete_id: string
+          carbs_g?: number
+          coach_id: string
+          created_at?: string
+          daily_calories?: number
+          fats_g?: number
+          id?: string
+          notes?: string | null
+          protein_g?: number
+          strategy_type?: string
+          updated_at?: string
+          weekly_weight_goal?: number | null
+        }
+        Update: {
+          active?: boolean
+          athlete_id?: string
+          carbs_g?: number
+          coach_id?: string
+          created_at?: string
+          daily_calories?: number
+          fats_g?: number
+          id?: string
+          notes?: string | null
+          protein_g?: number
+          strategy_type?: string
+          updated_at?: string
+          weekly_weight_goal?: number | null
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
