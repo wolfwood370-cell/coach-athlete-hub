@@ -582,27 +582,27 @@ export function CalendarGrid({
       </div>
 
       {/* Legend */}
-      <div className="flex items-center justify-center gap-6 pt-4 border-t border-border/50 text-xs text-muted-foreground">
+      <div className="flex items-center justify-center gap-5 pt-3 border-t border-border/50 text-[11px] text-muted-foreground">
         <div className="flex items-center gap-1.5">
-          <div className="h-2.5 w-2.5 rounded-full bg-primary" />
-          <span>Workout</span>
+          <div className="h-2 w-2 rounded-full bg-primary" />
+          <span>Scheduled</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-          <span>Appuntamenti</span>
+          <div className="h-2 w-2 rounded-full bg-success" />
+          <span>Completed</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="h-2.5 w-2.5 rounded-full bg-success" />
-          <span>Completato</span>
+          <div className="h-2 w-2 rounded-full bg-destructive" />
+          <span>Missed</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="h-2.5 w-2.5 rounded-full bg-destructive" />
-          <span>Mancato</span>
+          <div className="h-2 w-2 rounded-full bg-emerald-500" />
+          <span>Appointments</span>
         </div>
         {showGoogleEvents && (
           <div className="flex items-center gap-1.5">
-            <div className="h-2.5 w-2.5 rounded-full bg-muted-foreground" />
-            <span>Google</span>
+            <div className="h-2 w-2 rounded-full bg-muted-foreground/60" />
+            <span>Google Busy</span>
           </div>
         )}
       </div>
