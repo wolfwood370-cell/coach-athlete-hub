@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { format, isToday, isYesterday } from "date-fns";
 import { it } from "date-fns/locale";
-import { ArrowLeft, Info, Send, Mic, Image as ImageIcon, Link2, Loader2 } from "lucide-react";
+import { ArrowLeft, Info, Send, Mic, Image as ImageIcon, Link2, Loader2, Video } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,11 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ChatRoom, Message, useMessages } from "@/hooks/useChatRooms";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { MessageBubble } from "./MessageBubble";
+
+const MAX_VIDEO_SIZE_MB = 50;
+const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
 
 interface ChatPaneProps {
   room: ChatRoom | null;
@@ -44,8 +48,10 @@ export function ChatPane({
   const { messages, isLoading, sendMessage, subscribeToMessages } = useMessages(room?.id || null);
   const [inputValue, setInputValue] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
 
   const otherParticipant = room?.participants.find(p => p.user_id !== user?.id)?.profile;
 
@@ -96,7 +102,7 @@ export function ChatPane({
     }
   };
 
-  const handleMediaClick = (type: 'audio' | 'image' | 'link') => {
+  const handleMediaClick = (type: 'audio' | 'image' | 'link' | 'video') => {
     switch (type) {
       case 'audio':
         toast.info("Registrazione vocale in arrivo...", { description: "Funzionalità in sviluppo" });
@@ -111,6 +117,82 @@ export function ChatPane({
           inputRef.current?.focus();
         }
         break;
+      case 'video':
+        videoInputRef.current?.click();
+        break;
+    }
+  };
+
+  const handleVideoSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    // Reset input
+    e.target.value = '';
+
+    // Size check
+    if (file.size > MAX_VIDEO_SIZE_BYTES) {
+      toast.error("Video troppo grande", {
+        description: "Per favore comprimilo o invia una clip più breve (max 50MB)."
+      });
+      return;
+    }
+
+    // Duration warning (using video element to get duration)
+    const videoDurationPromise = new Promise<number>((resolve) => {
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.onloadedmetadata = () => {
+        URL.revokeObjectURL(video.src);
+        resolve(video.duration);
+      };
+      video.onerror = () => resolve(0);
+      video.src = URL.createObjectURL(file);
+    });
+
+    const duration = await videoDurationPromise;
+    
+    if (duration > 120) { // More than 2 minutes
+      const proceed = window.confirm(
+        `Il video dura ${Math.round(duration / 60)} minuti. Vuoi continuare? Per video lunghi, considera di usare Loom.`
+      );
+      if (!proceed) return;
+    }
+
+    setIsUploadingVideo(true);
+
+    try {
+      // Upload to chat-media/videos/{userId}/{timestamp}_{filename}
+      const timestamp = Date.now();
+      const filePath = `videos/${user.id}/${timestamp}_${file.name}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('chat-media')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('chat-media')
+        .getPublicUrl(filePath);
+
+      // Send message with video
+      await sendMessage.mutateAsync({
+        content: `Video: ${file.name}`,
+        media_type: 'video_native',
+        media_url: publicUrl
+      });
+
+      toast.success("Video caricato con successo!");
+    } catch (error) {
+      console.error('Video upload error:', error);
+      toast.error("Errore nel caricamento del video");
+    } finally {
+      setIsUploadingVideo(false);
     }
   };
 
@@ -206,6 +288,15 @@ export function ChatPane({
         </div>
       </ScrollArea>
 
+      {/* Hidden video input */}
+      <input
+        ref={videoInputRef}
+        type="file"
+        accept="video/*"
+        className="hidden"
+        onChange={handleVideoSelect}
+      />
+
       {/* Input Area */}
       <div className="shrink-0 border-t p-3">
         <div className="flex items-center gap-2">
@@ -215,6 +306,7 @@ export function ChatPane({
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
               onClick={() => handleMediaClick('audio')}
+              disabled={isUploadingVideo}
             >
               <Mic className="h-4 w-4" />
             </Button>
@@ -223,6 +315,7 @@ export function ChatPane({
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
               onClick={() => handleMediaClick('image')}
+              disabled={isUploadingVideo}
             >
               <ImageIcon className="h-4 w-4" />
             </Button>
@@ -230,7 +323,22 @@ export function ChatPane({
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
+              onClick={() => handleMediaClick('video')}
+              disabled={isUploadingVideo}
+              title="Video Clip (max 50MB)"
+            >
+              {isUploadingVideo ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Video className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-muted-foreground hover:text-foreground"
               onClick={() => handleMediaClick('link')}
+              disabled={isUploadingVideo}
             >
               <Link2 className="h-4 w-4" />
             </Button>
