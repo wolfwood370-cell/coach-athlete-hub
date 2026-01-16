@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,13 +9,13 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   ChevronLeft,
   ChevronRight,
-  Dumbbell,
   Clock,
   CheckCircle2,
   XCircle,
   CalendarDays,
   Phone,
   Video,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -78,6 +78,7 @@ interface CalendarGridProps {
   onDateChange: (date: Date) => void;
   showGoogleEvents: boolean;
   onToggleGoogleEvents: (show: boolean) => void;
+  onDeleteWorkout?: (logId: string) => void;
 }
 
 // Droppable Day Cell for Month View
@@ -91,6 +92,7 @@ function DroppableDayCell({
   busySlots,
   showGoogleEvents,
   onClick,
+  onDeleteWorkout,
 }: {
   date: Date;
   isSelected: boolean;
@@ -101,6 +103,7 @@ function DroppableDayCell({
   busySlots: GoogleBusySlot[];
   showGoogleEvents: boolean;
   onClick: () => void;
+  onDeleteWorkout?: (logId: string) => void;
 }) {
   const dateKey = format(date, "yyyy-MM-dd");
   const { isOver, setNodeRef } = useDroppable({
@@ -108,9 +111,6 @@ function DroppableDayCell({
     data: { type: "calendar-day", date, dateKey },
   });
 
-  const hasWorkouts = workouts.length > 0;
-  const hasAppointments = appointments.length > 0;
-  const hasBusySlots = showGoogleEvents && busySlots.length > 0;
   const totalEvents = workouts.length + appointments.length + (showGoogleEvents ? busySlots.length : 0);
 
   return (
@@ -150,7 +150,7 @@ function DroppableDayCell({
           <div
             key={workout.id}
             className={cn(
-              "text-[10px] px-1.5 py-0.5 rounded truncate font-medium flex items-center gap-1",
+              "text-[10px] px-1.5 py-0.5 rounded truncate font-medium flex items-center gap-1 group/event relative",
               workout.status === "scheduled" && "bg-primary/15 text-primary",
               workout.status === "completed" && "bg-success/15 text-success",
               workout.status === "missed" && "bg-destructive/15 text-destructive"
@@ -159,7 +159,19 @@ function DroppableDayCell({
             {workout.status === "scheduled" && <Clock className="h-2.5 w-2.5 shrink-0" />}
             {workout.status === "completed" && <CheckCircle2 className="h-2.5 w-2.5 shrink-0" />}
             {workout.status === "missed" && <XCircle className="h-2.5 w-2.5 shrink-0" />}
-            <span className="truncate">{workout.workout_name}</span>
+            <span className="truncate flex-1">{workout.workout_name}</span>
+            {workout.status === "scheduled" && onDeleteWorkout && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteWorkout(workout.id);
+                }}
+                className="h-4 w-4 rounded-full bg-destructive/20 hover:bg-destructive/40 flex items-center justify-center opacity-0 group-hover/event:opacity-100 transition-opacity shrink-0"
+                title="Rimuovi"
+              >
+                <X className="h-2.5 w-2.5 text-destructive" />
+              </button>
+            )}
           </div>
         ))}
 
@@ -205,6 +217,7 @@ function WeekViewRow({
   showGoogleEvents,
   isSelected,
   onClick,
+  onDeleteWorkout,
 }: {
   date: Date;
   workouts: ScheduledWorkoutLog[];
@@ -213,6 +226,7 @@ function WeekViewRow({
   showGoogleEvents: boolean;
   isSelected: boolean;
   onClick: () => void;
+  onDeleteWorkout?: (logId: string) => void;
 }) {
   const dateKey = format(date, "yyyy-MM-dd");
   const { isOver, setNodeRef } = useDroppable({
@@ -268,7 +282,7 @@ function WeekViewRow({
               <div
                 key={workout.id}
                 className={cn(
-                  "flex items-center gap-3 p-2.5 rounded-lg",
+                  "flex items-center gap-3 p-2.5 rounded-lg group relative",
                   workout.status === "scheduled" && "bg-primary/10 border border-primary/20",
                   workout.status === "completed" && "bg-success/10 border border-success/20",
                   workout.status === "missed" && "bg-destructive/10 border border-destructive/20"
@@ -303,6 +317,19 @@ function WeekViewRow({
                       .slice(0, 2)}
                   </AvatarFallback>
                 </Avatar>
+                {/* Delete button */}
+                {workout.status === "scheduled" && onDeleteWorkout && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteWorkout(workout.id);
+                    }}
+                    className="h-6 w-6 rounded-full bg-destructive/10 hover:bg-destructive/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="Rimuovi dal calendario"
+                  >
+                    <X className="h-3.5 w-3.5 text-destructive" />
+                  </button>
+                )}
               </div>
             ))}
 
@@ -367,6 +394,7 @@ export function CalendarGrid({
   onDateChange,
   showGoogleEvents,
   onToggleGoogleEvents,
+  onDeleteWorkout,
 }: CalendarGridProps) {
   // Group workouts by date
   const workoutsByDate = useMemo(() => {
@@ -547,6 +575,7 @@ export function CalendarGrid({
                     busySlots={dayBusySlots}
                     showGoogleEvents={showGoogleEvents}
                     onClick={() => onDateSelect(day)}
+                    onDeleteWorkout={onDeleteWorkout}
                   />
                 );
               })}
@@ -573,6 +602,7 @@ export function CalendarGrid({
                     showGoogleEvents={showGoogleEvents}
                     isSelected={isSameDay(day, selectedDate)}
                     onClick={() => onDateSelect(day)}
+                    onDeleteWorkout={onDeleteWorkout}
                   />
                 );
               })}

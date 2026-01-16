@@ -7,34 +7,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Calendar, Dumbbell, Loader2, User } from "lucide-react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import { useState, useEffect } from "react";
-
-interface Athlete {
-  id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-}
 
 interface ScheduleConfirmDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workoutName: string;
   targetDate: Date;
-  athletes: Athlete[];
-  selectedAthleteId: string | null;
-  onConfirm: (athleteId: string) => void;
+  athleteName: string;
+  onConfirm: () => void;
   isScheduling: boolean;
 }
 
@@ -43,21 +26,10 @@ export function ScheduleConfirmDialog({
   onOpenChange,
   workoutName,
   targetDate,
-  athletes,
-  selectedAthleteId,
+  athleteName,
   onConfirm,
   isScheduling,
 }: ScheduleConfirmDialogProps) {
-  const [athleteId, setAthleteId] = useState<string>(selectedAthleteId || "");
-
-  useEffect(() => {
-    if (selectedAthleteId) {
-      setAthleteId(selectedAthleteId);
-    }
-  }, [selectedAthleteId]);
-
-  const selectedAthlete = athletes.find((a) => a.id === athleteId);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -89,37 +61,15 @@ export function ScheduleConfirmDialog({
           </div>
         </div>
 
-        {/* Athlete Selection */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium flex items-center gap-2">
-            <User className="h-4 w-4 text-muted-foreground" />
-            Assegna a Atleta
-          </label>
-          <Select value={athleteId} onValueChange={setAthleteId}>
-            <SelectTrigger>
-              <SelectValue placeholder="Seleziona atleta" />
-            </SelectTrigger>
-            <SelectContent>
-              {athletes.map((athlete) => (
-                <SelectItem key={athlete.id} value={athlete.id}>
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-5 w-5">
-                      <AvatarImage src={athlete.avatar_url || undefined} />
-                      <AvatarFallback className="text-[8px]">
-                        {(athlete.full_name || "A")
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")
-                          .toUpperCase()
-                          .slice(0, 2)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span>{athlete.full_name || "Atleta"}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* Athlete Info */}
+        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
+          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+            <User className="h-4 w-4 text-primary" />
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Atleta selezionato</p>
+            <p className="text-sm font-medium">{athleteName}</p>
+          </div>
         </div>
 
         <DialogFooter className="gap-2 sm:gap-0">
@@ -131,8 +81,8 @@ export function ScheduleConfirmDialog({
             Annulla
           </Button>
           <Button
-            onClick={() => athleteId && onConfirm(athleteId)}
-            disabled={isScheduling || !athleteId}
+            onClick={onConfirm}
+            disabled={isScheduling}
           >
             {isScheduling ? (
               <>
