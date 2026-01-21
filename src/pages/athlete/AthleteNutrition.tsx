@@ -30,11 +30,13 @@ import {
   CheckCircle2,
   AlertTriangle,
   Sparkles,
+  Dumbbell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useAdaptiveTDEE, GoalType, StallDetection, GoalCompliance, CoachingAction } from "@/hooks/useAdaptiveTDEE";
+import { useNutritionTargets } from "@/hooks/useNutritionTargets";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { toast } from "sonner";
 import { FoodDatabase } from "@/components/nutrition/FoodDatabase";
@@ -47,15 +49,6 @@ import {
   ComposedChart,
   Tooltip,
 } from "recharts";
-
-// Nutrition targets (would come from user profile in production)
-const nutritionTargets = {
-  calories: 2400,
-  protein: 180,
-  carbs: 260,
-  fats: 75,
-  water: 2500,
-};
 
 // Macro Ring Component with center text and soft alert for excess
 function MacroRing({ 
@@ -555,6 +548,9 @@ export default function AthleteNutrition() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const haptic = useHapticFeedback();
   
+  // Dynamic nutrition targets from coach strategy
+  const { targets: nutritionTargets, isTrainingDay, hasPlan, isLoading: targetsLoading } = useNutritionTargets();
+  
   // Adaptive TDEE hook
   const tdeeData = useAdaptiveTDEE(undefined, "cut");
   
@@ -705,6 +701,28 @@ export default function AthleteNutrition() {
   return (
     <AthleteLayout title="Nutrition">
       <div className="space-y-4 p-4 pb-24 animate-fade-in">
+        
+        {/* ===== TRAINING DAY INDICATOR ===== */}
+        {hasPlan && nutritionTargets.strategyMode === "cycling_on_off" && (
+          <div className={cn(
+            "flex items-center justify-center gap-2 py-2 px-4 rounded-lg",
+            isTrainingDay 
+              ? "bg-primary/10 border border-primary/20" 
+              : "bg-secondary border border-border"
+          )}>
+            <Dumbbell className={cn(
+              "h-4 w-4",
+              isTrainingDay ? "text-primary" : "text-muted-foreground"
+            )} />
+            <span className={cn(
+              "text-sm font-medium",
+              isTrainingDay ? "text-primary" : "text-muted-foreground"
+            )}>
+              {isTrainingDay ? "Giorno di Allenamento" : "Giorno di Riposo"} • 
+              Macro {isTrainingDay ? "ON" : "OFF"}
+            </span>
+          </div>
+        )}
         
         {/* ===== METABOLIC STATUS (New AI Coach Card) ===== */}
         <MetabolicStatusCard
