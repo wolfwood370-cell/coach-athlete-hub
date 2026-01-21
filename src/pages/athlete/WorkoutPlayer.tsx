@@ -233,14 +233,18 @@ export default function WorkoutPlayer() {
   const [showAutoRegDialog, setShowAutoRegDialog] = useState(false);
   const [readinessScore, setReadinessScore] = useState<number | null>(null);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  
+  // GATEKEEPER: Check if daily check-in exists, redirect if not
+  const [readinessCheckComplete, setReadinessCheckComplete] = useState<boolean | null>(null);
+  const [showReadinessBlocker, setShowReadinessBlocker] = useState(false);
 
-  // Fetch current user ID and check readiness
+  // Fetch current user ID and check readiness (GATEKEEPER)
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       if (data.user) {
         setCurrentUserId(data.user.id);
         
-        // Fetch today's readiness score
+        // Fetch today's readiness to enforce gatekeeper
         const today = new Date().toISOString().split('T')[0];
         const { data: readinessData } = await supabase
           .from('daily_readiness')
@@ -249,9 +253,17 @@ export default function WorkoutPlayer() {
           .eq('date', today)
           .maybeSingle();
         
-        if (readinessData?.score !== null && readinessData?.score !== undefined) {
+        // Check if readiness check-in exists for today
+        if (!readinessData || readinessData.score === null || readinessData.score === undefined) {
+          // NO CHECK-IN: Block access and show modal
+          setReadinessCheckComplete(false);
+          setShowReadinessBlocker(true);
+        } else {
+          // Check-in exists, allow access
+          setReadinessCheckComplete(true);
           setReadinessScore(readinessData.score);
-          // Show dialog if readiness is below 45%
+          
+          // Show auto-reg dialog if readiness is below 45%
           if (readinessData.score < 45) {
             setShowAutoRegDialog(true);
           }
@@ -533,12 +545,36 @@ export default function WorkoutPlayer() {
     setRestTimeRemaining(currentRestDuration);
   };
 
-  // Loading state
-  if (isLoading) {
+  // Loading state (also wait for readiness check)
+  if (isLoading || readinessCheckComplete === null) {
     return (
       <AthleteLayout>
         <div className="flex items-center justify-center h-[60vh]">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AthleteLayout>
+    );
+  }
+  
+  // GATEKEEPER: Block access if no daily readiness check-in
+  if (readinessCheckComplete === false) {
+    return (
+      <AthleteLayout>
+        <div className="flex flex-col items-center justify-center h-[70vh] px-6 text-center">
+          <div className="h-20 w-20 rounded-full bg-warning/15 flex items-center justify-center mb-6">
+            <AlertTriangle className="h-10 w-10 text-warning" />
+          </div>
+          <h2 className="text-xl font-bold mb-2">Check-in Richiesto</h2>
+          <p className="text-muted-foreground mb-6 max-w-xs">
+            Prima di iniziare l'allenamento, completa il check-in giornaliero per monitorare il tuo recupero.
+          </p>
+          <Button 
+            onClick={() => navigate("/athlete")}
+            className="gradient-primary"
+          >
+            <Activity className="h-4 w-4 mr-2" />
+            Vai al Check-in
+          </Button>
         </div>
       </AthleteLayout>
     );
