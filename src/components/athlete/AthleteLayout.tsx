@@ -3,6 +3,7 @@ import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SunThemeToggle } from "@/components/SunThemeToggle";
+import { ResponsivePhoneWrapper } from "./PhoneMockup";
 
 interface AthleteLayoutProps {
   children: React.ReactNode;
@@ -10,8 +11,8 @@ interface AthleteLayoutProps {
 }
 
 export function AthleteLayout({ children, title }: AthleteLayoutProps) {
-  return (
-    <div className="theme-athlete h-[100dvh] flex flex-col bg-white dark:bg-black text-foreground">
+  const appContent = (
+    <div className="theme-athlete h-[100dvh] lg:h-full flex flex-col bg-white dark:bg-black text-foreground relative">
       {/* Status bar safe area */}
       <div className="safe-top flex-shrink-0" />
       
@@ -43,4 +44,6 @@ export function AthleteLayout({ children, title }: AthleteLayoutProps) {
       <AthleteBottomNav />
     </div>
   );
+
+  return <ResponsivePhoneWrapper>{appContent}</ResponsivePhoneWrapper>;
 }
