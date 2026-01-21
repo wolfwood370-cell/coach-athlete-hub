@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { motion, AnimatePresence } from "framer-motion";
 import { AthleteLayout } from "@/components/athlete/AthleteLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/drawer";
 import { 
   Moon, 
-  Brain, 
   HeartPulse,
   ChevronRight,
   Flame,
@@ -31,18 +30,19 @@ import {
   Zap,
   Smile,
   Activity,
+  Brain,
   Check,
+  CheckCircle2,
   Scale,
-  Heart,
-  TrendingDown,
+  Play,
+  Sun,
   AlertCircle,
   AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useReadiness, initialReadiness, ReadinessData, ReadinessResult } from "@/hooks/useReadiness";
+import { useReadiness, initialReadiness, ReadinessResult } from "@/hooks/useReadiness";
 import { AcwrCard } from "@/components/athlete/AcwrCard";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
 import { useGamification } from "@/hooks/useGamification";
 import { useNutritionTargets } from "@/hooks/useNutritionTargets";
 import { useAthleteHabits } from "@/hooks/useAthleteHabits";
@@ -403,302 +403,445 @@ export default function AthleteDashboard() {
 
   return (
     <AthleteLayout>
-      <div className="space-y-5 p-4 animate-fade-in">
-        {/* ===== HEADER WITH COACH LOGO & STREAK ===== */}
-        <div className="flex items-center justify-between pt-2">
-          <div className="flex items-center gap-3">
-            {/* Coach Logo */}
-            {coachProfile?.logo_url ? (
-              <img 
-                src={coachProfile.logo_url} 
-                alt="Coach" 
-                className="h-9 w-9 rounded-lg object-contain bg-secondary/50"
-              />
-            ) : (
-              <div 
-                className="h-9 w-9 rounded-lg flex items-center justify-center text-xs font-bold text-white"
-                style={{ backgroundColor: coachProfile?.brand_color || 'hsl(var(--primary))' }}
-              >
-                {coachProfile?.full_name?.charAt(0) || 'C'}
+      <div className="space-y-4 p-4 pb-24">
+        {/* ===== GLASSMORPHIC STATUS HUB HEADER ===== */}
+        <motion.div 
+          className="relative overflow-hidden rounded-2xl"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          {/* Background gradient with glassmorphism */}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-background to-accent/5 backdrop-blur-sm" />
+          
+          {/* Content */}
+          <div className="relative p-4">
+            {/* Coach Logo & Greeting Row */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                {/* Coach Logo with glow */}
+                <div className="relative">
+                  {coachProfile?.logo_url ? (
+                    <>
+                      <div 
+                        className="absolute inset-0 rounded-xl blur-md opacity-40"
+                        style={{ backgroundColor: coachProfile?.brand_color || 'hsl(var(--primary))' }}
+                      />
+                      <img 
+                        src={coachProfile.logo_url} 
+                        alt="Coach" 
+                        className="relative h-10 w-10 rounded-xl object-contain bg-background/80 backdrop-blur-sm border border-border/50"
+                      />
+                    </>
+                  ) : (
+                    <div 
+                      className="h-10 w-10 rounded-xl flex items-center justify-center text-sm font-bold text-white shadow-lg"
+                      style={{ backgroundColor: coachProfile?.brand_color || 'hsl(var(--primary))' }}
+                    >
+                      {coachProfile?.full_name?.charAt(0) || 'C'}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs">Buongiorno</p>
+                  <h1 className="text-lg font-semibold">Sofia 👋</h1>
+                </div>
               </div>
-            )}
-            <div>
-              <p className="text-muted-foreground text-xs">Buongiorno</p>
-              <h1 className="text-lg font-semibold">Sofia 👋</h1>
+              
+              {/* Streak Badge */}
+              {currentStreak > 0 && (
+                <motion.div 
+                  className={cn(
+                    "flex items-center gap-1.5 px-3 py-1.5 rounded-full",
+                    "bg-gradient-to-r from-orange-500/20 to-amber-500/20",
+                    "border border-orange-500/30 backdrop-blur-sm"
+                  )}
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  <Flame className={cn(
+                    "h-4 w-4",
+                    currentStreak >= 7 ? "text-orange-500" : "text-amber-500"
+                  )} />
+                  <span className="text-sm font-bold tabular-nums text-orange-600 dark:text-orange-400">
+                    {currentStreak}
+                  </span>
+                </motion.div>
+              )}
             </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {/* Streak Badge */}
-            {currentStreak > 0 && (
-              <div className={cn(
-                "flex items-center gap-1.5 px-3 py-1.5 rounded-full",
-                "bg-gradient-to-r from-orange-500/20 to-amber-500/20",
-                "border border-orange-500/30",
-                isStreakDay && "animate-pulse"
-              )}>
-                <Flame className={cn(
-                  "h-4 w-4",
-                  currentStreak >= 7 ? "text-orange-500" : "text-amber-500"
-                )} />
-                <span className="text-sm font-bold tabular-nums text-orange-600 dark:text-orange-400">
-                  {currentStreak}
-                </span>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* ===== DAILY RINGS HEADER ===== */}
-        <Card className="border-0 overflow-hidden bg-gradient-to-br from-card via-card to-primary/5">
-          <CardContent className="p-4">
+            {/* Daily Rings */}
             <DailyRings
               fuelValue={caloriesConsumed}
               fuelTarget={nutritionTargets.calories}
               trainingProgress={trainingProgress}
               habitsCompleted={completedHabits}
               habitsTotal={totalHabits}
-              coachLogoUrl={coachProfile?.logo_url}
+              brandColor={coachProfile?.brand_color}
             />
             
             {/* Training Day Indicator */}
-            <div className="flex justify-center mt-2">
+            <motion.div 
+              className="flex justify-center mt-3"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.6 }}
+            >
               <Badge 
                 variant="secondary" 
                 className={cn(
-                  "text-[10px]",
+                  "text-[10px] backdrop-blur-sm",
                   nutritionTargets.isTrainingDay 
                     ? "bg-primary/10 text-primary border-primary/20" 
                     : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
                 )}
               >
-                {nutritionTargets.isTrainingDay ? "🏋️ Giorno di Allenamento" : "🌿 Giorno di Riposo"}
+                {nutritionTargets.isTrainingDay ? "🏋️ Training Day" : "🌿 Rest Day"}
                 {nutritionTargets.strategyMode === "cycling_on_off" && " · Cycling"}
               </Badge>
-            </div>
-          </CardContent>
-        </Card>
+            </motion.div>
+          </div>
+        </motion.div>
 
         {/* ===== ACTION STACK ===== */}
         <div className="space-y-3">
           
           {/* === ACTION 1: READINESS GATEKEEPER === */}
-          {!readiness.isCompleted ? (
-            <Card 
-              className={cn(
-                "border-2 border-primary/50 overflow-hidden cursor-pointer transition-all",
-                "bg-gradient-to-br from-primary/5 to-primary/10",
-                "animate-pulse-soft" // Pulse animation for gatekeeper
-              )}
-              onClick={handleOpenDrawer}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 rounded-2xl bg-primary/20 flex items-center justify-center flex-shrink-0">
-                    <Sparkles className="h-7 w-7 text-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-base text-primary">Check-in Mattutino</h3>
-                      <Badge className="bg-primary text-primary-foreground text-[9px]">
-                        Richiesto
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Sblocca il tuo allenamento registrando i dati di oggi
-                    </p>
-                    {baseline.isNewUser && (
-                      <div className="flex items-center gap-1 mt-1.5">
-                        <AlertCircle className="h-3 w-3 text-amber-500" />
-                        <span className="text-[10px] text-amber-600">
-                          {baseline.dataPoints}/3 giorni per baseline
-                        </span>
+          <AnimatePresence mode="wait">
+            {!readiness.isCompleted ? (
+              <motion.div
+                key="readiness-required"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95, height: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Card 
+                  className={cn(
+                    "relative overflow-hidden cursor-pointer transition-all",
+                    "border-2 border-amber-500/50",
+                    "bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-background"
+                  )}
+                  onClick={handleOpenDrawer}
+                >
+                  {/* Animated pulse overlay */}
+                  <motion.div 
+                    className="absolute inset-0 bg-gradient-to-r from-amber-500/10 to-orange-500/10"
+                    animate={{ 
+                      opacity: [0.3, 0.6, 0.3]
+                    }}
+                    transition={{ 
+                      duration: 2, 
+                      repeat: Infinity,
+                      ease: "easeInOut"
+                    }}
+                  />
+                  
+                  <CardContent className="relative p-4">
+                    <div className="flex items-center gap-4">
+                      <motion.div 
+                        className="h-14 w-14 rounded-2xl bg-gradient-to-br from-amber-500/30 to-orange-500/20 flex items-center justify-center flex-shrink-0"
+                        animate={{ 
+                          scale: [1, 1.05, 1],
+                        }}
+                        transition={{ 
+                          duration: 2, 
+                          repeat: Infinity,
+                          ease: "easeInOut"
+                        }}
+                      >
+                        <Sun className="h-7 w-7 text-amber-500" />
+                      </motion.div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-base text-amber-600 dark:text-amber-400">
+                            ☀️ Morning Check-in
+                          </h3>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Sblocca l'allenamento registrando i dati di oggi
+                        </p>
+                        {baseline.isNewUser && (
+                          <div className="flex items-center gap-1 mt-1.5">
+                            <AlertCircle className="h-3 w-3 text-amber-500" />
+                            <span className="text-[10px] text-amber-600">
+                              {baseline.dataPoints}/3 giorni per baseline
+                            </span>
+                          </div>
+                        )}
                       </div>
+                      <Button 
+                        size="sm" 
+                        className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white h-10 px-4 shadow-lg"
+                      >
+                        <Sparkles className="h-4 w-4 mr-1" />
+                        Start
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ) : (
+              /* Collapsed Readiness Status Pill (when completed) */
+              <motion.div
+                key="readiness-complete"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <div 
+                  className={cn(
+                    "flex items-center justify-between px-4 py-2.5 rounded-full cursor-pointer transition-all",
+                    "bg-secondary/50 hover:bg-secondary/70 backdrop-blur-sm border border-border/50"
+                  )}
+                  onClick={handleOpenDrawer}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className={cn(
+                      "h-6 w-6 rounded-full flex items-center justify-center",
+                      displayLevel === "high" ? "bg-success/20" : displayLevel === "moderate" ? "bg-warning/20" : "bg-destructive/20"
+                    )}>
+                      <Zap className={cn(
+                        "h-3.5 w-3.5",
+                        displayLevel === "high" ? "text-success" : displayLevel === "moderate" ? "text-warning" : "text-destructive"
+                      )} />
+                    </div>
+                    <span className={cn(
+                      "text-sm font-medium",
+                      displayLevel === "high" ? "text-success" : displayLevel === "moderate" ? "text-warning" : "text-destructive"
+                    )}>
+                      Ready to Train · {displayScore}%
+                    </span>
+                    {isOverridden && (
+                      <Badge variant="secondary" className="text-[9px] py-0">Override</Badge>
                     )}
                   </div>
-                  <Button size="sm" className="gradient-primary h-10 px-4">
-                    <Zap className="h-4 w-4 mr-1" />
-                    Start
-                  </Button>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
-              </CardContent>
-            </Card>
-          ) : (
-            /* Collapsed Readiness Status Line (when completed) */
-            <div 
-              className="flex items-center justify-between p-3 rounded-xl bg-secondary/50 cursor-pointer hover:bg-secondary/70 transition-colors"
-              onClick={handleOpenDrawer}
-            >
-              <div className="flex items-center gap-3">
-                <div className={cn(
-                  "h-8 w-8 rounded-lg flex items-center justify-center",
-                  displayLevel === "high" ? "bg-success/20" : displayLevel === "moderate" ? "bg-warning/20" : "bg-destructive/20"
-                )}>
-                  <Zap className={cn(
-                    "h-4 w-4",
-                    displayLevel === "high" ? "text-success" : displayLevel === "moderate" ? "text-warning" : "text-destructive"
-                  )} />
-                </div>
-                <div>
-                  <span className={cn(
-                    "text-sm font-semibold",
-                    displayLevel === "high" ? "text-success" : displayLevel === "moderate" ? "text-warning" : "text-destructive"
-                  )}>
-                    Readiness: {displayScore}%
-                  </span>
-                  {isOverridden && (
-                    <Badge variant="secondary" className="ml-2 text-[9px]">Override</Badge>
-                  )}
-                </div>
-              </div>
-              <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            </div>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {/* === ACTION 2: WORKOUT OF THE DAY === */}
-          {todayWorkout ? (
-            <Card 
-              className={cn(
-                "border-0 overflow-hidden transition-all cursor-pointer",
-                !canTrain && "opacity-75 border-2 border-dashed border-muted-foreground/30"
-              )}
-              onClick={() => {
-                if (!canTrain) {
-                  handleOpenDrawer();
-                  return;
-                }
-                navigate(`/athlete/workout/${todayWorkout.id}`);
-              }}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-center gap-4">
-                  <div className={cn(
-                    "h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0",
-                    canTrain ? "bg-primary/15" : "bg-muted"
-                  )}>
-                    <Dumbbell className={cn(
-                      "h-6 w-6",
-                      canTrain ? "text-primary" : "text-muted-foreground"
-                    )} />
+          {/* === ACTION 2: WORKOUT OF THE DAY (The Mission) === */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.3 }}
+          >
+            {todayWorkout ? (
+              <Card 
+                className={cn(
+                  "relative overflow-hidden transition-all cursor-pointer border-0",
+                  !canTrain && "opacity-60"
+                )}
+                style={{
+                  background: canTrain 
+                    ? `linear-gradient(135deg, ${coachProfile?.brand_color || 'hsl(var(--primary))'}15, ${coachProfile?.brand_color || 'hsl(var(--primary))'}05)`
+                    : undefined
+                }}
+                onClick={() => {
+                  if (!canTrain) {
+                    handleOpenDrawer();
+                    return;
+                  }
+                  navigate(`/athlete/workout/${todayWorkout.id}`);
+                }}
+              >
+                {/* Lock overlay when not ready */}
+                {!canTrain && (
+                  <div className="absolute inset-0 bg-background/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <AlertCircle className="h-4 w-4" />
+                      <span className="text-xs font-medium">Check-in richiesto</span>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <span className={cn(
-                        "font-semibold text-sm",
-                        !canTrain && "text-muted-foreground"
-                      )}>
-                        {todayWorkout.title}
-                      </span>
+                )}
+                
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    <div 
+                      className={cn(
+                        "h-14 w-14 rounded-xl flex items-center justify-center flex-shrink-0",
+                        canTrain ? "bg-white/20 dark:bg-white/10" : "bg-muted"
+                      )}
+                      style={canTrain ? { 
+                        backgroundColor: `${coachProfile?.brand_color || 'hsl(var(--primary))'}20`
+                      } : undefined}
+                    >
+                      <Dumbbell 
+                        className="h-7 w-7"
+                        style={{ color: canTrain ? (coachProfile?.brand_color || 'hsl(var(--primary))') : undefined }}
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-semibold text-base">
+                          {todayWorkout.title}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
+                            {todayWorkout.estimated_duration || 45} min
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Dumbbell className="h-3 w-3 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">
+                            {Array.isArray(todayWorkout.structure) ? todayWorkout.structure.length : 0} esercizi
+                          </span>
+                        </div>
+                      </div>
+                      
                       {/* Low Readiness Warning */}
                       {canTrain && isLowReadiness && (
-                        <Badge variant="secondary" className="bg-warning/10 text-warning border-warning/20 text-[9px]">
-                          <AlertTriangle className="h-3 w-3 mr-1" />
-                          Scala l'intensità
-                        </Badge>
+                        <motion.div 
+                          className="mt-2"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                        >
+                          <Badge variant="secondary" className="bg-warning/15 text-warning border-warning/30 text-[10px]">
+                            <AlertTriangle className="h-3 w-3 mr-1" />
+                            Considera di scalare l'intensità
+                          </Badge>
+                        </motion.div>
                       )}
                     </div>
                     
-                    {!canTrain ? (
-                      <div className="flex items-center gap-1.5">
-                        <AlertCircle className="h-3 w-3 text-warning" />
-                        <span className="text-xs text-warning font-medium">
-                          Completa il Check-in per sbloccare
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5">
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">
-                          {todayWorkout.estimated_duration || 45} min · {Array.isArray(todayWorkout.structure) ? todayWorkout.structure.length : 0} esercizi
-                        </span>
-                      </div>
-                    )}
+                    <Button 
+                      size="icon"
+                      className={cn(
+                        "h-12 w-12 rounded-xl shadow-lg transition-all",
+                        canTrain && "hover:scale-105"
+                      )}
+                      style={canTrain ? { 
+                        background: `linear-gradient(135deg, ${coachProfile?.brand_color || 'hsl(var(--primary))'}, ${coachProfile?.brand_color || 'hsl(var(--primary))'}dd)`
+                      } : undefined}
+                      disabled={!canTrain}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!canTrain) {
+                          handleOpenDrawer();
+                          return;
+                        }
+                        navigate(`/athlete/workout/${todayWorkout.id}`);
+                      }}
+                    >
+                      {canTrain ? (
+                        <Play className="h-5 w-5 text-white fill-white" />
+                      ) : (
+                        <span className="text-lg">🔒</span>
+                      )}
+                    </Button>
                   </div>
-                  <Button 
-                    size="sm" 
-                    className={cn(
-                      "h-9 px-4 text-xs font-semibold",
-                      canTrain ? "gradient-primary" : "bg-muted text-muted-foreground hover:bg-muted"
-                    )}
-                    disabled={!canTrain}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (!canTrain) {
-                        handleOpenDrawer();
-                        return;
-                      }
-                      navigate(`/athlete/workout/${todayWorkout.id}`);
+                </CardContent>
+              </Card>
+            ) : (
+              /* Rest Day State */
+              <Card className="border-0 bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border border-emerald-500/20">
+                <CardContent className="p-5 text-center">
+                  <motion.div 
+                    className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-emerald-500/15 mb-3"
+                    animate={{ 
+                      scale: [1, 1.05, 1]
+                    }}
+                    transition={{ 
+                      duration: 4, 
+                      repeat: Infinity,
+                      ease: "easeInOut"
                     }}
                   >
-                    {canTrain ? "Start" : "🔒"}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            /* Rest Day State */
-            <Card className="border-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border border-emerald-500/20">
-              <CardContent className="p-4 text-center">
-                <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-emerald-500/10 mb-3">
-                  <Moon className="h-6 w-6 text-emerald-600" />
-                </div>
-                <h3 className="text-sm font-semibold text-emerald-700 dark:text-emerald-400 mb-1">
-                  Giorno di Riposo 🌿
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  Nessun allenamento programmato. Recupera e preparati.
-                </p>
-              </CardContent>
-            </Card>
-          )}
+                    <Moon className="h-7 w-7 text-emerald-600" />
+                  </motion.div>
+                  <h3 className="text-base font-semibold text-emerald-700 dark:text-emerald-400 mb-1">
+                    Rest Day 🌿
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    No workout scheduled. Focus on recovery.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </motion.div>
 
-          {/* === ACTION 3: ACTIVE HABITS === */}
+          {/* === ACTION 3: ACTIVE HABITS (Minimalist Toggle List) === */}
           {totalHabits > 0 && (
-            <Card className="border-0">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Check className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium">Habit Giornalieri</span>
-                  </div>
-                  <span className="text-xs text-muted-foreground">
-                    {completedHabits}/{totalHabits}
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {habits.map((habit) => (
-                    <button
-                      key={habit.athlete_habit_id}
-                      onClick={() => toggleHabit(habit.athlete_habit_id, !habit.isCompleted)}
-                      disabled={isTogglingHabit}
-                      className={cn(
-                        "w-full flex items-center gap-3 p-2.5 rounded-lg transition-all",
-                        "active:scale-[0.98]",
-                        habit.isCompleted 
-                          ? "bg-success/10 border border-success/20" 
-                          : "bg-secondary/50 hover:bg-secondary/70"
-                      )}
-                    >
-                      <div className={cn(
-                        "h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
-                        habit.isCompleted 
-                          ? "bg-success border-success" 
-                          : "border-muted-foreground/30"
-                      )}>
-                        {habit.isCompleted && (
-                          <Check className="h-3 w-3 text-white" />
-                        )}
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.3 }}
+            >
+              <Card className="border-0 bg-card/50 backdrop-blur-sm">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="h-6 w-6 rounded-md bg-violet-500/15 flex items-center justify-center">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-violet-500" />
                       </div>
-                      <span className={cn(
-                        "text-sm text-left flex-1",
-                        habit.isCompleted && "line-through text-muted-foreground"
-                      )}>
-                        {habit.name}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+                      <span className="text-sm font-semibold">Daily Habits</span>
+                    </div>
+                    <Badge variant="secondary" className="text-[10px] bg-violet-500/10 text-violet-600 border-violet-500/20">
+                      {completedHabits}/{totalHabits}
+                    </Badge>
+                  </div>
+                  <div className="space-y-2">
+                    {habits.map((habit, index) => (
+                      <motion.button
+                        key={habit.athlete_habit_id}
+                        onClick={() => toggleHabit(habit.athlete_habit_id, !habit.isCompleted)}
+                        disabled={isTogglingHabit}
+                        className={cn(
+                          "w-full flex items-center gap-3 p-3 rounded-xl transition-all",
+                          "active:scale-[0.98]",
+                          habit.isCompleted 
+                            ? "bg-success/10 border border-success/20" 
+                            : "bg-secondary/50 hover:bg-secondary/70 border border-transparent"
+                        )}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 + index * 0.05 }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        <motion.div 
+                          className={cn(
+                            "h-6 w-6 rounded-full flex items-center justify-center flex-shrink-0 transition-colors",
+                            habit.isCompleted 
+                              ? "bg-success" 
+                              : "border-2 border-muted-foreground/30"
+                          )}
+                          animate={habit.isCompleted ? { scale: [1, 1.2, 1] } : {}}
+                          transition={{ duration: 0.3 }}
+                        >
+                          {habit.isCompleted && (
+                            <motion.div
+                              initial={{ scale: 0 }}
+                              animate={{ scale: 1 }}
+                              transition={{ type: "spring", stiffness: 500 }}
+                            >
+                              <Check className="h-3.5 w-3.5 text-white" />
+                            </motion.div>
+                          )}
+                        </motion.div>
+                        <span className={cn(
+                          "text-sm text-left flex-1 font-medium",
+                          habit.isCompleted && "line-through text-muted-foreground"
+                        )}>
+                          {habit.name}
+                        </span>
+                        {habit.category && (
+                          <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
+                            {habit.category}
+                          </span>
+                        )}
+                      </motion.button>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
           )}
         </div>
 

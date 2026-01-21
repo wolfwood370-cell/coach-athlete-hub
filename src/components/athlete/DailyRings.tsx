@@ -1,14 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Dumbbell, Flame, Check, LucideIcon } from "lucide-react";
-
-interface RingConfig {
-  id: string;
-  label: string;
-  value: number;
-  target: number;
-  icon: LucideIcon;
-  getColor: (percentage: number) => string;
-}
+import { motion } from "framer-motion";
 
 interface DailyRingsProps {
   fuelValue: number;
@@ -16,19 +8,42 @@ interface DailyRingsProps {
   trainingProgress: number; // 0-100
   habitsCompleted: number;
   habitsTotal: number;
-  coachLogoUrl?: string | null;
+  brandColor?: string;
 }
 
-// Individual Ring Component
+// Helper to determine color based on percentage
+const getFuelColor = (percentage: number): string => {
+  // 90-110% is green (target zone)
+  if (percentage >= 90 && percentage <= 110) return "hsl(160 84% 39%)"; // success
+  // Under 90% is yellow (under-eating)
+  if (percentage < 90) return "hsl(38 92% 50%)"; // warning
+  // Over 110% is red (over-eating)
+  return "hsl(0 84% 60%)"; // destructive
+};
+
+const getTrainingColor = (percentage: number, brandColor?: string): string => {
+  if (percentage >= 100) return "hsl(160 84% 39%)"; // success - completed
+  // Use brand color for in-progress/pending, fallback to primary
+  return brandColor || "hsl(var(--primary))";
+};
+
+const getHabitsColor = (percentage: number): string => {
+  // Indigo/Purple theme for habits
+  if (percentage >= 100) return "hsl(160 84% 39%)"; // success when complete
+  return "hsl(250 60% 60%)"; // Indigo/Purple
+};
+
+// Single Progress Ring Component with animations
 const ProgressRing = ({
   percentage,
   color,
-  size = 80,
-  strokeWidth = 6,
+  size = 88,
+  strokeWidth = 7,
   icon: Icon,
   label,
   value,
   unit,
+  isCenter = false,
 }: {
   percentage: number;
   color: string;
@@ -38,14 +53,29 @@ const ProgressRing = ({
   label: string;
   value: string;
   unit?: string;
+  isCenter?: boolean;
 }) => {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
-  const strokeDashoffset = circumference - (Math.min(percentage, 100) / 100) * circumference;
+  const clampedPercentage = Math.min(Math.max(percentage, 0), 100);
+  const strokeDashoffset = circumference - (clampedPercentage / 100) * circumference;
 
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <motion.div 
+      className="flex flex-col items-center gap-1"
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+    >
       <div className="relative" style={{ width: size, height: size }}>
+        {/* Glow effect for center ring */}
+        {isCenter && (
+          <div 
+            className="absolute inset-0 rounded-full blur-xl opacity-30"
+            style={{ backgroundColor: color }}
+          />
+        )}
+        
         <svg
           width={size}
           height={size}
@@ -59,9 +89,10 @@ const ProgressRing = ({
             fill="transparent"
             stroke="hsl(var(--secondary))"
             strokeWidth={strokeWidth}
+            opacity={0.5}
           />
-          {/* Progress ring */}
-          <circle
+          {/* Progress ring with animation */}
+          <motion.circle
             cx={size / 2}
             cy={size / 2}
             r={radius}
@@ -70,50 +101,63 @@ const ProgressRing = ({
             strokeWidth={strokeWidth}
             strokeLinecap="round"
             strokeDasharray={circumference}
-            strokeDashoffset={strokeDashoffset}
-            style={{ transition: "stroke-dashoffset 0.6s ease-out" }}
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset }}
+            transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
           />
         </svg>
-        {/* Center icon */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Icon className="h-5 w-5" style={{ color }} />
-        </div>
+        
+        {/* Center icon with pulse animation when complete */}
+        <motion.div 
+          className="absolute inset-0 flex items-center justify-center"
+          initial={{ scale: 0.5 }}
+          animate={{ scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.4 }}
+        >
+          <div 
+            className={cn(
+              "rounded-full p-2",
+              isCenter && "p-2.5"
+            )}
+            style={{ 
+              backgroundColor: `${color}15`,
+            }}
+          >
+            <Icon 
+              className={cn(
+                isCenter ? "h-6 w-6" : "h-5 w-5"
+              )} 
+              style={{ color }} 
+            />
+          </div>
+        </motion.div>
       </div>
+      
       {/* Value and label */}
-      <div className="text-center">
-        <span className="text-sm font-bold tabular-nums" style={{ color }}>
-          {value}
+      <div className="text-center mt-1">
+        <div className="flex items-baseline justify-center">
+          <motion.span 
+            className={cn(
+              "font-bold tabular-nums",
+              isCenter ? "text-base" : "text-sm"
+            )} 
+            style={{ color }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+          >
+            {value}
+          </motion.span>
+          {unit && (
+            <span className="text-[10px] text-muted-foreground ml-0.5">{unit}</span>
+          )}
+        </div>
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
+          {label}
         </span>
-        {unit && <span className="text-xs text-muted-foreground ml-0.5">{unit}</span>}
       </div>
-      <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
-        {label}
-      </span>
-    </div>
+    </motion.div>
   );
-};
-
-// Helper to determine color based on percentage
-const getFuelColor = (percentage: number): string => {
-  // Within +/- 5% of target is green
-  if (percentage >= 95 && percentage <= 105) return "hsl(160 84% 39%)"; // success
-  // Within +/- 15% is yellow
-  if (percentage >= 85 && percentage <= 115) return "hsl(38 92% 50%)"; // warning
-  // Otherwise red
-  return "hsl(0 84% 60%)"; // destructive
-};
-
-const getTrainingColor = (percentage: number): string => {
-  if (percentage >= 100) return "hsl(160 84% 39%)"; // success
-  if (percentage > 0) return "hsl(var(--primary))"; // primary
-  return "hsl(var(--muted-foreground))"; // not started
-};
-
-const getHabitsColor = (percentage: number): string => {
-  if (percentage >= 100) return "hsl(160 84% 39%)"; // success
-  if (percentage >= 50) return "hsl(38 92% 50%)"; // warning
-  if (percentage > 0) return "hsl(var(--primary))";
-  return "hsl(var(--muted-foreground))";
 };
 
 export function DailyRings({
@@ -122,39 +166,53 @@ export function DailyRings({
   trainingProgress,
   habitsCompleted,
   habitsTotal,
+  brandColor,
 }: DailyRingsProps) {
   const fuelPercentage = fuelTarget > 0 ? (fuelValue / fuelTarget) * 100 : 0;
   const habitsPercentage = habitsTotal > 0 ? (habitsCompleted / habitsTotal) * 100 : 0;
+  
+  // Format fuel display
+  const fuelDisplay = fuelValue >= 1000 
+    ? `${(fuelValue / 1000).toFixed(1)}k`
+    : fuelValue.toString();
+  const fuelUnit = fuelTarget >= 1000 
+    ? `/${(fuelTarget / 1000).toFixed(1)}k`
+    : `/${fuelTarget}`;
 
   return (
     <div className="relative">
-      {/* Rings Container */}
-      <div className="flex items-center justify-around py-4">
+      {/* Rings Container with flex alignment */}
+      <div className="flex items-end justify-around py-3">
         {/* Left Ring: Fuel (Calories) */}
         <ProgressRing
           percentage={fuelPercentage}
           color={getFuelColor(fuelPercentage)}
+          size={80}
+          strokeWidth={6}
           icon={Flame}
           label="Fuel"
-          value={fuelValue.toLocaleString()}
-          unit={`/${(fuelTarget / 1000).toFixed(1)}k`}
+          value={fuelDisplay}
+          unit={fuelUnit}
         />
 
-        {/* Center Ring: Training (larger) */}
+        {/* Center Ring: Training (larger, main focus) */}
         <ProgressRing
           percentage={trainingProgress}
-          color={getTrainingColor(trainingProgress)}
-          size={96}
+          color={getTrainingColor(trainingProgress, brandColor)}
+          size={104}
           strokeWidth={8}
-          icon={Dumbbell}
+          icon={trainingProgress >= 100 ? Check : Dumbbell}
           label="Training"
-          value={`${trainingProgress}%`}
+          value={trainingProgress >= 100 ? "Done" : "To Do"}
+          isCenter
         />
 
-        {/* Right Ring: Habits */}
+        {/* Right Ring: Habits (Purple/Indigo) */}
         <ProgressRing
           percentage={habitsPercentage}
           color={getHabitsColor(habitsPercentage)}
+          size={80}
+          strokeWidth={6}
           icon={Check}
           label="Habits"
           value={`${habitsCompleted}/${habitsTotal}`}
