@@ -803,7 +803,7 @@ export default function WorkoutPlayer() {
                               className="text-[10px] h-4 border-accent/30 bg-accent/10 text-accent-foreground gap-1"
                             >
                               <History className="h-2.5 w-2.5" />
-                              Last: {exerciseHistory[exercise.name]!.weight_kg}kg × {exerciseHistory[exercise.name]!.reps}
+                              Last ({new Date(exerciseHistory[exercise.name]!.date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}): {exerciseHistory[exercise.name]!.weight_kg}kg × {exerciseHistory[exercise.name]!.reps}
                               {exerciseHistory[exercise.name]!.rpe && ` @RPE${exerciseHistory[exercise.name]!.rpe}`}
                             </Badge>
                           )}

@@ -79,13 +79,13 @@ export function useNutritionTargets(athleteId?: string) {
     queryFn: async () => {
       if (!targetUserId) return false;
 
-      // Check workouts table for today's scheduled workout
+      // Check workouts table for today's scheduled workout (any non-skipped status)
       const { data: workouts, error: workoutError } = await supabase
         .from("workouts")
         .select("id")
         .eq("athlete_id", targetUserId)
         .eq("scheduled_date", today)
-        .in("status", ["pending", "completed"])
+        .in("status", ["pending", "in_progress", "completed"])
         .limit(1);
 
       if (workoutError) {
