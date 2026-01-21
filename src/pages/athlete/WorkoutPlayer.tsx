@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AthleteLayout } from "@/components/athlete/AthleteLayout";
@@ -42,6 +42,7 @@ import {
   Flame,
   AlertTriangle,
   Activity,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +51,7 @@ import { useOfflineSync, type WorkoutLogInput, type SetData as OfflineSetData } 
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { useWorkoutStreak } from "@/hooks/useWorkoutStreak";
 import { usePersonalRecords } from "@/hooks/usePersonalRecords";
+import { useExerciseHistory } from "@/hooks/useExerciseHistory";
 import { triggerConfetti, triggerPRConfetti } from "@/utils/ux";
 
 // Types
@@ -331,6 +333,17 @@ export default function WorkoutPlayer() {
       setExercises(parsed);
     }
   }, [workoutData]);
+
+  // Extract exercise names for history lookup
+  const exerciseNames = useMemo(() => {
+    return exercises.map(ex => ex.name);
+  }, [exercises]);
+
+  // Fetch previous workout history for all exercises
+  const { data: exerciseHistory, isLoading: historyLoading } = useExerciseHistory(
+    exerciseNames,
+    currentUserId || undefined
+  );
 
   // Workout elapsed timer
   useEffect(() => {
@@ -744,6 +757,17 @@ export default function WorkoutPlayer() {
                               ) : (
                                 <span>{exercise.sets[0].targetRpe}</span>
                               )}
+                            </Badge>
+                          )}
+                          
+                          {/* HISTORY: Last workout data for this exercise */}
+                          {exerciseHistory && exerciseHistory[exercise.name] && (
+                            <Badge 
+                              variant="outline" 
+                              className="text-[10px] h-4 border-accent/30 bg-accent/10 text-accent-foreground gap-1"
+                            >
+                              <History className="h-2.5 w-2.5" />
+                              Last: {exerciseHistory[exercise.name]!.weight_kg}kg × {exerciseHistory[exercise.name]!.reps}
                             </Badge>
                           )}
                         </div>

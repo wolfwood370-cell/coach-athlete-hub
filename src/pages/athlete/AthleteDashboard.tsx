@@ -420,6 +420,9 @@ export default function AthleteDashboard() {
   const isOverridden = subjectiveOverride !== null;
   const displayLevel = displayScore >= 75 ? "high" : displayScore >= 50 ? "moderate" : "low";
 
+  // GATEKEEPER: Training is only unlocked after readiness check-in is completed
+  const canTrain = readiness.isCompleted;
+
   // Sync tempReadiness when drawer opens
   useEffect(() => {
     if (drawerOpen) {
@@ -754,76 +757,125 @@ export default function AthleteDashboard() {
           )}
           
           <div className="space-y-2">
-            {todayTasks.map((task) => (
-              <Card 
-                key={task.id}
-                className="border-0 overflow-hidden active:scale-[0.98] transition-transform cursor-pointer"
-                onClick={() => {
-                  if (task.type === 'workout' && task.workoutId) {
-                    navigate(`/athlete/workout/${task.workoutId}`);
-                  }
-                }}
-              >
-                <CardContent className="p-3.5">
-                  <div className="flex items-center gap-3">
-                    {/* Icon */}
-                    <div className={cn(
-                      "h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0",
-                      task.type === 'workout' ? "bg-primary/15" : "bg-secondary"
-                    )}>
-                      <task.icon className={cn(
-                        "h-5 w-5",
-                        task.type === 'workout' ? "text-primary" : "text-muted-foreground"
-                      )} />
-                    </div>
-                    
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-sm">{task.label}</span>
-                        {task.type === 'progress' && task.value !== undefined && (
-                          <span className="text-xs text-muted-foreground tabular-nums">
-                            {task.value.toLocaleString()}/{task.target?.toLocaleString()}
+            {todayTasks.map((task) => {
+              // Determine if this workout task is locked (gatekeeper logic)
+              const isWorkoutTask = task.type === 'workout';
+              const isLocked = isWorkoutTask && !canTrain;
+
+              return (
+                <Card 
+                  key={task.id}
+                  className={cn(
+                    "border-0 overflow-hidden transition-transform cursor-pointer",
+                    isLocked 
+                      ? "opacity-75 border border-dashed border-muted-foreground/30" 
+                      : "active:scale-[0.98]"
+                  )}
+                  onClick={() => {
+                    if (isLocked) {
+                      // Open readiness drawer when locked workout is clicked
+                      handleOpenDrawer();
+                      return;
+                    }
+                    if (task.type === 'workout' && task.workoutId) {
+                      navigate(`/athlete/workout/${task.workoutId}`);
+                    }
+                  }}
+                >
+                  <CardContent className="p-3.5">
+                    <div className="flex items-center gap-3">
+                      {/* Icon */}
+                      <div className={cn(
+                        "h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0",
+                        isLocked 
+                          ? "bg-muted" 
+                          : task.type === 'workout' 
+                            ? "bg-primary/15" 
+                            : "bg-secondary"
+                      )}>
+                        <task.icon className={cn(
+                          "h-5 w-5",
+                          isLocked 
+                            ? "text-muted-foreground" 
+                            : task.type === 'workout' 
+                              ? "text-primary" 
+                              : "text-muted-foreground"
+                        )} />
+                      </div>
+                      
+                      {/* Content */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className={cn(
+                            "font-medium text-sm",
+                            isLocked && "text-muted-foreground"
+                          )}>
+                            {task.label}
                           </span>
+                          {task.type === 'progress' && task.value !== undefined && (
+                            <span className="text-xs text-muted-foreground tabular-nums">
+                              {task.value.toLocaleString()}/{task.target?.toLocaleString()}
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Locked message for workout */}
+                        {isLocked && (
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <AlertCircle className="h-3 w-3 text-warning" />
+                            <span className="text-xs text-warning font-medium">
+                              Completa il Check-in per sbloccare
+                            </span>
+                          </div>
+                        )}
+                        
+                        {!isLocked && task.sublabel && (
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground">{task.sublabel}</span>
+                          </div>
+                        )}
+                        
+                        {task.progress !== undefined && (
+                          <Progress 
+                            value={task.progress} 
+                            className="h-1 mt-2"
+                          />
                         )}
                       </div>
                       
-                      {task.sublabel && (
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <Clock className="h-3 w-3 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">{task.sublabel}</span>
-                        </div>
-                      )}
-                      
-                      {task.progress !== undefined && (
-                        <Progress 
-                          value={task.progress} 
-                          className="h-1 mt-2"
-                        />
+                      {/* Start button for workout - disabled when locked */}
+                      {task.type === 'workout' ? (
+                        <Button 
+                          size="sm" 
+                          className={cn(
+                            "h-8 px-3 text-xs font-semibold",
+                            isLocked 
+                              ? "bg-muted text-muted-foreground hover:bg-muted" 
+                              : "gradient-primary"
+                          )}
+                          disabled={isLocked}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (isLocked) {
+                              handleOpenDrawer();
+                              return;
+                            }
+                            if (task.workoutId) {
+                              navigate(`/athlete/workout/${task.workoutId}`);
+                            }
+                          }}
+                        >
+                          {isLocked ? "🔒" : "Start"}
+                        </Button>
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
                       )}
                     </div>
-                    
-                    {/* Start button for workout */}
-                    {task.type === 'workout' ? (
-                      <Button 
-                        size="sm" 
-                        className="h-8 px-3 gradient-primary text-xs font-semibold"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (task.workoutId) {
-                            navigate(`/athlete/workout/${task.workoutId}`);
-                          }
-                        }}
-                      >
-                        Start
-                      </Button>
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
 
