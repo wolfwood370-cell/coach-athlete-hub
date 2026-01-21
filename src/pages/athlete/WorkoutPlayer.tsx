@@ -804,6 +804,7 @@ export default function WorkoutPlayer() {
                             >
                               <History className="h-2.5 w-2.5" />
                               Last: {exerciseHistory[exercise.name]!.weight_kg}kg × {exerciseHistory[exercise.name]!.reps}
+                              {exerciseHistory[exercise.name]!.rpe && ` @RPE${exerciseHistory[exercise.name]!.rpe}`}
                             </Badge>
                           )}
                         </div>
