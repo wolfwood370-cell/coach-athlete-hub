@@ -444,6 +444,44 @@ export type Database = {
           },
         ]
       }
+      habit_logs: {
+        Row: {
+          athlete_habit_id: string
+          athlete_id: string
+          completed: boolean
+          completed_at: string
+          created_at: string
+          date: string
+          id: string
+        }
+        Insert: {
+          athlete_habit_id: string
+          athlete_id: string
+          completed?: boolean
+          completed_at?: string
+          created_at?: string
+          date?: string
+          id?: string
+        }
+        Update: {
+          athlete_habit_id?: string
+          athlete_id?: string
+          completed?: boolean
+          completed_at?: string
+          created_at?: string
+          date?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "habit_logs_athlete_habit_id_fkey"
+            columns: ["athlete_habit_id"]
+            isOneToOne: false
+            referencedRelation: "athlete_habits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       habits_library: {
         Row: {
           category: string

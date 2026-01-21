@@ -25,8 +25,6 @@ import {
   HeartPulse,
   ChevronRight,
   Flame,
-  Footprints,
-  UtensilsCrossed,
   Dumbbell,
   Sparkles,
   Clock,
@@ -37,7 +35,8 @@ import {
   Scale,
   Heart,
   TrendingDown,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReadiness, initialReadiness, ReadinessData, ReadinessResult } from "@/hooks/useReadiness";
@@ -45,6 +44,9 @@ import { AcwrCard } from "@/components/athlete/AcwrCard";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useGamification } from "@/hooks/useGamification";
+import { useNutritionTargets } from "@/hooks/useNutritionTargets";
+import { useAthleteHabits } from "@/hooks/useAthleteHabits";
+import { DailyRings } from "@/components/athlete/DailyRings";
 import { supabase } from "@/integrations/supabase/client";
 
 // Body parts for DOMS map
@@ -68,84 +70,7 @@ const sorenessConfig: Record<SorenessLevel, { bg: string; label: string }> = {
   3: { bg: "bg-destructive", label: "Acuto" },
 };
 
-// ============================================
-// LARGE CIRCULAR READINESS INDICATOR
-// ============================================
-
-const LargeReadinessCircle = ({ 
-  score, 
-  level,
-  isOverridden,
-  isNewUser,
-  dataPoints
-}: { 
-  score: number;
-  level: "high" | "moderate" | "low";
-  isOverridden?: boolean;
-  isNewUser?: boolean;
-  dataPoints?: number;
-}) => {
-  const radius = 56;
-  const strokeWidth = 8;
-  const normalizedRadius = radius - strokeWidth / 2;
-  const circumference = normalizedRadius * 2 * Math.PI;
-  const strokeDashoffset = circumference - (score / 100) * circumference;
-
-  const getColor = () => {
-    if (level === "high") return "hsl(160 84% 39%)";
-    if (level === "moderate") return "hsl(38 92% 50%)";
-    return "hsl(0 84% 60%)";
-  };
-
-  return (
-    <div className="relative h-28 w-28">
-      <svg
-        height={radius * 2}
-        width={radius * 2}
-        className="transform -rotate-90"
-      >
-        {/* Background ring */}
-        <circle
-          stroke="hsl(var(--secondary))"
-          fill="transparent"
-          strokeWidth={strokeWidth}
-          r={normalizedRadius}
-          cx={radius}
-          cy={radius}
-        />
-        {/* Progress ring */}
-        <circle
-          stroke={getColor()}
-          fill="transparent"
-          strokeWidth={strokeWidth}
-          strokeDasharray={`${circumference} ${circumference}`}
-          style={{ 
-            strokeDashoffset,
-            transition: "stroke-dashoffset 0.8s ease-out"
-          }}
-          strokeLinecap="round"
-          r={normalizedRadius}
-          cx={radius}
-          cy={radius}
-        />
-      </svg>
-      {/* Center content */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className={cn(
-          "text-3xl font-bold tabular-nums",
-          level === "high" ? "text-success" : level === "moderate" ? "text-warning" : "text-destructive"
-        )}>
-          {score}
-        </span>
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-          {isOverridden ? "Override" : isNewUser ? `${dataPoints}/3 giorni` : "Score"}
-        </span>
-      </div>
-    </div>
-  );
-};
-
-// Original small ring for existing completed state
+// Original small ring for drawer preview
 const ReadinessRing = ({ score }: { score: number }) => {
   const radius = 40;
   const strokeWidth = 6;
@@ -154,9 +79,9 @@ const ReadinessRing = ({ score }: { score: number }) => {
   const strokeDashoffset = circumference - (score / 100) * circumference;
 
   const getScoreColor = () => {
-    if (score >= 75) return "hsl(160 84% 39%)"; // success
-    if (score >= 50) return "hsl(38 92% 50%)"; // warning
-    return "hsl(0 84% 60%)"; // destructive
+    if (score >= 75) return "hsl(160 84% 39%)";
+    if (score >= 50) return "hsl(38 92% 50%)";
+    return "hsl(0 84% 60%)";
   };
 
   return (
@@ -166,7 +91,6 @@ const ReadinessRing = ({ score }: { score: number }) => {
         width={radius * 2}
         className="transform -rotate-90"
       >
-        {/* Background ring */}
         <circle
           stroke="hsl(var(--secondary))"
           fill="transparent"
@@ -175,7 +99,6 @@ const ReadinessRing = ({ score }: { score: number }) => {
           cx={radius}
           cy={radius}
         />
-        {/* Progress ring */}
         <circle
           stroke={getScoreColor()}
           fill="transparent"
@@ -191,7 +114,6 @@ const ReadinessRing = ({ score }: { score: number }) => {
           cy={radius}
         />
       </svg>
-      {/* Center icon */}
       <div className="absolute inset-0 flex items-center justify-center">
         <Zap className={cn(
           "h-6 w-6",
@@ -222,12 +144,10 @@ const ParamSliderCard = ({
 }) => {
   const getSliderColor = () => {
     if (inverted) {
-      // For stress: high is bad
       if (value <= 3) return "bg-success";
       if (value <= 6) return "bg-warning";
       return "bg-destructive";
     }
-    // For normal: high is good
     if (value >= 7) return "bg-success";
     if (value >= 4) return "bg-warning";
     return "bg-destructive";
@@ -309,6 +229,48 @@ export default function AthleteDashboard() {
   // Gamification data
   const { currentStreak, isStreakDay, loading: streakLoading } = useGamification(currentUserId || undefined);
   
+  // Nutrition targets (context-aware cycling)
+  const { targets: nutritionTargets, isLoading: nutritionLoading } = useNutritionTargets(currentUserId || undefined);
+  
+  // Habits data
+  const { 
+    habits, 
+    completedHabits, 
+    totalHabits, 
+    completionPercentage: habitsPercentage,
+    toggleHabit,
+    isToggling: isTogglingHabit 
+  } = useAthleteHabits(currentUserId || undefined);
+  
+  // Fetch coach profile for branding
+  const { data: coachProfile } = useQuery({
+    queryKey: ['coach-branding', currentUserId],
+    queryFn: async () => {
+      if (!currentUserId) return null;
+      
+      // Get athlete's coach_id from their profile
+      const { data: athleteProfile, error: profileError } = await supabase
+        .from('profiles')
+        .select('coach_id')
+        .eq('id', currentUserId)
+        .single();
+      
+      if (profileError || !athleteProfile?.coach_id) return null;
+      
+      // Get coach's branding
+      const { data: coach, error: coachError } = await supabase
+        .from('profiles')
+        .select('logo_url, brand_color, full_name')
+        .eq('id', athleteProfile.coach_id)
+        .single();
+      
+      if (coachError) return null;
+      return coach;
+    },
+    enabled: !!currentUserId,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+  });
+  
   // Today's date for strict filtering
   const todayDate = useMemo(() => format(new Date(), 'yyyy-MM-dd'), []);
   
@@ -323,7 +285,7 @@ export default function AthleteDashboard() {
         .select('id, title, estimated_duration, structure, status')
         .eq('athlete_id', currentUserId)
         .eq('scheduled_date', todayDate)
-        .eq('status', 'pending')
+        .in('status', ['pending', 'completed'])
         .maybeSingle();
       
       if (error) {
@@ -334,59 +296,18 @@ export default function AthleteDashboard() {
       return data;
     },
     enabled: !!currentUserId,
-    staleTime: 60 * 1000, // 1 minute
+    staleTime: 60 * 1000,
   });
   
-  // Build today's tasks dynamically
-  const todayTasks = useMemo(() => {
-    const tasks: Array<{
-      id: string;
-      label: string;
-      sublabel?: string;
-      icon: typeof Dumbbell;
-      type: 'workout' | 'progress';
-      progress?: number;
-      value?: number;
-      target?: number;
-      workoutId?: string;
-    }> = [];
-    
-    // Add workout task if exists for today
-    if (todayWorkout) {
-      const exerciseCount = Array.isArray(todayWorkout.structure) ? todayWorkout.structure.length : 0;
-      tasks.push({
-        id: 'workout',
-        label: todayWorkout.title,
-        sublabel: `${todayWorkout.estimated_duration || 45} min · ${exerciseCount} esercizi`,
-        icon: Dumbbell,
-        type: 'workout',
-        workoutId: todayWorkout.id,
-      });
-    }
-    
-    // Always add steps and nutrition tracking
-    tasks.push({
-      id: 'steps',
-      label: 'Passi',
-      icon: Footprints,
-      type: 'progress',
-      progress: 35,
-      value: 3500,
-      target: 10000,
-    });
-    
-    tasks.push({
-      id: 'nutrition',
-      label: 'Macros',
-      icon: UtensilsCrossed,
-      type: 'progress',
-      progress: 48,
-      value: 1200,
-      target: 2500,
-    });
-    
-    return tasks;
+  // Calculate training progress (0 = not started, 100 = completed)
+  const trainingProgress = useMemo(() => {
+    if (!todayWorkout) return 0; // No workout scheduled
+    if (todayWorkout.status === 'completed') return 100;
+    return 0; // Pending
   }, [todayWorkout]);
+  
+  // Mock calorie intake (would come from food logging in production)
+  const caloriesConsumed = 1200; // TODO: Connect to actual food logging
   
   const {
     readiness,
@@ -415,13 +336,15 @@ export default function AthleteDashboard() {
         dataPoints: baseline.dataPoints,
       };
   
-  // Use override if set, otherwise use calculated score
   const displayScore = subjectiveOverride !== null ? subjectiveOverride : readinessResult.score;
   const isOverridden = subjectiveOverride !== null;
   const displayLevel = displayScore >= 75 ? "high" : displayScore >= 50 ? "moderate" : "low";
 
   // GATEKEEPER: Training is only unlocked after readiness check-in is completed
   const canTrain = readiness.isCompleted;
+  
+  // Low readiness warning threshold (< 40/100)
+  const isLowReadiness = readiness.isCompleted && displayScore < 40;
 
   // Sync tempReadiness when drawer opens
   useEffect(() => {
@@ -481,11 +404,28 @@ export default function AthleteDashboard() {
   return (
     <AthleteLayout>
       <div className="space-y-5 p-4 animate-fade-in">
-        {/* Header with Streak */}
+        {/* ===== HEADER WITH COACH LOGO & STREAK ===== */}
         <div className="flex items-center justify-between pt-2">
-          <div>
-            <p className="text-muted-foreground text-xs">Buongiorno</p>
-            <h1 className="text-lg font-semibold">Sofia 👋</h1>
+          <div className="flex items-center gap-3">
+            {/* Coach Logo */}
+            {coachProfile?.logo_url ? (
+              <img 
+                src={coachProfile.logo_url} 
+                alt="Coach" 
+                className="h-9 w-9 rounded-lg object-contain bg-secondary/50"
+              />
+            ) : (
+              <div 
+                className="h-9 w-9 rounded-lg flex items-center justify-center text-xs font-bold text-white"
+                style={{ backgroundColor: coachProfile?.brand_color || 'hsl(var(--primary))' }}
+              >
+                {coachProfile?.full_name?.charAt(0) || 'C'}
+              </div>
+            )}
+            <div>
+              <p className="text-muted-foreground text-xs">Buongiorno</p>
+              <h1 className="text-lg font-semibold">Sofia 👋</h1>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             {/* Streak Badge */}
@@ -505,243 +445,198 @@ export default function AthleteDashboard() {
                 </span>
               </div>
             )}
-            {/* Avatar */}
-            <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center">
-              <span className="text-xs font-semibold text-primary">SN</span>
-            </div>
           </div>
         </div>
 
-        {/* ===== ENHANCED MORNING READINESS CARD ===== */}
+        {/* ===== DAILY RINGS HEADER ===== */}
         <Card className="border-0 overflow-hidden bg-gradient-to-br from-card via-card to-primary/5">
-          <CardContent className="p-0">
-            {!readiness.isCompleted ? (
-              /* ===== NOT COMPLETED STATE ===== */
-              <div className="p-5 text-center">
-                <div className="relative mx-auto mb-4 h-20 w-20">
-                  <div className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 animate-pulse-soft" />
-                  <div className="absolute inset-2 rounded-full bg-card flex items-center justify-center">
-                    <Sparkles className="h-8 w-8 text-primary" />
-                  </div>
-                </div>
-                <h3 className="font-semibold text-base mb-1">Prontezza Giornaliera</h3>
-                <p className="text-xs text-muted-foreground mb-3 max-w-[200px] mx-auto">
-                  Compila il check giornaliero per ottimizzare il tuo piano
-                </p>
-                
-                {/* New User Indicator */}
-                {baseline.isNewUser && (
-                  <div className="flex items-center justify-center gap-2 mb-4 p-2 rounded-lg bg-primary/10">
-                    <AlertCircle className="h-4 w-4 text-primary" />
-                    <span className="text-xs text-primary">
-                      {baseline.dataPoints}/3 giorni per baseline personalizzata
-                    </span>
-                  </div>
+          <CardContent className="p-4">
+            <DailyRings
+              fuelValue={caloriesConsumed}
+              fuelTarget={nutritionTargets.calories}
+              trainingProgress={trainingProgress}
+              habitsCompleted={completedHabits}
+              habitsTotal={totalHabits}
+              coachLogoUrl={coachProfile?.logo_url}
+            />
+            
+            {/* Training Day Indicator */}
+            <div className="flex justify-center mt-2">
+              <Badge 
+                variant="secondary" 
+                className={cn(
+                  "text-[10px]",
+                  nutritionTargets.isTrainingDay 
+                    ? "bg-primary/10 text-primary border-primary/20" 
+                    : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
                 )}
-                
-                <Button 
-                  onClick={handleOpenDrawer}
-                  className="w-full h-12 text-sm font-semibold gradient-primary"
-                  disabled={isLoading}
-                >
-                  <Zap className="h-4 w-4 mr-2" />
-                  Log Morning Metrics
-                </Button>
-              </div>
-            ) : (
-              /* ===== ENHANCED COMPLETED STATE ===== */
-              <div className="p-5">
-                {/* Top Row: Circle + Status */}
-                <div className="flex items-start gap-4 mb-4">
-                  {/* Large Circle */}
-                  <LargeReadinessCircle 
-                    score={displayScore} 
-                    level={displayLevel}
-                    isOverridden={isOverridden}
-                    isNewUser={readinessResult.isNewUser}
-                    dataPoints={readinessResult.dataPoints}
-                  />
-                  
-                  {/* Status & Reason */}
-                  <div className="flex-1 min-w-0 pt-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h3 className={cn(
-                        "text-base font-semibold",
-                        displayLevel === "high" ? "text-success" : displayLevel === "moderate" ? "text-warning" : "text-destructive"
-                      )}>
-                        {displayLevel === "high" ? "Alta Prontezza" : displayLevel === "moderate" ? "Prontezza Moderata" : "Bassa Prontezza"}
-                      </h3>
-                      {isOverridden && (
-                        <Badge variant="secondary" className="text-[9px] bg-primary/10 text-primary">
-                          Override
-                        </Badge>
-                      )}
-                      {readinessResult.isNewUser && (
-                        <Badge variant="secondary" className="text-[9px] bg-amber-500/10 text-amber-600">
-                          Baseline
-                        </Badge>
-                      )}
-                    </div>
-                    
-                    {/* Reason / "Why" explanation */}
-                    <p className="text-xs text-muted-foreground mb-3 line-clamp-2">
-                      {readinessResult.reason}
-                    </p>
-                    
-                    {/* Penalty Badges */}
-                    {readinessResult.penalties.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {readinessResult.penalties.map((penalty, i) => (
-                          <Badge 
-                            key={i}
-                            variant="secondary"
-                            className="text-[10px] px-2 py-0.5 bg-destructive/10 text-destructive border-destructive/20"
-                          >
-                            <TrendingDown className="h-3 w-3 mr-1" />
-                            {penalty.label}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-                    
-                    {/* Factor Summary for non-penalty state */}
-                    {readinessResult.penalties.length === 0 && !readinessResult.isNewUser && (
-                      <div className="flex flex-wrap gap-1.5">
-                        <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-success/10 text-success border-success/20">
-                          Sonno: {readiness.sleepHours}h
-                        </Badge>
-                        {readiness.hrvRmssd && (
-                          <Badge variant="secondary" className="text-[10px] px-2 py-0.5 bg-success/10 text-success border-success/20">
-                            HRV: {readiness.hrvRmssd}ms
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                
-                {/* Metrics Row */}
-                <div className="grid grid-cols-4 gap-2 mb-4">
-                  <div className="text-center p-2.5 rounded-xl bg-secondary/50">
-                    <HeartPulse className="h-4 w-4 mx-auto text-primary mb-1" />
-                    <p className="text-sm font-semibold tabular-nums">{readiness.hrvRmssd || "—"}</p>
-                    <p className="text-[9px] text-muted-foreground">HRV ms</p>
-                  </div>
-                  <div className="text-center p-2.5 rounded-xl bg-secondary/50">
-                    <Heart className="h-4 w-4 mx-auto text-rose-400 mb-1" />
-                    <p className="text-sm font-semibold tabular-nums">{readiness.restingHr || "—"}</p>
-                    <p className="text-[9px] text-muted-foreground">RHR bpm</p>
-                  </div>
-                  <div className="text-center p-2.5 rounded-xl bg-secondary/50">
-                    <Moon className="h-4 w-4 mx-auto text-indigo-400 mb-1" />
-                    <p className="text-sm font-semibold tabular-nums">{readiness.sleepHours}h</p>
-                    <p className="text-[9px] text-muted-foreground">Sonno</p>
-                  </div>
-                  <div className="text-center p-2.5 rounded-xl bg-secondary/50">
-                    <Activity className="h-4 w-4 mx-auto text-emerald-400 mb-1" />
-                    <p className="text-sm font-semibold tabular-nums">{readiness.energy}/10</p>
-                    <p className="text-[9px] text-muted-foreground">Energia</p>
-                  </div>
-                </div>
-                
-                {/* Baseline Progress for New Users */}
-                {readinessResult.isNewUser && (
-                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 mb-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <AlertCircle className="h-4 w-4 text-amber-600" />
-                      <span className="text-xs font-medium text-amber-600">Costruendo la tua baseline</span>
-                    </div>
-                    <Progress value={(readinessResult.dataPoints / 3) * 100} className="h-2" />
-                    <p className="text-[10px] text-muted-foreground mt-2">
-                      Ancora {3 - readinessResult.dataPoints} giorni per una baseline personalizzata
-                    </p>
-                  </div>
-                )}
-                
-                {/* Subjective Override Section */}
-                {!showOverrideSlider ? (
-                  <div className="flex items-center justify-between">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 text-xs text-muted-foreground hover:text-foreground"
-                      onClick={() => setShowOverrideSlider(true)}
-                    >
-                      <Smile className="h-4 w-4 mr-1.5" />
-                      Mi sento {displayScore >= 75 ? "diversamente" : "meglio di così"}
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-8 px-2 text-xs text-muted-foreground"
-                      onClick={handleOpenDrawer}
-                    >
-                      Modifica Check-in
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="p-3 rounded-xl bg-primary/5 border border-primary/10 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-medium">Come ti senti davvero?</Label>
-                      <span className="text-sm font-bold text-primary tabular-nums">{tempOverride}</span>
-                    </div>
-                    <Slider
-                      value={[tempOverride]}
-                      onValueChange={([v]) => setTempOverride(v)}
-                      min={0}
-                      max={100}
-                      step={5}
-                      className="w-full"
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        className="flex-1 h-8 text-xs gradient-primary"
-                        onClick={() => {
-                          setSubjectiveOverride(tempOverride);
-                          setShowOverrideSlider(false);
-                          toast.success(`Override soggettivo salvato: ${tempOverride}/100`);
-                        }}
-                      >
-                        <Check className="h-3.5 w-3.5 mr-1" />
-                        Applica Override
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs"
-                        onClick={() => {
-                          setShowOverrideSlider(false);
-                          if (subjectiveOverride !== null) {
-                            setSubjectiveOverride(null);
-                            toast.info("Override rimosso, usando dati dispositivo");
-                          }
-                        }}
-                      >
-                        {subjectiveOverride !== null ? "Reset" : "Annulla"}
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+              >
+                {nutritionTargets.isTrainingDay ? "🏋️ Giorno di Allenamento" : "🌿 Giorno di Riposo"}
+                {nutritionTargets.strategyMode === "cycling_on_off" && " · Cycling"}
+              </Badge>
+            </div>
           </CardContent>
         </Card>
 
-        {/* ===== TODAY'S FOCUS ===== */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold">Focus di Oggi</h2>
-            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-              {todayTasks.filter(t => t.type === 'workout').length > 0 
-                ? `${todayTasks.length} attività` 
-                : 'Giorno di riposo'}
-            </span>
-          </div>
+        {/* ===== ACTION STACK ===== */}
+        <div className="space-y-3">
           
-          {/* Rest Day Empty State */}
-          {!todayWorkout && !workoutLoading && (
-            <Card className="border-0 mb-2 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border border-emerald-500/20">
+          {/* === ACTION 1: READINESS GATEKEEPER === */}
+          {!readiness.isCompleted ? (
+            <Card 
+              className={cn(
+                "border-2 border-primary/50 overflow-hidden cursor-pointer transition-all",
+                "bg-gradient-to-br from-primary/5 to-primary/10",
+                "animate-pulse-soft" // Pulse animation for gatekeeper
+              )}
+              onClick={handleOpenDrawer}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-14 w-14 rounded-2xl bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="h-7 w-7 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <h3 className="font-semibold text-base text-primary">Check-in Mattutino</h3>
+                      <Badge className="bg-primary text-primary-foreground text-[9px]">
+                        Richiesto
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Sblocca il tuo allenamento registrando i dati di oggi
+                    </p>
+                    {baseline.isNewUser && (
+                      <div className="flex items-center gap-1 mt-1.5">
+                        <AlertCircle className="h-3 w-3 text-amber-500" />
+                        <span className="text-[10px] text-amber-600">
+                          {baseline.dataPoints}/3 giorni per baseline
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <Button size="sm" className="gradient-primary h-10 px-4">
+                    <Zap className="h-4 w-4 mr-1" />
+                    Start
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            /* Collapsed Readiness Status Line (when completed) */
+            <div 
+              className="flex items-center justify-between p-3 rounded-xl bg-secondary/50 cursor-pointer hover:bg-secondary/70 transition-colors"
+              onClick={handleOpenDrawer}
+            >
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "h-8 w-8 rounded-lg flex items-center justify-center",
+                  displayLevel === "high" ? "bg-success/20" : displayLevel === "moderate" ? "bg-warning/20" : "bg-destructive/20"
+                )}>
+                  <Zap className={cn(
+                    "h-4 w-4",
+                    displayLevel === "high" ? "text-success" : displayLevel === "moderate" ? "text-warning" : "text-destructive"
+                  )} />
+                </div>
+                <div>
+                  <span className={cn(
+                    "text-sm font-semibold",
+                    displayLevel === "high" ? "text-success" : displayLevel === "moderate" ? "text-warning" : "text-destructive"
+                  )}>
+                    Readiness: {displayScore}%
+                  </span>
+                  {isOverridden && (
+                    <Badge variant="secondary" className="ml-2 text-[9px]">Override</Badge>
+                  )}
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </div>
+          )}
+
+          {/* === ACTION 2: WORKOUT OF THE DAY === */}
+          {todayWorkout ? (
+            <Card 
+              className={cn(
+                "border-0 overflow-hidden transition-all cursor-pointer",
+                !canTrain && "opacity-75 border-2 border-dashed border-muted-foreground/30"
+              )}
+              onClick={() => {
+                if (!canTrain) {
+                  handleOpenDrawer();
+                  return;
+                }
+                navigate(`/athlete/workout/${todayWorkout.id}`);
+              }}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-4">
+                  <div className={cn(
+                    "h-12 w-12 rounded-xl flex items-center justify-center flex-shrink-0",
+                    canTrain ? "bg-primary/15" : "bg-muted"
+                  )}>
+                    <Dumbbell className={cn(
+                      "h-6 w-6",
+                      canTrain ? "text-primary" : "text-muted-foreground"
+                    )} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className={cn(
+                        "font-semibold text-sm",
+                        !canTrain && "text-muted-foreground"
+                      )}>
+                        {todayWorkout.title}
+                      </span>
+                      {/* Low Readiness Warning */}
+                      {canTrain && isLowReadiness && (
+                        <Badge variant="secondary" className="bg-warning/10 text-warning border-warning/20 text-[9px]">
+                          <AlertTriangle className="h-3 w-3 mr-1" />
+                          Scala l'intensità
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    {!canTrain ? (
+                      <div className="flex items-center gap-1.5">
+                        <AlertCircle className="h-3 w-3 text-warning" />
+                        <span className="text-xs text-warning font-medium">
+                          Completa il Check-in per sbloccare
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="h-3 w-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">
+                          {todayWorkout.estimated_duration || 45} min · {Array.isArray(todayWorkout.structure) ? todayWorkout.structure.length : 0} esercizi
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <Button 
+                    size="sm" 
+                    className={cn(
+                      "h-9 px-4 text-xs font-semibold",
+                      canTrain ? "gradient-primary" : "bg-muted text-muted-foreground hover:bg-muted"
+                    )}
+                    disabled={!canTrain}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!canTrain) {
+                        handleOpenDrawer();
+                        return;
+                      }
+                      navigate(`/athlete/workout/${todayWorkout.id}`);
+                    }}
+                  >
+                    {canTrain ? "Start" : "🔒"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            /* Rest Day State */
+            <Card className="border-0 bg-gradient-to-br from-emerald-500/5 to-teal-500/5 border border-emerald-500/20">
               <CardContent className="p-4 text-center">
                 <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-emerald-500/10 mb-3">
                   <Moon className="h-6 w-6 text-emerald-600" />
@@ -750,138 +645,65 @@ export default function AthleteDashboard() {
                   Giorno di Riposo 🌿
                 </h3>
                 <p className="text-xs text-muted-foreground">
-                  Nessun allenamento programmato per oggi. Recupera e preparati per il prossimo.
+                  Nessun allenamento programmato. Recupera e preparati.
                 </p>
               </CardContent>
             </Card>
           )}
-          
-          <div className="space-y-2">
-            {todayTasks.map((task) => {
-              // Determine if this workout task is locked (gatekeeper logic)
-              const isWorkoutTask = task.type === 'workout';
-              const isLocked = isWorkoutTask && !canTrain;
 
-              return (
-                <Card 
-                  key={task.id}
-                  className={cn(
-                    "border-0 overflow-hidden transition-transform cursor-pointer",
-                    isLocked 
-                      ? "opacity-75 border border-dashed border-muted-foreground/30" 
-                      : "active:scale-[0.98]"
-                  )}
-                  onClick={() => {
-                    if (isLocked) {
-                      // Open readiness drawer when locked workout is clicked
-                      handleOpenDrawer();
-                      return;
-                    }
-                    if (task.type === 'workout' && task.workoutId) {
-                      navigate(`/athlete/workout/${task.workoutId}`);
-                    }
-                  }}
-                >
-                  <CardContent className="p-3.5">
-                    <div className="flex items-center gap-3">
-                      {/* Icon */}
-                      <div className={cn(
-                        "h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0",
-                        isLocked 
-                          ? "bg-muted" 
-                          : task.type === 'workout' 
-                            ? "bg-primary/15" 
-                            : "bg-secondary"
-                      )}>
-                        <task.icon className={cn(
-                          "h-5 w-5",
-                          isLocked 
-                            ? "text-muted-foreground" 
-                            : task.type === 'workout' 
-                              ? "text-primary" 
-                              : "text-muted-foreground"
-                        )} />
-                      </div>
-                      
-                      {/* Content */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className={cn(
-                            "font-medium text-sm",
-                            isLocked && "text-muted-foreground"
-                          )}>
-                            {task.label}
-                          </span>
-                          {task.type === 'progress' && task.value !== undefined && (
-                            <span className="text-xs text-muted-foreground tabular-nums">
-                              {task.value.toLocaleString()}/{task.target?.toLocaleString()}
-                            </span>
-                          )}
-                        </div>
-                        
-                        {/* Locked message for workout */}
-                        {isLocked && (
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <AlertCircle className="h-3 w-3 text-warning" />
-                            <span className="text-xs text-warning font-medium">
-                              Completa il Check-in per sbloccare
-                            </span>
-                          </div>
-                        )}
-                        
-                        {!isLocked && task.sublabel && (
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <Clock className="h-3 w-3 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground">{task.sublabel}</span>
-                          </div>
-                        )}
-                        
-                        {task.progress !== undefined && (
-                          <Progress 
-                            value={task.progress} 
-                            className="h-1 mt-2"
-                          />
-                        )}
-                      </div>
-                      
-                      {/* Start button for workout - disabled when locked */}
-                      {task.type === 'workout' ? (
-                        <Button 
-                          size="sm" 
-                          className={cn(
-                            "h-8 px-3 text-xs font-semibold",
-                            isLocked 
-                              ? "bg-muted text-muted-foreground hover:bg-muted" 
-                              : "gradient-primary"
-                          )}
-                          disabled={isLocked}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (isLocked) {
-                              handleOpenDrawer();
-                              return;
-                            }
-                            if (task.workoutId) {
-                              navigate(`/athlete/workout/${task.workoutId}`);
-                            }
-                          }}
-                        >
-                          {isLocked ? "🔒" : "Start"}
-                        </Button>
-                      ) : (
-                        <ChevronRight className="h-4 w-4 text-muted-foreground/50 flex-shrink-0" />
+          {/* === ACTION 3: ACTIVE HABITS === */}
+          {totalHabits > 0 && (
+            <Card className="border-0">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Check className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">Habit Giornalieri</span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {completedHabits}/{totalHabits}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {habits.map((habit) => (
+                    <button
+                      key={habit.athlete_habit_id}
+                      onClick={() => toggleHabit(habit.athlete_habit_id, !habit.isCompleted)}
+                      disabled={isTogglingHabit}
+                      className={cn(
+                        "w-full flex items-center gap-3 p-2.5 rounded-lg transition-all",
+                        "active:scale-[0.98]",
+                        habit.isCompleted 
+                          ? "bg-success/10 border border-success/20" 
+                          : "bg-secondary/50 hover:bg-secondary/70"
                       )}
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                    >
+                      <div className={cn(
+                        "h-5 w-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                        habit.isCompleted 
+                          ? "bg-success border-success" 
+                          : "border-muted-foreground/30"
+                      )}>
+                        {habit.isCompleted && (
+                          <Check className="h-3 w-3 text-white" />
+                        )}
+                      </div>
+                      <span className={cn(
+                        "text-sm text-left flex-1",
+                        habit.isCompleted && "line-through text-muted-foreground"
+                      )}>
+                        {habit.name}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* ===== QUICK STATS ===== */}
         <div className="grid grid-cols-2 gap-3">
-          {/* ACWR Card */}
           <AcwrCard />
           
           <Card className="border-0">
@@ -890,8 +712,8 @@ export default function AthleteDashboard() {
                 <Flame className="h-4 w-4 text-warning" />
                 <span className="text-xs text-muted-foreground">Calorie</span>
               </div>
-              <p className="text-xl font-bold tabular-nums">1,200</p>
-              <p className="text-[10px] text-muted-foreground">/ 2,500 kcal</p>
+              <p className="text-xl font-bold tabular-nums">{caloriesConsumed.toLocaleString()}</p>
+              <p className="text-[10px] text-muted-foreground">/ {nutritionTargets.calories.toLocaleString()} kcal</p>
             </CardContent>
           </Card>
         </div>
@@ -904,7 +726,7 @@ export default function AthleteDashboard() {
                 <Dumbbell className="h-4 w-4 text-primary" />
                 <span className="text-xs text-muted-foreground">Streak</span>
               </div>
-              <p className="text-xl font-bold tabular-nums">12</p>
+              <p className="text-xl font-bold tabular-nums">{currentStreak}</p>
               <p className="text-[10px] text-muted-foreground">giorni consecutivi</p>
             </CardContent>
           </Card>
@@ -921,15 +743,15 @@ export default function AthleteDashboard() {
           </Card>
         </div>
         
-        {/* Debug Footer - Visual Date Confirmation */}
+        {/* Debug Footer */}
         <div className="mt-4 pt-3 border-t border-border/30 text-center">
           <p className="text-[10px] text-muted-foreground/60">
-            Viewing data for: <span className="font-medium text-muted-foreground">{format(new Date(), 'EEEE, d MMMM yyyy', { locale: it })}</span>
+            {format(new Date(), 'EEEE, d MMMM yyyy', { locale: it })}
           </p>
         </div>
       </div>
 
-      {/* ===== READINESS DRAWER (Morning Check-in) ===== */}
+      {/* ===== READINESS DRAWER ===== */}
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
         <DrawerContent className="theme-athlete max-h-[90vh] bg-background">
           <div className="mx-auto w-full max-w-md overflow-y-auto">
@@ -942,7 +764,7 @@ export default function AthleteDashboard() {
             
             <div className="px-4 pb-4 space-y-6 overflow-y-auto">
               
-              {/* ===== SECTION: WEARABLE METRICS ===== */}
+              {/* SECTION: WEARABLE METRICS */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
                   <HeartPulse className="h-4 w-4 text-primary" />
@@ -1010,14 +832,13 @@ export default function AthleteDashboard() {
                 </p>
               </div>
               
-              {/* ===== SECTION: SLEEP ===== */}
+              {/* SECTION: SLEEP */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
                   <Moon className="h-4 w-4 text-primary" />
                   SONNO
                 </Label>
                 <div className="flex flex-row items-center justify-between gap-4 p-3 rounded-xl bg-secondary/50">
-                  {/* Left: Sleep Duration */}
                   <div className="flex flex-col items-center gap-1">
                     <span className="text-[10px] text-foreground/60 uppercase tracking-wide">Ore</span>
                     <Input
@@ -1031,7 +852,6 @@ export default function AthleteDashboard() {
                     />
                   </div>
                   
-                  {/* Right: Sleep Quality Slider */}
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] text-foreground/60 uppercase tracking-wide">Qualità</span>
@@ -1053,7 +873,7 @@ export default function AthleteDashboard() {
                 </div>
               </div>
 
-              {/* ===== SECTION: BODY WEIGHT ===== */}
+              {/* SECTION: BODY WEIGHT */}
               <div className="space-y-2">
                 <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
                   <Scale className="h-4 w-4 text-primary" />
@@ -1088,7 +908,7 @@ export default function AthleteDashboard() {
                 </div>
               </div>
               
-              {/* ===== SECTION: SUBJECTIVE READINESS ===== */}
+              {/* SECTION: SUBJECTIVE READINESS */}
               <div className="space-y-3">
                 <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
                   <Activity className="h-4 w-4 text-primary" />
@@ -1133,7 +953,7 @@ export default function AthleteDashboard() {
                 />
               </div>
 
-              {/* ===== SECTION: DOMS & BODY MAP ===== */}
+              {/* SECTION: DOMS & BODY MAP */}
               <div className="space-y-3">
                 <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
                   <HeartPulse className="h-4 w-4 text-primary" />

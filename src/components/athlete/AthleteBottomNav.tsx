@@ -13,8 +13,8 @@ const navItems = [
 export function AthleteBottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50">
-      {/* Clean nav - White in light, Black in dark (OLED friendly) */}
-      <div className="absolute inset-0 bg-white/95 dark:bg-black/95 backdrop-blur-md border-t border-zinc-200/50 dark:border-zinc-800/50" />
+      {/* Glassmorphic nav with enhanced blur - OLED friendly */}
+      <div className="absolute inset-0 bg-background/80 backdrop-blur-xl border-t border-border/50 shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.1)] dark:shadow-[0_-4px_24px_-4px_rgba(0,0,0,0.3)]" />
       
       <div className="relative flex items-center justify-around h-16 max-w-md mx-auto safe-bottom">
         {navItems.map((item) => (
