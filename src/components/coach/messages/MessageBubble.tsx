@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import { Play, Pause, ExternalLink } from "lucide-react";
+import { Play, Pause, ExternalLink, Loader2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Message } from "@/hooks/useChatRooms";
+import { supabase } from "@/integrations/supabase/client";
 
 interface MessageBubbleProps {
   message: Message & { sender?: { id: string; full_name: string | null; avatar_url: string | null } };
@@ -145,11 +146,59 @@ function VideoPreviewCard({ embed, content }: { embed: NonNullable<ReturnType<ty
   );
 }
 
-function NativeVideoBubble({ url }: { url: string }) {
+function NativeVideoBubble({ filePath }: { filePath: string }) {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function getSignedUrl() {
+      // Check if it's already a full URL (legacy data) or a file path
+      if (filePath.startsWith('http://') || filePath.startsWith('https://')) {
+        // Legacy: already a URL, use directly
+        setSignedUrl(filePath);
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.storage
+          .from('chat-media')
+          .createSignedUrl(filePath, 60 * 60); // 1 hour expiry
+
+        if (error) throw error;
+        setSignedUrl(data.signedUrl);
+      } catch (err) {
+        console.error('Failed to get signed URL:', err);
+        setError('Video non disponibile');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    getSignedUrl();
+  }, [filePath]);
+
+  if (isLoading) {
+    return (
+      <div className="rounded-xl overflow-hidden max-w-[300px] border bg-card flex items-center justify-center h-[150px]">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (error || !signedUrl) {
+    return (
+      <div className="rounded-xl overflow-hidden max-w-[300px] border bg-card flex items-center justify-center h-[150px] text-muted-foreground text-sm">
+        {error || 'Video non disponibile'}
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl overflow-hidden max-w-[300px] border bg-card">
       <video
-        src={url}
+        src={signedUrl}
         controls
         preload="metadata"
         className="w-full h-auto"
@@ -192,7 +241,7 @@ export function MessageBubble({ message, isOwn, showAvatar = true }: MessageBubb
         return <ImageBubble url={message.media_url || '/placeholder.svg'} />;
 
       case 'video_native' as string:
-        return <NativeVideoBubble url={message.media_url || ''} />;
+        return <NativeVideoBubble filePath={message.media_url || ''} />;
 
       default:
         return (
