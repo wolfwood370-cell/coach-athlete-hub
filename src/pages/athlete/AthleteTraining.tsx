@@ -321,47 +321,36 @@ export default function AthleteTraining() {
                 </div>
               </Card>
             ) : (
-              selectedWorkouts.map((log) => {
-                const status = getWorkoutStatus(log);
+              <>
+                {selectedWorkouts.map((log) => {
+                  const status = getWorkoutStatus(log);
+                  
+                  return (
+                    <WorkoutCard
+                      key={log.id}
+                      log={log}
+                      status={status}
+                      brandColor={brandColor}
+                      canTrain={canTrain}
+                      onStart={() => navigate(`/athlete/workout/${log.workouts?.id || log.id}`)}
+                      onViewDetails={() => navigate(`/athlete/workout/${log.workouts?.id || log.id}`)}
+                    />
+                  );
+                })}
                 
-                return (
-                  <WorkoutCard
-                    key={log.id}
-                    log={log}
-                    status={status}
+                {/* Free Session Card - only for today */}
+                {isToday(selectedDate) && (
+                  <FreeSessionCard
                     brandColor={brandColor}
                     canTrain={canTrain}
-                    onStart={() => navigate(`/athlete/workout/${log.workouts?.id || log.id}`)}
-                    onViewDetails={() => navigate(`/athlete/workout/${log.workouts?.id || log.id}`)}
+                    onStart={handleFreeSessionClick}
                   />
-                );
-              })
+                )}
+              </>
             )}
           </div>
         </ScrollArea>
 
-        {/* Floating Action Button */}
-        {isToday(selectedDate) && (
-          <button
-            onClick={handleFreeSessionClick}
-            className={cn(
-              "fixed bottom-24 right-6 z-40 h-14 w-14 rounded-full shadow-lg",
-              "flex items-center justify-center transition-all duration-200",
-              "hover:scale-105 active:scale-95",
-              !canTrain && "opacity-70"
-            )}
-            style={{ 
-              backgroundColor: brandColor || "hsl(var(--primary))",
-              color: "white"
-            }}
-          >
-            {!canTrain ? (
-              <Lock className="h-5 w-5" />
-            ) : (
-              <Plus className="h-6 w-6" />
-            )}
-          </button>
-        )}
 
         {/* Readiness Required Prompt */}
         {showReadinessPrompt && (
@@ -614,6 +603,78 @@ function WorkoutCard({ log, status, brandColor, canTrain, onStart, onViewDetails
           )}
         </div>
       )}
+    </Card>
+  );
+}
+
+// Free Session Card Component
+interface FreeSessionCardProps {
+  brandColor: string | null;
+  canTrain: boolean;
+  onStart: () => void;
+}
+
+function FreeSessionCard({ brandColor, canTrain, onStart }: FreeSessionCardProps) {
+  return (
+    <Card 
+      className={cn(
+        "p-4 border-2 border-dashed transition-all duration-200 cursor-pointer group",
+        canTrain 
+          ? "hover:border-primary hover:bg-primary/5" 
+          : "opacity-60"
+      )}
+      style={canTrain && brandColor ? { borderColor: `${brandColor}50` } : undefined}
+      onClick={onStart}
+    >
+      <div className="flex items-center gap-4">
+        <div 
+          className={cn(
+            "h-12 w-12 rounded-full flex items-center justify-center transition-colors",
+            canTrain ? "bg-primary/10 group-hover:bg-primary/20" : "bg-muted"
+          )}
+          style={canTrain && brandColor ? { backgroundColor: `${brandColor}15` } : undefined}
+        >
+          {canTrain ? (
+            <Zap 
+              className="h-5 w-5" 
+              style={{ color: brandColor || "hsl(var(--primary))" }}
+            />
+          ) : (
+            <Lock className="h-5 w-5 text-muted-foreground" />
+          )}
+        </div>
+        
+        <div className="flex-1">
+          <h3 className={cn(
+            "font-semibold",
+            !canTrain && "text-muted-foreground"
+          )}>
+            Sessione Libera
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {canTrain 
+              ? "Crea un allenamento personalizzato" 
+              : "Completa il check-in per sbloccare"
+            }
+          </p>
+        </div>
+
+        <div 
+          className={cn(
+            "h-10 w-10 rounded-full flex items-center justify-center transition-colors",
+            canTrain 
+              ? "bg-primary/10 group-hover:bg-primary text-primary group-hover:text-primary-foreground" 
+              : "bg-muted text-muted-foreground"
+          )}
+          style={canTrain && brandColor ? { backgroundColor: `${brandColor}15` } : undefined}
+        >
+          {canTrain ? (
+            <Plus className="h-5 w-5" />
+          ) : (
+            <Lock className="h-4 w-4" />
+          )}
+        </div>
+      </div>
     </Card>
   );
 }

@@ -1291,6 +1291,7 @@ export type Database = {
         Args: { user_a: string; user_b: string }
         Returns: string
       }
+      is_coach_of_athlete: { Args: { p_athlete_id: string }; Returns: boolean }
       schedule_program_week: {
         Args: { p_athlete_id: string; p_start_date: string; p_week_id: string }
         Returns: number
