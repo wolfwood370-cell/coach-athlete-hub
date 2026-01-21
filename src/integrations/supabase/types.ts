@@ -518,6 +518,39 @@ export type Database = {
           },
         ]
       }
+      invite_tokens: {
+        Row: {
+          coach_id: string
+          created_at: string
+          email: string
+          expires_at: string
+          full_name: string
+          id: string
+          token: string
+          used: boolean
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          email: string
+          expires_at?: string
+          full_name: string
+          id?: string
+          token?: string
+          used?: boolean
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          full_name?: string
+          id?: string
+          token?: string
+          used?: boolean
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string

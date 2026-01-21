@@ -67,18 +67,13 @@ export function InviteAthleteDialog({ onAthleteInvited, trigger }: InviteAthlete
     setIsSubmitting(true);
 
     try {
-      // Create a new profile entry for the invited athlete
-      // Using a placeholder ID since we don't have actual auth for the athlete yet
-      // In production, this would trigger an email invite flow
-      const placeholderId = crypto.randomUUID();
-      
-      const { error } = await supabase.from("profiles").insert({
-        id: placeholderId,
-        full_name: `${data.firstName} ${data.lastName}`,
-        role: "athlete",
+      // Create an invite token instead of a profile
+      // The profile will be created automatically when the athlete signs up
+      // via the handle_new_user trigger that checks for pending invites
+      const { error } = await supabase.from("invite_tokens").insert({
         coach_id: user.id,
-        onboarding_completed: false,
-        settings: { invited_email: data.email, invite_pending: true },
+        email: data.email.toLowerCase().trim(),
+        full_name: `${data.firstName} ${data.lastName}`,
       });
 
       if (error) {
@@ -87,7 +82,7 @@ export function InviteAthleteDialog({ onAthleteInvited, trigger }: InviteAthlete
 
       toast({
         title: "Athlete invited!",
-        description: "An email has been sent (simulated).",
+        description: `Invitation sent to ${data.email}. They can now sign up to join your team.`,
       });
 
       form.reset();
