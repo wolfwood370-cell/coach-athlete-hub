@@ -27,10 +27,13 @@ import {
   Dumbbell,
   Calendar,
   Lock,
-  Flame
+  Flame,
+  Plus,
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReadiness } from "@/hooks/useReadiness";
+import { SessionBuilderDialog } from "@/components/athlete/SessionBuilderDialog";
 
 interface WorkoutLog {
   id: string;
@@ -49,6 +52,8 @@ export default function AthleteTraining() {
   const navigate = useNavigate();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [weekOffset, setWeekOffset] = useState(0);
+  const [showSessionBuilder, setShowSessionBuilder] = useState(false);
+  const [showReadinessPrompt, setShowReadinessPrompt] = useState(false);
   
   const { readiness } = useReadiness();
   const canTrain = readiness.isCompleted;
@@ -62,9 +67,9 @@ export default function AthleteTraining() {
     },
   });
 
-  // Get coach brand color
-  const { data: brandColor } = useQuery({
-    queryKey: ["athlete-brand-color"],
+  // Get coach info (brand color + coach_id)
+  const { data: athleteProfile } = useQuery({
+    queryKey: ["athlete-profile-with-coach", user?.id],
     queryFn: async () => {
       if (!user) return null;
       const { data: profile } = await supabase
@@ -72,15 +77,23 @@ export default function AthleteTraining() {
         .select("coach_id")
         .eq("id", user.id)
         .single();
-      if (!profile?.coach_id) return null;
+      return profile;
+    },
+    enabled: !!user,
+  });
+
+  const { data: brandColor } = useQuery({
+    queryKey: ["athlete-brand-color", athleteProfile?.coach_id],
+    queryFn: async () => {
+      if (!athleteProfile?.coach_id) return null;
       const { data: coach } = await supabase
         .from("profiles")
         .select("brand_color")
-        .eq("id", profile.coach_id)
+        .eq("id", athleteProfile.coach_id)
         .single();
       return coach?.brand_color || null;
     },
-    enabled: !!user,
+    enabled: !!athleteProfile?.coach_id,
   });
 
   // Calculate week dates based on offset
@@ -146,6 +159,15 @@ export default function AthleteTraining() {
   const handleToday = () => {
     setWeekOffset(0);
     setSelectedDate(new Date());
+  };
+
+  // Handle FAB click - check readiness first
+  const handleFreeSessionClick = () => {
+    if (!canTrain) {
+      setShowReadinessPrompt(true);
+      return;
+    }
+    setShowSessionBuilder(true);
   };
 
   const getWorkoutStatus = (log: WorkoutLog) => {
@@ -276,11 +298,26 @@ export default function AthleteTraining() {
                 <Skeleton className="h-24 w-full rounded-2xl" />
               </div>
             ) : selectedWorkouts.length === 0 ? (
-              <Card className="p-6 text-center border-dashed">
-                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+              /* Empty state with Free Session option */
+              <Card className="p-6 border-dashed">
+                <div className="flex flex-col items-center gap-3 text-muted-foreground">
                   <Calendar className="h-8 w-8 opacity-50" />
-                  <p className="text-sm">Nessun allenamento programmato</p>
-                  <p className="text-xs opacity-70">Giorno di riposo 💪</p>
+                  <div className="text-center">
+                    <p className="text-sm font-medium">Nessun allenamento programmato</p>
+                    <p className="text-xs opacity-70 mt-0.5">Giorno di riposo 💪</p>
+                  </div>
+                  
+                  {isToday(selectedDate) && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 gap-2"
+                      onClick={handleFreeSessionClick}
+                    >
+                      <Dumbbell className="h-4 w-4" />
+                      Inizia sessione libera
+                    </Button>
+                  )}
                 </div>
               </Card>
             ) : (
@@ -302,6 +339,86 @@ export default function AthleteTraining() {
             )}
           </div>
         </ScrollArea>
+
+        {/* Floating Action Button */}
+        {isToday(selectedDate) && (
+          <button
+            onClick={handleFreeSessionClick}
+            className={cn(
+              "fixed bottom-24 right-6 z-40 h-14 w-14 rounded-full shadow-lg",
+              "flex items-center justify-center transition-all duration-200",
+              "hover:scale-105 active:scale-95",
+              !canTrain && "opacity-70"
+            )}
+            style={{ 
+              backgroundColor: brandColor || "hsl(var(--primary))",
+              color: "white"
+            }}
+          >
+            {!canTrain ? (
+              <Lock className="h-5 w-5" />
+            ) : (
+              <Plus className="h-6 w-6" />
+            )}
+          </button>
+        )}
+
+        {/* Readiness Required Prompt */}
+        {showReadinessPrompt && (
+          <div 
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setShowReadinessPrompt(false)}
+          >
+            <Card 
+              className="p-6 max-w-sm w-full space-y-4"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center space-y-2">
+                <div 
+                  className="h-14 w-14 rounded-full mx-auto flex items-center justify-center"
+                  style={{ backgroundColor: brandColor ? `${brandColor}20` : "hsl(var(--primary) / 0.1)" }}
+                >
+                  <Zap 
+                    className="h-7 w-7" 
+                    style={{ color: brandColor || "hsl(var(--primary))" }}
+                  />
+                </div>
+                <h3 className="font-semibold text-lg">Check-in Richiesto</h3>
+                <p className="text-sm text-muted-foreground">
+                  Completa il check-in mattutino per iniziare una sessione libera.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowReadinessPrompt(false)}
+                >
+                  Annulla
+                </Button>
+                <Button
+                  className="flex-1"
+                  style={{ backgroundColor: brandColor || undefined }}
+                  onClick={() => {
+                    setShowReadinessPrompt(false);
+                    navigate("/athlete");
+                  }}
+                >
+                  Vai al Check-in
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Session Builder Dialog */}
+        <SessionBuilderDialog
+          open={showSessionBuilder}
+          onOpenChange={setShowSessionBuilder}
+          coachId={athleteProfile?.coach_id || null}
+          athleteId={user?.id || ""}
+          brandColor={brandColor}
+        />
       </div>
     </AthleteLayout>
   );
