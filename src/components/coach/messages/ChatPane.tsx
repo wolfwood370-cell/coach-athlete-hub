@@ -175,16 +175,21 @@ export function ChatPane({
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
+      // Get signed URL (bucket is now private for security)
+      const { data: signedUrlData, error: signedUrlError } = await supabase.storage
         .from('chat-media')
-        .getPublicUrl(filePath);
+        .createSignedUrl(filePath, 60 * 60 * 24 * 7); // 7 days expiry
 
-      // Send message with video (cast needed until migration applied)
+      if (signedUrlError || !signedUrlData?.signedUrl) {
+        throw signedUrlError || new Error('Failed to create signed URL');
+      }
+
+      // Send message with video - store the file path for regenerating signed URLs
+      // The media_url stores the path, and we regenerate signed URLs when displaying
       await sendMessage.mutateAsync({
         content: `Video: ${file.name}`,
         media_type: 'video_native' as 'text',
-        media_url: publicUrl
+        media_url: filePath // Store path instead of URL for security
       });
 
       toast.success("Video caricato con successo!");
