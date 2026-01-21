@@ -19,6 +19,7 @@ import ProgramBuilder from "./pages/coach/ProgramBuilder";
 import AthleteDashboard from "./pages/athlete/AthleteDashboard";
 import AthleteNutrition from "./pages/athlete/AthleteNutrition";
 import AthleteHealth from "./pages/athlete/AthleteHealth";
+import AthleteProfile from "./pages/athlete/AthleteProfile";
 import WorkoutPlayer from "./pages/athlete/WorkoutPlayer";
 import OnboardingWizard from "./pages/onboarding/OnboardingWizard";
 import NotFound from "./pages/NotFound";
@@ -74,7 +75,7 @@ const App = () => (
               <Route path="/athlete/workout/:id" element={<WorkoutPlayer />} />
               <Route path="/athlete/nutrition" element={<AthleteNutrition />} />
               <Route path="/athlete/health" element={<AthleteHealth />} />
-              <Route path="/athlete/profile" element={<AthleteDashboard />} />
+              <Route path="/athlete/profile" element={<AthleteProfile />} />
               
               {/* Onboarding */}
               <Route path="/onboarding" element={<OnboardingWizard />} />
