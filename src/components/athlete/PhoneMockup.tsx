@@ -7,24 +7,20 @@ interface PhoneMockupProps {
 export function PhoneMockup({ children }: PhoneMockupProps) {
   return (
     <div className="hidden lg:flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-900 dark:to-slate-800 p-8">
-      {/* iPhone 15 Pro mockup frame */}
+      {/* Google Pixel 10 Pro mockup frame */}
       <div className="relative">
-        {/* Phone outer frame */}
-        <div className="relative w-[375px] h-[812px] bg-[#1a1a1a] rounded-[55px] p-[12px] shadow-2xl shadow-black/50">
-          {/* Side buttons - left */}
-          <div className="absolute -left-[3px] top-[120px] w-[3px] h-[35px] bg-[#2a2a2a] rounded-l-sm" />
-          <div className="absolute -left-[3px] top-[175px] w-[3px] h-[60px] bg-[#2a2a2a] rounded-l-sm" />
-          <div className="absolute -left-[3px] top-[245px] w-[3px] h-[60px] bg-[#2a2a2a] rounded-l-sm" />
+        {/* Phone outer frame - Pixel 10 Pro dimensions with softer corners */}
+        <div className="relative w-[360px] h-[800px] bg-[#1f1f1f] rounded-[40px] p-[10px] shadow-2xl shadow-black/50">
+          {/* Side button - right (power) - Pixel style */}
+          <div className="absolute -right-[3px] top-[160px] w-[3px] h-[50px] bg-[#3a3a3a] rounded-r-sm" />
           
-          {/* Side button - right (power) */}
-          <div className="absolute -right-[3px] top-[180px] w-[3px] h-[80px] bg-[#2a2a2a] rounded-r-sm" />
+          {/* Volume buttons - right side on Pixel */}
+          <div className="absolute -right-[3px] top-[230px] w-[3px] h-[70px] bg-[#3a3a3a] rounded-r-sm" />
           
-          {/* Screen bezel */}
-          <div className="relative w-full h-full bg-black rounded-[43px] overflow-hidden">
-            {/* Dynamic Island */}
-            <div className="absolute top-[12px] left-1/2 -translate-x-1/2 w-[120px] h-[35px] bg-black rounded-full z-50 flex items-center justify-center">
-              <div className="w-[10px] h-[10px] rounded-full bg-[#1a1a1a] mr-[50px]" />
-            </div>
+          {/* Screen bezel - Pixel has more uniform bezels */}
+          <div className="relative w-full h-full bg-black rounded-[32px] overflow-hidden">
+            {/* Punch-hole camera - centered at top for Pixel */}
+            <div className="absolute top-[14px] left-1/2 -translate-x-1/2 w-[12px] h-[12px] bg-[#0a0a0a] rounded-full z-50 ring-1 ring-[#2a2a2a]" />
             
             {/* Screen content */}
             <div className="w-full h-full overflow-hidden">
@@ -33,8 +29,8 @@ export function PhoneMockup({ children }: PhoneMockupProps) {
           </div>
         </div>
         
-        {/* Reflection effect */}
-        <div className="absolute inset-0 rounded-[55px] bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
+        {/* Subtle glass reflection effect */}
+        <div className="absolute inset-0 rounded-[40px] bg-gradient-to-br from-white/3 to-transparent pointer-events-none" />
       </div>
     </div>
   );
