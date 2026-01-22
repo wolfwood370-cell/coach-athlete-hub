@@ -50,7 +50,7 @@ export function AthleteBottomNav() {
             key={item.title}
             to={item.url}
             end={item.url === "/athlete"}
-            className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 text-muted-foreground transition-all active:scale-95"
+            className="flex flex-col items-center justify-center gap-0.5 flex-1 py-2 text-zinc-500 transition-all active:scale-95"
             activeClassName="text-primary"
           >
             {({ isActive }) => (
