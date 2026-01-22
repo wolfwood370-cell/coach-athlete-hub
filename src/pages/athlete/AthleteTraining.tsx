@@ -282,7 +282,7 @@ export default function AthleteTraining() {
 
         {/* Selected Day Content */}
         <ScrollArea className="flex-1 px-4">
-          <div className="space-y-3 pb-24">
+          <div className="space-y-3 pb-6">
             {/* Date Header */}
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -300,12 +300,8 @@ export default function AthleteTraining() {
                 <Skeleton className="h-24 w-full rounded-2xl" />
               </div>
             ) : selectedWorkouts.length === 0 ? (
-              /* Empty state - always show EmptyStateCard with the Free Session button */
-              <EmptyStateCard
-                brandColor={brandColor}
-                canTrain={canTrain}
-                onStart={handleFreeSessionClick}
-              />
+              /* Empty state - just the illustration, no button here */
+              <RestDayIllustration />
             ) : (
               <>
                 {selectedWorkouts.map((log) => {
@@ -323,19 +319,39 @@ export default function AthleteTraining() {
                     />
                   );
                 })}
-                
-                {/* Free Session Card - only for today */}
-                {isToday(selectedDate) && (
-                  <FreeSessionCard
-                    brandColor={brandColor}
-                    canTrain={canTrain}
-                    onStart={handleFreeSessionClick}
-                  />
-                )}
               </>
             )}
           </div>
         </ScrollArea>
+
+        {/* Quick Actions - Always Visible */}
+        <div className="px-4 pb-24 pt-2 border-t border-border/50 bg-background">
+          <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wide font-medium">
+            Azioni rapide
+          </p>
+          <Button
+            variant="secondary"
+            className="w-full gap-2 h-12 text-base"
+            style={canTrain && brandColor ? { 
+              backgroundColor: `${brandColor}15`,
+              color: brandColor,
+              borderColor: `${brandColor}30`
+            } : undefined}
+            onClick={handleFreeSessionClick}
+          >
+            {canTrain ? (
+              <>
+                <Plus className="h-5 w-5" />
+                Inizia Sessione Libera
+              </>
+            ) : (
+              <>
+                <Lock className="h-5 w-5" />
+                Check-in richiesto per sessione libera
+              </>
+            )}
+          </Button>
+        </div>
 
 
         {/* Readiness Required Prompt */}
@@ -593,146 +609,28 @@ function WorkoutCard({ log, status, brandColor, canTrain, onStart, onViewDetails
   );
 }
 
-// Recovery Status Card - Displayed on rest days (no scheduled workout)
-interface EmptyStateCardProps {
-  brandColor: string | null;
-  canTrain: boolean;
-  onStart: () => void;
-}
-
-function EmptyStateCard({ brandColor, canTrain, onStart }: EmptyStateCardProps) {
+// Rest Day Illustration - Clean empty state without button (button is in Quick Actions)
+function RestDayIllustration() {
   return (
-    <Card className="p-6 bg-gradient-to-br from-success/10 to-background border border-success/20">
+    <Card className="p-8 bg-gradient-to-br from-muted/30 to-background border border-border/50">
       <div className="flex flex-col items-center gap-4 text-center">
-        {/* Recovery Icon */}
-        <div className="h-16 w-16 rounded-full bg-success/15 flex items-center justify-center">
-          <BatteryCharging className="h-8 w-8 text-success" />
+        {/* Illustration Icon */}
+        <div className="h-20 w-20 rounded-full bg-muted/50 flex items-center justify-center">
+          <Coffee className="h-10 w-10 text-muted-foreground/60" />
         </div>
 
-        {/* Title & Subtitle */}
+        {/* Text */}
         <div className="space-y-1">
-          <h3 className="text-lg font-semibold text-foreground flex items-center justify-center gap-2">
-            <Coffee className="h-4 w-4 text-success" />
-            Recupero
+          <h3 className="text-base font-medium text-muted-foreground">
+            Nessun allenamento programmato per oggi
           </h3>
-          <p className="text-sm text-muted-foreground">
-            Nessun allenamento programmato.
+          <p className="text-sm text-muted-foreground/70">
+            Giorno di riposo 💪
           </p>
-          <p className="text-xs text-muted-foreground/80">
-            Ascolta il tuo corpo e riposati.
-          </p>
-        </div>
-
-        {/* Divider */}
-        <div className="w-full border-t border-success/20" />
-
-        {/* Free Session CTA */}
-        <div className="w-full space-y-2">
-          <p className="text-xs text-muted-foreground">
-            {canTrain 
-              ? "Vuoi allenarti comunque?" 
-              : "Completa il check-in per sbloccare"
-            }
-          </p>
-          <Button
-            variant="outline"
-            className={cn(
-              "w-full gap-2 transition-all",
-              canTrain && "hover:bg-primary/10 hover:border-primary"
-            )}
-            style={canTrain && brandColor ? { 
-              borderColor: `${brandColor}50`,
-              color: brandColor 
-            } : undefined}
-            onClick={onStart}
-            disabled={!canTrain}
-          >
-            {canTrain ? (
-              <>
-                <Zap className="h-4 w-4" />
-                Inizia sessione libera
-              </>
-            ) : (
-              <>
-                <Lock className="h-4 w-4" />
-                Check-in richiesto
-              </>
-            )}
-          </Button>
         </div>
       </div>
     </Card>
   );
 }
 
-// Free Session Card Component (for when there ARE scheduled workouts)
-interface FreeSessionCardProps {
-  brandColor: string | null;
-  canTrain: boolean;
-  onStart: () => void;
-}
-
-function FreeSessionCard({ brandColor, canTrain, onStart }: FreeSessionCardProps) {
-  return (
-    <Card 
-      className={cn(
-        "p-4 border-2 border-dashed transition-all duration-200 cursor-pointer group",
-        canTrain 
-          ? "border-muted-foreground/30 hover:border-primary hover:bg-primary/5" 
-          : "opacity-60 border-muted-foreground/20"
-      )}
-      style={canTrain && brandColor ? { borderColor: `${brandColor}40` } : undefined}
-      onClick={onStart}
-    >
-      <div className="flex items-center gap-4">
-        <div 
-          className={cn(
-            "h-12 w-12 rounded-full flex items-center justify-center transition-colors",
-            canTrain ? "bg-primary/10 group-hover:bg-primary/20" : "bg-muted"
-          )}
-          style={canTrain && brandColor ? { backgroundColor: `${brandColor}15` } : undefined}
-        >
-          {canTrain ? (
-            <Zap 
-              className="h-5 w-5" 
-              style={{ color: brandColor || "hsl(var(--primary))" }}
-            />
-          ) : (
-            <Lock className="h-5 w-5 text-muted-foreground" />
-          )}
-        </div>
-        
-        <div className="flex-1">
-          <h3 className={cn(
-            "font-semibold",
-            !canTrain && "text-muted-foreground"
-          )}>
-            Sessione Libera
-          </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            {canTrain 
-              ? "Crea un allenamento personalizzato" 
-              : "Completa il check-in per sbloccare"
-            }
-          </p>
-        </div>
-
-        <div 
-          className={cn(
-            "h-10 w-10 rounded-full flex items-center justify-center transition-colors",
-            canTrain 
-              ? "bg-primary/10 group-hover:bg-primary text-primary group-hover:text-primary-foreground" 
-              : "bg-muted text-muted-foreground"
-          )}
-          style={canTrain && brandColor ? { backgroundColor: `${brandColor}15` } : undefined}
-        >
-          {canTrain ? (
-            <Plus className="h-5 w-5" />
-          ) : (
-            <Lock className="h-4 w-4" />
-          )}
-        </div>
-      </div>
-    </Card>
-  );
-}
+// Note: FreeSessionCard removed - functionality moved to persistent Quick Actions section
