@@ -300,24 +300,12 @@ export default function AthleteTraining() {
                 <Skeleton className="h-24 w-full rounded-2xl" />
               </div>
             ) : selectedWorkouts.length === 0 ? (
-              /* Empty state - show Free Session CTA for today, rest day otherwise */
-              isToday(selectedDate) ? (
-                <EmptyStateCard
-                  brandColor={brandColor}
-                  canTrain={canTrain}
-                  onStart={handleFreeSessionClick}
-                />
-              ) : (
-                <Card className="p-6 border-dashed border-2 border-muted-foreground/20">
-                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                    <Calendar className="h-10 w-10 opacity-40" />
-                    <div className="text-center">
-                      <p className="text-sm font-medium">Nessun allenamento programmato</p>
-                      <p className="text-xs opacity-70 mt-0.5">Giorno di riposo</p>
-                    </div>
-                  </div>
-                </Card>
-              )
+              /* Empty state - always show EmptyStateCard with the Free Session button */
+              <EmptyStateCard
+                brandColor={brandColor}
+                canTrain={canTrain}
+                onStart={handleFreeSessionClick}
+              />
             ) : (
               <>
                 {selectedWorkouts.map((log) => {
