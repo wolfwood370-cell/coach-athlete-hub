@@ -298,25 +298,23 @@ export default function AthleteTraining() {
                 <Skeleton className="h-24 w-full rounded-2xl" />
               </div>
             ) : selectedWorkouts.length === 0 ? (
-              /* Empty state with Free Session option */
+              /* Empty state with dedicated Free Session Card */
               <Card className="p-6 border-dashed">
                 <div className="flex flex-col items-center gap-3 text-muted-foreground">
                   <Calendar className="h-8 w-8 opacity-50" />
                   <div className="text-center">
                     <p className="text-sm font-medium">Nessun allenamento programmato</p>
-                    <p className="text-xs opacity-70 mt-0.5">Giorno di riposo 💪</p>
+                    <p className="text-xs opacity-70 mt-0.5">Giorno di riposo</p>
                   </div>
-                  
+
                   {isToday(selectedDate) && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-2 gap-2"
-                      onClick={handleFreeSessionClick}
-                    >
-                      <Dumbbell className="h-4 w-4" />
-                      Inizia sessione libera
-                    </Button>
+                    <div className="w-full mt-2">
+                      <FreeSessionCard
+                        brandColor={brandColor}
+                        canTrain={canTrain}
+                        onStart={handleFreeSessionClick}
+                      />
+                    </div>
                   )}
                 </div>
               </Card>
