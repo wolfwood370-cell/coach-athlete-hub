@@ -298,26 +298,24 @@ export default function AthleteTraining() {
                 <Skeleton className="h-24 w-full rounded-2xl" />
               </div>
             ) : selectedWorkouts.length === 0 ? (
-              /* Empty state with dedicated Free Session Card */
-              <Card className="p-6 border-dashed">
-                <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                  <Calendar className="h-8 w-8 opacity-50" />
-                  <div className="text-center">
-                    <p className="text-sm font-medium">Nessun allenamento programmato</p>
-                    <p className="text-xs opacity-70 mt-0.5">Giorno di riposo</p>
-                  </div>
-
-                  {isToday(selectedDate) && (
-                    <div className="w-full mt-2">
-                      <FreeSessionCard
-                        brandColor={brandColor}
-                        canTrain={canTrain}
-                        onStart={handleFreeSessionClick}
-                      />
+              /* Empty state - show Free Session CTA for today, rest day otherwise */
+              isToday(selectedDate) ? (
+                <EmptyStateCard
+                  brandColor={brandColor}
+                  canTrain={canTrain}
+                  onStart={handleFreeSessionClick}
+                />
+              ) : (
+                <Card className="p-6 border-dashed border-2 border-muted-foreground/20">
+                  <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                    <Calendar className="h-10 w-10 opacity-40" />
+                    <div className="text-center">
+                      <p className="text-sm font-medium">Nessun allenamento programmato</p>
+                      <p className="text-xs opacity-70 mt-0.5">Giorno di riposo</p>
                     </div>
-                  )}
-                </div>
-              </Card>
+                  </div>
+                </Card>
+              )
             ) : (
               <>
                 {selectedWorkouts.map((log) => {
@@ -605,7 +603,79 @@ function WorkoutCard({ log, status, brandColor, canTrain, onStart, onViewDetails
   );
 }
 
-// Free Session Card Component
+// Empty State Action Card - Primary CTA for rest days
+interface EmptyStateCardProps {
+  brandColor: string | null;
+  canTrain: boolean;
+  onStart: () => void;
+}
+
+function EmptyStateCard({ brandColor, canTrain, onStart }: EmptyStateCardProps) {
+  return (
+    <Card 
+      className={cn(
+        "p-6 border-2 border-dashed transition-all duration-200",
+        canTrain 
+          ? "border-muted-foreground/30 hover:border-primary/50" 
+          : "border-muted-foreground/20 opacity-70"
+      )}
+    >
+      <div className="flex flex-col items-center gap-4 text-center">
+        {/* Icon */}
+        <div 
+          className={cn(
+            "h-14 w-14 rounded-full flex items-center justify-center",
+            canTrain ? "bg-primary/10" : "bg-muted"
+          )}
+          style={canTrain && brandColor ? { backgroundColor: `${brandColor}15` } : undefined}
+        >
+          {canTrain ? (
+            <Dumbbell 
+              className="h-6 w-6" 
+              style={{ color: brandColor || "hsl(var(--primary))" }}
+            />
+          ) : (
+            <Lock className="h-6 w-6 text-muted-foreground" />
+          )}
+        </div>
+
+        {/* Text */}
+        <div>
+          <p className="text-sm font-medium text-foreground">Nessun allenamento programmato</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {canTrain 
+              ? "Vuoi allenarti comunque? Inizia una sessione libera!" 
+              : "Completa il check-in mattutino per allenarti"
+            }
+          </p>
+        </div>
+
+        {/* Full-width CTA Button */}
+        <Button
+          variant={canTrain ? "default" : "secondary"}
+          className="w-full gap-2"
+          style={canTrain && brandColor ? { backgroundColor: brandColor } : undefined}
+          onClick={onStart}
+          disabled={!canTrain}
+        >
+          {canTrain ? (
+            <>
+              <Zap className="h-4 w-4" />
+              Inizia sessione libera
+            </>
+          ) : (
+            <>
+              <Lock className="h-4 w-4" />
+              Check-in richiesto
+            </>
+          )}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+// Free Session Card Component (for when there ARE scheduled workouts)
 interface FreeSessionCardProps {
   brandColor: string | null;
   canTrain: boolean;
@@ -618,10 +688,10 @@ function FreeSessionCard({ brandColor, canTrain, onStart }: FreeSessionCardProps
       className={cn(
         "p-4 border-2 border-dashed transition-all duration-200 cursor-pointer group",
         canTrain 
-          ? "hover:border-primary hover:bg-primary/5" 
-          : "opacity-60"
+          ? "border-muted-foreground/30 hover:border-primary hover:bg-primary/5" 
+          : "opacity-60 border-muted-foreground/20"
       )}
-      style={canTrain && brandColor ? { borderColor: `${brandColor}50` } : undefined}
+      style={canTrain && brandColor ? { borderColor: `${brandColor}40` } : undefined}
       onClick={onStart}
     >
       <div className="flex items-center gap-4">

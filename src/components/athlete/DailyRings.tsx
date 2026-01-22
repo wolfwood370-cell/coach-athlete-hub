@@ -181,8 +181,8 @@ export function DailyRings({
 
   return (
     <div className="relative">
-      {/* Rings Container with flex alignment */}
-      <div className="flex items-end justify-around py-3">
+      {/* Rings Container with centered flex alignment for small screens */}
+      <div className="flex items-end justify-center gap-4 py-3 scale-[0.95] sm:scale-100">
         {/* Left Ring: Fuel (Calories) */}
         <ProgressRing
           percentage={fuelPercentage}
