@@ -29,7 +29,9 @@ import {
   Lock,
   Flame,
   Plus,
-  Zap
+  Zap,
+  Coffee,
+  BatteryCharging
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReadiness } from "@/hooks/useReadiness";
@@ -603,7 +605,7 @@ function WorkoutCard({ log, status, brandColor, canTrain, onStart, onViewDetails
   );
 }
 
-// Empty State Action Card - Primary CTA for rest days
+// Recovery Status Card - Displayed on rest days (no scheduled workout)
 interface EmptyStateCardProps {
   brandColor: string | null;
   canTrain: boolean;
@@ -612,64 +614,64 @@ interface EmptyStateCardProps {
 
 function EmptyStateCard({ brandColor, canTrain, onStart }: EmptyStateCardProps) {
   return (
-    <Card 
-      className={cn(
-        "p-6 border-2 border-dashed transition-all duration-200",
-        canTrain 
-          ? "border-muted-foreground/30 hover:border-primary/50" 
-          : "border-muted-foreground/20 opacity-70"
-      )}
-    >
+    <Card className="p-6 bg-gradient-to-br from-success/10 to-background border border-success/20">
       <div className="flex flex-col items-center gap-4 text-center">
-        {/* Icon */}
-        <div 
-          className={cn(
-            "h-14 w-14 rounded-full flex items-center justify-center",
-            canTrain ? "bg-primary/10" : "bg-muted"
-          )}
-          style={canTrain && brandColor ? { backgroundColor: `${brandColor}15` } : undefined}
-        >
-          {canTrain ? (
-            <Dumbbell 
-              className="h-6 w-6" 
-              style={{ color: brandColor || "hsl(var(--primary))" }}
-            />
-          ) : (
-            <Lock className="h-6 w-6 text-muted-foreground" />
-          )}
+        {/* Recovery Icon */}
+        <div className="h-16 w-16 rounded-full bg-success/15 flex items-center justify-center">
+          <BatteryCharging className="h-8 w-8 text-success" />
         </div>
 
-        {/* Text */}
-        <div>
-          <p className="text-sm font-medium text-foreground">Nessun allenamento programmato</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {canTrain 
-              ? "Vuoi allenarti comunque? Inizia una sessione libera!" 
-              : "Completa il check-in mattutino per allenarti"
-            }
+        {/* Title & Subtitle */}
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold text-foreground flex items-center justify-center gap-2">
+            <Coffee className="h-4 w-4 text-success" />
+            Recupero
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            Nessun allenamento programmato.
+          </p>
+          <p className="text-xs text-muted-foreground/80">
+            Ascolta il tuo corpo e riposati.
           </p>
         </div>
 
-        {/* Full-width CTA Button */}
-        <Button
-          variant={canTrain ? "default" : "secondary"}
-          className="w-full gap-2"
-          style={canTrain && brandColor ? { backgroundColor: brandColor } : undefined}
-          onClick={onStart}
-          disabled={!canTrain}
-        >
-          {canTrain ? (
-            <>
-              <Zap className="h-4 w-4" />
-              Inizia sessione libera
-            </>
-          ) : (
-            <>
-              <Lock className="h-4 w-4" />
-              Check-in richiesto
-            </>
-          )}
-        </Button>
+        {/* Divider */}
+        <div className="w-full border-t border-success/20" />
+
+        {/* Free Session CTA */}
+        <div className="w-full space-y-2">
+          <p className="text-xs text-muted-foreground">
+            {canTrain 
+              ? "Vuoi allenarti comunque?" 
+              : "Completa il check-in per sbloccare"
+            }
+          </p>
+          <Button
+            variant="outline"
+            className={cn(
+              "w-full gap-2 transition-all",
+              canTrain && "hover:bg-primary/10 hover:border-primary"
+            )}
+            style={canTrain && brandColor ? { 
+              borderColor: `${brandColor}50`,
+              color: brandColor 
+            } : undefined}
+            onClick={onStart}
+            disabled={!canTrain}
+          >
+            {canTrain ? (
+              <>
+                <Zap className="h-4 w-4" />
+                Inizia sessione libera
+              </>
+            ) : (
+              <>
+                <Lock className="h-4 w-4" />
+                Check-in richiesto
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </Card>
   );
