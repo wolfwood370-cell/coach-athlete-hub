@@ -295,27 +295,24 @@ export default function AthleteTraining() {
         </div>
 
         {/* Primary Action: Create Free Session - Prominent & Central */}
-        <div className="px-4 pb-4">
+        <div className="px-4 mb-6">
           <Button
             variant="default"
             className={cn(
-              "w-full gap-2 h-14 text-base font-semibold shadow-lg",
+              "w-full h-12 text-base font-medium shadow-sm active:scale-[0.98] transition-transform",
               !canTrain && "opacity-90"
             )}
-            style={brandColor ? { 
-              backgroundColor: brandColor,
-              boxShadow: `0 8px 24px -4px ${brandColor}40`
-            } : undefined}
+            style={brandColor ? { backgroundColor: brandColor } : undefined}
             onClick={handleFreeSessionClick}
           >
             {canTrain ? (
               <>
-                <Plus className="h-5 w-5" />
+                <Plus className="h-5 w-5 mr-2" />
                 Crea Sessione Libera
               </>
             ) : (
               <>
-                <Lock className="h-5 w-5" />
+                <Lock className="h-5 w-5 mr-2" />
                 Check-in richiesto
               </>
             )}
