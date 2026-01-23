@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,9 +56,21 @@ export default function AthleteTraining() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [showSessionBuilder, setShowSessionBuilder] = useState(false);
   const [showReadinessPrompt, setShowReadinessPrompt] = useState(false);
+  const [pendingAction, setPendingAction] = useState<'create_session' | null>(null);
   
   const { readiness } = useReadiness();
   const canTrain = readiness.isCompleted;
+  const prevCanTrain = useRef(canTrain);
+
+  // Seamless check-in-then-build flow: auto-open SessionBuilder after check-in completes
+  useEffect(() => {
+    if (pendingAction === 'create_session' && canTrain && !prevCanTrain.current) {
+      // Check-in just completed, open the session builder
+      setShowSessionBuilder(true);
+      setPendingAction(null);
+    }
+    prevCanTrain.current = canTrain;
+  }, [canTrain, pendingAction]);
 
   // Get current user
   const { data: user } = useQuery({
@@ -163,9 +175,11 @@ export default function AthleteTraining() {
     setSelectedDate(new Date());
   };
 
-  // Handle FAB click - check readiness first
+  // Handle FAB click - check readiness first, with seamless flow
   const handleFreeSessionClick = () => {
     if (!canTrain) {
+      // Set pending action so we auto-open builder after check-in
+      setPendingAction('create_session');
       setShowReadinessPrompt(true);
       return;
     }
@@ -280,9 +294,37 @@ export default function AthleteTraining() {
           </div>
         </div>
 
+        {/* Primary Action: Create Free Session - Prominent & Central */}
+        <div className="px-4 pb-4">
+          <Button
+            variant="default"
+            className={cn(
+              "w-full gap-2 h-14 text-base font-semibold shadow-lg",
+              !canTrain && "opacity-90"
+            )}
+            style={brandColor ? { 
+              backgroundColor: brandColor,
+              boxShadow: `0 8px 24px -4px ${brandColor}40`
+            } : undefined}
+            onClick={handleFreeSessionClick}
+          >
+            {canTrain ? (
+              <>
+                <Plus className="h-5 w-5" />
+                Crea Sessione Libera
+              </>
+            ) : (
+              <>
+                <Lock className="h-5 w-5" />
+                Check-in richiesto
+              </>
+            )}
+          </Button>
+        </div>
+
         {/* Selected Day Content */}
         <ScrollArea className="flex-1 px-4">
-          <div className="space-y-3 pb-6">
+          <div className="space-y-3 pb-24">
             {/* Date Header */}
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -324,34 +366,6 @@ export default function AthleteTraining() {
           </div>
         </ScrollArea>
 
-        {/* Quick Actions - Always Visible */}
-        <div className="px-4 pb-24 pt-2 border-t border-border/50 bg-background">
-          <p className="text-xs text-muted-foreground mb-2 uppercase tracking-wide font-medium">
-            Azioni rapide
-          </p>
-          <Button
-            variant="secondary"
-            className="w-full gap-2 h-12 text-base"
-            style={canTrain && brandColor ? { 
-              backgroundColor: `${brandColor}15`,
-              color: brandColor,
-              borderColor: `${brandColor}30`
-            } : undefined}
-            onClick={handleFreeSessionClick}
-          >
-            {canTrain ? (
-              <>
-                <Plus className="h-5 w-5" />
-                Inizia Sessione Libera
-              </>
-            ) : (
-              <>
-                <Lock className="h-5 w-5" />
-                Check-in richiesto per sessione libera
-              </>
-            )}
-          </Button>
-        </div>
 
 
         {/* Readiness Required Prompt */}
