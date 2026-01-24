@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,20 +56,22 @@ export default function AthleteTraining() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [showSessionBuilder, setShowSessionBuilder] = useState(false);
   const [showReadinessPrompt, setShowReadinessPrompt] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'create_session' | null>(null);
+  const [pendingAction, setPendingAction] = useState<'idle' | 'create_session'>('idle');
   
   const { readiness } = useReadiness();
   const canTrain = readiness.isCompleted;
-  const prevCanTrain = useRef(canTrain);
 
-  // Seamless check-in-then-build flow: auto-open SessionBuilder after check-in completes
+  // Seamless "Daisy-Chain" flow: auto-open SessionBuilder after check-in completes
   useEffect(() => {
-    if (pendingAction === 'create_session' && canTrain && !prevCanTrain.current) {
-      // Check-in just completed, open the session builder
-      setShowSessionBuilder(true);
-      setPendingAction(null);
+    if (canTrain && pendingAction === 'create_session') {
+      setShowReadinessPrompt(false); // Ensure prompt is closed
+      // Slight delay for smooth transition
+      const timer = setTimeout(() => {
+        setShowSessionBuilder(true);
+        setPendingAction('idle'); // Reset intent
+      }, 100);
+      return () => clearTimeout(timer);
     }
-    prevCanTrain.current = canTrain;
   }, [canTrain, pendingAction]);
 
   // Get current user
@@ -175,7 +177,7 @@ export default function AthleteTraining() {
     setSelectedDate(new Date());
   };
 
-  // Handle FAB click - check readiness first, with seamless flow
+  // Handle Hero button click - check readiness first, with seamless daisy-chain flow
   const handleFreeSessionClick = () => {
     if (!canTrain) {
       // Set pending action so we auto-open builder after check-in
@@ -183,6 +185,7 @@ export default function AthleteTraining() {
       setShowReadinessPrompt(true);
       return;
     }
+    // Readiness already done - open builder directly
     setShowSessionBuilder(true);
   };
 
@@ -294,12 +297,12 @@ export default function AthleteTraining() {
           </div>
         </div>
 
-        {/* Primary Action: Create Free Session - Prominent & Central */}
+        {/* Hero Action Button: Create Free Session - Prominent & Always Visible */}
         <div className="px-4 mb-6">
           <Button
             variant="default"
             className={cn(
-              "w-full h-14 text-base font-semibold shadow-lg active:scale-[0.98] transition-transform",
+              "w-full h-14 text-lg font-semibold shadow-md active:scale-[0.98] transition-transform",
               !canTrain && "opacity-90"
             )}
             style={brandColor ? { 
@@ -310,8 +313,8 @@ export default function AthleteTraining() {
           >
             {canTrain ? (
               <>
-                <span className="mr-2">➕</span>
-                Crea Sessione Libera
+                <Dumbbell className="h-5 w-5 mr-2" />
+                Inizia Sessione Libera
               </>
             ) : (
               <>
@@ -623,12 +626,12 @@ function WorkoutCard({ log, status, brandColor, canTrain, onStart, onViewDetails
   );
 }
 
-// Active Recovery Card - Upgraded Rest Day Experience
+// Active Recovery Card - Rest Day Experience (No button inside - Hero button is above)
 function RestDayIllustration() {
   return (
     <Card className="p-6 bg-gradient-to-br from-success/5 via-background to-primary/5 border border-success/20">
       <div className="flex flex-col items-center gap-4 text-center">
-        {/* Yoga/Recovery Emoji */}
+        {/* Recovery Emoji */}
         <div className="text-5xl">🧘</div>
 
         {/* Headline */}
@@ -638,10 +641,10 @@ function RestDayIllustration() {
 
         {/* Supportive Text */}
         <p className="text-sm text-muted-foreground max-w-xs">
-          Oggi il piano prevede riposo. Concentrati sul sonno, l'idratazione o una camminata leggera.
+          Oggi il focus è sul recupero attivo. Stretching, idratazione e sonno.
         </p>
 
-        {/* Optional wellness tips */}
+        {/* Wellness tip badges */}
         <div className="flex flex-wrap justify-center gap-2 mt-2">
           <Badge variant="secondary" className="text-xs">
             💧 Idratazione
