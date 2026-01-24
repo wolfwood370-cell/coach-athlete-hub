@@ -299,15 +299,18 @@ export default function AthleteTraining() {
           <Button
             variant="default"
             className={cn(
-              "w-full h-12 text-base font-medium shadow-sm active:scale-[0.98] transition-transform",
+              "w-full h-14 text-base font-semibold shadow-lg active:scale-[0.98] transition-transform",
               !canTrain && "opacity-90"
             )}
-            style={brandColor ? { backgroundColor: brandColor } : undefined}
+            style={brandColor ? { 
+              backgroundColor: brandColor,
+              boxShadow: `0 8px 24px -4px ${brandColor}40`
+            } : undefined}
             onClick={handleFreeSessionClick}
           >
             {canTrain ? (
               <>
-                <Plus className="h-5 w-5 mr-2" />
+                <span className="mr-2">➕</span>
                 Crea Sessione Libera
               </>
             ) : (
@@ -620,28 +623,37 @@ function WorkoutCard({ log, status, brandColor, canTrain, onStart, onViewDetails
   );
 }
 
-// Rest Day Illustration - Clean empty state without button (button is in Quick Actions)
+// Active Recovery Card - Upgraded Rest Day Experience
 function RestDayIllustration() {
   return (
-    <Card className="p-8 bg-gradient-to-br from-muted/30 to-background border border-border/50">
+    <Card className="p-6 bg-gradient-to-br from-success/5 via-background to-primary/5 border border-success/20">
       <div className="flex flex-col items-center gap-4 text-center">
-        {/* Illustration Icon */}
-        <div className="h-20 w-20 rounded-full bg-muted/50 flex items-center justify-center">
-          <Coffee className="h-10 w-10 text-muted-foreground/60" />
-        </div>
+        {/* Yoga/Recovery Emoji */}
+        <div className="text-5xl">🧘</div>
 
-        {/* Text */}
-        <div className="space-y-1">
-          <h3 className="text-base font-medium text-muted-foreground">
-            Nessun allenamento programmato per oggi
-          </h3>
-          <p className="text-sm text-muted-foreground/70">
-            Giorno di riposo 💪
-          </p>
+        {/* Headline */}
+        <h3 className="text-lg font-semibold">
+          Giornata di Recupero
+        </h3>
+
+        {/* Supportive Text */}
+        <p className="text-sm text-muted-foreground max-w-xs">
+          Oggi il piano prevede riposo. Concentrati sul sonno, l'idratazione o una camminata leggera.
+        </p>
+
+        {/* Optional wellness tips */}
+        <div className="flex flex-wrap justify-center gap-2 mt-2">
+          <Badge variant="secondary" className="text-xs">
+            💧 Idratazione
+          </Badge>
+          <Badge variant="secondary" className="text-xs">
+            😴 Sonno
+          </Badge>
+          <Badge variant="secondary" className="text-xs">
+            🚶 Camminata
+          </Badge>
         </div>
       </div>
     </Card>
   );
 }
-
-// Note: FreeSessionCard removed - functionality moved to persistent Quick Actions section
