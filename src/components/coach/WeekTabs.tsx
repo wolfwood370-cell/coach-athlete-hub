@@ -1,13 +1,21 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 import { PhaseFocusType } from "@/hooks/usePeriodization";
 import {
   Dumbbell,
@@ -17,6 +25,10 @@ import {
   Flame,
   TrendingUp,
   Heart,
+  Copy,
+  Layers,
+  Download,
+  Trash2,
 } from "lucide-react";
 
 // Phase configuration for colors and icons
@@ -96,6 +108,10 @@ interface WeekTabsProps {
   totalWeeks: number;
   phases: PhaseInfo[];
   onWeekChange: (week: number) => void;
+  onCloneWeek?: (weekIndex: number) => void;
+  onSaveBlock?: () => void;
+  onLoadBlock?: () => void;
+  onRemoveWeek?: (weekIndex: number) => void;
   className?: string;
 }
 
@@ -104,6 +120,10 @@ export function WeekTabs({
   totalWeeks,
   phases,
   onWeekChange,
+  onCloneWeek,
+  onSaveBlock,
+  onLoadBlock,
+  onRemoveWeek,
   className,
 }: WeekTabsProps) {
   // Map weeks to their corresponding phases
@@ -151,6 +171,42 @@ export function WeekTabs({
     <div className={cn("border-b border-border/50 bg-muted/30", className)}>
       <ScrollArea className="w-full">
         <div className="flex items-center gap-1 px-2 py-2 min-w-max">
+          {/* Action buttons */}
+          {(onSaveBlock || onLoadBlock) && (
+            <div className="flex items-center gap-1 pr-2 mr-2 border-r border-border/50">
+              {onSaveBlock && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={onSaveBlock}
+                    >
+                      <Layers className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Salva come Blocco Template</TooltipContent>
+                </Tooltip>
+              )}
+              {onLoadBlock && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={onLoadBlock}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Carica Blocco Template</TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          )}
+
           {weeksWithPhases.map((weekInfo) => {
             const { weekIndex, phase } = weekInfo;
             const isActive = weekIndex === currentWeek;
@@ -158,75 +214,102 @@ export function WeekTabs({
             const Icon = config?.icon;
 
             return (
-              <TooltipProvider key={weekIndex}>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => onWeekChange(weekIndex)}
-                      className={cn(
-                        "relative flex flex-col items-center px-3 py-1.5 rounded-t-md transition-all min-w-[60px]",
-                        "hover:bg-background/80",
-                        isActive && "bg-background shadow-sm",
-                        phase && "border-b-2",
-                        phase && config?.borderColor,
-                        !phase && "border-b-2 border-b-transparent"
-                      )}
-                    >
-                      {/* Week number */}
-                      <div className="flex items-center gap-1">
-                        {Icon && (
-                          <Icon 
-                            className={cn(
-                              "h-3 w-3",
-                              isActive ? config?.color : "text-muted-foreground/50"
-                            )} 
-                          />
-                        )}
-                        <span
+              <ContextMenu key={weekIndex}>
+                <ContextMenuTrigger>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => onWeekChange(weekIndex)}
                           className={cn(
-                            "text-xs font-medium",
-                            isActive ? "text-foreground" : "text-muted-foreground"
+                            "relative flex flex-col items-center px-3 py-1.5 rounded-t-md transition-all min-w-[60px]",
+                            "hover:bg-background/80",
+                            isActive && "bg-background shadow-sm",
+                            phase && "border-b-2",
+                            phase && config?.borderColor,
+                            !phase && "border-b-2 border-b-transparent"
                           )}
                         >
-                          S{weekIndex + 1}
-                        </span>
-                      </div>
+                          {/* Week number */}
+                          <div className="flex items-center gap-1">
+                            {Icon && (
+                              <Icon 
+                                className={cn(
+                                  "h-3 w-3",
+                                  isActive ? config?.color : "text-muted-foreground/50"
+                                )} 
+                              />
+                            )}
+                            <span
+                              className={cn(
+                                "text-xs font-medium",
+                                isActive ? "text-foreground" : "text-muted-foreground"
+                              )}
+                            >
+                              S{weekIndex + 1}
+                            </span>
+                          </div>
 
-                      {/* Phase indicator dot */}
-                      {phase && (
-                        <div
-                          className={cn(
-                            "w-1.5 h-1.5 rounded-full mt-0.5",
-                            config?.bgColor?.replace("/20", "")
+                          {/* Phase indicator dot */}
+                          {phase && (
+                            <div
+                              className={cn(
+                                "w-1.5 h-1.5 rounded-full mt-0.5",
+                                config?.bgColor?.replace("/20", "")
+                              )}
+                              style={{
+                                backgroundColor: phase.focus_type === "strength" ? "#f97316" :
+                                  phase.focus_type === "hypertrophy" ? "#6366f1" :
+                                  phase.focus_type === "endurance" ? "#06b6d4" :
+                                  phase.focus_type === "power" ? "#f59e0b" :
+                                  phase.focus_type === "recovery" ? "#10b981" :
+                                  phase.focus_type === "peaking" ? "#ef4444" :
+                                  "#64748b"
+                              }}
+                            />
                           )}
-                          style={{
-                            backgroundColor: phase.focus_type === "strength" ? "#f97316" :
-                              phase.focus_type === "hypertrophy" ? "#6366f1" :
-                              phase.focus_type === "endurance" ? "#06b6d4" :
-                              phase.focus_type === "power" ? "#f59e0b" :
-                              phase.focus_type === "recovery" ? "#10b981" :
-                              phase.focus_type === "peaking" ? "#ef4444" :
-                              "#64748b"
-                          }}
-                        />
-                      )}
 
-                      {/* Active indicator */}
-                      {isActive && (
-                        <div className="absolute -bottom-[1px] left-0 right-0 h-0.5 bg-primary rounded-full" />
-                      )}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="text-xs">
-                    <p className="font-medium">Settimana {weekIndex + 1}</p>
-                    {phase && (
-                      <p className={cn("text-[10px]", config?.color)}>
-                        {phase.name} · {config?.label}
-                      </p>
-                    )}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+                          {/* Active indicator */}
+                          {isActive && (
+                            <div className="absolute -bottom-[1px] left-0 right-0 h-0.5 bg-primary rounded-full" />
+                          )}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="text-xs">
+                        <p className="font-medium">Settimana {weekIndex + 1}</p>
+                        {phase && (
+                          <p className={cn("text-[10px]", config?.color)}>
+                            {phase.name} · {config?.label}
+                          </p>
+                        )}
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          Tasto destro per opzioni
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="w-48">
+                  {onCloneWeek && (
+                    <ContextMenuItem onClick={() => onCloneWeek(weekIndex)}>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Clona settimana
+                    </ContextMenuItem>
+                  )}
+                  {onRemoveWeek && totalWeeks > 1 && (
+                    <>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem
+                        onClick={() => onRemoveWeek(weekIndex)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Elimina settimana
+                      </ContextMenuItem>
+                    </>
+                  )}
+                </ContextMenuContent>
+              </ContextMenu>
             );
           })}
 
