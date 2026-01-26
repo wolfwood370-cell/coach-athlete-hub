@@ -55,8 +55,13 @@ export interface ProgramBuilderActions {
   setCurrentWeek: (weekIndex: number) => void;
   addWeek: () => void;
   duplicateWeek: (weekIndex: number) => void;
+  cloneWeekToRange: (sourceWeekIndex: number, targetWeekIndices: number[]) => void;
   removeWeek: (weekIndex: number) => void;
   setTotalWeeks: (count: number) => void;
+  
+  // Block template operations
+  extractBlock: (startWeek: number, endWeek: number) => ProgramData;
+  insertBlock: (blockData: ProgramData, atWeekIndex: number) => void;
   
   // Day operations
   addDay: (weekId: number) => void;
@@ -231,6 +236,96 @@ export const useProgramBuilderStore = create<ProgramBuilderStore>()(
         }
         
         state.totalWeeks += 1;
+        state.isDirty = true;
+      });
+    },
+
+    cloneWeekToRange: (sourceWeekIndex, targetWeekIndices) => {
+      set((state) => {
+        const sourceWeek = state.program[sourceWeekIndex];
+        if (!sourceWeek) return;
+
+        for (const targetIndex of targetWeekIndices) {
+          // Ensure target week exists
+          if (!state.program[targetIndex]) {
+            state.program[targetIndex] = {};
+            for (let d = 0; d < 7; d++) {
+              state.program[targetIndex][d] = [];
+            }
+          }
+
+          // Clone all exercises from source to target (overwrite)
+          for (let d = 0; d < 7; d++) {
+            const sourceDay = sourceWeek[d] || [];
+            state.program[targetIndex][d] = sourceDay.map((ex) => cloneExercise(ex));
+          }
+
+          // Expand totalWeeks if needed
+          if (targetIndex >= state.totalWeeks) {
+            state.totalWeeks = targetIndex + 1;
+          }
+        }
+
+        state.isDirty = true;
+      });
+    },
+
+    extractBlock: (startWeek, endWeek) => {
+      const state = get();
+      const blockData: ProgramData = {};
+      
+      for (let w = startWeek; w <= endWeek; w++) {
+        const relativeIndex = w - startWeek;
+        blockData[relativeIndex] = {};
+        
+        for (let d = 0; d < 7; d++) {
+          const sourceDay = state.program[w]?.[d] || [];
+          blockData[relativeIndex][d] = sourceDay.map((ex) => ({
+            ...ex,
+            id: crypto.randomUUID(),
+            supersetGroup: undefined,
+          }));
+        }
+      }
+      
+      return blockData;
+    },
+
+    insertBlock: (blockData, atWeekIndex) => {
+      set((state) => {
+        const blockSize = Object.keys(blockData).length;
+        
+        // Shift existing weeks to make room
+        const newProgram: ProgramData = {};
+        
+        // Copy weeks before insertion point
+        for (let w = 0; w < atWeekIndex; w++) {
+          if (state.program[w]) {
+            newProgram[w] = state.program[w];
+          }
+        }
+        
+        // Insert block data
+        for (let i = 0; i < blockSize; i++) {
+          newProgram[atWeekIndex + i] = {};
+          for (let d = 0; d < 7; d++) {
+            const sourceDay = blockData[i]?.[d] || [];
+            newProgram[atWeekIndex + i][d] = sourceDay.map((ex) => ({
+              ...ex,
+              id: crypto.randomUUID(),
+            }));
+          }
+        }
+        
+        // Shift remaining weeks
+        for (let w = atWeekIndex; w < state.totalWeeks; w++) {
+          if (state.program[w]) {
+            newProgram[w + blockSize] = state.program[w];
+          }
+        }
+        
+        state.program = newProgram;
+        state.totalWeeks = state.totalWeeks + blockSize;
         state.isDirty = true;
       });
     },
