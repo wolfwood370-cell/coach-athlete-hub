@@ -112,6 +112,7 @@ interface WeekTabsProps {
   onSaveBlock?: () => void;
   onLoadBlock?: () => void;
   onRemoveWeek?: (weekIndex: number) => void;
+  onApplyProgression?: (weekIndex: number) => void;
   className?: string;
 }
 
@@ -124,6 +125,7 @@ export function WeekTabs({
   onSaveBlock,
   onLoadBlock,
   onRemoveWeek,
+  onApplyProgression,
   className,
 }: WeekTabsProps) {
   // Map weeks to their corresponding phases
@@ -289,11 +291,17 @@ export function WeekTabs({
                     </Tooltip>
                   </TooltipProvider>
                 </ContextMenuTrigger>
-                <ContextMenuContent className="w-48">
+                <ContextMenuContent className="w-56">
                   {onCloneWeek && (
                     <ContextMenuItem onClick={() => onCloneWeek(weekIndex)}>
                       <Copy className="h-4 w-4 mr-2" />
                       Clona settimana
+                    </ContextMenuItem>
+                  )}
+                  {onApplyProgression && weekIndex < totalWeeks - 1 && (
+                    <ContextMenuItem onClick={() => onApplyProgression(weekIndex)}>
+                      <TrendingUp className="h-4 w-4 mr-2" />
+                      Applica Progressione
                     </ContextMenuItem>
                   )}
                   {onRemoveWeek && totalWeeks > 1 && (

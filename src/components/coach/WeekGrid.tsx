@@ -37,10 +37,13 @@ import {
   Calendar,
   Layers,
   Loader2,
+  TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // Types
+import type { ExerciseProgression } from "@/types/progression";
+
 export interface ProgramExercise {
   id: string;
   exerciseId: string;
@@ -56,6 +59,8 @@ export interface ProgramExercise {
   // Snapshot fields - frozen at time of adding to program
   snapshotTrackingFields?: string[];
   snapshotMuscles?: string[];
+  // Progression logic
+  progression?: ExerciseProgression;
 }
 
 export type WeekProgram = Record<number, ProgramExercise[]>;
@@ -149,6 +154,7 @@ function SortableExercise({
   // Compact summary: Sets x Reps + RPE only
   const setsReps = exercise.sets ? `${exercise.sets}×${exercise.reps || "?"}` : null;
   const rpeText = exercise.rpe ? `RPE ${exercise.rpe}` : null;
+  const hasProgression = exercise.progression?.enabled && exercise.progression.rules.length > 0;
 
   return (
     <div
@@ -201,9 +207,23 @@ function SortableExercise({
         <div className="flex-1 p-2 min-w-0 group cursor-pointer">
           <div className="flex items-center gap-1.5">
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-medium truncate leading-tight" title={exercise.name}>
-                {exercise.name}
-              </p>
+              <div className="flex items-center gap-1">
+                <p className="text-[11px] font-medium truncate leading-tight" title={exercise.name}>
+                  {exercise.name}
+                </p>
+                {hasProgression && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex-shrink-0 h-4 w-4 rounded bg-chart-3/20 flex items-center justify-center">
+                        <TrendingUp className="h-2.5 w-2.5 text-chart-3" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      Progressione attiva
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </div>
               <div className="flex items-center gap-1.5 mt-0.5">
                 {setsReps && (
                   <span className="text-[10px] font-medium text-foreground/80">
