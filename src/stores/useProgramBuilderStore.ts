@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import type { ProgramExercise as BaseProgramExercise, WeekProgram, ProgramData } from '@/components/coach/WeekGrid';
 import type { SetDataRecord } from '@/types/database';
+import type { ExerciseProgression, ProgressionRule } from '@/types/progression';
+import { calculateProgressedValue, parseLoadValue, formatLoadValue } from '@/types/progression';
 
 // =========================================
 // Types
@@ -79,6 +81,9 @@ export interface ProgramBuilderActions {
   
   // Set operations
   updateSet: (exerciseId: string, setIndex: number, field: keyof SetField, value: number | boolean, weekIndex?: number, dayIndex?: number) => void;
+  
+  // Progression operations
+  applyProgression: (fromWeekIndex: number) => void;
   
   // Superset operations
   setSupersetPending: (exerciseId: string | null) => void;
@@ -714,6 +719,92 @@ export const useProgramBuilderStore = create<ProgramBuilderStore>()(
     clearSelection: () => {
       set((state) => {
         state.selectedExercise = null;
+      });
+    },
+
+    // =========================================
+    // Progression
+    // =========================================
+
+    applyProgression: (fromWeekIndex) => {
+      set((state) => {
+        const sourceWeek = state.program[fromWeekIndex];
+        if (!sourceWeek) return;
+
+        // For each subsequent week, apply progression rules
+        for (let targetWeekIndex = fromWeekIndex + 1; targetWeekIndex < state.totalWeeks; targetWeekIndex++) {
+          const weekOffset = targetWeekIndex - fromWeekIndex;
+
+          for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+            const sourceExercises = sourceWeek[dayIndex] || [];
+            
+            if (!state.program[targetWeekIndex]) {
+              state.program[targetWeekIndex] = {};
+            }
+            if (!state.program[targetWeekIndex][dayIndex]) {
+              state.program[targetWeekIndex][dayIndex] = [];
+            }
+
+            // Find matching exercises in target week by exerciseId
+            for (const sourceEx of sourceExercises) {
+              if (!sourceEx.progression?.enabled || !sourceEx.progression.rules.length) continue;
+
+              // Find or create matching exercise in target week
+              let targetEx = state.program[targetWeekIndex][dayIndex].find(
+                (ex) => ex.exerciseId === sourceEx.exerciseId && !ex.isEmpty
+              );
+
+              // If no matching exercise exists, clone from source
+              if (!targetEx) {
+                targetEx = {
+                  ...sourceEx,
+                  id: `ex-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  supersetGroup: undefined,
+                };
+                state.program[targetWeekIndex][dayIndex].push(targetEx);
+              }
+
+              // Apply each progression rule
+              for (const rule of sourceEx.progression.rules) {
+                switch (rule.type) {
+                  case 'rir_decrease':
+                    // RIR is inverse of RPE (RPE 10 = RIR 0, RPE 8 = RIR 2)
+                    // For simplicity, we'll track RIR decrease as RPE increase
+                    if (sourceEx.rpe !== null) {
+                      targetEx.rpe = Math.min(10, sourceEx.rpe + (rule.value * weekOffset));
+                    }
+                    break;
+                  case 'rpe_increase':
+                    if (sourceEx.rpe !== null) {
+                      targetEx.rpe = Math.min(10, calculateProgressedValue(sourceEx.rpe, rule, weekOffset));
+                    }
+                    break;
+                  case 'load_percent':
+                  case 'load_absolute':
+                    const parsed = parseLoadValue(sourceEx.load);
+                    if (parsed) {
+                      const newValue = calculateProgressedValue(parsed.value, rule, weekOffset);
+                      targetEx.load = formatLoadValue(newValue, parsed.isPercent);
+                    }
+                    break;
+                  case 'reps_increase':
+                    const baseReps = parseInt(sourceEx.reps) || 0;
+                    if (baseReps > 0) {
+                      targetEx.reps = String(Math.round(calculateProgressedValue(baseReps, rule, weekOffset)));
+                    }
+                    break;
+                  case 'sets_increase':
+                    if (sourceEx.sets > 0) {
+                      targetEx.sets = Math.round(calculateProgressedValue(sourceEx.sets, rule, weekOffset));
+                    }
+                    break;
+                }
+              }
+            }
+          }
+        }
+
+        state.isDirty = true;
       });
     },
 

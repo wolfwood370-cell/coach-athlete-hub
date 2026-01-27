@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -32,9 +33,18 @@ import {
   Timer,
   Settings2,
   ChevronDown,
+  TrendingUp,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ProgramExercise } from "@/components/coach/WeekGrid";
+import type { ProgressionRule, ProgressionType, ExerciseProgression } from "@/types/progression";
+import { 
+  getProgressionTypeLabel, 
+  getDefaultProgressionValue, 
+  getProgressionDescription 
+} from "@/types/progression";
 
 const REST_OPTIONS = [30, 45, 60, 90, 120, 180, 240, 300];
 const DAYS = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
@@ -323,6 +333,109 @@ export function ExerciseContextEditor({
               placeholder="Istruzioni speciali, cue tecniche, variazioni..."
               className="min-h-[80px] text-sm resize-none"
             />
+          </div>
+
+          <Separator />
+
+          {/* Progression Logic Section */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <TrendingUp className="h-3.5 w-3.5" />
+                Progressione
+              </div>
+              <Switch
+                checked={localExercise.progression?.enabled || false}
+                onCheckedChange={(checked) => {
+                  const currentProgression = localExercise.progression || { enabled: false, rules: [] };
+                  handleChange("progression", { ...currentProgression, enabled: checked });
+                }}
+              />
+            </div>
+
+            {localExercise.progression?.enabled && (
+              <div className="space-y-3 p-3 rounded-lg bg-chart-3/5 border border-chart-3/20">
+                <p className="text-[10px] text-muted-foreground">
+                  Definisci le regole di progressione automatica per le settimane successive
+                </p>
+                
+                {/* Existing Rules */}
+                {(localExercise.progression?.rules || []).map((rule, ruleIndex) => (
+                  <div key={ruleIndex} className="flex items-center gap-2 p-2 rounded-md bg-background border">
+                    <Select
+                      value={rule.type}
+                      onValueChange={(type: ProgressionType) => {
+                        const newRules = [...(localExercise.progression?.rules || [])];
+                        newRules[ruleIndex] = { ...rule, type, value: getDefaultProgressionValue(type) };
+                        handleChange("progression", { ...localExercise.progression!, rules: newRules });
+                      }}
+                    >
+                      <SelectTrigger className="h-8 text-xs flex-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="rir_decrease">Diminuisci RIR</SelectItem>
+                        <SelectItem value="rpe_increase">Aumenta RPE</SelectItem>
+                        <SelectItem value="load_percent">Aumenta Carico (%)</SelectItem>
+                        <SelectItem value="load_absolute">Aumenta Carico (kg)</SelectItem>
+                        <SelectItem value="reps_increase">Aumenta Ripetizioni</SelectItem>
+                        <SelectItem value="sets_increase">Aumenta Serie</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    
+                    <Input
+                      type="number"
+                      step={rule.type === 'rpe_increase' ? 0.5 : rule.type.includes('percent') ? 0.5 : 1}
+                      min={0}
+                      value={rule.value}
+                      onChange={(e) => {
+                        const newRules = [...(localExercise.progression?.rules || [])];
+                        newRules[ruleIndex] = { ...rule, value: parseFloat(e.target.value) || 0 };
+                        handleChange("progression", { ...localExercise.progression!, rules: newRules });
+                      }}
+                      className="h-8 w-20 text-xs"
+                    />
+                    
+                    <Badge variant="secondary" className="text-[9px] flex-shrink-0">
+                      {getProgressionDescription(rule)}
+                    </Badge>
+                    
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-destructive hover:text-destructive flex-shrink-0"
+                      onClick={() => {
+                        const newRules = (localExercise.progression?.rules || []).filter((_, i) => i !== ruleIndex);
+                        handleChange("progression", { ...localExercise.progression!, rules: newRules });
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+                
+                {/* Add Rule Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full h-8 text-xs border-dashed"
+                  onClick={() => {
+                    const newRule: ProgressionRule = {
+                      type: 'rir_decrease',
+                      value: 1
+                    };
+                    const currentRules = localExercise.progression?.rules || [];
+                    handleChange("progression", { 
+                      ...localExercise.progression!, 
+                      rules: [...currentRules, newRule] 
+                    });
+                  }}
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Aggiungi Regola
+                </Button>
+              </div>
+            )}
           </div>
 
           <Separator />
