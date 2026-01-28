@@ -17,6 +17,7 @@ import { WeekGrid, type ProgramExercise, type WeekProgram, type ProgramData } fr
 import { WeekTabs, type PhaseInfo } from "@/components/coach/WeekTabs";
 import { ExerciseContextEditor } from "@/components/coach/ExerciseContextEditor";
 import { PeriodizationHeader } from "@/components/coach/PeriodizationHeader";
+import { CloneWeekDialog } from "@/components/coach/CloneWeekDialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -72,6 +73,20 @@ import { useAthleteHealthProfile, type FmsScore } from "@/hooks/useAthleteHealth
 import { usePeriodization } from "@/hooks/usePeriodization";
 import { format, parseISO, differenceInWeeks } from "date-fns";
 import { it } from "date-fns/locale";
+
+// Import Zustand store and selectors
+import { useProgramBuilderStore } from "@/stores/useProgramBuilderStore";
+import {
+  useProgramState,
+  useWeekActions,
+  useExerciseActions,
+  useSupersetActions,
+  useSelectionActions,
+  useProgramActions,
+  useTotalExerciseCount,
+  useSelectedExerciseData,
+  useDndHandlers,
+} from "@/hooks/useProgramBuilderSelectors";
 
 const DEFAULT_WEEKS = 4;
 const DAYS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
@@ -286,24 +301,36 @@ export default function ProgramBuilder() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  // State
-  const [currentWeek, setCurrentWeek] = useState(0);
-  const [totalWeeks, setTotalWeeks] = useState(DEFAULT_WEEKS);
-  const [program, setProgram] = useState<ProgramData>(() => createEmptyProgram(DEFAULT_WEEKS));
+  // =========================================
+  // ZUSTAND STORE - Core program state (NO local state for program data!)
+  // =========================================
+  const { program, totalWeeks, currentWeek, isDirty, programName: storeProgramName } = useProgramState();
+  const totalExercises = useTotalExerciseCount();
+  const selectedExerciseData = useSelectedExerciseData();
+  const storeSelectedExercise = useProgramBuilderStore((state) => state.selectedExercise);
+
+  // Store Actions
+  const weekActions = useWeekActions();
+  const exerciseActions = useExerciseActions();
+  const supersetActions = useSupersetActions();
+  const selectionActions = useSelectionActions();
+  const programActions = useProgramActions();
+  const dndHandlers = useDndHandlers();
+
+  // =========================================
+  // UI-ONLY local state (not program data)
+  // =========================================
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [programName, setProgramName] = useState("");
   const [selectedAthleteIds, setSelectedAthleteIds] = useState<string[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [activeExercise, setActiveExercise] = useState<LibraryExercise | null>(null);
-  const [supersetPendingId, setSupersetPendingId] = useState<string | null>(null);
-  
-  // Right sidebar - selected exercise for editing
-  const [selectedExercise, setSelectedExercise] = useState<{
-    weekIndex: number;
-    dayIndex: number;
-    exercise: ProgramExercise;
-  } | null>(null);
+
+  // Clone Week Dialog state
+  const [cloneWeekDialogOpen, setCloneWeekDialogOpen] = useState(false);
+  const [cloneWeekSourceIndex, setCloneWeekSourceIndex] = useState(0);
+  const [isCloning, setIsCloning] = useState(false);
 
   // DnD sensors
   const sensors = useSensors(
@@ -378,22 +405,56 @@ export default function ProgramBuilder() {
     return oneRmData.squat || oneRmData.bench || 100;
   }, [selectedAthlete]);
 
-  // Current week data
+  // Current week data from store
   const weekData = program[currentWeek] || {};
 
-  // Stats
-  const totalExercises = useMemo(() => {
-    return Object.values(program).reduce(
-      (weekAcc, week) =>
-        weekAcc +
-        Object.values(week).reduce(
-          (dayAcc, exercises) =>
-            dayAcc + exercises.filter((e) => !e.isEmpty).length,
-          0
-        ),
-      0
+  // =========================================
+  // Clone Week Handler
+  // =========================================
+  const handleOpenCloneWeekDialog = useCallback((weekIndex: number) => {
+    setCloneWeekSourceIndex(weekIndex);
+    setCloneWeekDialogOpen(true);
+  }, []);
+
+  const handleConfirmCloneWeek = useCallback((targetWeekIndices: number[]) => {
+    setIsCloning(true);
+    try {
+      weekActions.cloneWeekToRange(cloneWeekSourceIndex, targetWeekIndices);
+      toast.success(
+        `Settimana ${cloneWeekSourceIndex + 1} clonata in ${targetWeekIndices.length} settiman${targetWeekIndices.length === 1 ? 'a' : 'e'}!`,
+        { description: "Tutti gli esercizi sono stati copiati con nuovi ID univoci" }
+      );
+      setCloneWeekDialogOpen(false);
+    } catch (error) {
+      console.error("Clone week error:", error);
+      toast.error("Errore durante la clonazione della settimana");
+    } finally {
+      setIsCloning(false);
+    }
+  }, [cloneWeekSourceIndex, weekActions]);
+
+  // =========================================
+  // Apply Progression Handler
+  // =========================================
+  const handleApplyProgression = useCallback((weekIndex: number) => {
+    weekActions.applyProgression(weekIndex);
+    toast.success(
+      `Progressione applicata dalla Settimana ${weekIndex + 1}`,
+      { description: "I carichi e i parametri sono stati aggiornati nelle settimane successive" }
     );
-  }, [program]);
+  }, [weekActions]);
+
+  // =========================================
+  // Remove Week Handler
+  // =========================================
+  const handleRemoveWeek = useCallback((weekIndex: number) => {
+    if (totalWeeks <= 1) {
+      toast.error("Devi mantenere almeno una settimana");
+      return;
+    }
+    weekActions.removeWeek(weekIndex);
+    toast.success(`Settimana ${weekIndex + 1} eliminata`);
+  }, [totalWeeks, weekActions]);
 
   // Handle drag start
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -405,7 +466,7 @@ export default function ProgramBuilder() {
     }
   }, []);
 
-  // Handle drag end
+  // Handle drag end - uses store actions
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event;
@@ -437,32 +498,8 @@ export default function ProgramBuilder() {
           }
         }
 
-        // Replace empty slot with actual exercise - include snapshot fields
-        setProgram((prev) => ({
-          ...prev,
-          [weekIndex]: {
-            ...prev[weekIndex],
-            [dayIndex]: prev[weekIndex][dayIndex].map((ex) =>
-              ex.id === slotId
-                ? {
-                    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    exerciseId: libraryExercise.id,
-                    name: libraryExercise.name,
-                    sets: 3,
-                    reps: "8",
-                    load: "",
-                    rpe: null,
-                    restSeconds: 90,
-                    notes: "",
-                    isEmpty: false,
-                    // Snapshot configuration at time of adding
-                    snapshotTrackingFields: [...libraryExercise.tracking_fields],
-                    snapshotMuscles: [...libraryExercise.muscles],
-                  }
-                : ex
-            ),
-          },
-        }));
+        // Use store action to fill the slot
+        exerciseActions.fillSlot(slotId, libraryExercise, weekIndex, dayIndex);
         return;
       }
 
@@ -488,7 +525,7 @@ export default function ProgramBuilder() {
         }
 
         const newExercise: ProgramExercise = {
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: crypto.randomUUID(),
           exerciseId: libraryExercise.id,
           name: libraryExercise.name,
           sets: 3,
@@ -503,17 +540,11 @@ export default function ProgramBuilder() {
           snapshotMuscles: [...libraryExercise.muscles],
         };
 
-        setProgram((prev) => ({
-          ...prev,
-          [weekIndex]: {
-            ...prev[weekIndex],
-            [dayIndex]: [...(prev[weekIndex]?.[dayIndex] || []), newExercise],
-          },
-        }));
+        exerciseActions.addExercise(dayIndex, newExercise, weekIndex);
         return;
       }
 
-      // Reorder within same day
+      // Reorder within same day - use store action
       if (
         active.data.current?.type === "program-exercise" &&
         over.data.current?.type === "program-exercise"
@@ -526,167 +557,69 @@ export default function ProgramBuilder() {
           activeData.weekIndex === overData.weekIndex
         ) {
           const { weekIndex, dayIndex } = activeData;
+          const exercises = program[weekIndex]?.[dayIndex] || [];
+          const oldIndex = exercises.findIndex((e) => e.id === active.id);
+          const newIndex = exercises.findIndex((e) => e.id === over.id);
 
-          setProgram((prev) => {
-            const exercises = [...(prev[weekIndex]?.[dayIndex] || [])];
-            const oldIndex = exercises.findIndex((e) => e.id === active.id);
-            const newIndex = exercises.findIndex((e) => e.id === over.id);
-
-            if (oldIndex !== -1 && newIndex !== -1) {
-              return {
-                ...prev,
-                [weekIndex]: {
-                  ...prev[weekIndex],
-                  [dayIndex]: arrayMove(exercises, oldIndex, newIndex),
-                },
-              };
-            }
-            return prev;
-          });
+          if (oldIndex !== -1 && newIndex !== -1) {
+            const newOrder = arrayMove(exercises.map((e) => e.id), oldIndex, newIndex);
+            exerciseActions.reorderExercises(dayIndex, newOrder, weekIndex);
+          }
         }
       }
     },
-    [fmsAlerts]
+    [fmsAlerts, exerciseActions, program]
   );
 
-  // Add empty slot to a day
+  // Add empty slot to a day - uses store action
   const handleAddSlot = useCallback(
     (dayIndex: number) => {
-      setProgram((prev) => ({
-        ...prev,
-        [currentWeek]: {
-          ...prev[currentWeek],
-          [dayIndex]: [
-            ...(prev[currentWeek]?.[dayIndex] || []),
-            createEmptySlot(currentWeek, dayIndex),
-          ],
-        },
-      }));
+      exerciseActions.addEmptySlot(dayIndex, currentWeek);
     },
-    [currentWeek]
+    [currentWeek, exerciseActions]
   );
 
-  // Update exercise
-  const handleUpdateExercise = useCallback(
-    (dayIndex: number, exerciseId: string, updated: ProgramExercise) => {
-      setProgram((prev) => ({
-        ...prev,
-        [currentWeek]: {
-          ...prev[currentWeek],
-          [dayIndex]: prev[currentWeek][dayIndex].map((ex) =>
-            ex.id === exerciseId ? updated : ex
-          ),
-        },
-      }));
-    },
-    [currentWeek]
-  );
-
-  // Remove exercise
+  // Remove exercise - uses store action
   const handleRemoveExercise = useCallback(
     (dayIndex: number, exerciseId: string) => {
-      setProgram((prev) => ({
-        ...prev,
-        [currentWeek]: {
-          ...prev[currentWeek],
-          [dayIndex]: prev[currentWeek][dayIndex].filter(
-            (ex) => ex.id !== exerciseId
-          ),
-        },
-      }));
-      // Clear selection if removing the selected exercise
-      if (selectedExercise?.exercise.id === exerciseId) {
-        setSelectedExercise(null);
-      }
+      exerciseActions.removeExercise(dayIndex, exerciseId, currentWeek);
     },
-    [currentWeek, selectedExercise]
+    [currentWeek, exerciseActions]
   );
 
-  // Select exercise for editing in context panel
+  // Select exercise for editing in context panel - uses store action
   const handleSelectExercise = useCallback(
     (dayIndex: number, exercise: ProgramExercise) => {
       if (exercise.isEmpty) return; // Don't select empty slots
-      setSelectedExercise({
-        weekIndex: currentWeek,
-        dayIndex,
-        exercise,
-      });
+      selectionActions.selectExercise(currentWeek, dayIndex, exercise.id);
     },
-    [currentWeek]
+    [currentWeek, selectionActions]
   );
 
-  // Update selected exercise from context editor
+  // Update selected exercise from context editor - uses store action
   const handleContextEditorUpdate = useCallback(
     (updated: ProgramExercise) => {
-      if (!selectedExercise) return;
+      if (!storeSelectedExercise) return;
 
-      setProgram((prev) => ({
-        ...prev,
-        [selectedExercise.weekIndex]: {
-          ...prev[selectedExercise.weekIndex],
-          [selectedExercise.dayIndex]: prev[selectedExercise.weekIndex][
-            selectedExercise.dayIndex
-          ].map((ex) => (ex.id === updated.id ? updated : ex)),
-        },
-      }));
-
-      // Update the selected exercise state too
-      setSelectedExercise((prev) =>
-        prev ? { ...prev, exercise: updated } : null
+      exerciseActions.updateExercise(
+        storeSelectedExercise.dayIndex,
+        storeSelectedExercise.exerciseId,
+        updated,
+        storeSelectedExercise.weekIndex
       );
     },
-    [selectedExercise]
+    [storeSelectedExercise, exerciseActions]
   );
 
-  // Toggle superset
+  // Toggle superset - uses store action
   const handleToggleSuperset = useCallback(
     (dayIndex: number, exerciseId: string) => {
-      const exercises = program[currentWeek]?.[dayIndex] || [];
-      const exercise = exercises.find((e) => e.id === exerciseId);
-      if (!exercise || exercise.isEmpty) return;
-
-      // If already in superset, remove it
-      if (exercise.supersetGroup) {
-        setProgram((prev) => ({
-          ...prev,
-          [currentWeek]: {
-            ...prev[currentWeek],
-            [dayIndex]: prev[currentWeek][dayIndex].map((ex) =>
-              ex.id === exerciseId ? { ...ex, supersetGroup: undefined } : ex
-            ),
-          },
-        }));
-        return;
-      }
-
-      // If no pending superset, set this as pending
-      if (!supersetPendingId) {
-        setSupersetPendingId(exerciseId);
-        toast.info("Clicca su un altro esercizio per collegarlo in superset");
-        return;
-      }
-
-      // Link with pending exercise
-      const groupId = `superset-${Date.now()}`;
-      setProgram((prev) => ({
-        ...prev,
-        [currentWeek]: {
-          ...prev[currentWeek],
-          [dayIndex]: prev[currentWeek][dayIndex].map((ex) =>
-            ex.id === exerciseId || ex.id === supersetPendingId
-              ? { ...ex, supersetGroup: groupId }
-              : ex
-          ),
-        },
-      }));
-      setSupersetPendingId(null);
-      toast.success("Superset creato!");
+      supersetActions.toggleSuperset(dayIndex, exerciseId, currentWeek);
     },
-    [currentWeek, program, supersetPendingId]
+    [currentWeek, supersetActions]
   );
 
-  // Copy day to other days
-  // Note: For persisted programs using program_plans schema, use supabase.rpc('clone_program_workout', ...)
+  // Copy day to other days - uses store action
   const [isCopyingDay, setIsCopyingDay] = useState(false);
   const [isCopyingWeek, setIsCopyingWeek] = useState(false);
 
@@ -703,38 +636,14 @@ export default function ProgramBuilder() {
       setIsCopyingDay(true);
       
       try {
-        // Local state update for draft programs
-        // When using persisted program_plans, this would call the RPC:
-        // for (const targetDay of targetDays) {
-        //   const { data, error } = await supabase.rpc('clone_program_workout', {
-        //     source_workout_id: workoutDbId,
-        //     target_day_id: targetDayDbId
-        //   });
-        //   if (error) throw error;
-        // }
-        // queryClient.invalidateQueries({ queryKey: ['program-plan', programId] });
-
-        setProgram((prev) => {
-          const newProgram = { ...prev };
-          const newWeek = { ...newProgram[currentWeek] };
-
-          for (const targetDay of targetDays) {
-            const existingExercises = mode === "append" 
-              ? (newWeek[targetDay] || []).filter((e) => !e.isEmpty)
-              : [];
-
-            const copiedExercises = filledExercises.map((ex) => ({
-              ...ex,
-              id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-              supersetGroup: undefined, // Clear superset links on copy
-            }));
-
-            newWeek[targetDay] = [...existingExercises, ...copiedExercises];
-          }
-
-          newProgram[currentWeek] = newWeek;
-          return newProgram;
-        });
+        // Use store action for copy
+        for (const targetDay of targetDays) {
+          exerciseActions.copyDay?.(
+            currentWeek, sourceDayIndex, 
+            currentWeek, targetDay, 
+            mode
+          );
+        }
 
         toast.success(
           `Workout copiato in ${targetDays.length} ${targetDays.length === 1 ? 'giorno' : 'giorni'}!`,
@@ -749,11 +658,10 @@ export default function ProgramBuilder() {
         setIsCopyingDay(false);
       }
     },
-    [currentWeek, program]
+    [currentWeek, program, exerciseActions]
   );
 
-  // Copy week to other weeks
-  // Note: For persisted programs using program_plans schema, use supabase.rpc('clone_program_week', ...)
+  // Copy week to other weeks - now uses CloneWeekDialog
   const handleCopyWeekTo = useCallback(
     async (targetWeeks: number[]) => {
       const sourceWeek = program[currentWeek];
@@ -771,36 +679,8 @@ export default function ProgramBuilder() {
       setIsCopyingWeek(true);
 
       try {
-        // Local state update for draft programs
-        // When using persisted program_plans, this would call the RPC:
-        // for (const targetWeekIndex of targetWeeks) {
-        //   const { data, error } = await supabase.rpc('clone_program_week', {
-        //     source_week_id: weekDbId,
-        //     target_program_id: programDbId,
-        //     target_order_index: targetWeekIndex
-        //   });
-        //   if (error) throw error;
-        // }
-        // queryClient.invalidateQueries({ queryKey: ['program-plan', programId] });
-
-        setProgram((prev) => {
-          const newProgram = { ...prev };
-
-          for (const targetWeekIndex of targetWeeks) {
-            newProgram[targetWeekIndex] = Object.fromEntries(
-              Object.entries(sourceWeek).map(([day, exercises]) => [
-                day,
-                exercises.filter((e) => !e.isEmpty).map((ex) => ({
-                  ...ex,
-                  id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                  supersetGroup: undefined,
-                })),
-              ])
-            );
-          }
-
-          return newProgram;
-        });
+        // Use store action for clone
+        weekActions.cloneWeekToRange(currentWeek, targetWeeks);
 
         toast.success(
           `Settimana copiata in ${targetWeeks.length} ${targetWeeks.length === 1 ? 'settimana' : 'settimane'}!`
@@ -814,48 +694,34 @@ export default function ProgramBuilder() {
         setIsCopyingWeek(false);
       }
     },
-    [currentWeek, program]
+    [currentWeek, program, weekActions]
   );
 
-  // Clear week
+  // Clear week - uses store action
   const handleClearWeek = useCallback(() => {
-    setProgram((prev) => ({
-      ...prev,
-      [currentWeek]: Object.fromEntries(
-        Array.from({ length: 7 }, (_, d) => [d, []])
-      ),
-    }));
+    for (let d = 0; d < 7; d++) {
+      useProgramBuilderStore.getState().clearDay(currentWeek, d);
+    }
     toast.success(`Settimana ${currentWeek + 1} svuotata`);
   }, [currentWeek]);
 
-  // Reset entire program
+  // Reset entire program - uses store action
   const handleResetProgram = useCallback(() => {
-    setProgram(createEmptyProgram(totalWeeks));
+    programActions.reset();
     toast.success("Programma resettato");
-  }, [totalWeeks]);
+  }, [programActions]);
 
-  // Handle weeks generated from periodization
+  // Handle weeks generated from periodization - uses store action
   const handleWeeksGenerated = useCallback((weeks: number) => {
-    setTotalWeeks(weeks);
-    // Expand program if needed
-    setProgram((prev) => {
-      const newProgram = { ...prev };
-      for (let w = Object.keys(prev).length; w < weeks; w++) {
-        newProgram[w] = {};
-        for (let d = 0; d < 7; d++) {
-          newProgram[w][d] = [];
-        }
-      }
-      return newProgram;
-    });
-  }, []);
+    weekActions.setTotalWeeks(weeks);
+  }, [weekActions]);
 
-  // Handle week navigation from timeline
+  // Handle week navigation from timeline - uses store action
   const handleWeekFromTimeline = useCallback((weekIndex: number) => {
     if (weekIndex >= 0 && weekIndex < totalWeeks) {
-      setCurrentWeek(weekIndex);
+      weekActions.setCurrentWeek(weekIndex);
     }
-  }, [totalWeeks]);
+  }, [totalWeeks, weekActions]);
 
   // Save mutation
   const saveMutation = useMutation({
@@ -956,8 +822,8 @@ export default function ProgramBuilder() {
   };
 
   // Convert selected exercise for context editor compatibility
-  const contextEditorExercise = selectedExercise?.exercise ? {
-    ...selectedExercise.exercise,
+  const contextEditorExercise = selectedExerciseData ? {
+    ...selectedExerciseData,
   } : null;
 
   return (
@@ -1058,7 +924,10 @@ export default function ProgramBuilder() {
               currentWeek={currentWeek}
               totalWeeks={totalWeeks}
               phases={phaseInfos}
-              onWeekChange={setCurrentWeek}
+              onWeekChange={weekActions.setCurrentWeek}
+              onCloneWeek={handleOpenCloneWeekDialog}
+              onApplyProgression={handleApplyProgression}
+              onRemoveWeek={handleRemoveWeek}
             />
 
             {/* MAIN SECTION: Slot-Based Day Grid */}
@@ -1066,10 +935,10 @@ export default function ProgramBuilder() {
               currentWeek={currentWeek}
               totalWeeks={totalWeeks}
               weekData={weekData}
-              selectedExerciseId={selectedExercise?.exercise.id}
+              selectedExerciseId={storeSelectedExercise?.exerciseId}
               isCopyingDay={isCopyingDay}
               isCopyingWeek={isCopyingWeek}
-              onWeekChange={setCurrentWeek}
+              onWeekChange={weekActions.setCurrentWeek}
               onRemoveExercise={handleRemoveExercise}
               onToggleSuperset={handleToggleSuperset}
               onSelectExercise={handleSelectExercise}
@@ -1081,13 +950,13 @@ export default function ProgramBuilder() {
           </div>
 
           {/* Right Sidebar - Context Editor */}
-          {selectedExercise && contextEditorExercise && (
+          {storeSelectedExercise && contextEditorExercise && (
             <ExerciseContextEditor
               exercise={contextEditorExercise as any}
-              dayIndex={selectedExercise.dayIndex}
+              dayIndex={storeSelectedExercise.dayIndex}
               oneRM={getOneRM()}
               onUpdate={(updated) => handleContextEditorUpdate(updated as ProgramExercise)}
-              onClose={() => setSelectedExercise(null)}
+              onClose={() => selectionActions.clearSelection()}
               className="w-72 flex-shrink-0"
             />
           )}
@@ -1098,6 +967,16 @@ export default function ProgramBuilder() {
           <DragOverlayContent exercise={activeExercise} />
         </DragOverlay>
       </DndContext>
+
+      {/* Clone Week Dialog */}
+      <CloneWeekDialog
+        open={cloneWeekDialogOpen}
+        onOpenChange={setCloneWeekDialogOpen}
+        sourceWeekIndex={cloneWeekSourceIndex}
+        totalWeeks={totalWeeks}
+        onConfirm={handleConfirmCloneWeek}
+        isLoading={isCloning}
+      />
 
       {/* Save Dialog */}
       <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>

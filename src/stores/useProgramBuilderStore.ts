@@ -134,12 +134,54 @@ function generateSupersetGroupId(): string {
   return `superset-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
 }
 
-function cloneExercise(exercise: ProgramExercise): ProgramExercise {
+/**
+ * Deep clones an exercise with NEW unique IDs for all nested data.
+ * This ensures no reference bugs when cloning weeks.
+ */
+function deepCloneExercise(exercise: ProgramExercise): ProgramExercise {
+  // Generate completely new unique ID
+  const newId = crypto.randomUUID();
+  
+  // Deep clone setsData if present
+  let clonedSetsData: SetDataRecord[] | undefined;
+  if (exercise.setsData && Array.isArray(exercise.setsData)) {
+    clonedSetsData = exercise.setsData.map((setData) => ({
+      ...setData,
+      // Preserve all set properties but ensure it's a new object
+    }));
+  }
+
+  // Deep clone progression if present
+  let clonedProgression: ExerciseProgression | undefined;
+  if (exercise.progression) {
+    clonedProgression = {
+      ...exercise.progression,
+      rules: exercise.progression.rules?.map((rule) => ({ ...rule })) || [],
+    };
+  }
+
+  // Deep clone snapshot arrays
+  const clonedSnapshotTrackingFields = exercise.snapshotTrackingFields
+    ? [...exercise.snapshotTrackingFields]
+    : undefined;
+  const clonedSnapshotMuscles = exercise.snapshotMuscles
+    ? [...exercise.snapshotMuscles]
+    : undefined;
+
   return {
     ...exercise,
-    id: `ex-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    id: newId,
     supersetGroup: undefined, // Don't clone superset associations
+    setsData: clonedSetsData,
+    progression: clonedProgression,
+    snapshotTrackingFields: clonedSnapshotTrackingFields,
+    snapshotMuscles: clonedSnapshotMuscles,
   };
+}
+
+// Legacy alias for backwards compatibility
+function cloneExercise(exercise: ProgramExercise): ProgramExercise {
+  return deepCloneExercise(exercise);
 }
 
 const DEFAULT_WEEKS = 4;
@@ -251,7 +293,7 @@ export const useProgramBuilderStore = create<ProgramBuilderStore>()(
         if (!sourceWeek) return;
 
         for (const targetIndex of targetWeekIndices) {
-          // Ensure target week exists
+          // Ensure target week exists with empty days
           if (!state.program[targetIndex]) {
             state.program[targetIndex] = {};
             for (let d = 0; d < 7; d++) {
@@ -259,10 +301,15 @@ export const useProgramBuilderStore = create<ProgramBuilderStore>()(
             }
           }
 
-          // Clone all exercises from source to target (overwrite)
+          // Deep clone all exercises from source to target (overwrite)
+          // Uses deepCloneExercise to ensure NEW unique IDs for:
+          // - exercise.id
+          // - setsData arrays
+          // - progression rules
+          // - snapshot arrays
           for (let d = 0; d < 7; d++) {
             const sourceDay = sourceWeek[d] || [];
-            state.program[targetIndex][d] = sourceDay.map((ex) => cloneExercise(ex));
+            state.program[targetIndex][d] = sourceDay.map((ex) => deepCloneExercise(ex));
           }
 
           // Expand totalWeeks if needed
