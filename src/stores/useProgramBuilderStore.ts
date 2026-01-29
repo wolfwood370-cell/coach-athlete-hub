@@ -1,8 +1,7 @@
 import { create } from 'zustand';
-import { immer } from 'zustand/middleware/immer';
 import type { ProgramExercise as BaseProgramExercise, WeekProgram, ProgramData } from '@/components/coach/WeekGrid';
 import type { SetDataRecord } from '@/types/database';
-import type { ExerciseProgression, ProgressionRule } from '@/types/progression';
+import type { ExerciseProgression } from '@/types/progression';
 import { calculateProgressedValue, parseLoadValue, formatLoadValue } from '@/types/progression';
 
 // =========================================
@@ -147,7 +146,6 @@ function deepCloneExercise(exercise: ProgramExercise): ProgramExercise {
   if (exercise.setsData && Array.isArray(exercise.setsData)) {
     clonedSetsData = exercise.setsData.map((setData) => ({
       ...setData,
-      // Preserve all set properties but ensure it's a new object
     }));
   }
 
@@ -171,7 +169,7 @@ function deepCloneExercise(exercise: ProgramExercise): ProgramExercise {
   return {
     ...exercise,
     id: newId,
-    supersetGroup: undefined, // Don't clone superset associations
+    supersetGroup: undefined,
     setsData: clonedSetsData,
     progression: clonedProgression,
     snapshotTrackingFields: clonedSnapshotTrackingFields,
@@ -184,695 +182,756 @@ function cloneExercise(exercise: ProgramExercise): ProgramExercise {
   return deepCloneExercise(exercise);
 }
 
+// Helper to deeply clone program data
+function deepCloneProgram(program: ProgramData): ProgramData {
+  const cloned: ProgramData = {};
+  for (const weekKey of Object.keys(program)) {
+    const weekIndex = Number(weekKey);
+    cloned[weekIndex] = {};
+    for (let d = 0; d < 7; d++) {
+      cloned[weekIndex][d] = (program[weekIndex]?.[d] || []).map(ex => ({ ...ex }));
+    }
+  }
+  return cloned;
+}
+
 const DEFAULT_WEEKS = 4;
 
 // =========================================
 // Store
 // =========================================
 
-export const useProgramBuilderStore = create<ProgramBuilderStore>()(
-  immer((set, get) => ({
-    // Initial state
-    program: createEmptyProgram(DEFAULT_WEEKS),
-    totalWeeks: DEFAULT_WEEKS,
-    currentWeek: 0,
-    selectedExercise: null,
-    supersetPendingId: null,
-    programId: null,
-    programName: '',
-    isDirty: false,
+export const useProgramBuilderStore = create<ProgramBuilderStore>()((set, get) => ({
+  // Initial state
+  program: createEmptyProgram(DEFAULT_WEEKS),
+  totalWeeks: DEFAULT_WEEKS,
+  currentWeek: 0,
+  selectedExercise: null,
+  supersetPendingId: null,
+  programId: null,
+  programName: '',
+  isDirty: false,
 
-    // =========================================
-    // Initialization
-    // =========================================
+  // =========================================
+  // Initialization
+  // =========================================
+  
+  initProgram: (weeks = DEFAULT_WEEKS) => {
+    set({
+      program: createEmptyProgram(weeks),
+      totalWeeks: weeks,
+      currentWeek: 0,
+      selectedExercise: null,
+      supersetPendingId: null,
+      programId: null,
+      programName: '',
+      isDirty: false,
+    });
+  },
+
+  loadProgram: (data, id, name) => {
+    set({
+      program: data,
+      totalWeeks: Object.keys(data).length,
+      currentWeek: 0,
+      selectedExercise: null,
+      supersetPendingId: null,
+      programId: id,
+      programName: name,
+      isDirty: false,
+    });
+  },
+
+  reset: () => {
+    set({
+      program: createEmptyProgram(DEFAULT_WEEKS),
+      totalWeeks: DEFAULT_WEEKS,
+      currentWeek: 0,
+      selectedExercise: null,
+      supersetPendingId: null,
+      programId: null,
+      programName: '',
+      isDirty: false,
+    });
+  },
+
+  // =========================================
+  // Week Operations
+  // =========================================
+
+  setCurrentWeek: (weekIndex) => {
+    const state = get();
+    if (weekIndex >= 0 && weekIndex < state.totalWeeks) {
+      set({ currentWeek: weekIndex });
+    }
+  },
+
+  addWeek: () => {
+    const state = get();
+    const newWeekIndex = state.totalWeeks;
+    const newProgram = deepCloneProgram(state.program);
+    newProgram[newWeekIndex] = {};
+    for (let d = 0; d < 7; d++) {
+      newProgram[newWeekIndex][d] = [];
+    }
+    set({
+      program: newProgram,
+      totalWeeks: state.totalWeeks + 1,
+      isDirty: true,
+    });
+  },
+
+  duplicateWeek: (weekIndex) => {
+    const state = get();
+    const sourceWeek = state.program[weekIndex];
+    if (!sourceWeek) return;
+
+    const newWeekIndex = state.totalWeeks;
+    const newProgram = deepCloneProgram(state.program);
+    newProgram[newWeekIndex] = {};
     
-    initProgram: (weeks = DEFAULT_WEEKS) => {
-      set((state) => {
-        state.program = createEmptyProgram(weeks);
-        state.totalWeeks = weeks;
-        state.currentWeek = 0;
-        state.selectedExercise = null;
-        state.supersetPendingId = null;
-        state.programId = null;
-        state.programName = '';
-        state.isDirty = false;
-      });
-    },
+    for (let d = 0; d < 7; d++) {
+      const sourceDay = sourceWeek[d] || [];
+      newProgram[newWeekIndex][d] = sourceDay.map((ex) => cloneExercise(ex));
+    }
+    
+    set({
+      program: newProgram,
+      totalWeeks: state.totalWeeks + 1,
+      isDirty: true,
+    });
+  },
 
-    loadProgram: (data, id, name) => {
-      set((state) => {
-        state.program = data;
-        state.totalWeeks = Object.keys(data).length;
-        state.currentWeek = 0;
-        state.selectedExercise = null;
-        state.supersetPendingId = null;
-        state.programId = id;
-        state.programName = name;
-        state.isDirty = false;
-      });
-    },
+  cloneWeekToRange: (sourceWeekIndex, targetWeekIndices) => {
+    const state = get();
+    const sourceWeek = state.program[sourceWeekIndex];
+    if (!sourceWeek) return;
 
-    reset: () => {
-      set((state) => {
-        state.program = createEmptyProgram(DEFAULT_WEEKS);
-        state.totalWeeks = DEFAULT_WEEKS;
-        state.currentWeek = 0;
-        state.selectedExercise = null;
-        state.supersetPendingId = null;
-        state.programId = null;
-        state.programName = '';
-        state.isDirty = false;
-      });
-    },
+    const newProgram = deepCloneProgram(state.program);
+    let newTotalWeeks = state.totalWeeks;
 
-    // =========================================
-    // Week Operations
-    // =========================================
-
-    setCurrentWeek: (weekIndex) => {
-      set((state) => {
-        if (weekIndex >= 0 && weekIndex < state.totalWeeks) {
-          state.currentWeek = weekIndex;
-        }
-      });
-    },
-
-    addWeek: () => {
-      set((state) => {
-        const newWeekIndex = state.totalWeeks;
-        state.program[newWeekIndex] = {};
+    for (const targetIndex of targetWeekIndices) {
+      // Ensure target week exists with empty days
+      if (!newProgram[targetIndex]) {
+        newProgram[targetIndex] = {};
         for (let d = 0; d < 7; d++) {
-          state.program[newWeekIndex][d] = [];
-        }
-        state.totalWeeks += 1;
-        state.isDirty = true;
-      });
-    },
-
-    duplicateWeek: (weekIndex) => {
-      set((state) => {
-        const sourceWeek = state.program[weekIndex];
-        if (!sourceWeek) return;
-
-        const newWeekIndex = state.totalWeeks;
-        state.program[newWeekIndex] = {};
-        
-        for (let d = 0; d < 7; d++) {
-          const sourceDay = sourceWeek[d] || [];
-          state.program[newWeekIndex][d] = sourceDay.map((ex) => cloneExercise(ex));
-        }
-        
-        state.totalWeeks += 1;
-        state.isDirty = true;
-      });
-    },
-
-    cloneWeekToRange: (sourceWeekIndex, targetWeekIndices) => {
-      set((state) => {
-        const sourceWeek = state.program[sourceWeekIndex];
-        if (!sourceWeek) return;
-
-        for (const targetIndex of targetWeekIndices) {
-          // Ensure target week exists with empty days
-          if (!state.program[targetIndex]) {
-            state.program[targetIndex] = {};
-            for (let d = 0; d < 7; d++) {
-              state.program[targetIndex][d] = [];
-            }
-          }
-
-          // Deep clone all exercises from source to target (overwrite)
-          // Uses deepCloneExercise to ensure NEW unique IDs for:
-          // - exercise.id
-          // - setsData arrays
-          // - progression rules
-          // - snapshot arrays
-          for (let d = 0; d < 7; d++) {
-            const sourceDay = sourceWeek[d] || [];
-            state.program[targetIndex][d] = sourceDay.map((ex) => deepCloneExercise(ex));
-          }
-
-          // Expand totalWeeks if needed
-          if (targetIndex >= state.totalWeeks) {
-            state.totalWeeks = targetIndex + 1;
-          }
-        }
-
-        state.isDirty = true;
-      });
-    },
-
-    extractBlock: (startWeek, endWeek) => {
-      const state = get();
-      const blockData: ProgramData = {};
-      
-      for (let w = startWeek; w <= endWeek; w++) {
-        const relativeIndex = w - startWeek;
-        blockData[relativeIndex] = {};
-        
-        for (let d = 0; d < 7; d++) {
-          const sourceDay = state.program[w]?.[d] || [];
-          blockData[relativeIndex][d] = sourceDay.map((ex) => ({
-            ...ex,
-            id: crypto.randomUUID(),
-            supersetGroup: undefined,
-          }));
+          newProgram[targetIndex][d] = [];
         }
       }
+
+      // Deep clone all exercises from source to target (overwrite)
+      for (let d = 0; d < 7; d++) {
+        const sourceDay = sourceWeek[d] || [];
+        newProgram[targetIndex][d] = sourceDay.map((ex) => deepCloneExercise(ex));
+      }
+
+      // Expand totalWeeks if needed
+      if (targetIndex >= newTotalWeeks) {
+        newTotalWeeks = targetIndex + 1;
+      }
+    }
+
+    set({
+      program: newProgram,
+      totalWeeks: newTotalWeeks,
+      isDirty: true,
+    });
+  },
+
+  extractBlock: (startWeek, endWeek) => {
+    const state = get();
+    const blockData: ProgramData = {};
+    
+    for (let w = startWeek; w <= endWeek; w++) {
+      const relativeIndex = w - startWeek;
+      blockData[relativeIndex] = {};
       
-      return blockData;
-    },
+      for (let d = 0; d < 7; d++) {
+        const sourceDay = state.program[w]?.[d] || [];
+        blockData[relativeIndex][d] = sourceDay.map((ex) => ({
+          ...ex,
+          id: crypto.randomUUID(),
+          supersetGroup: undefined,
+        }));
+      }
+    }
+    
+    return blockData;
+  },
 
-    insertBlock: (blockData, atWeekIndex) => {
-      set((state) => {
-        const blockSize = Object.keys(blockData).length;
-        
-        // Shift existing weeks to make room
-        const newProgram: ProgramData = {};
-        
-        // Copy weeks before insertion point
-        for (let w = 0; w < atWeekIndex; w++) {
-          if (state.program[w]) {
-            newProgram[w] = state.program[w];
-          }
+  insertBlock: (blockData, atWeekIndex) => {
+    const state = get();
+    const blockSize = Object.keys(blockData).length;
+    
+    // Shift existing weeks to make room
+    const newProgram: ProgramData = {};
+    
+    // Copy weeks before insertion point
+    for (let w = 0; w < atWeekIndex; w++) {
+      if (state.program[w]) {
+        newProgram[w] = { ...state.program[w] };
+        for (let d = 0; d < 7; d++) {
+          newProgram[w][d] = [...(state.program[w][d] || [])];
         }
-        
-        // Insert block data
-        for (let i = 0; i < blockSize; i++) {
-          newProgram[atWeekIndex + i] = {};
-          for (let d = 0; d < 7; d++) {
-            const sourceDay = blockData[i]?.[d] || [];
-            newProgram[atWeekIndex + i][d] = sourceDay.map((ex) => ({
-              ...ex,
-              id: crypto.randomUUID(),
-            }));
-          }
+      }
+    }
+    
+    // Insert block data
+    for (let i = 0; i < blockSize; i++) {
+      newProgram[atWeekIndex + i] = {};
+      for (let d = 0; d < 7; d++) {
+        const sourceDay = blockData[i]?.[d] || [];
+        newProgram[atWeekIndex + i][d] = sourceDay.map((ex) => ({
+          ...ex,
+          id: crypto.randomUUID(),
+        }));
+      }
+    }
+    
+    // Shift remaining weeks
+    for (let w = atWeekIndex; w < state.totalWeeks; w++) {
+      if (state.program[w]) {
+        newProgram[w + blockSize] = { ...state.program[w] };
+        for (let d = 0; d < 7; d++) {
+          newProgram[w + blockSize][d] = [...(state.program[w][d] || [])];
         }
-        
-        // Shift remaining weeks
-        for (let w = atWeekIndex; w < state.totalWeeks; w++) {
-          if (state.program[w]) {
-            newProgram[w + blockSize] = state.program[w];
-          }
+      }
+    }
+    
+    set({
+      program: newProgram,
+      totalWeeks: state.totalWeeks + blockSize,
+      isDirty: true,
+    });
+  },
+
+  removeWeek: (weekIndex) => {
+    const state = get();
+    if (state.totalWeeks <= 1) return; // Keep at least 1 week
+
+    // Reindex remaining weeks
+    const newProgram: ProgramData = {};
+    let newIndex = 0;
+    for (let i = 0; i < state.totalWeeks; i++) {
+      if (i !== weekIndex && state.program[i]) {
+        newProgram[newIndex] = { ...state.program[i] };
+        for (let d = 0; d < 7; d++) {
+          newProgram[newIndex][d] = [...(state.program[i][d] || [])];
         }
-        
-        state.program = newProgram;
-        state.totalWeeks = state.totalWeeks + blockSize;
-        state.isDirty = true;
-      });
-    },
+        newIndex++;
+      }
+    }
 
-    removeWeek: (weekIndex) => {
-      set((state) => {
-        if (state.totalWeeks <= 1) return; // Keep at least 1 week
+    const newTotalWeeks = state.totalWeeks - 1;
+    const newCurrentWeek = state.currentWeek >= newTotalWeeks ? newTotalWeeks - 1 : state.currentWeek;
 
-        // Remove the week
-        delete state.program[weekIndex];
+    set({
+      program: newProgram,
+      totalWeeks: newTotalWeeks,
+      currentWeek: newCurrentWeek,
+      isDirty: true,
+    });
+  },
 
-        // Reindex remaining weeks
-        const newProgram: ProgramData = {};
-        let newIndex = 0;
-        for (let i = 0; i < state.totalWeeks; i++) {
-          if (i !== weekIndex && state.program[i]) {
-            newProgram[newIndex] = state.program[i];
-            newIndex++;
-          }
+  setTotalWeeks: (count) => {
+    const state = get();
+    if (count < 1 || count > 52) return; // Reasonable limits
+
+    const newProgram = deepCloneProgram(state.program);
+
+    if (count > state.totalWeeks) {
+      // Add weeks
+      for (let w = state.totalWeeks; w < count; w++) {
+        newProgram[w] = {};
+        for (let d = 0; d < 7; d++) {
+          newProgram[w][d] = [];
         }
+      }
+    } else if (count < state.totalWeeks) {
+      // Remove weeks from the end
+      for (let w = count; w < state.totalWeeks; w++) {
+        delete newProgram[w];
+      }
+    }
 
-        state.program = newProgram;
-        state.totalWeeks -= 1;
-        
-        // Adjust current week if necessary
-        if (state.currentWeek >= state.totalWeeks) {
-          state.currentWeek = state.totalWeeks - 1;
+    const newCurrentWeek = state.currentWeek >= count ? count - 1 : state.currentWeek;
+
+    set({
+      program: newProgram,
+      totalWeeks: count,
+      currentWeek: newCurrentWeek,
+      isDirty: true,
+    });
+  },
+
+  // =========================================
+  // Day Operations
+  // =========================================
+
+  addDay: (weekId) => {
+    const state = get();
+    const newProgram = deepCloneProgram(state.program);
+    
+    // Ensure the week exists
+    if (!newProgram[weekId]) {
+      newProgram[weekId] = {};
+      for (let d = 0; d < 7; d++) {
+        newProgram[weekId][d] = [];
+      }
+    }
+    
+    set({ program: newProgram, isDirty: true });
+  },
+
+  copyDay: (fromWeekIndex, fromDayIndex, toWeekIndex, toDayIndex, mode) => {
+    const state = get();
+    const newProgram = deepCloneProgram(state.program);
+    
+    const sourceExercises = state.program[fromWeekIndex]?.[fromDayIndex] || [];
+    
+    if (!newProgram[toWeekIndex]) {
+      newProgram[toWeekIndex] = {};
+      for (let d = 0; d < 7; d++) {
+        newProgram[toWeekIndex][d] = [];
+      }
+    }
+
+    const clonedExercises = sourceExercises
+      .filter((ex) => !ex.isEmpty)
+      .map((ex) => cloneExercise(ex));
+
+    if (mode === 'overwrite') {
+      newProgram[toWeekIndex][toDayIndex] = clonedExercises;
+    } else {
+      newProgram[toWeekIndex][toDayIndex] = [
+        ...(newProgram[toWeekIndex][toDayIndex] || []),
+        ...clonedExercises,
+      ];
+    }
+
+    set({ program: newProgram, isDirty: true });
+  },
+
+  copyDayToMultiple: (fromWeekIndex, fromDayIndex, targets, mode) => {
+    const state = get();
+    const newProgram = deepCloneProgram(state.program);
+    const sourceExercises = state.program[fromWeekIndex]?.[fromDayIndex] || [];
+    
+    for (const target of targets) {
+      if (!newProgram[target.weekIndex]) {
+        newProgram[target.weekIndex] = {};
+        for (let d = 0; d < 7; d++) {
+          newProgram[target.weekIndex][d] = [];
         }
-        
-        state.isDirty = true;
-      });
-    },
+      }
 
-    setTotalWeeks: (count) => {
-      set((state) => {
-        if (count < 1 || count > 52) return; // Reasonable limits
+      const clonedExercises = sourceExercises
+        .filter((ex) => !ex.isEmpty)
+        .map((ex) => cloneExercise(ex));
 
-        if (count > state.totalWeeks) {
-          // Add weeks
-          for (let w = state.totalWeeks; w < count; w++) {
-            state.program[w] = {};
-            for (let d = 0; d < 7; d++) {
-              state.program[w][d] = [];
-            }
-          }
-        } else if (count < state.totalWeeks) {
-          // Remove weeks from the end
-          for (let w = count; w < state.totalWeeks; w++) {
-            delete state.program[w];
-          }
-          if (state.currentWeek >= count) {
-            state.currentWeek = count - 1;
-          }
-        }
+      if (mode === 'overwrite') {
+        newProgram[target.weekIndex][target.dayIndex] = clonedExercises;
+      } else {
+        newProgram[target.weekIndex][target.dayIndex] = [
+          ...(newProgram[target.weekIndex][target.dayIndex] || []),
+          ...clonedExercises,
+        ];
+      }
+    }
 
-        state.totalWeeks = count;
-        state.isDirty = true;
-      });
-    },
+    set({ program: newProgram, isDirty: true });
+  },
 
-    // =========================================
-    // Day Operations
-    // =========================================
+  clearDay: (weekIndex, dayIndex) => {
+    const state = get();
+    if (!state.program[weekIndex]?.[dayIndex]) return;
+    
+    const newProgram = deepCloneProgram(state.program);
+    newProgram[weekIndex][dayIndex] = [];
+    
+    set({ program: newProgram, isDirty: true });
+  },
 
-    addDay: (weekId) => {
-      // Days are fixed (0-6), so this is effectively a no-op or could add a slot
-      set((state) => {
-        // Ensure the week exists
-        if (!state.program[weekId]) {
-          state.program[weekId] = {};
-          for (let d = 0; d < 7; d++) {
-            state.program[weekId][d] = [];
-          }
-        }
-        state.isDirty = true;
-      });
-    },
+  // =========================================
+  // Exercise Operations
+  // =========================================
 
-    copyDay: (fromWeekIndex, fromDayIndex, toWeekIndex, toDayIndex, mode) => {
-      set((state) => {
-        const sourceExercises = state.program[fromWeekIndex]?.[fromDayIndex] || [];
-        if (!state.program[toWeekIndex]) {
-          state.program[toWeekIndex] = {};
-        }
-        if (!state.program[toWeekIndex][toDayIndex]) {
-          state.program[toWeekIndex][toDayIndex] = [];
-        }
+  addExercise: (dayIndex, exercise, weekIndex) => {
+    const state = get();
+    const week = weekIndex ?? state.currentWeek;
+    const newProgram = deepCloneProgram(state.program);
+    
+    if (!newProgram[week]) {
+      newProgram[week] = {};
+      for (let d = 0; d < 7; d++) {
+        newProgram[week][d] = [];
+      }
+    }
+    
+    newProgram[week][dayIndex] = [...(newProgram[week][dayIndex] || []), exercise];
+    
+    set({ program: newProgram, isDirty: true });
+  },
 
-        const clonedExercises = sourceExercises
-          .filter((ex) => !ex.isEmpty)
-          .map((ex) => cloneExercise(ex));
+  addEmptySlot: (dayIndex, weekIndex) => {
+    const state = get();
+    const week = weekIndex ?? state.currentWeek;
+    const newProgram = deepCloneProgram(state.program);
+    
+    if (!newProgram[week]) {
+      newProgram[week] = {};
+      for (let d = 0; d < 7; d++) {
+        newProgram[week][d] = [];
+      }
+    }
+    
+    newProgram[week][dayIndex] = [
+      ...(newProgram[week][dayIndex] || []),
+      createEmptySlot(week, dayIndex),
+    ];
+    
+    set({ program: newProgram, isDirty: true });
+  },
 
-        if (mode === 'overwrite') {
-          state.program[toWeekIndex][toDayIndex] = clonedExercises;
-        } else {
-          state.program[toWeekIndex][toDayIndex].push(...clonedExercises);
-        }
+  updateExercise: (dayIndex, exerciseId, updates, weekIndex) => {
+    const state = get();
+    const week = weekIndex ?? state.currentWeek;
+    const exercises = state.program[week]?.[dayIndex];
+    if (!exercises) return;
 
-        state.isDirty = true;
-      });
-    },
+    const idx = exercises.findIndex((ex) => ex.id === exerciseId);
+    if (idx === -1) return;
+    
+    const newProgram = deepCloneProgram(state.program);
+    newProgram[week][dayIndex][idx] = { ...newProgram[week][dayIndex][idx], ...updates };
+    
+    set({ program: newProgram, isDirty: true });
+  },
 
-    copyDayToMultiple: (fromWeekIndex, fromDayIndex, targets, mode) => {
-      set((state) => {
-        const sourceExercises = state.program[fromWeekIndex]?.[fromDayIndex] || [];
-        
-        for (const target of targets) {
-          if (!state.program[target.weekIndex]) {
-            state.program[target.weekIndex] = {};
-          }
-          if (!state.program[target.weekIndex][target.dayIndex]) {
-            state.program[target.weekIndex][target.dayIndex] = [];
-          }
+  removeExercise: (dayIndex, exerciseId, weekIndex) => {
+    const state = get();
+    const week = weekIndex ?? state.currentWeek;
+    const exercises = state.program[week]?.[dayIndex];
+    if (!exercises) return;
 
-          const clonedExercises = sourceExercises
-            .filter((ex) => !ex.isEmpty)
-            .map((ex) => cloneExercise(ex));
+    const idx = exercises.findIndex((ex) => ex.id === exerciseId);
+    if (idx === -1) return;
+    
+    const newProgram = deepCloneProgram(state.program);
+    newProgram[week][dayIndex] = newProgram[week][dayIndex].filter((ex) => ex.id !== exerciseId);
+    
+    const newSelectedExercise = state.selectedExercise?.exerciseId === exerciseId ? null : state.selectedExercise;
+    
+    set({ program: newProgram, selectedExercise: newSelectedExercise, isDirty: true });
+  },
 
-          if (mode === 'overwrite') {
-            state.program[target.weekIndex][target.dayIndex] = clonedExercises;
-          } else {
-            state.program[target.weekIndex][target.dayIndex].push(...clonedExercises);
-          }
-        }
+  reorderExercises: (dayIndex, newOrder, weekIndex) => {
+    const state = get();
+    const week = weekIndex ?? state.currentWeek;
+    const exercises = state.program[week]?.[dayIndex];
+    if (!exercises) return;
 
-        state.isDirty = true;
-      });
-    },
+    // Create a map for quick lookup
+    const exerciseMap = new Map<string, BaseProgramExercise>(exercises.map((ex) => [ex.id, ex]));
+    
+    // Reorder based on newOrder array
+    const reordered: BaseProgramExercise[] = [];
+    for (const id of newOrder) {
+      const ex = exerciseMap.get(id);
+      if (ex) {
+        reordered.push({ ...ex });
+        exerciseMap.delete(id);
+      }
+    }
+    
+    // Append any exercises not in newOrder (shouldn't happen, but safety)
+    exerciseMap.forEach((ex) => reordered.push({ ...ex }));
+    
+    const newProgram = deepCloneProgram(state.program);
+    newProgram[week][dayIndex] = reordered;
+    
+    set({ program: newProgram, isDirty: true });
+  },
 
-    clearDay: (weekIndex, dayIndex) => {
-      set((state) => {
-        if (state.program[weekIndex]?.[dayIndex]) {
-          state.program[weekIndex][dayIndex] = [];
-          state.isDirty = true;
-        }
-      });
-    },
+  fillSlot: (slotId, libraryExercise, weekIndex, dayIndex) => {
+    const state = get();
+    const exercises = state.program[weekIndex]?.[dayIndex];
+    if (!exercises) return;
 
-    // =========================================
-    // Exercise Operations
-    // =========================================
+    const idx = exercises.findIndex((ex) => ex.id === slotId);
+    if (idx === -1 || !exercises[idx].isEmpty) return;
+    
+    const newProgram = deepCloneProgram(state.program);
+    newProgram[weekIndex][dayIndex][idx] = {
+      id: `ex-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      exerciseId: libraryExercise.id,
+      name: libraryExercise.name,
+      sets: 3,
+      reps: '8-12',
+      load: '',
+      rpe: null,
+      restSeconds: 90,
+      notes: '',
+      isEmpty: false,
+      snapshotTrackingFields: [...libraryExercise.tracking_fields],
+      snapshotMuscles: [...libraryExercise.muscles],
+    };
+    
+    set({ program: newProgram, isDirty: true });
+  },
 
-    addExercise: (dayIndex, exercise, weekIndex) => {
-      set((state) => {
-        const week = weekIndex ?? state.currentWeek;
-        if (!state.program[week]) {
-          state.program[week] = {};
-        }
-        if (!state.program[week][dayIndex]) {
-          state.program[week][dayIndex] = [];
-        }
-        state.program[week][dayIndex].push(exercise);
-        state.isDirty = true;
-      });
-    },
+  // =========================================
+  // Set Operations
+  // =========================================
 
-    addEmptySlot: (dayIndex, weekIndex) => {
-      set((state) => {
-        const week = weekIndex ?? state.currentWeek;
-        if (!state.program[week]) {
-          state.program[week] = {};
-        }
-        if (!state.program[week][dayIndex]) {
-          state.program[week][dayIndex] = [];
-        }
-        state.program[week][dayIndex].push(createEmptySlot(week, dayIndex));
-        state.isDirty = true;
-      });
-    },
+  updateSet: (exerciseId, setIndex, field, value, weekIndex, dayIndex) => {
+    const state = get();
+    const newProgram = deepCloneProgram(state.program);
+    
+    // Find the exercise
+    let foundWeek: number | undefined;
+    let foundDay: number | undefined;
+    let foundIdx: number | undefined;
 
-    updateExercise: (dayIndex, exerciseId, updates, weekIndex) => {
-      set((state) => {
-        const week = weekIndex ?? state.currentWeek;
-        const exercises = state.program[week]?.[dayIndex];
-        if (!exercises) return;
-
+    if (weekIndex !== undefined && dayIndex !== undefined) {
+      const exercises = newProgram[weekIndex]?.[dayIndex];
+      if (exercises) {
         const idx = exercises.findIndex((ex) => ex.id === exerciseId);
         if (idx !== -1) {
-          Object.assign(exercises[idx], updates);
-          state.isDirty = true;
+          foundWeek = weekIndex;
+          foundDay = dayIndex;
+          foundIdx = idx;
         }
-      });
-    },
-
-    removeExercise: (dayIndex, exerciseId, weekIndex) => {
-      set((state) => {
-        const week = weekIndex ?? state.currentWeek;
-        const exercises = state.program[week]?.[dayIndex];
-        if (!exercises) return;
-
-        const idx = exercises.findIndex((ex) => ex.id === exerciseId);
-        if (idx !== -1) {
-          exercises.splice(idx, 1);
-          
-          // Clear selection if removing selected exercise
-          if (state.selectedExercise?.exerciseId === exerciseId) {
-            state.selectedExercise = null;
-          }
-          
-          state.isDirty = true;
-        }
-      });
-    },
-
-    reorderExercises: (dayIndex, newOrder, weekIndex) => {
-      set((state) => {
-        const week = weekIndex ?? state.currentWeek;
-        const exercises = state.program[week]?.[dayIndex];
-        if (!exercises) return;
-
-        // Create a map for quick lookup
-        const exerciseMap = new Map<string, BaseProgramExercise>(exercises.map((ex) => [ex.id, ex]));
-        
-        // Reorder based on newOrder array
-        const reordered: BaseProgramExercise[] = [];
-        for (const id of newOrder) {
-          const ex = exerciseMap.get(id);
-          if (ex) {
-            reordered.push(ex);
-            exerciseMap.delete(id);
+      }
+    } else {
+      // Search current week
+      for (let d = 0; d < 7; d++) {
+        const exercises = newProgram[state.currentWeek]?.[d];
+        if (exercises) {
+          const idx = exercises.findIndex((e) => e.id === exerciseId);
+          if (idx !== -1) {
+            foundWeek = state.currentWeek;
+            foundDay = d;
+            foundIdx = idx;
+            break;
           }
         }
+      }
+    }
+
+    if (foundWeek === undefined || foundDay === undefined || foundIdx === undefined) return;
+
+    const exercise = newProgram[foundWeek][foundDay][foundIdx] as ProgramExercise;
+
+    // For set-level updates, we store them in a setsData array
+    // Initialize if not present
+    if (!exercise.setsData) {
+      exercise.setsData = Array.from({ length: exercise.sets }, (_, i) => ({
+        set_number: i + 1,
+        reps: 0,
+        weight_kg: 0,
+        completed: false,
+      }));
+    }
+
+    // Ensure setIndex is valid and update the field
+    if (setIndex >= 0 && setIndex < exercise.setsData.length) {
+      const setData = { ...exercise.setsData[setIndex] };
+      switch (field) {
+        case 'reps':
+          setData.reps = value as number;
+          break;
+        case 'weight_kg':
+          setData.weight_kg = value as number;
+          break;
+        case 'rpe':
+          setData.rpe = value as number;
+          break;
+        case 'completed':
+          setData.completed = value as boolean;
+          break;
+      }
+      exercise.setsData = [...exercise.setsData];
+      exercise.setsData[setIndex] = setData;
+    }
+
+    set({ program: newProgram, isDirty: true });
+  },
+
+  // =========================================
+  // Superset Operations
+  // =========================================
+
+  setSupersetPending: (exerciseId) => {
+    set({ supersetPendingId: exerciseId });
+  },
+
+  toggleSuperset: (dayIndex, exerciseId, weekIndex) => {
+    const state = get();
+    const week = weekIndex ?? state.currentWeek;
+    const exercises = state.program[week]?.[dayIndex];
+    if (!exercises) return;
+
+    const exercise = exercises.find((ex) => ex.id === exerciseId);
+    if (!exercise || exercise.isEmpty) return;
+
+    const newProgram = deepCloneProgram(state.program);
+    const newExercises = newProgram[week][dayIndex];
+    const newExercise = newExercises.find((ex) => ex.id === exerciseId);
+    if (!newExercise) return;
+
+    // If already in a superset, remove from it
+    if (newExercise.supersetGroup) {
+      const groupId = newExercise.supersetGroup;
+      newExercise.supersetGroup = undefined;
+      
+      // Check if any other exercise still uses this group
+      const otherInGroup = newExercises.filter(
+        (ex) => ex.supersetGroup === groupId && ex.id !== exerciseId
+      );
+      
+      // If only one left, remove their superset too
+      if (otherInGroup.length === 1) {
+        otherInGroup[0].supersetGroup = undefined;
+      }
+      
+      set({ program: newProgram, supersetPendingId: null, isDirty: true });
+      return;
+    }
+
+    // If there's a pending superset exercise
+    if (state.supersetPendingId && state.supersetPendingId !== exerciseId) {
+      const pendingExercise = newExercises.find((ex) => ex.id === state.supersetPendingId);
+      if (pendingExercise && !pendingExercise.isEmpty) {
+        // Create or join superset
+        const groupId = pendingExercise.supersetGroup || generateSupersetGroupId();
+        pendingExercise.supersetGroup = groupId;
+        newExercise.supersetGroup = groupId;
+        set({ program: newProgram, supersetPendingId: null, isDirty: true });
+      }
+    } else {
+      // Set this as pending
+      set({ supersetPendingId: exerciseId });
+    }
+  },
+
+  // =========================================
+  // Selection
+  // =========================================
+
+  selectExercise: (weekIndex, dayIndex, exerciseId) => {
+    const state = get();
+    const exercise = state.program[weekIndex]?.[dayIndex]?.find((ex) => ex.id === exerciseId);
+    if (exercise && !exercise.isEmpty) {
+      set({ selectedExercise: { weekIndex, dayIndex, exerciseId } });
+    }
+  },
+
+  clearSelection: () => {
+    set({ selectedExercise: null });
+  },
+
+  // =========================================
+  // Progression
+  // =========================================
+
+  applyProgression: (fromWeekIndex) => {
+    const state = get();
+    const sourceWeek = state.program[fromWeekIndex];
+    if (!sourceWeek) return;
+
+    const newProgram = deepCloneProgram(state.program);
+
+    // For each subsequent week, apply progression rules
+    for (let targetWeekIndex = fromWeekIndex + 1; targetWeekIndex < state.totalWeeks; targetWeekIndex++) {
+      const weekOffset = targetWeekIndex - fromWeekIndex;
+
+      for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
+        const sourceExercises = sourceWeek[dayIndex] || [];
         
-        // Append any exercises not in newOrder (shouldn't happen, but safety)
-        exerciseMap.forEach((ex) => reordered.push(ex));
-        
-        state.program[week][dayIndex] = reordered;
-        state.isDirty = true;
-      });
-    },
-
-    fillSlot: (slotId, libraryExercise, weekIndex, dayIndex) => {
-      set((state) => {
-        const exercises = state.program[weekIndex]?.[dayIndex];
-        if (!exercises) return;
-
-        const idx = exercises.findIndex((ex) => ex.id === slotId);
-        if (idx !== -1 && exercises[idx].isEmpty) {
-          exercises[idx] = {
-            id: `ex-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            exerciseId: libraryExercise.id,
-            name: libraryExercise.name,
-            sets: 3,
-            reps: '8-12',
-            load: '',
-            rpe: null,
-            restSeconds: 90,
-            notes: '',
-            isEmpty: false,
-            snapshotTrackingFields: [...libraryExercise.tracking_fields],
-            snapshotMuscles: [...libraryExercise.muscles],
-          };
-          state.isDirty = true;
-        }
-      });
-    },
-
-    // =========================================
-    // Set Operations
-    // =========================================
-
-    updateSet: (exerciseId, setIndex, field, value, weekIndex, dayIndex) => {
-      set((state) => {
-        // Find the exercise across all days if weekIndex/dayIndex not provided
-        let exercise: (BaseProgramExercise & { setsData?: SetDataRecord[] }) | undefined;
-
-        if (weekIndex !== undefined && dayIndex !== undefined) {
-          exercise = state.program[weekIndex]?.[dayIndex]?.find((ex) => ex.id === exerciseId) as (BaseProgramExercise & { setsData?: SetDataRecord[] }) | undefined;
-        } else {
-          // Search current week
+        if (!newProgram[targetWeekIndex]) {
+          newProgram[targetWeekIndex] = {};
           for (let d = 0; d < 7; d++) {
-            const ex = state.program[state.currentWeek]?.[d]?.find((e) => e.id === exerciseId);
-            if (ex) {
-              exercise = ex as (BaseProgramExercise & { setsData?: SetDataRecord[] });
-              break;
-            }
+            newProgram[targetWeekIndex][d] = [];
           }
         }
 
-        if (!exercise) return;
+        // Find matching exercises in target week by exerciseId
+        for (const sourceEx of sourceExercises) {
+          if (!sourceEx.progression?.enabled || !sourceEx.progression.rules.length) continue;
 
-        // For set-level updates, we store them in a setsData array
-        // Initialize if not present
-        if (!exercise.setsData) {
-          exercise.setsData = Array.from({ length: exercise.sets }, (_, i) => ({
-            set_number: i + 1,
-            reps: 0,
-            weight_kg: 0,
-            completed: false,
-          }));
-        }
-
-        // Ensure setIndex is valid and update the field
-        if (setIndex >= 0 && setIndex < exercise.setsData.length) {
-          const setData = exercise.setsData[setIndex];
-          switch (field) {
-            case 'reps':
-              setData.reps = value as number;
-              break;
-            case 'weight_kg':
-              setData.weight_kg = value as number;
-              break;
-            case 'rpe':
-              setData.rpe = value as number;
-              break;
-            case 'completed':
-              setData.completed = value as boolean;
-              break;
-          }
-        }
-
-        state.isDirty = true;
-      });
-    },
-
-    // =========================================
-    // Superset Operations
-    // =========================================
-
-    setSupersetPending: (exerciseId) => {
-      set((state) => {
-        state.supersetPendingId = exerciseId;
-      });
-    },
-
-    toggleSuperset: (dayIndex, exerciseId, weekIndex) => {
-      set((state) => {
-        const week = weekIndex ?? state.currentWeek;
-        const exercises = state.program[week]?.[dayIndex];
-        if (!exercises) return;
-
-        const exercise = exercises.find((ex) => ex.id === exerciseId);
-        if (!exercise || exercise.isEmpty) return;
-
-        // If already in a superset, remove from it
-        if (exercise.supersetGroup) {
-          const groupId = exercise.supersetGroup;
-          exercise.supersetGroup = undefined;
-          
-          // Check if any other exercise still uses this group
-          const otherInGroup = exercises.filter(
-            (ex) => ex.supersetGroup === groupId && ex.id !== exerciseId
+          // Find or create matching exercise in target week
+          let targetExIdx = newProgram[targetWeekIndex][dayIndex].findIndex(
+            (ex) => ex.exerciseId === sourceEx.exerciseId && !ex.isEmpty
           );
-          
-          // If only one left, remove their superset too
-          if (otherInGroup.length === 1) {
-            otherInGroup[0].supersetGroup = undefined;
+
+          // If no matching exercise exists, clone from source
+          if (targetExIdx === -1) {
+            const newEx = {
+              ...sourceEx,
+              id: `ex-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              supersetGroup: undefined,
+            };
+            newProgram[targetWeekIndex][dayIndex].push(newEx);
+            targetExIdx = newProgram[targetWeekIndex][dayIndex].length - 1;
           }
-          
-          state.supersetPendingId = null;
-          state.isDirty = true;
-          return;
-        }
 
-        // If there's a pending superset exercise
-        if (state.supersetPendingId && state.supersetPendingId !== exerciseId) {
-          const pendingExercise = exercises.find((ex) => ex.id === state.supersetPendingId);
-          if (pendingExercise && !pendingExercise.isEmpty) {
-            // Create or join superset
-            const groupId = pendingExercise.supersetGroup || generateSupersetGroupId();
-            pendingExercise.supersetGroup = groupId;
-            exercise.supersetGroup = groupId;
-            state.supersetPendingId = null;
-            state.isDirty = true;
-          }
-        } else {
-          // Set this as pending
-          state.supersetPendingId = exerciseId;
-        }
-      });
-    },
+          const targetEx = newProgram[targetWeekIndex][dayIndex][targetExIdx];
 
-    // =========================================
-    // Selection
-    // =========================================
-
-    selectExercise: (weekIndex, dayIndex, exerciseId) => {
-      set((state) => {
-        const exercise = state.program[weekIndex]?.[dayIndex]?.find((ex) => ex.id === exerciseId);
-        if (exercise && !exercise.isEmpty) {
-          state.selectedExercise = { weekIndex, dayIndex, exerciseId };
-        }
-      });
-    },
-
-    clearSelection: () => {
-      set((state) => {
-        state.selectedExercise = null;
-      });
-    },
-
-    // =========================================
-    // Progression
-    // =========================================
-
-    applyProgression: (fromWeekIndex) => {
-      set((state) => {
-        const sourceWeek = state.program[fromWeekIndex];
-        if (!sourceWeek) return;
-
-        // For each subsequent week, apply progression rules
-        for (let targetWeekIndex = fromWeekIndex + 1; targetWeekIndex < state.totalWeeks; targetWeekIndex++) {
-          const weekOffset = targetWeekIndex - fromWeekIndex;
-
-          for (let dayIndex = 0; dayIndex < 7; dayIndex++) {
-            const sourceExercises = sourceWeek[dayIndex] || [];
-            
-            if (!state.program[targetWeekIndex]) {
-              state.program[targetWeekIndex] = {};
-            }
-            if (!state.program[targetWeekIndex][dayIndex]) {
-              state.program[targetWeekIndex][dayIndex] = [];
-            }
-
-            // Find matching exercises in target week by exerciseId
-            for (const sourceEx of sourceExercises) {
-              if (!sourceEx.progression?.enabled || !sourceEx.progression.rules.length) continue;
-
-              // Find or create matching exercise in target week
-              let targetEx = state.program[targetWeekIndex][dayIndex].find(
-                (ex) => ex.exerciseId === sourceEx.exerciseId && !ex.isEmpty
-              );
-
-              // If no matching exercise exists, clone from source
-              if (!targetEx) {
-                targetEx = {
-                  ...sourceEx,
-                  id: `ex-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                  supersetGroup: undefined,
-                };
-                state.program[targetWeekIndex][dayIndex].push(targetEx);
-              }
-
-              // Apply each progression rule
-              for (const rule of sourceEx.progression.rules) {
-                switch (rule.type) {
-                  case 'rir_decrease':
-                    // RIR is inverse of RPE (RPE 10 = RIR 0, RPE 8 = RIR 2)
-                    // For simplicity, we'll track RIR decrease as RPE increase
-                    if (sourceEx.rpe !== null) {
-                      targetEx.rpe = Math.min(10, sourceEx.rpe + (rule.value * weekOffset));
-                    }
-                    break;
-                  case 'rpe_increase':
-                    if (sourceEx.rpe !== null) {
-                      targetEx.rpe = Math.min(10, calculateProgressedValue(sourceEx.rpe, rule, weekOffset));
-                    }
-                    break;
-                  case 'load_percent':
-                  case 'load_absolute':
-                    const parsed = parseLoadValue(sourceEx.load);
-                    if (parsed) {
-                      const newValue = calculateProgressedValue(parsed.value, rule, weekOffset);
-                      targetEx.load = formatLoadValue(newValue, parsed.isPercent);
-                    }
-                    break;
-                  case 'reps_increase':
-                    const baseReps = parseInt(sourceEx.reps) || 0;
-                    if (baseReps > 0) {
-                      targetEx.reps = String(Math.round(calculateProgressedValue(baseReps, rule, weekOffset)));
-                    }
-                    break;
-                  case 'sets_increase':
-                    if (sourceEx.sets > 0) {
-                      targetEx.sets = Math.round(calculateProgressedValue(sourceEx.sets, rule, weekOffset));
-                    }
-                    break;
+          // Apply each progression rule
+          for (const rule of sourceEx.progression.rules) {
+            switch (rule.type) {
+              case 'rir_decrease':
+                // RIR is inverse of RPE (RPE 10 = RIR 0, RPE 8 = RIR 2)
+                if (sourceEx.rpe !== null) {
+                  targetEx.rpe = Math.min(10, sourceEx.rpe + (rule.value * weekOffset));
                 }
-              }
+                break;
+              case 'rpe_increase':
+                if (sourceEx.rpe !== null) {
+                  targetEx.rpe = Math.min(10, calculateProgressedValue(sourceEx.rpe, rule, weekOffset));
+                }
+                break;
+              case 'load_percent':
+              case 'load_absolute':
+                const parsed = parseLoadValue(sourceEx.load);
+                if (parsed) {
+                  const newValue = calculateProgressedValue(parsed.value, rule, weekOffset);
+                  targetEx.load = formatLoadValue(newValue, parsed.isPercent);
+                }
+                break;
+              case 'reps_increase':
+                const baseReps = parseInt(sourceEx.reps) || 0;
+                if (baseReps > 0) {
+                  targetEx.reps = String(Math.round(calculateProgressedValue(baseReps, rule, weekOffset)));
+                }
+                break;
+              case 'sets_increase':
+                if (sourceEx.sets > 0) {
+                  targetEx.sets = Math.round(calculateProgressedValue(sourceEx.sets, rule, weekOffset));
+                }
+                break;
             }
           }
         }
+      }
+    }
 
-        state.isDirty = true;
-      });
-    },
+    set({ program: newProgram, isDirty: true });
+  },
 
-    // =========================================
-    // Metadata
-    // =========================================
+  // =========================================
+  // Metadata
+  // =========================================
 
-    setProgramName: (name) => {
-      set((state) => {
-        state.programName = name;
-        state.isDirty = true;
-      });
-    },
+  setProgramName: (name) => {
+    set({ programName: name, isDirty: true });
+  },
 
-    markClean: () => {
-      set((state) => {
-        state.isDirty = false;
-      });
-    },
-  }))
-);
+  markClean: () => {
+    set({ isDirty: false });
+  },
+}));
 
 // =========================================
 // Selectors
