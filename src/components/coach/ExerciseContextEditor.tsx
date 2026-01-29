@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useMemo, useCallback } from "react";
 import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,13 +38,16 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ProgramExercise } from "@/components/coach/WeekGrid";
+import type { ProgramExercise } from "@/stores/useProgramBuilderStore";
 import type { ProgressionRule, ProgressionType, ExerciseProgression } from "@/types/progression";
 import { 
   getProgressionTypeLabel, 
   getDefaultProgressionValue, 
   getProgressionDescription 
 } from "@/types/progression";
+import { useProgramBuilderStore } from "@/stores/useProgramBuilderStore";
+import { useShallow } from "zustand/shallow";
+import { useState } from "react";
 
 const REST_OPTIONS = [30, 45, 60, 90, 120, 180, 240, 300];
 const DAYS = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
@@ -66,8 +69,8 @@ const ALL_TRACKING_FIELDS = [
 interface ExerciseContextEditorProps {
   exercise: ProgramExercise;
   dayIndex: number;
+  weekIndex: number;
   oneRM: number;
-  onUpdate: (updated: ProgramExercise) => void;
   onClose: () => void;
   className?: string;
 }
@@ -75,57 +78,47 @@ interface ExerciseContextEditorProps {
 export function ExerciseContextEditor({
   exercise,
   dayIndex,
+  weekIndex,
   oneRM,
-  onUpdate,
   onClose,
   className,
 }: ExerciseContextEditorProps) {
-  const [localExercise, setLocalExercise] = useState<ProgramExercise>(exercise);
+  // UI-only state (not program data)
   const [trackingFieldsOpen, setTrackingFieldsOpen] = useState(false);
 
-  // Sync when exercise changes externally
-  useEffect(() => {
-    setLocalExercise(exercise);
-  }, [exercise]);
+  // Get the store update action directly
+  const updateExercise = useProgramBuilderStore((state) => state.updateExercise);
 
-  // Debounced update
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      if (JSON.stringify(localExercise) !== JSON.stringify(exercise)) {
-        onUpdate(localExercise);
-      }
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [localExercise, exercise, onUpdate]);
-
-  const handleChange = <K extends keyof ProgramExercise>(
-    key: K,
-    value: ProgramExercise[K]
-  ) => {
-    setLocalExercise((prev) => ({ ...prev, [key]: value }));
-  };
+  // Memoized handler to update a single field directly in the store
+  const handleChange = useCallback(
+    <K extends keyof ProgramExercise>(key: K, value: ProgramExercise[K]) => {
+      updateExercise(dayIndex, exercise.id, { [key]: value }, weekIndex);
+    },
+    [updateExercise, dayIndex, weekIndex, exercise.id]
+  );
 
   // Toggle tracking field
-  const handleToggleTrackingField = (field: string) => {
-    const currentFields = localExercise.snapshotTrackingFields || [];
-    const newFields = currentFields.includes(field)
-      ? currentFields.filter((f) => f !== field)
-      : [...currentFields, field];
-    handleChange("snapshotTrackingFields", newFields);
-  };
+  const handleToggleTrackingField = useCallback(
+    (field: string) => {
+      const currentFields = exercise.snapshotTrackingFields || [];
+      const newFields = currentFields.includes(field)
+        ? currentFields.filter((f) => f !== field)
+        : [...currentFields, field];
+      handleChange("snapshotTrackingFields", newFields);
+    },
+    [exercise.snapshotTrackingFields, handleChange]
+  );
 
   // Calculate kg from percentage
-  const getCalculatedKg = (loadStr: string): string | null => {
-    const match = loadStr.match(/^(\d+(?:\.\d+)?)\s*%$/);
+  const calculatedKg = useMemo(() => {
+    const match = exercise.load.match(/^(\d+(?:\.\d+)?)\s*%$/);
     if (match && oneRM > 0) {
       const percent = parseFloat(match[1]);
       const kg = Math.round(oneRM * (percent / 100));
       return `${kg} kg`;
     }
     return null;
-  };
-
-  const calculatedKg = getCalculatedKg(localExercise.load);
+  }, [exercise.load, oneRM]);
 
   // Format rest time
   const formatRest = (seconds: number): string => {
@@ -137,7 +130,7 @@ export function ExerciseContextEditor({
     return `${seconds}s`;
   };
 
-  const activeTrackingFields = localExercise.snapshotTrackingFields || [];
+  const activeTrackingFields = exercise.snapshotTrackingFields || [];
 
   return (
     <div className={cn("flex flex-col h-full bg-card border-l border-border", className)}>
@@ -150,7 +143,7 @@ export function ExerciseContextEditor({
                 <Dumbbell className="h-4 w-4 text-primary" />
               </div>
               <div className="min-w-0">
-                <h3 className="text-sm font-semibold truncate">{localExercise.name}</h3>
+                <h3 className="text-sm font-semibold truncate">{exercise.name}</h3>
                 <p className="text-[10px] text-muted-foreground">{DAYS[dayIndex]}</p>
               </div>
             </div>
@@ -166,16 +159,16 @@ export function ExerciseContextEditor({
         </div>
 
         {/* Snapshot Muscles Badge */}
-        {localExercise.snapshotMuscles && localExercise.snapshotMuscles.length > 0 && (
+        {exercise.snapshotMuscles && exercise.snapshotMuscles.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
-            {localExercise.snapshotMuscles.slice(0, 3).map((muscle) => (
+            {exercise.snapshotMuscles.slice(0, 3).map((muscle) => (
               <Badge key={muscle} variant="secondary" className="text-[9px] h-4 px-1.5">
                 {muscle}
               </Badge>
             ))}
-            {localExercise.snapshotMuscles.length > 3 && (
+            {exercise.snapshotMuscles.length > 3 && (
               <Badge variant="outline" className="text-[9px] h-4 px-1.5">
-                +{localExercise.snapshotMuscles.length - 3}
+                +{exercise.snapshotMuscles.length - 3}
               </Badge>
             )}
           </div>
@@ -204,7 +197,7 @@ export function ExerciseContextEditor({
                   type="number"
                   min={1}
                   max={20}
-                  value={localExercise.sets || ""}
+                  value={exercise.sets || ""}
                   onChange={(e) => handleChange("sets", parseInt(e.target.value) || 0)}
                   className="h-9"
                 />
@@ -219,7 +212,7 @@ export function ExerciseContextEditor({
                 <Input
                   id="reps"
                   type="text"
-                  value={localExercise.reps}
+                  value={exercise.reps}
                   onChange={(e) => handleChange("reps", e.target.value)}
                   placeholder="8-10"
                   className="h-9"
@@ -244,7 +237,7 @@ export function ExerciseContextEditor({
                 <Input
                   id="load"
                   type="text"
-                  value={localExercise.load}
+                  value={exercise.load}
                   onChange={(e) => handleChange("load", e.target.value)}
                   placeholder="80% o 100kg"
                   className="h-9 pr-20"
@@ -267,7 +260,7 @@ export function ExerciseContextEditor({
             <div className="space-y-1.5">
               <Label htmlFor="rpe" className="text-xs">RPE (Rate of Perceived Exertion)</Label>
               <Select
-                value={localExercise.rpe?.toString() || "none"}
+                value={exercise.rpe?.toString() || "none"}
                 onValueChange={(val) => handleChange("rpe", val === "none" ? null : parseFloat(val))}
               >
               <SelectTrigger id="rpe" className="h-9">
@@ -301,7 +294,7 @@ export function ExerciseContextEditor({
                 Recupero
               </Label>
               <Select
-                value={localExercise.restSeconds.toString()}
+                value={exercise.restSeconds.toString()}
                 onValueChange={(val) => handleChange("restSeconds", parseInt(val))}
               >
                 <SelectTrigger id="rest" className="h-9">
@@ -328,7 +321,7 @@ export function ExerciseContextEditor({
             </div>
 
             <Textarea
-              value={localExercise.notes}
+              value={exercise.notes}
               onChange={(e) => handleChange("notes", e.target.value)}
               placeholder="Istruzioni speciali, cue tecniche, variazioni..."
               className="min-h-[80px] text-sm resize-none"
@@ -345,29 +338,29 @@ export function ExerciseContextEditor({
                 Progressione
               </div>
               <Switch
-                checked={localExercise.progression?.enabled || false}
+                checked={exercise.progression?.enabled || false}
                 onCheckedChange={(checked) => {
-                  const currentProgression = localExercise.progression || { enabled: false, rules: [] };
+                  const currentProgression = exercise.progression || { enabled: false, rules: [] };
                   handleChange("progression", { ...currentProgression, enabled: checked });
                 }}
               />
             </div>
 
-            {localExercise.progression?.enabled && (
+            {exercise.progression?.enabled && (
               <div className="space-y-3 p-3 rounded-lg bg-chart-3/5 border border-chart-3/20">
                 <p className="text-[10px] text-muted-foreground">
                   Definisci le regole di progressione automatica per le settimane successive
                 </p>
                 
                 {/* Existing Rules */}
-                {(localExercise.progression?.rules || []).map((rule, ruleIndex) => (
+                {(exercise.progression?.rules || []).map((rule, ruleIndex) => (
                   <div key={ruleIndex} className="flex items-center gap-2 p-2 rounded-md bg-background border">
                     <Select
                       value={rule.type}
                       onValueChange={(type: ProgressionType) => {
-                        const newRules = [...(localExercise.progression?.rules || [])];
+                        const newRules = [...(exercise.progression?.rules || [])];
                         newRules[ruleIndex] = { ...rule, type, value: getDefaultProgressionValue(type) };
-                        handleChange("progression", { ...localExercise.progression!, rules: newRules });
+                        handleChange("progression", { ...exercise.progression!, rules: newRules });
                       }}
                     >
                       <SelectTrigger className="h-8 text-xs flex-1">
@@ -389,9 +382,9 @@ export function ExerciseContextEditor({
                       min={0}
                       value={rule.value}
                       onChange={(e) => {
-                        const newRules = [...(localExercise.progression?.rules || [])];
+                        const newRules = [...(exercise.progression?.rules || [])];
                         newRules[ruleIndex] = { ...rule, value: parseFloat(e.target.value) || 0 };
-                        handleChange("progression", { ...localExercise.progression!, rules: newRules });
+                        handleChange("progression", { ...exercise.progression!, rules: newRules });
                       }}
                       className="h-8 w-20 text-xs"
                     />
@@ -405,8 +398,8 @@ export function ExerciseContextEditor({
                       size="icon"
                       className="h-6 w-6 text-destructive hover:text-destructive flex-shrink-0"
                       onClick={() => {
-                        const newRules = (localExercise.progression?.rules || []).filter((_, i) => i !== ruleIndex);
-                        handleChange("progression", { ...localExercise.progression!, rules: newRules });
+                        const newRules = (exercise.progression?.rules || []).filter((_, i) => i !== ruleIndex);
+                        handleChange("progression", { ...exercise.progression!, rules: newRules });
                       }}
                     >
                       <Trash2 className="h-3 w-3" />
@@ -424,9 +417,9 @@ export function ExerciseContextEditor({
                       type: 'rir_decrease',
                       value: 1
                     };
-                    const currentRules = localExercise.progression?.rules || [];
+                    const currentRules = exercise.progression?.rules || [];
                     handleChange("progression", { 
-                      ...localExercise.progression!, 
+                      ...exercise.progression!, 
                       rules: [...currentRules, newRule] 
                     });
                   }}
@@ -461,58 +454,33 @@ export function ExerciseContextEditor({
             <CollapsibleContent>
               <div className="pt-3 space-y-2">
                 <p className="text-[10px] text-muted-foreground mb-2">
-                  Personalizza i campi per questa istanza specifica
+                  Seleziona quali campi l'atleta dovrà compilare durante l'allenamento
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   {ALL_TRACKING_FIELDS.map((field) => (
-                    <div
+                    <label
                       key={field.value}
                       className={cn(
-                        "flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors border",
+                        "flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors",
                         activeTrackingFields.includes(field.value)
-                          ? "bg-primary/10 border-primary/30"
-                          : "hover:bg-secondary border-transparent"
+                          ? "bg-primary/5 border-primary/30"
+                          : "bg-background border-border hover:border-primary/20"
                       )}
-                      onClick={() => handleToggleTrackingField(field.value)}
                     >
                       <Checkbox
                         checked={activeTrackingFields.includes(field.value)}
+                        onCheckedChange={() => handleToggleTrackingField(field.value)}
                         className="h-3.5 w-3.5"
                       />
                       <span className="text-xs">{field.label}</span>
-                    </div>
+                    </label>
                   ))}
                 </div>
               </div>
             </CollapsibleContent>
           </Collapsible>
-
-          {/* Superset Info */}
-          {localExercise.supersetGroup && (
-            <>
-              <Separator />
-              <div className="p-3 rounded-lg bg-primary/5 border border-primary/20">
-                <div className="flex items-center gap-2">
-                  <Badge variant="default" className="text-[10px]">Superset</Badge>
-                  <span className="text-xs text-muted-foreground">
-                    Collegato ad altri esercizi
-                  </span>
-                </div>
-              </div>
-            </>
-          )}
         </div>
       </ScrollArea>
-
-      {/* Footer */}
-      <div className="p-3 border-t border-border/50 bg-muted/30">
-        <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-          <span>Le modifiche sono salvate automaticamente</span>
-          <Badge variant="outline" className="text-[9px]">
-            {localExercise.sets} × {localExercise.reps || "?"} @ {localExercise.load || "?"}
-          </Badge>
-        </div>
-      </div>
     </div>
   );
 }
