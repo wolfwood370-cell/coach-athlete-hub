@@ -596,21 +596,6 @@ export default function ProgramBuilder() {
     [currentWeek, selectionActions]
   );
 
-  // Update selected exercise from context editor - uses store action
-  const handleContextEditorUpdate = useCallback(
-    (updated: ProgramExercise) => {
-      if (!storeSelectedExercise) return;
-
-      exerciseActions.updateExercise(
-        storeSelectedExercise.dayIndex,
-        storeSelectedExercise.exerciseId,
-        updated,
-        storeSelectedExercise.weekIndex
-      );
-    },
-    [storeSelectedExercise, exerciseActions]
-  );
-
   // Toggle superset - uses store action
   const handleToggleSuperset = useCallback(
     (dayIndex: number, exerciseId: string) => {
@@ -954,8 +939,8 @@ export default function ProgramBuilder() {
             <ExerciseContextEditor
               exercise={contextEditorExercise as any}
               dayIndex={storeSelectedExercise.dayIndex}
+              weekIndex={storeSelectedExercise.weekIndex}
               oneRM={getOneRM()}
-              onUpdate={(updated) => handleContextEditorUpdate(updated as ProgramExercise)}
               onClose={() => selectionActions.clearSelection()}
               className="w-72 flex-shrink-0"
             />
