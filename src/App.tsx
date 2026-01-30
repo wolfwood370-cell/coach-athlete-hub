@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { SunThemeSync } from "@/components/logic/SunThemeSync";
-import { OfflineSyncProvider, SyncStatusIndicator } from "@/providers/OfflineSyncProvider";
+import { OfflineSyncProvider } from "@/providers/OfflineSyncProvider";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import CoachHome from "./pages/coach/CoachHome";
@@ -54,7 +54,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <SunThemeSync />
-          <SyncStatusIndicator />
+          
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
