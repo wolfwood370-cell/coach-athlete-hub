@@ -1,10 +1,13 @@
 import { useEffect, useCallback, useRef } from 'react';
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import type { Json } from '@/integrations/supabase/types';
 
-// Types for offline workout logging
+// ============================================================================
+// TYPES - Strict queue for athlete execution data only
+// ============================================================================
+
 export interface SetData {
   set_number: number;
   reps: number;
@@ -15,14 +18,14 @@ export interface SetData {
 }
 
 export interface WorkoutExercise {
-  id?: string;
   exercise_name: string;
   exercise_order: number;
   sets_data: SetData[];
   notes?: string;
 }
 
-export interface WorkoutLogInput {
+export interface WorkoutLogPayload {
+  type: 'workout_log';
   local_id: string;
   workout_id: string;
   athlete_id: string;
@@ -34,80 +37,102 @@ export interface WorkoutLogInput {
   notes?: string;
 }
 
-interface PendingWorkout {
-  id: string;
-  data: WorkoutLogInput;
-  timestamp: number;
-  retryCount: number;
+export interface DailyReadinessPayload {
+  type: 'daily_readiness';
+  local_id: string;
+  athlete_id: string;
+  date: string;
+  sleep_hours?: number;
+  sleep_quality?: number;
+  energy?: number;
+  mood?: number;
+  stress_level?: number;
+  soreness_map?: Json;
+  notes?: string;
 }
 
-const STORAGE_KEY = 'pending_workout_logs';
+type QueueItem = {
+  id: string;
+  payload: WorkoutLogPayload | DailyReadinessPayload;
+  timestamp: number;
+  retryCount: number;
+};
+
+// ============================================================================
+// QUEUE STORAGE - localStorage with strict key
+// ============================================================================
+
+const QUEUE_KEY = 'offline_workout_queue';
 const MAX_RETRIES = 3;
 
-// localStorage helpers
-function getPendingWorkouts(): PendingWorkout[] {
+function getQueue(): QueueItem[] {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(QUEUE_KEY);
     return stored ? JSON.parse(stored) : [];
   } catch {
     return [];
   }
 }
 
-function savePendingWorkouts(workouts: PendingWorkout[]): void {
+function saveQueue(queue: QueueItem[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(workouts));
+    localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
   } catch (e) {
-    console.error('Failed to save pending workouts:', e);
+    console.error('[OfflineSync] Failed to save queue:', e);
   }
 }
 
-function addPendingWorkout(workout: WorkoutLogInput): void {
-  const pending = getPendingWorkouts();
-  pending.push({
-    id: workout.local_id,
-    data: workout,
+function addToQueue(payload: WorkoutLogPayload | DailyReadinessPayload): void {
+  const queue = getQueue();
+  queue.push({
+    id: payload.local_id,
+    payload,
     timestamp: Date.now(),
     retryCount: 0,
   });
-  savePendingWorkouts(pending);
+  saveQueue(queue);
 }
 
-function removePendingWorkout(id: string): void {
-  const pending = getPendingWorkouts().filter(w => w.id !== id);
-  savePendingWorkouts(pending);
+function removeFromQueue(id: string): void {
+  const queue = getQueue().filter(item => item.id !== id);
+  saveQueue(queue);
 }
 
 function incrementRetry(id: string): void {
-  const pending = getPendingWorkouts().map(w => 
-    w.id === id ? { ...w, retryCount: w.retryCount + 1 } : w
+  const queue = getQueue().map(item =>
+    item.id === id ? { ...item, retryCount: item.retryCount + 1 } : item
   );
-  savePendingWorkouts(pending);
+  saveQueue(queue);
 }
 
-// Sync a single workout to Supabase
-async function syncWorkoutToSupabase(log: WorkoutLogInput): Promise<string> {
+// ============================================================================
+// SYNC FUNCTIONS - Process queue items to Supabase
+// ============================================================================
+
+async function syncWorkoutLog(payload: WorkoutLogPayload): Promise<void> {
+  // Insert workout_log
   const { data: workoutLog, error: logError } = await supabase
     .from('workout_logs')
     .insert({
-      workout_id: log.workout_id,
-      athlete_id: log.athlete_id,
-      started_at: log.started_at,
-      completed_at: log.completed_at,
-      srpe: log.srpe,
-      duration_minutes: log.duration_minutes,
-      notes: log.notes,
-      local_id: log.local_id,
+      workout_id: payload.workout_id,
+      athlete_id: payload.athlete_id,
+      started_at: payload.started_at,
+      completed_at: payload.completed_at,
+      srpe: payload.srpe,
+      duration_minutes: payload.duration_minutes,
+      notes: payload.notes,
+      local_id: payload.local_id,
       sync_status: 'synced',
-      exercises_data: log.exercises as unknown as Json,
+      exercises_data: payload.exercises as unknown as Json,
     })
     .select('id')
     .single();
 
   if (logError) throw logError;
 
-  if (log.exercises.length > 0) {
-    const exercisesData = log.exercises.map((ex, index) => ({
+  // Insert workout_exercises
+  if (payload.exercises.length > 0) {
+    const exercisesData = payload.exercises.map((ex, index) => ({
       workout_log_id: workoutLog.id,
       exercise_name: ex.exercise_name,
       exercise_order: ex.exercise_order ?? index,
@@ -121,9 +146,45 @@ async function syncWorkoutToSupabase(log: WorkoutLogInput): Promise<string> {
 
     if (exercisesError) throw exercisesError;
   }
-
-  return workoutLog.id;
 }
+
+async function syncDailyReadiness(payload: DailyReadinessPayload): Promise<void> {
+  const { error } = await supabase
+    .from('daily_readiness')
+    .upsert({
+      athlete_id: payload.athlete_id,
+      date: payload.date,
+      sleep_hours: payload.sleep_hours,
+      sleep_quality: payload.sleep_quality,
+      energy: payload.energy,
+      mood: payload.mood,
+      stress_level: payload.stress_level,
+      soreness_map: payload.soreness_map,
+      notes: payload.notes,
+    }, {
+      onConflict: 'athlete_id,date',
+    });
+
+  if (error) throw error;
+}
+
+async function syncQueueItem(item: QueueItem): Promise<boolean> {
+  try {
+    if (item.payload.type === 'workout_log') {
+      await syncWorkoutLog(item.payload);
+    } else if (item.payload.type === 'daily_readiness') {
+      await syncDailyReadiness(item.payload);
+    }
+    return true;
+  } catch (error) {
+    console.error(`[OfflineSync] Failed to sync ${item.id}:`, error);
+    return false;
+  }
+}
+
+// ============================================================================
+// HOOK - Main offline sync hook for athlete workout logging
+// ============================================================================
 
 export function useOfflineSync() {
   const queryClient = useQueryClient();
@@ -131,14 +192,14 @@ export function useOfflineSync() {
   const syncingRef = useRef(false);
   const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
-  // Process all pending workouts
-  const syncPendingWorkouts = useCallback(async () => {
+  // Process entire queue
+  const processQueue = useCallback(async () => {
     if (syncingRef.current || !navigator.onLine) return;
-    
+
     syncingRef.current = true;
-    const pending = getPendingWorkouts();
-    
-    if (pending.length === 0) {
+    const queue = getQueue();
+
+    if (queue.length === 0) {
       syncingRef.current = false;
       return;
     }
@@ -146,18 +207,18 @@ export function useOfflineSync() {
     let syncedCount = 0;
     let failedCount = 0;
 
-    for (const workout of pending) {
-      try {
-        await syncWorkoutToSupabase(workout.data);
-        removePendingWorkout(workout.id);
+    for (const item of queue) {
+      const success = await syncQueueItem(item);
+
+      if (success) {
+        removeFromQueue(item.id);
         syncedCount++;
-      } catch (error) {
-        console.error(`Failed to sync workout ${workout.id}:`, error);
-        
-        if (workout.retryCount < MAX_RETRIES) {
-          incrementRetry(workout.id);
+      } else {
+        if (item.retryCount < MAX_RETRIES) {
+          incrementRetry(item.id);
         } else {
-          removePendingWorkout(workout.id);
+          // Max retries reached, remove from queue
+          removeFromQueue(item.id);
           failedCount++;
         }
       }
@@ -165,16 +226,18 @@ export function useOfflineSync() {
 
     if (syncedCount > 0) {
       toast({
-        title: "Workout sincronizzati",
-        description: `${syncedCount} workout salvati con successo.`,
+        title: "Dati sincronizzati",
+        description: `${syncedCount} ${syncedCount === 1 ? 'elemento salvato' : 'elementi salvati'}.`,
       });
+      // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['workout-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['daily-readiness'] });
     }
 
     if (failedCount > 0) {
       toast({
-        title: "Sincronizzazione parziale",
-        description: `${failedCount} workout non sincronizzati dopo 3 tentativi.`,
+        title: "Sincronizzazione fallita",
+        description: `${failedCount} ${failedCount === 1 ? 'elemento' : 'elementi'} non sincronizzati.`,
         variant: "destructive",
       });
     }
@@ -182,128 +245,106 @@ export function useOfflineSync() {
     syncingRef.current = false;
   }, [queryClient, toast]);
 
-  // Auto-sync when coming online
+  // Auto-sync on online event
   useEffect(() => {
     const handleOnline = () => {
-      syncPendingWorkouts();
+      processQueue();
     };
 
     window.addEventListener('online', handleOnline);
 
-    // Initial sync on mount if online
-    if (navigator.onLine) {
-      syncPendingWorkouts();
+    // Initial sync if online and queue has items
+    if (navigator.onLine && getQueue().length > 0) {
+      processQueue();
     }
 
     return () => {
       window.removeEventListener('online', handleOnline);
     };
-  }, [syncPendingWorkouts]);
+  }, [processQueue]);
 
-  // Mutation for logging workouts (works online and offline)
+  // Mutation for logging workouts (online or offline)
   const logWorkoutMutation = useMutation({
-    mutationFn: async (input: WorkoutLogInput) => {
+    mutationFn: async (payload: Omit<WorkoutLogPayload, 'type'>) => {
+      const fullPayload: WorkoutLogPayload = { ...payload, type: 'workout_log' };
+
       if (navigator.onLine) {
-        return syncWorkoutToSupabase(input);
+        await syncWorkoutLog(fullPayload);
+        return { synced: true, id: payload.local_id };
       } else {
-        addPendingWorkout(input);
-        return input.local_id;
+        addToQueue(fullPayload);
+        return { synced: false, id: payload.local_id };
       }
     },
-    onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: ['workout-logs'] });
-      const previousLogs = queryClient.getQueryData(['workout-logs']);
-
-      queryClient.setQueryData(['workout-logs'], (old: unknown[] | undefined) => {
-        const optimisticLog = {
-          id: input.local_id,
-          ...input,
-          sync_status: navigator.onLine ? 'synced' : 'pending',
-          created_at: new Date().toISOString(),
-        };
-        return old ? [...old, optimisticLog] : [optimisticLog];
+    onSuccess: (result) => {
+      toast({
+        title: result.synced ? "Workout salvato" : "Workout salvato offline",
+        description: result.synced
+          ? "Dati sincronizzati."
+          : "Verrà sincronizzato quando torni online.",
       });
-
-      return { previousLogs };
-    },
-    onError: (_, __, context) => {
-      if (context?.previousLogs) {
-        queryClient.setQueryData(['workout-logs'], context.previousLogs);
+      if (result.synced) {
+        queryClient.invalidateQueries({ queryKey: ['workout-logs'] });
       }
+    },
+    onError: () => {
       toast({
         title: "Errore",
         description: "Impossibile salvare il workout.",
         variant: "destructive",
       });
     },
-    onSuccess: () => {
+  });
+
+  // Mutation for daily readiness (online or offline)
+  const logReadinessMutation = useMutation({
+    mutationFn: async (payload: Omit<DailyReadinessPayload, 'type'>) => {
+      const fullPayload: DailyReadinessPayload = { ...payload, type: 'daily_readiness' };
+
+      if (navigator.onLine) {
+        await syncDailyReadiness(fullPayload);
+        return { synced: true, id: payload.local_id };
+      } else {
+        addToQueue(fullPayload);
+        return { synced: false, id: payload.local_id };
+      }
+    },
+    onSuccess: (result) => {
       toast({
-        title: navigator.onLine ? "Workout salvato" : "Workout salvato offline",
-        description: navigator.onLine 
+        title: result.synced ? "Check-in salvato" : "Check-in salvato offline",
+        description: result.synced
           ? "Dati sincronizzati."
           : "Verrà sincronizzato quando torni online.",
+      });
+      if (result.synced) {
+        queryClient.invalidateQueries({ queryKey: ['daily-readiness'] });
+      }
+    },
+    onError: () => {
+      toast({
+        title: "Errore",
+        description: "Impossibile salvare il check-in.",
+        variant: "destructive",
       });
     },
   });
 
-  const pendingSyncCount = getPendingWorkouts().length;
-
   return {
+    // Status
+    isOnline,
+    pendingCount: getQueue().length,
+    
+    // Workout logging
     logWorkout: logWorkoutMutation.mutate,
     logWorkoutAsync: logWorkoutMutation.mutateAsync,
-    isLogging: logWorkoutMutation.isPending,
-    isOnline,
-    pendingSyncCount,
-    forceSync: syncPendingWorkouts,
+    isLoggingWorkout: logWorkoutMutation.isPending,
+    
+    // Readiness logging
+    logReadiness: logReadinessMutation.mutate,
+    logReadinessAsync: logReadinessMutation.mutateAsync,
+    isLoggingReadiness: logReadinessMutation.isPending,
+    
+    // Manual sync
+    forceSync: processQueue,
   };
-}
-
-// Hook for workout exercises
-export function useWorkoutExercises(workoutLogId: string | null) {
-  return useQuery({
-    queryKey: ['workout-exercises', workoutLogId],
-    queryFn: async () => {
-      if (!workoutLogId) return [];
-      
-      const { data, error } = await supabase
-        .from('workout_exercises')
-        .select('*')
-        .eq('workout_log_id', workoutLogId)
-        .order('exercise_order');
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!workoutLogId,
-    staleTime: 5 * 60 * 1000,
-  });
-}
-
-// Hook for daily metrics
-export function useDailyMetrics(userId: string | null, dateRange?: { from: Date; to: Date }) {
-  return useQuery({
-    queryKey: ['daily-metrics', userId, dateRange?.from?.toISOString(), dateRange?.to?.toISOString()],
-    queryFn: async () => {
-      if (!userId) return [];
-
-      let query = supabase
-        .from('daily_metrics')
-        .select('*')
-        .eq('user_id', userId)
-        .order('date', { ascending: false });
-
-      if (dateRange?.from) {
-        query = query.gte('date', dateRange.from.toISOString().split('T')[0]);
-      }
-      if (dateRange?.to) {
-        query = query.lte('date', dateRange.to.toISOString().split('T')[0]);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!userId,
-    staleTime: 5 * 60 * 1000,
-  });
 }

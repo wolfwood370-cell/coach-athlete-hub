@@ -47,7 +47,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useOfflineSync, type WorkoutLogInput, type SetData as OfflineSetData } from "@/hooks/useOfflineSync";
+import { useOfflineSync, type WorkoutLogPayload, type SetData as OfflineSetData } from "@/hooks/useOfflineSync";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { useWorkoutStreak } from "@/hooks/useWorkoutStreak";
 import { usePersonalRecords } from "@/hooks/usePersonalRecords";
@@ -201,7 +201,7 @@ export default function WorkoutPlayer() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { logWorkout, isLogging, isOnline } = useOfflineSync();
+  const { logWorkout, isLoggingWorkout, isOnline } = useOfflineSync();
   const haptic = useHapticFeedback();
   const { checkForPR, showPRToast } = usePersonalRecords();
   
@@ -490,7 +490,7 @@ export default function WorkoutPlayer() {
       : workoutNotes;
     
     // Prepare data for offline sync
-    const workoutLogInput: WorkoutLogInput = {
+    const workoutLogInput: Omit<WorkoutLogPayload, 'type'> = {
       local_id: `workout-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       workout_id: id || "mock",
       athlete_id: "", // Will be set by the hook
@@ -1149,9 +1149,9 @@ export default function WorkoutPlayer() {
             <Button
               className="flex-1 gradient-primary"
               onClick={handleSaveWorkoutLog}
-              disabled={isLogging}
+              disabled={isLoggingWorkout}
             >
-              {isLogging ? (
+              {isLoggingWorkout ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
                 <Trophy className="h-4 w-4 mr-2" />
