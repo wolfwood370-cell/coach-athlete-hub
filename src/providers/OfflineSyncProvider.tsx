@@ -1,24 +1,43 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { WifiOff } from 'lucide-react';
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+type UserRole = 'coach' | 'athlete' | null;
 
 interface OfflineContextValue {
   isOnline: boolean;
-  /** Returns true if online, shows toast and returns false if offline */
+  /** Gate for coach actions - blocks and shows toast if offline */
   requireOnline: (actionName?: string) => boolean;
+  /** Check if a specific action is allowed based on role + connectivity */
+  canPerformAction: (action: 'save_program' | 'send_message' | 'log_workout' | 'update_profile') => boolean;
 }
 
 const OfflineContext = createContext<OfflineContextValue>({ 
   isOnline: true,
   requireOnline: () => true,
+  canPerformAction: () => true,
 });
 
-export function OfflineSyncProvider({ children }: { children: React.ReactNode }) {
+// ============================================================================
+// PROVIDER
+// ============================================================================
+
+interface OfflineSyncProviderProps {
+  children: React.ReactNode;
+  userRole?: UserRole;
+}
+
+export function OfflineSyncProvider({ children, userRole }: OfflineSyncProviderProps) {
   const [isOnline, setIsOnline] = useState(() => 
     typeof navigator !== 'undefined' ? navigator.onLine : true
   );
   const { toast } = useToast();
 
-  // Gatekeeper function for coach actions
+  // Gatekeeper: blocks action and shows toast if offline
   const requireOnline = useCallback((actionName?: string): boolean => {
     if (navigator.onLine) return true;
     
@@ -32,6 +51,25 @@ export function OfflineSyncProvider({ children }: { children: React.ReactNode })
     return false;
   }, [toast]);
 
+  // Role-aware action permission checker
+  const canPerformAction = useCallback((action: 'save_program' | 'send_message' | 'log_workout' | 'update_profile'): boolean => {
+    // Always allow if online
+    if (navigator.onLine) return true;
+
+    // COACH: Block everything offline
+    if (userRole === 'coach') {
+      return false;
+    }
+
+    // ATHLETE: Only allow workout logging offline
+    if (userRole === 'athlete') {
+      return action === 'log_workout';
+    }
+
+    // Unknown role: block all offline actions
+    return false;
+  }, [userRole]);
+
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
@@ -43,11 +81,20 @@ export function OfflineSyncProvider({ children }: { children: React.ReactNode })
 
     const handleOffline = () => {
       setIsOnline(false);
-      toast({
-        title: "Sei offline",
-        description: "Solo il salvataggio workout è disponibile.",
-        variant: "destructive",
-      });
+      
+      if (userRole === 'coach') {
+        toast({
+          title: "Sei offline",
+          description: "Modifica disabilitata per prevenire conflitti.",
+          variant: "destructive",
+        });
+      } else if (userRole === 'athlete') {
+        toast({
+          title: "Sei offline",
+          description: "Solo il salvataggio workout è disponibile.",
+          variant: "destructive",
+        });
+      }
     };
 
     window.addEventListener('online', handleOnline);
@@ -57,10 +104,10 @@ export function OfflineSyncProvider({ children }: { children: React.ReactNode })
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [toast]);
+  }, [toast, userRole]);
 
   return (
-    <OfflineContext.Provider value={{ isOnline, requireOnline }}>
+    <OfflineContext.Provider value={{ isOnline, requireOnline, canPerformAction }}>
       {children}
     </OfflineContext.Provider>
   );
@@ -70,20 +117,39 @@ export function useOfflineStatus() {
   return useContext(OfflineContext);
 }
 
-// Warning banner for features disabled offline
+// ============================================================================
+// UI COMPONENTS
+// ============================================================================
+
+/** Persistent banner for coaches when offline */
+export function CoachOfflineBanner() {
+  const { isOnline } = useOfflineStatus();
+
+  if (isOnline) return null;
+
+  return (
+    <div className="sticky top-0 z-50 bg-destructive text-destructive-foreground px-4 py-2 text-sm flex items-center gap-2">
+      <WifiOff className="h-4 w-4" />
+      <span><strong>Sei offline.</strong> Modifica disabilitata per prevenire conflitti.</span>
+    </div>
+  );
+}
+
+/** Warning banner for specific features */
 export function OfflineWarningBanner({ feature }: { feature: string }) {
   const { isOnline } = useOfflineStatus();
 
   if (isOnline) return null;
 
   return (
-    <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive">
-      <strong>Sei offline.</strong> {feature} non è disponibile senza connessione.
+    <div className="rounded-md bg-destructive/10 border border-destructive/20 p-3 text-sm text-destructive flex items-center gap-2">
+      <WifiOff className="h-4 w-4 flex-shrink-0" />
+      <span><strong>Sei offline.</strong> {feature} non disponibile.</span>
     </div>
   );
 }
 
-// Read-only overlay for coach features when offline
+/** Read-only overlay that blocks interaction */
 export function OfflineReadOnlyOverlay({ children, feature }: { children: React.ReactNode; feature: string }) {
   const { isOnline } = useOfflineStatus();
 
@@ -91,11 +157,12 @@ export function OfflineReadOnlyOverlay({ children, feature }: { children: React.
 
   return (
     <div className="relative">
-      <div className="pointer-events-none opacity-50">
+      <div className="pointer-events-none opacity-50 select-none">
         {children}
       </div>
       <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
         <div className="text-center p-4">
+          <WifiOff className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
           <p className="text-muted-foreground font-medium">Modalità solo lettura</p>
           <p className="text-sm text-muted-foreground">{feature} richiede connessione</p>
         </div>

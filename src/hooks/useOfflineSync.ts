@@ -5,7 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import type { Json } from '@/integrations/supabase/types';
 
 // ============================================================================
-// TYPES - Strict queue for athlete execution data only
+// TYPES - Strict queue for athlete execution data ONLY
 // ============================================================================
 
 export interface SetData {
@@ -59,13 +59,13 @@ type QueueItem = {
 };
 
 // ============================================================================
-// QUEUE STORAGE - localStorage with strict key
+// QUEUE STORAGE - Strict localStorage key for athlete workout data only
 // ============================================================================
 
 const QUEUE_KEY = 'offline_workout_queue';
 const MAX_RETRIES = 3;
 
-function getQueue(): QueueItem[] {
+export function getQueue(): QueueItem[] {
   try {
     const stored = localStorage.getItem(QUEUE_KEY);
     return stored ? JSON.parse(stored) : [];
@@ -106,11 +106,10 @@ function incrementRetry(id: string): void {
 }
 
 // ============================================================================
-// SYNC FUNCTIONS - Process queue items to Supabase
+// SYNC FUNCTIONS - Process queue items to Supabase (one by one)
 // ============================================================================
 
 async function syncWorkoutLog(payload: WorkoutLogPayload): Promise<void> {
-  // Insert workout_log
   const { data: workoutLog, error: logError } = await supabase
     .from('workout_logs')
     .insert({
@@ -130,7 +129,6 @@ async function syncWorkoutLog(payload: WorkoutLogPayload): Promise<void> {
 
   if (logError) throw logError;
 
-  // Insert workout_exercises
   if (payload.exercises.length > 0) {
     const exercisesData = payload.exercises.map((ex, index) => ({
       workout_log_id: workoutLog.id,
@@ -183,7 +181,7 @@ async function syncQueueItem(item: QueueItem): Promise<boolean> {
 }
 
 // ============================================================================
-// HOOK - Main offline sync hook for athlete workout logging
+// HOOK - Athlete-only offline sync for workout execution
 // ============================================================================
 
 export function useOfflineSync() {
@@ -192,7 +190,7 @@ export function useOfflineSync() {
   const syncingRef = useRef(false);
   const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
-  // Process entire queue
+  // Process queue one-by-one, only remove on success
   const processQueue = useCallback(async () => {
     if (syncingRef.current || !navigator.onLine) return;
 
@@ -216,8 +214,12 @@ export function useOfflineSync() {
       } else {
         if (item.retryCount < MAX_RETRIES) {
           incrementRetry(item.id);
+          toast({
+            title: "Sync fallita",
+            description: "Nuovo tentativo al prossimo online.",
+            variant: "destructive",
+          });
         } else {
-          // Max retries reached, remove from queue
           removeFromQueue(item.id);
           failedCount++;
         }
@@ -226,10 +228,9 @@ export function useOfflineSync() {
 
     if (syncedCount > 0) {
       toast({
-        title: "Dati sincronizzati",
-        description: `${syncedCount} ${syncedCount === 1 ? 'elemento salvato' : 'elementi salvati'}.`,
+        title: "Workout offline sincronizzati",
+        description: `${syncedCount} ${syncedCount === 1 ? 'workout salvato' : 'workout salvati'} con successo.`,
       });
-      // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ['workout-logs'] });
       queryClient.invalidateQueries({ queryKey: ['daily-readiness'] });
     }
@@ -237,7 +238,7 @@ export function useOfflineSync() {
     if (failedCount > 0) {
       toast({
         title: "Sincronizzazione fallita",
-        description: `${failedCount} ${failedCount === 1 ? 'elemento' : 'elementi'} non sincronizzati.`,
+        description: `${failedCount} ${failedCount === 1 ? 'elemento perso' : 'elementi persi'} dopo 3 tentativi.`,
         variant: "destructive",
       });
     }
@@ -245,7 +246,7 @@ export function useOfflineSync() {
     syncingRef.current = false;
   }, [queryClient, toast]);
 
-  // Auto-sync on online event
+  // Listen for online event to trigger sync
   useEffect(() => {
     const handleOnline = () => {
       processQueue();
@@ -253,7 +254,7 @@ export function useOfflineSync() {
 
     window.addEventListener('online', handleOnline);
 
-    // Initial sync if online and queue has items
+    // Initial sync if online and queue has pending items
     if (navigator.onLine && getQueue().length > 0) {
       processQueue();
     }
@@ -263,7 +264,7 @@ export function useOfflineSync() {
     };
   }, [processQueue]);
 
-  // Mutation for logging workouts (online or offline)
+  // Mutation: Log workout (queues if offline)
   const logWorkoutMutation = useMutation({
     mutationFn: async (payload: Omit<WorkoutLogPayload, 'type'>) => {
       const fullPayload: WorkoutLogPayload = { ...payload, type: 'workout_log' };
@@ -296,7 +297,7 @@ export function useOfflineSync() {
     },
   });
 
-  // Mutation for daily readiness (online or offline)
+  // Mutation: Log daily readiness (queues if offline)
   const logReadinessMutation = useMutation({
     mutationFn: async (payload: Omit<DailyReadinessPayload, 'type'>) => {
       const fullPayload: DailyReadinessPayload = { ...payload, type: 'daily_readiness' };
@@ -334,17 +335,17 @@ export function useOfflineSync() {
     isOnline,
     pendingCount: getQueue().length,
     
-    // Workout logging
+    // Workout logging (athlete only)
     logWorkout: logWorkoutMutation.mutate,
     logWorkoutAsync: logWorkoutMutation.mutateAsync,
     isLoggingWorkout: logWorkoutMutation.isPending,
     
-    // Readiness logging
+    // Readiness logging (athlete only)
     logReadiness: logReadinessMutation.mutate,
     logReadinessAsync: logReadinessMutation.mutateAsync,
     isLoggingReadiness: logReadinessMutation.isPending,
     
-    // Manual sync
+    // Manual sync trigger
     forceSync: processQueue,
   };
 }
