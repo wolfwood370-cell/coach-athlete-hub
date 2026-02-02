@@ -1,0 +1,469 @@
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "./useAuth";
+import { format } from "date-fns";
+
+// ===== TYPE DEFINITIONS =====
+
+export type AlertSeverity = "critical" | "warning" | "info";
+export type AlertType = 
+  | "missed_workout" 
+  | "low_readiness" 
+  | "active_injury" 
+  | "high_acwr" 
+  | "rpe_spike"
+  | "no_checkin";
+
+export interface UrgentAlert {
+  id: string;
+  athleteId: string;
+  athleteName: string;
+  avatarUrl: string | null;
+  avatarInitials: string;
+  alertType: AlertType;
+  severity: AlertSeverity;
+  value: string;
+  details: string;
+  timestamp?: string;
+}
+
+export interface FeedbackItem {
+  id: string;
+  workoutLogId: string;
+  workoutTitle: string;
+  athleteId: string;
+  athleteName: string;
+  avatarUrl: string | null;
+  avatarInitials: string;
+  completedAt: string;
+  hasVideo: boolean;
+  hasNotes: boolean;
+  rpeGlobal: number | null;
+}
+
+export interface TodayScheduleItem {
+  id: string;
+  title: string;
+  athleteId: string;
+  athleteName: string;
+  avatarInitials: string;
+  scheduledDate: string;
+  status: string;
+}
+
+export interface BusinessMetrics {
+  activeClients: number;
+  monthlyRecurringRevenue: number; // Mocked for now
+  complianceRate: number; // % of athletes who checked in today
+  avgReadiness: number | null;
+  churnRisk: number; // Athletes with critical issues
+}
+
+export interface HealthyAthlete {
+  id: string;
+  name: string;
+  avatarUrl: string | null;
+  avatarInitials: string;
+  readinessScore: number | null;
+}
+
+export interface CoachDashboardMetrics {
+  urgentAlerts: UrgentAlert[];
+  feedbackItems: FeedbackItem[];
+  todaySchedule: TodayScheduleItem[];
+  businessMetrics: BusinessMetrics;
+  healthyAthletes: HealthyAthlete[];
+  isLoading: boolean;
+  error: Error | null;
+}
+
+// ===== HELPER FUNCTIONS =====
+
+function getInitials(name: string | null): string {
+  return name
+    ?.split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2) ?? "??";
+}
+
+function calculateAcwr(
+  logs: Array<{ completed_at: string | null; duration_seconds: number | null; rpe_global: number | null; srpe: number | null }>
+): number | null {
+  if (logs.length < 7) return null;
+
+  const now = new Date();
+  let acuteSum = 0;
+  let chronicSum = 0;
+
+  for (let i = 0; i < 28; i++) {
+    const targetDate = new Date(now);
+    targetDate.setDate(now.getDate() - i);
+    const dateStr = format(targetDate, "yyyy-MM-dd");
+
+    const dayLoad = logs
+      .filter((log) => log.completed_at?.split("T")[0] === dateStr)
+      .reduce((sum, log) => {
+        const rpe = log.srpe ?? log.rpe_global ?? 5;
+        const duration = (log.duration_seconds ?? 1800) / 60;
+        return sum + rpe * duration;
+      }, 0);
+
+    if (i < 7) acuteSum += dayLoad;
+    chronicSum += dayLoad;
+  }
+
+  const acuteAvg = acuteSum / 7;
+  const chronicAvg = chronicSum / 28;
+
+  return chronicAvg > 0 ? acuteAvg / chronicAvg : null;
+}
+
+// ===== MAIN HOOK =====
+
+export function useCoachDashboardMetrics(): CoachDashboardMetrics {
+  const { user, profile } = useAuth();
+  const today = format(new Date(), "yyyy-MM-dd");
+  const isCoach = profile?.role === "coach";
+
+  // ===== QUERY 1: Athletes =====
+  const { data: athletes = [], isLoading: athletesLoading, error: athletesError } = useQuery({
+    queryKey: ["dashboard-athletes", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url")
+        .eq("coach_id", user.id)
+        .eq("role", "athlete");
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!user && isCoach,
+  });
+
+  const athleteIds = useMemo(() => athletes.map((a) => a.id), [athletes]);
+
+  // ===== QUERY 2: Daily Readiness (today + recent) =====
+  const { data: readinessData = [], isLoading: readinessLoading, error: readinessError } = useQuery({
+    queryKey: ["dashboard-readiness", athleteIds.join(",")],
+    queryFn: async () => {
+      if (athleteIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("daily_readiness")
+        .select("athlete_id, date, score")
+        .in("athlete_id", athleteIds)
+        .order("date", { ascending: false });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: athleteIds.length > 0,
+  });
+
+  // ===== QUERY 3: Active Injuries =====
+  const { data: injuries = [], isLoading: injuriesLoading, error: injuriesError } = useQuery({
+    queryKey: ["dashboard-injuries", athleteIds.join(",")],
+    queryFn: async () => {
+      if (athleteIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("injuries")
+        .select("id, athlete_id, body_zone, description, status")
+        .in("athlete_id", athleteIds)
+        .in("status", ["active", "in_rehab"]);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: athleteIds.length > 0,
+  });
+
+  // ===== QUERY 4: Workout Logs (28 days for ACWR + RPE analysis) =====
+  const twentyEightDaysAgo = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 28);
+    return d.toISOString();
+  }, []);
+
+  const { data: workoutLogs = [], isLoading: logsLoading, error: logsError } = useQuery({
+    queryKey: ["dashboard-workout-logs", athleteIds.join(",")],
+    queryFn: async () => {
+      if (athleteIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("workout_logs")
+        .select("id, athlete_id, workout_id, completed_at, duration_seconds, rpe_global, srpe, notes, coach_feedback, status, scheduled_date")
+        .in("athlete_id", athleteIds)
+        .gte("created_at", twentyEightDaysAgo);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: athleteIds.length > 0,
+  });
+
+  // ===== QUERY 5: Workouts (for titles + missed detection) =====
+  const { data: workouts = [], isLoading: workoutsLoading, error: workoutsError } = useQuery({
+    queryKey: ["dashboard-workouts", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("workouts")
+        .select("id, title, athlete_id, scheduled_date, status")
+        .eq("coach_id", user.id)
+        .gte("scheduled_date", format(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), "yyyy-MM-dd"))
+        .lte("scheduled_date", today);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!user && isCoach,
+  });
+
+  // ===== COMPUTED: Urgent Alerts =====
+  const urgentAlerts = useMemo<UrgentAlert[]>(() => {
+    const alerts: UrgentAlert[] = [];
+
+    athletes.forEach((athlete) => {
+      const initials = getInitials(athlete.full_name);
+      const athleteLogs = workoutLogs.filter((l) => l.athlete_id === athlete.id);
+      const latestReadiness = readinessData.find((r) => r.athlete_id === athlete.id);
+
+      // RULE 1: Missed Workout
+      // If today > scheduled_date AND status != 'completed'
+      const athleteWorkouts = workouts.filter((w) => w.athlete_id === athlete.id);
+      athleteWorkouts.forEach((workout) => {
+        if (workout.scheduled_date && workout.scheduled_date < today && workout.status !== "completed") {
+          // Check if there's a completed log for this workout
+          const hasCompletedLog = workoutLogs.some(
+            (log) => log.workout_id === workout.id && log.status === "completed"
+          );
+          if (!hasCompletedLog) {
+            alerts.push({
+              id: `missed-${workout.id}`,
+              athleteId: athlete.id,
+              athleteName: athlete.full_name ?? "Atleta",
+              avatarUrl: athlete.avatar_url,
+              avatarInitials: initials,
+              alertType: "missed_workout",
+              severity: "warning",
+              value: "Missed",
+              details: `${workout.title} was scheduled for ${workout.scheduled_date}`,
+              timestamp: workout.scheduled_date,
+            });
+          }
+        }
+      });
+
+      // RULE 2: RPE Spike (rpe_global > 9)
+      const recentHighRpeLogs = athleteLogs.filter(
+        (log) => log.rpe_global !== null && log.rpe_global > 9 && log.completed_at
+      );
+      recentHighRpeLogs.slice(0, 1).forEach((log) => {
+        alerts.push({
+          id: `rpe-spike-${log.id}`,
+          athleteId: athlete.id,
+          athleteName: athlete.full_name ?? "Atleta",
+          avatarUrl: athlete.avatar_url,
+          avatarInitials: initials,
+          alertType: "rpe_spike",
+          severity: "warning",
+          value: `RPE ${log.rpe_global}`,
+          details: "High intensity session - check recovery status",
+          timestamp: log.completed_at ?? undefined,
+        });
+      });
+
+      // RULE 3: Low Readiness (< 45)
+      if (latestReadiness && latestReadiness.score !== null && latestReadiness.score < 45) {
+        alerts.push({
+          id: `readiness-${athlete.id}`,
+          athleteId: athlete.id,
+          athleteName: athlete.full_name ?? "Atleta",
+          avatarUrl: athlete.avatar_url,
+          avatarInitials: initials,
+          alertType: "low_readiness",
+          severity: latestReadiness.score < 30 ? "critical" : "warning",
+          value: `${latestReadiness.score}%`,
+          details: `Readiness critically low (${latestReadiness.date})`,
+          timestamp: latestReadiness.date,
+        });
+      }
+
+      // RULE 4: No Check-in Today
+      const todayCheckin = readinessData.find(
+        (r) => r.athlete_id === athlete.id && r.date === today
+      );
+      if (!todayCheckin) {
+        const lastCheckin = readinessData.find((r) => r.athlete_id === athlete.id);
+        alerts.push({
+          id: `no-checkin-${athlete.id}`,
+          athleteId: athlete.id,
+          athleteName: athlete.full_name ?? "Atleta",
+          avatarUrl: athlete.avatar_url,
+          avatarInitials: initials,
+          alertType: "no_checkin",
+          severity: "info",
+          value: "No Check-in",
+          details: lastCheckin ? `Last: ${lastCheckin.date}` : "Never checked in",
+        });
+      }
+
+      // RULE 5: High ACWR (> 1.3)
+      const acwr = calculateAcwr(athleteLogs);
+      if (acwr !== null && acwr > 1.3) {
+        alerts.push({
+          id: `acwr-${athlete.id}`,
+          athleteId: athlete.id,
+          athleteName: athlete.full_name ?? "Atleta",
+          avatarUrl: athlete.avatar_url,
+          avatarInitials: initials,
+          alertType: "high_acwr",
+          severity: acwr > 1.5 ? "critical" : "warning",
+          value: `ACWR ${acwr.toFixed(2)}`,
+          details: "High injury risk - acute load exceeds chronic capacity",
+        });
+      }
+
+      // RULE 6: Active Injuries
+      const athleteInjuries = injuries.filter((i) => i.athlete_id === athlete.id);
+      athleteInjuries.forEach((injury) => {
+        alerts.push({
+          id: `injury-${injury.id}`,
+          athleteId: athlete.id,
+          athleteName: athlete.full_name ?? "Atleta",
+          avatarUrl: athlete.avatar_url,
+          avatarInitials: initials,
+          alertType: "active_injury",
+          severity: injury.status === "active" ? "critical" : "warning",
+          value: injury.body_zone,
+          details: injury.description ?? `${injury.status} injury`,
+        });
+      });
+    });
+
+    // Sort: critical first, then warning, then info
+    return alerts.sort((a, b) => {
+      const order = { critical: 0, warning: 1, info: 2 };
+      return order[a.severity] - order[b.severity];
+    });
+  }, [athletes, readinessData, injuries, workoutLogs, workouts, today]);
+
+  // ===== COMPUTED: Feedback Items (completed with notes/video, no coach feedback) =====
+  const feedbackItems = useMemo<FeedbackItem[]>(() => {
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    return workoutLogs
+      .filter((log) => {
+        if (!log.completed_at) return false;
+        if (log.coach_feedback) return false; // Already reviewed
+        // Prioritize those with notes or completed in last 24h
+        return log.completed_at >= twentyFourHoursAgo || log.notes;
+      })
+      .map((log) => {
+        const athlete = athletes.find((a) => a.id === log.athlete_id);
+        const workout = workouts.find((w) => w.id === log.workout_id);
+        return {
+          id: `feedback-${log.id}`,
+          workoutLogId: log.id,
+          workoutTitle: workout?.title ?? "Workout",
+          athleteId: log.athlete_id,
+          athleteName: athlete?.full_name ?? "Atleta",
+          avatarUrl: athlete?.avatar_url ?? null,
+          avatarInitials: getInitials(athlete?.full_name ?? null),
+          completedAt: log.completed_at!,
+          hasVideo: false, // workout_logs doesn't have video_url currently
+          hasNotes: !!log.notes,
+          rpeGlobal: log.rpe_global,
+        };
+      })
+      .slice(0, 10);
+  }, [workoutLogs, athletes, workouts]);
+
+  // ===== COMPUTED: Today's Schedule =====
+  const todaySchedule = useMemo<TodayScheduleItem[]>(() => {
+    return workouts
+      .filter((w) => w.scheduled_date === today && w.status === "pending")
+      .map((w) => {
+        const athlete = athletes.find((a) => a.id === w.athlete_id);
+        return {
+          id: w.id,
+          title: w.title,
+          athleteId: w.athlete_id,
+          athleteName: athlete?.full_name ?? "Atleta",
+          avatarInitials: getInitials(athlete?.full_name ?? null),
+          scheduledDate: w.scheduled_date!,
+          status: w.status,
+        };
+      });
+  }, [workouts, athletes, today]);
+
+  // ===== COMPUTED: Business Metrics =====
+  const businessMetrics = useMemo<BusinessMetrics>(() => {
+    const activeClients = athletes.length;
+
+    // Mocked MRR calculation (e.g., €50 per client)
+    const monthlyRecurringRevenue = activeClients * 50;
+
+    // Compliance: % who checked in today
+    const checkedInToday = athletes.filter((a) =>
+      readinessData.some((r) => r.athlete_id === a.id && r.date === today)
+    ).length;
+    const complianceRate = activeClients > 0 ? Math.round((checkedInToday / activeClients) * 100) : 0;
+
+    // Avg readiness of today's check-ins
+    const todayScores = readinessData
+      .filter((r) => r.date === today && r.score !== null)
+      .map((r) => r.score!);
+    const avgReadiness = todayScores.length > 0
+      ? Math.round(todayScores.reduce((a, b) => a + b, 0) / todayScores.length)
+      : null;
+
+    // Churn risk: athletes with critical alerts
+    const criticalAthleteIds = new Set(
+      urgentAlerts.filter((a) => a.severity === "critical").map((a) => a.athleteId)
+    );
+    const churnRisk = criticalAthleteIds.size;
+
+    return {
+      activeClients,
+      monthlyRecurringRevenue,
+      complianceRate,
+      avgReadiness,
+      churnRisk,
+    };
+  }, [athletes, readinessData, urgentAlerts, today]);
+
+  // ===== COMPUTED: Healthy Athletes (no critical/warning alerts) =====
+  const healthyAthletes = useMemo<HealthyAthlete[]>(() => {
+    const alertedIds = new Set(
+      urgentAlerts
+        .filter((a) => a.severity === "critical" || a.severity === "warning")
+        .map((a) => a.athleteId)
+    );
+
+    return athletes
+      .filter((a) => !alertedIds.has(a.id))
+      .map((a) => {
+        const latestReadiness = readinessData.find((r) => r.athlete_id === a.id);
+        return {
+          id: a.id,
+          name: a.full_name ?? "Atleta",
+          avatarUrl: a.avatar_url,
+          avatarInitials: getInitials(a.full_name),
+          readinessScore: latestReadiness?.score ?? null,
+        };
+      });
+  }, [athletes, urgentAlerts, readinessData]);
+
+  // ===== COMBINED STATE =====
+  const isLoading = athletesLoading || readinessLoading || injuriesLoading || logsLoading || workoutsLoading;
+  const error = athletesError || readinessError || injuriesError || logsError || workoutsError;
+
+  return {
+    urgentAlerts,
+    feedbackItems,
+    todaySchedule,
+    businessMetrics,
+    healthyAthletes,
+    isLoading,
+    error: error as Error | null,
+  };
+}

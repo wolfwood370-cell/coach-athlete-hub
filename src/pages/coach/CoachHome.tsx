@@ -8,13 +8,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { InviteAthleteDialog } from "@/components/coach/InviteAthleteDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
+import { 
+  useCoachDashboardMetrics,
+  type UrgentAlert,
+  type AlertType,
+  type AlertSeverity,
+} from "@/hooks/useCoachDashboardMetrics";
 import { 
   AlertTriangle,
   ShieldAlert,
-  Zap,
+  TrendingUp,
   TrendingDown,
   Battery,
   CheckCircle2,
@@ -25,75 +29,74 @@ import {
   Activity,
   Flame,
   AlertCircle,
-  Clock
+  Clock,
+  Users,
+  DollarSign,
+  Target,
+  Zap,
+  CalendarX,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, formatDistanceToNow } from "date-fns";
 import { it } from "date-fns/locale";
 
-// Types for high priority alerts
-interface HighPriorityAlert {
-  id: string;
-  athleteId: string;
-  athleteName: string;
-  avatarUrl: string | null;
-  avatarInitials: string;
-  alertType: "low_readiness" | "active_injury" | "high_acwr";
-  alertLevel: "critical" | "warning";
-  value: string;
-  details: string;
-}
+// ===== ALERT CONFIGURATION =====
+const getAlertConfig = (type: AlertType) => {
+  const configs: Record<AlertType, { icon: typeof AlertTriangle; label: string; bgClass: string; textClass: string }> = {
+    missed_workout: { 
+      icon: CalendarX, 
+      label: "Missed Workout",
+      bgClass: "bg-destructive/10",
+      textClass: "text-destructive"
+    },
+    low_readiness: { 
+      icon: Battery, 
+      label: "Low Readiness",
+      bgClass: "bg-destructive/10",
+      textClass: "text-destructive"
+    },
+    active_injury: { 
+      icon: AlertCircle, 
+      label: "Active Injury",
+      bgClass: "bg-destructive/10",
+      textClass: "text-destructive"
+    },
+    high_acwr: { 
+      icon: Flame, 
+      label: "High ACWR",
+      bgClass: "bg-warning/10",
+      textClass: "text-warning"
+    },
+    rpe_spike: { 
+      icon: Zap, 
+      label: "High RPE",
+      bgClass: "bg-warning/10",
+      textClass: "text-warning"
+    },
+    no_checkin: { 
+      icon: Clock, 
+      label: "No Check-in",
+      bgClass: "bg-muted",
+      textClass: "text-muted-foreground"
+    },
+  };
+  return configs[type] ?? { 
+    icon: AlertTriangle, 
+    label: "Alert",
+    bgClass: "bg-muted",
+    textClass: "text-muted-foreground"
+  };
+};
 
-interface PendingFeedback {
-  id: string;
-  workoutTitle: string;
-  athleteId: string;
-  athleteName: string;
-  avatarInitials: string;
-  completedAt: string;
-}
-
-interface TodayWorkout {
-  id: string;
-  title: string;
-  athleteId: string;
-  athleteName: string;
-  avatarInitials: string;
-  scheduledDate: string;
-  status: string;
-}
-
-// Alert type configuration
-const getAlertConfig = (type: HighPriorityAlert["alertType"]) => {
-  switch (type) {
-    case "low_readiness":
-      return { 
-        icon: Battery, 
-        label: "Low Readiness",
-        bgClass: "bg-destructive/10",
-        textClass: "text-destructive"
-      };
-    case "active_injury":
-      return { 
-        icon: AlertCircle, 
-        label: "Active Injury",
-        bgClass: "bg-destructive/10",
-        textClass: "text-destructive"
-      };
-    case "high_acwr":
-      return { 
-        icon: Flame, 
-        label: "High ACWR",
-        bgClass: "bg-warning/10",
-        textClass: "text-warning"
-      };
+const getSeverityStyles = (severity: AlertSeverity) => {
+  switch (severity) {
+    case "critical":
+      return { ring: "ring-destructive/30", bg: "bg-destructive", badge: "bg-destructive/10 text-destructive border-destructive/30" };
+    case "warning":
+      return { ring: "ring-warning/30", bg: "bg-warning", badge: "bg-warning/10 text-warning border-warning/30" };
+    case "info":
     default:
-      return { 
-        icon: AlertTriangle, 
-        label: "Alert",
-        bgClass: "bg-muted",
-        textClass: "text-muted-foreground"
-      };
+      return { ring: "ring-muted", bg: "bg-muted-foreground", badge: "bg-muted text-muted-foreground border-border" };
   }
 };
 
@@ -101,279 +104,18 @@ export default function CoachHome() {
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();
   
-  const today = format(new Date(), 'yyyy-MM-dd');
-  
-  // ===== QUERY 1: Athletes with coach_id = current user =====
-  const { data: athletes = [], isLoading: athletesLoading } = useQuery({
-    queryKey: ["triage-athletes", user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, avatar_url")
-        .eq("coach_id", user.id)
-        .eq("role", "athlete");
-      
-      if (error) throw error;
-      return data ?? [];
-    },
-    enabled: !!user && profile?.role === "coach",
-  });
-  
-  const athleteIds = useMemo(() => athletes.map(a => a.id), [athletes]);
-  
-  // ===== QUERY 2: Daily Readiness (last entry per athlete) =====
-  const { data: readinessData = [], isLoading: readinessLoading } = useQuery({
-    queryKey: ["triage-readiness", user?.id, athleteIds.join(",")],
-    queryFn: async () => {
-      if (!user || athleteIds.length === 0) return [];
-      
-      const { data, error } = await supabase
-        .from("daily_readiness")
-        .select("athlete_id, date, score")
-        .in("athlete_id", athleteIds)
-        .order("date", { ascending: false });
-      
-      if (error) throw error;
-      return data ?? [];
-    },
-    enabled: !!user && profile?.role === "coach" && athleteIds.length > 0,
-  });
-  
-  // ===== QUERY 3: Active Injuries =====
-  const { data: activeInjuries = [], isLoading: injuriesLoading } = useQuery({
-    queryKey: ["triage-injuries", user?.id, athleteIds.join(",")],
-    queryFn: async () => {
-      if (!user || athleteIds.length === 0) return [];
-      
-      const { data, error } = await supabase
-        .from("injuries")
-        .select("id, athlete_id, body_zone, description, status")
-        .in("athlete_id", athleteIds)
-        .in("status", ["active", "in_rehab"]);
-      
-      if (error) throw error;
-      return data ?? [];
-    },
-    enabled: !!user && profile?.role === "coach" && athleteIds.length > 0,
-  });
-  
-  // ===== QUERY 4: Workout Logs for ACWR calculation (last 28 days) =====
-  const twentyEightDaysAgo = new Date();
-  twentyEightDaysAgo.setDate(twentyEightDaysAgo.getDate() - 28);
-  
-  const { data: workoutLogs = [], isLoading: logsLoading } = useQuery({
-    queryKey: ["triage-workout-logs", user?.id, athleteIds.join(",")],
-    queryFn: async () => {
-      if (!user || athleteIds.length === 0) return [];
-      
-      const { data, error } = await supabase
-        .from("workout_logs")
-        .select("id, athlete_id, completed_at, duration_seconds, rpe_global, srpe")
-        .in("athlete_id", athleteIds)
-        .not("completed_at", "is", null)
-        .gte("completed_at", twentyEightDaysAgo.toISOString());
-      
-      if (error) throw error;
-      return data ?? [];
-    },
-    enabled: !!user && profile?.role === "coach" && athleteIds.length > 0,
-  });
-  
-  // ===== QUERY 5: Pending Feedback (completed workouts without coach feedback) =====
-  const { data: pendingFeedbackRaw = [], isLoading: feedbackLoading } = useQuery({
-    queryKey: ["triage-pending-feedback", user?.id, athleteIds.join(",")],
-    queryFn: async () => {
-      if (!user || athleteIds.length === 0) return [];
-      
-      const { data, error } = await supabase
-        .from("workout_logs")
-        .select(`
-          id,
-          athlete_id,
-          completed_at,
-          coach_feedback,
-          workouts!workout_logs_workout_id_fkey(title)
-        `)
-        .in("athlete_id", athleteIds)
-        .not("completed_at", "is", null)
-        .is("coach_feedback", null)
-        .order("completed_at", { ascending: false })
-        .limit(10);
-      
-      if (error) throw error;
-      return data ?? [];
-    },
-    enabled: !!user && profile?.role === "coach" && athleteIds.length > 0,
-  });
-  
-  // ===== QUERY 6: Today's Scheduled Workouts (pending) =====
-  const { data: todaysWorkoutsRaw = [], isLoading: todayLoading } = useQuery({
-    queryKey: ["triage-todays-schedule", user?.id, today],
-    queryFn: async () => {
-      if (!user) return [];
-      
-      const { data, error } = await supabase
-        .from("workouts")
-        .select(`
-          id,
-          title,
-          athlete_id,
-          scheduled_date,
-          status,
-          profiles!workouts_athlete_id_fkey(full_name)
-        `)
-        .eq("scheduled_date", today)
-        .eq("coach_id", user.id)
-        .eq("status", "pending");
-      
-      if (error) throw error;
-      return data ?? [];
-    },
-    enabled: !!user && profile?.role === "coach",
-  });
-  
-  // ===== PROCESS HIGH PRIORITY ALERTS =====
-  const highPriorityAlerts = useMemo<HighPriorityAlert[]>(() => {
-    const alerts: HighPriorityAlert[] = [];
-    
-    athletes.forEach(athlete => {
-      const initials = athlete.full_name
-        ?.split(" ")
-        .map((n: string) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2) ?? "??";
-      
-      // Check 1: Low Readiness (< 45)
-      const latestReadiness = readinessData.find(r => r.athlete_id === athlete.id);
-      if (latestReadiness && latestReadiness.score !== null && latestReadiness.score < 45) {
-        alerts.push({
-          id: `readiness-${athlete.id}`,
-          athleteId: athlete.id,
-          athleteName: athlete.full_name ?? "Atleta",
-          avatarUrl: athlete.avatar_url,
-          avatarInitials: initials,
-          alertType: "low_readiness",
-          alertLevel: latestReadiness.score < 30 ? "critical" : "warning",
-          value: `${latestReadiness.score}%`,
-          details: `Readiness score is critically low (${latestReadiness.date})`,
-        });
-      }
-      
-      // Check 2: Active Injuries
-      const athleteInjuries = activeInjuries.filter(i => i.athlete_id === athlete.id);
-      if (athleteInjuries.length > 0) {
-        athleteInjuries.forEach(injury => {
-          alerts.push({
-            id: `injury-${injury.id}`,
-            athleteId: athlete.id,
-            athleteName: athlete.full_name ?? "Atleta",
-            avatarUrl: athlete.avatar_url,
-            avatarInitials: initials,
-            alertType: "active_injury",
-            alertLevel: injury.status === "active" ? "critical" : "warning",
-            value: injury.body_zone,
-            details: injury.description ?? `${injury.status} injury`,
-          });
-        });
-      }
-      
-      // Check 3: High ACWR (> 1.5)
-      const athleteLogs = workoutLogs.filter(l => l.athlete_id === athlete.id);
-      if (athleteLogs.length >= 7) {
-        // Calculate ACWR
-        const now = new Date();
-        let acuteSum = 0;
-        let chronicSum = 0;
-        
-        for (let i = 0; i < 28; i++) {
-          const targetDate = new Date(now);
-          targetDate.setDate(now.getDate() - i);
-          const dateStr = targetDate.toISOString().split("T")[0];
-          
-          const dayLoad = athleteLogs
-            .filter(log => log.completed_at?.split("T")[0] === dateStr)
-            .reduce((sum, log) => {
-              const rpe = log.srpe ?? log.rpe_global ?? 5;
-              const duration = (log.duration_seconds ?? 1800) / 60;
-              return sum + (rpe * duration);
-            }, 0);
-          
-          if (i < 7) acuteSum += dayLoad;
-          chronicSum += dayLoad;
-        }
-        
-        const acuteAvg = acuteSum / 7;
-        const chronicAvg = chronicSum / 28;
-        const acwr = chronicAvg > 0 ? acuteAvg / chronicAvg : 0;
-        
-        if (acwr > 1.5) {
-          alerts.push({
-            id: `acwr-${athlete.id}`,
-            athleteId: athlete.id,
-            athleteName: athlete.full_name ?? "Atleta",
-            avatarUrl: athlete.avatar_url,
-            avatarInitials: initials,
-            alertType: "high_acwr",
-            alertLevel: acwr > 1.8 ? "critical" : "warning",
-            value: `ACWR ${acwr.toFixed(2)}`,
-            details: "High injury risk - acute load exceeds chronic capacity",
-          });
-        }
-      }
-    });
-    
-    // Sort: critical first, then warning
-    return alerts.sort((a, b) => {
-      if (a.alertLevel === "critical" && b.alertLevel !== "critical") return -1;
-      if (b.alertLevel === "critical" && a.alertLevel !== "critical") return 1;
-      return 0;
-    });
-  }, [athletes, readinessData, activeInjuries, workoutLogs]);
-  
-  // ===== PROCESS PENDING FEEDBACK =====
-  const pendingFeedback = useMemo<PendingFeedback[]>(() => {
-    return pendingFeedbackRaw.map((log: any) => {
-      const athlete = athletes.find(a => a.id === log.athlete_id);
-      const initials = athlete?.full_name
-        ?.split(" ")
-        .map((n: string) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2) ?? "??";
-      
-      return {
-        id: log.id,
-        workoutTitle: log.workouts?.title ?? "Workout",
-        athleteId: log.athlete_id,
-        athleteName: athlete?.full_name ?? "Atleta",
-        avatarInitials: initials,
-        completedAt: log.completed_at,
-      };
-    });
-  }, [pendingFeedbackRaw, athletes]);
-  
-  // ===== PROCESS TODAY'S SCHEDULE =====
-  const todaysWorkouts = useMemo<TodayWorkout[]>(() => {
-    return todaysWorkoutsRaw.map((w: any) => ({
-      id: w.id,
-      title: w.title,
-      athleteId: w.athlete_id,
-      athleteName: w.profiles?.full_name ?? "Atleta",
-      avatarInitials: (w.profiles?.full_name ?? "A")
-        .split(" ")
-        .map((n: string) => n[0])
-        .join("")
-        .toUpperCase()
-        .slice(0, 2),
-      scheduledDate: w.scheduled_date,
-      status: w.status,
-    }));
-  }, [todaysWorkoutsRaw]);
-  
-  const isLoading = athletesLoading || readinessLoading || injuriesLoading || logsLoading || feedbackLoading || todayLoading;
+  const {
+    urgentAlerts,
+    feedbackItems,
+    todaySchedule,
+    businessMetrics,
+    healthyAthletes,
+    isLoading,
+  } = useCoachDashboardMetrics();
+
+  // Separate alerts by severity for Bento layout
+  const criticalAlerts = urgentAlerts.filter(a => a.severity === "critical" || a.severity === "warning");
+  const infoAlerts = urgentAlerts.filter(a => a.severity === "info");
 
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -384,7 +126,7 @@ export default function CoachHome() {
 
   if (authLoading) {
     return (
-      <CoachLayout title="Command Center" subtitle="Caricamento...">
+      <CoachLayout title="Command Center" subtitle="Loading...">
         <div className="space-y-4">
           <Skeleton className="h-48 w-full" />
           <div className="grid grid-cols-3 gap-4">
@@ -397,56 +139,61 @@ export default function CoachHome() {
     );
   }
 
+  const hasAthletes = businessMetrics.activeClients > 0;
+
   return (
-    <CoachLayout title="Command Center" subtitle="Chi ha bisogno della tua attenzione oggi?">
-      <div className="space-y-6 animate-fade-in">
+    <CoachLayout title="Command Center" subtitle="Daily Triage Dashboard">
+      <div className="space-y-5 animate-fade-in">
+        
         {/* Empty State for New Coaches */}
-        {!isLoading && athletes.length === 0 && (
+        {!isLoading && !hasAthletes && (
           <Card className="p-12 text-center border-0 shadow-sm">
             <div className="inline-flex items-center justify-center h-20 w-20 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 mb-6 ring-4 ring-primary/10">
               <UserPlus className="h-10 w-10 text-primary" />
             </div>
             <h3 className="text-xl font-bold text-foreground mb-2">
-              Benvenuto, Coach! 🎯
+              Welcome, Coach! 🎯
             </h3>
             <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
-              Invita il tuo primo atleta per iniziare a monitorare il carico di allenamento, il recupero e le performance in tempo reale.
+              Invite your first athlete to start monitoring training load, recovery, and performance in real-time.
             </p>
             <InviteAthleteDialog 
               trigger={
                 <Button className="gradient-primary h-12 px-8 text-base font-semibold shadow-lg hover:shadow-xl transition-shadow">
                   <UserPlus className="h-5 w-5 mr-2" />
-                  Invita il Tuo Primo Atleta
+                  Invite Your First Athlete
                 </Button>
               }
             />
           </Card>
         )}
 
-        {/* Main Triage Grid */}
-        {athletes.length > 0 && (
+        {/* ===== BENTO GRID LAYOUT ===== */}
+        {hasAthletes && (
           <div className="grid grid-cols-12 gap-4 lg:gap-5">
             
-            {/* ===== SECTION 1: HIGH PRIORITY (Health & Risk) ===== */}
-            <Card className="col-span-12 lg:col-span-8 border-0 shadow-sm">
+            {/* ===== ROW 1: URGENT ALERTS (RED) + BUSINESS HEALTH (GREEN) ===== */}
+            
+            {/* Urgent Alerts - Takes more space */}
+            <Card className="col-span-12 lg:col-span-8 border-l-4 border-l-destructive shadow-sm">
               <CardHeader className="pb-2 pt-4 px-4 lg:px-5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-destructive/10">
-                      <ShieldAlert className="h-4 w-4 text-destructive" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-destructive/10">
+                      <ShieldAlert className="h-5 w-5 text-destructive" />
                     </div>
                     <div>
-                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        🚨 High Priority
+                      <CardTitle className="text-base font-bold flex items-center gap-2">
+                        🚨 Urgent Alerts
                       </CardTitle>
                       <p className="text-xs text-muted-foreground">
-                        Readiness &lt; 45% | Active Injuries | ACWR &gt; 1.5
+                        Missed workouts • Low readiness • Injury risk • ACWR &gt; 1.3
                       </p>
                     </div>
                   </div>
-                  {highPriorityAlerts.length > 0 && (
-                    <Badge variant="destructive" className="tabular-nums">
-                      {highPriorityAlerts.length}
+                  {criticalAlerts.length > 0 && (
+                    <Badge variant="destructive" className="tabular-nums text-sm px-3">
+                      {criticalAlerts.length}
                     </Badge>
                   )}
                 </div>
@@ -464,20 +211,20 @@ export default function CoachHome() {
                       </div>
                     ))}
                   </div>
-                ) : highPriorityAlerts.length === 0 ? (
+                ) : criticalAlerts.length === 0 ? (
                   <div className="p-8 text-center">
                     <div className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-success/10 mb-3">
                       <CheckCircle2 className="h-7 w-7 text-success" />
                     </div>
                     <h3 className="text-base font-semibold text-foreground mb-1">All Clear!</h3>
                     <p className="text-sm text-muted-foreground">
-                      Nessun atleta in zona di rischio. Ottimo lavoro!
+                      No athletes in the danger zone. Great work!
                     </p>
                   </div>
                 ) : (
                   <ScrollArea className="max-h-[320px]">
                     <div className="divide-y divide-border/50">
-                      {highPriorityAlerts.map((alert) => (
+                      {criticalAlerts.map((alert) => (
                         <AlertRow 
                           key={alert.id} 
                           alert={alert} 
@@ -490,33 +237,192 @@ export default function CoachHome() {
               </CardContent>
             </Card>
 
-            {/* ===== SECTION 3: TODAY'S SCHEDULE ===== */}
-            <Card className="col-span-12 lg:col-span-4 border-0 shadow-sm">
+            {/* Business Health - Compact sidebar */}
+            <Card className="col-span-12 lg:col-span-4 border-l-4 border-l-success shadow-sm">
+              <CardHeader className="pb-3 pt-4 px-4">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-success/10">
+                    <TrendingUp className="h-4 w-4 text-success" />
+                  </div>
+                  <CardTitle className="text-sm font-bold">💚 Business Health</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 pt-0 space-y-4">
+                {/* Active Clients */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Active Clients</span>
+                  </div>
+                  <span className="text-xl font-bold tabular-nums">{businessMetrics.activeClients}</span>
+                </div>
+                
+                {/* MRR (Mocked) */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-success/5">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-success" />
+                    <span className="text-sm text-muted-foreground">Monthly Revenue</span>
+                  </div>
+                  <span className="text-xl font-bold tabular-nums text-success">
+                    €{businessMetrics.monthlyRecurringRevenue}
+                  </span>
+                </div>
+                
+                {/* Compliance Rate */}
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Target className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Check-in Rate</span>
+                  </div>
+                  <span className={cn(
+                    "text-xl font-bold tabular-nums",
+                    businessMetrics.complianceRate >= 80 ? "text-success" :
+                    businessMetrics.complianceRate >= 50 ? "text-warning" : "text-destructive"
+                  )}>
+                    {businessMetrics.complianceRate}%
+                  </span>
+                </div>
+                
+                {/* Churn Risk */}
+                {businessMetrics.churnRisk > 0 && (
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-destructive/5">
+                    <div className="flex items-center gap-2">
+                      <TrendingDown className="h-4 w-4 text-destructive" />
+                      <span className="text-sm text-muted-foreground">At Risk</span>
+                    </div>
+                    <span className="text-xl font-bold tabular-nums text-destructive">
+                      {businessMetrics.churnRisk}
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* ===== ROW 2: NEEDS FEEDBACK (YELLOW) + TODAY'S SCHEDULE ===== */}
+            
+            {/* Needs Feedback */}
+            <Card className="col-span-12 lg:col-span-7 border-l-4 border-l-warning shadow-sm">
+              <CardHeader className="pb-2 pt-4 px-4 lg:px-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10">
+                      <MessageSquare className="h-5 w-5 text-warning" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-base font-bold flex items-center gap-2">
+                        📝 Needs Feedback
+                      </CardTitle>
+                      <p className="text-xs text-muted-foreground">
+                        Workouts completed in last 24h awaiting review
+                      </p>
+                    </div>
+                  </div>
+                  {feedbackItems.length > 0 && (
+                    <Badge className="tabular-nums text-sm px-3 bg-warning/10 text-warning border-warning/20">
+                      {feedbackItems.length}
+                    </Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                {isLoading ? (
+                  <div className="p-4 space-y-2">
+                    {Array.from({ length: 2 }).map((_, i) => (
+                      <Skeleton key={i} className="h-14" />
+                    ))}
+                  </div>
+                ) : feedbackItems.length === 0 ? (
+                  <div className="p-6 text-center">
+                    <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-muted/50 mb-2">
+                      <CheckCircle2 className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm text-muted-foreground">No feedback pending</p>
+                    <p className="text-xs text-muted-foreground/70 mt-1">Completed workouts will appear here</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="max-h-[220px]">
+                    <div className="divide-y divide-border/50">
+                      {feedbackItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center gap-4 px-4 lg:px-5 py-3 hover:bg-muted/30 transition-colors cursor-pointer group"
+                          onClick={() => navigate(`/coach/athlete/${item.athleteId}`)}
+                        >
+                          <Avatar className="h-10 w-10">
+                            <AvatarImage src={item.avatarUrl || undefined} />
+                            <AvatarFallback className="bg-warning/10 text-warning text-sm font-medium">
+                              {item.avatarInitials}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium">
+                              <span className="font-semibold">{item.athleteName}</span>
+                              <span className="text-muted-foreground"> completed </span>
+                              <span className="font-medium text-foreground">'{item.workoutTitle}'</span>
+                            </p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {formatDistanceToNow(new Date(item.completedAt), { addSuffix: true, locale: it })}
+                              </span>
+                              {item.rpeGlobal && (
+                                <Badge variant="outline" className={cn(
+                                  "text-[10px] px-1.5 py-0 h-4",
+                                  item.rpeGlobal > 8 ? "border-warning/50 text-warning" : ""
+                                )}>
+                                  RPE {item.rpeGlobal}
+                                </Badge>
+                              )}
+                              {item.hasNotes && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">
+                                  📝 Notes
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                          <Button 
+                            size="sm" 
+                            variant="outline" 
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            Review
+                          </Button>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Today's Schedule */}
+            <Card className="col-span-12 lg:col-span-5 border-0 shadow-sm">
               <CardHeader className="pb-2 pt-4 px-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-primary" />
-                    <CardTitle className="text-sm font-semibold">📅 Oggi</CardTitle>
+                    <CardTitle className="text-sm font-bold">📅 Today's Schedule</CardTitle>
                   </div>
                   <Badge variant="secondary" className="tabular-nums">
-                    {todaysWorkouts.length}
+                    {todaySchedule.length}
                   </Badge>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {format(new Date(), "EEEE d MMMM", { locale: it })}
+                  {format(new Date(), "EEEE, MMMM d", { locale: it })}
                 </p>
               </CardHeader>
               <CardContent className="p-0">
-                {todayLoading ? (
+                {isLoading ? (
                   <div className="p-4 space-y-2">
                     {Array.from({ length: 3 }).map((_, i) => (
                       <Skeleton key={i} className="h-12" />
                     ))}
                   </div>
-                ) : todaysWorkouts.length === 0 ? (
+                ) : todaySchedule.length === 0 ? (
                   <div className="p-6 text-center">
                     <p className="text-sm text-muted-foreground">
-                      Nessun allenamento programmato per oggi
+                      No workouts scheduled for today
                     </p>
                     <Button 
                       variant="link" 
@@ -524,13 +430,13 @@ export default function CoachHome() {
                       className="mt-2 text-xs"
                       onClick={() => navigate("/coach/programs")}
                     >
-                      Crea un programma
+                      Create a program
                     </Button>
                   </div>
                 ) : (
-                  <ScrollArea className="max-h-[240px]">
+                  <ScrollArea className="max-h-[220px]">
                     <div className="p-2 space-y-1">
-                      {todaysWorkouts.map((workout) => (
+                      {todaySchedule.map((workout) => (
                         <div
                           key={workout.id}
                           className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/30 cursor-pointer transition-colors"
@@ -554,160 +460,98 @@ export default function CoachHome() {
               </CardContent>
             </Card>
 
-            {/* ===== SECTION 2: PENDING FEEDBACK ===== */}
-            <Card className="col-span-12 border-0 shadow-sm">
-              <CardHeader className="pb-2 pt-4 px-4 lg:px-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-warning/10">
-                      <MessageSquare className="h-4 w-4 text-warning" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                        📝 Feedback Needed
-                      </CardTitle>
-                      <p className="text-xs text-muted-foreground">
-                        Workout completati in attesa di revisione
-                      </p>
-                    </div>
-                  </div>
-                  {pendingFeedback.length > 0 && (
-                    <Badge variant="secondary" className="tabular-nums bg-warning/10 text-warning border-warning/20">
-                      {pendingFeedback.length}
-                    </Badge>
-                  )}
+            {/* ===== ROW 3: OPTIMAL ZONE + INFO ALERTS ===== */}
+            
+            {/* Healthy Athletes */}
+            <Card className="col-span-12 lg:col-span-6 border-0 shadow-sm">
+              <CardHeader className="pb-2 pt-4 px-4">
+                <div className="flex items-center gap-2">
+                  <div className="h-2.5 w-2.5 rounded-full bg-success animate-pulse" />
+                  <CardTitle className="text-sm font-bold">✅ Optimal Zone</CardTitle>
+                  <Badge variant="secondary" className="ml-auto text-xs tabular-nums bg-success/10 text-success">
+                    {healthyAthletes.length}
+                  </Badge>
                 </div>
+                <p className="text-xs text-muted-foreground">Athletes with no critical issues</p>
               </CardHeader>
-              <CardContent className="p-0">
-                {feedbackLoading ? (
-                  <div className="p-4 space-y-2">
-                    {Array.from({ length: 2 }).map((_, i) => (
-                      <Skeleton key={i} className="h-14" />
-                    ))}
-                  </div>
-                ) : pendingFeedback.length === 0 ? (
-                  <div className="p-6 text-center">
-                    <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-muted/50 mb-2">
-                      <CheckCircle2 className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <p className="text-sm text-muted-foreground">Nessun feedback in attesa</p>
-                    <p className="text-xs text-muted-foreground/70 mt-1">I workout completati appariranno qui</p>
-                  </div>
+              <CardContent className="p-4 pt-2">
+                {healthyAthletes.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    All athletes need attention
+                  </p>
                 ) : (
-                  <ScrollArea className="max-h-[200px]">
-                    <div className="divide-y divide-border/50">
-                      {pendingFeedback.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center gap-4 px-4 lg:px-5 py-3 hover:bg-muted/30 transition-colors cursor-pointer group"
-                          onClick={() => navigate(`/coach/athlete/${item.athleteId}`)}
-                        >
-                          <Avatar className="h-10 w-10">
-                            <AvatarFallback className="bg-warning/10 text-warning text-sm font-medium">
-                              {item.avatarInitials}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium">
-                              <span className="font-semibold">{item.athleteName}</span>
-                              <span className="text-muted-foreground"> ha completato </span>
-                              <span className="font-medium text-foreground">'{item.workoutTitle}'</span>
-                            </p>
-                            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
-                              <Clock className="h-3 w-3" />
-                              {formatDistanceToNow(new Date(item.completedAt), { addSuffix: true, locale: it })}
-                            </p>
-                          </div>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                          >
-                            Review
-                          </Button>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
+                  <div className="flex flex-wrap gap-2">
+                    {healthyAthletes.slice(0, 14).map((athlete) => (
+                      <Avatar 
+                        key={athlete.id} 
+                        className="h-9 w-9 border-2 border-success/30 cursor-pointer hover:scale-110 transition-transform"
+                        title={`${athlete.name}${athlete.readinessScore ? ` (${athlete.readinessScore}%)` : ''}`}
+                        onClick={() => navigate(`/coach/athlete/${athlete.id}`)}
+                      >
+                        <AvatarImage src={athlete.avatarUrl || undefined} />
+                        <AvatarFallback className="text-[10px] bg-success/10 text-success font-medium">
+                          {athlete.avatarInitials}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
+                    {healthyAthletes.length > 14 && (
+                      <div 
+                        className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground cursor-pointer hover:bg-muted/80"
+                        onClick={() => navigate("/coach/athletes")}
+                      >
+                        +{healthyAthletes.length - 14}
+                      </div>
+                    )}
+                  </div>
                 )}
               </CardContent>
             </Card>
 
-            {/* ===== QUICK STATS ===== */}
-            <Card className="col-span-12 lg:col-span-6 border-0 shadow-sm">
-              <CardHeader className="pb-2 pt-4 px-4">
-                <CardTitle className="text-sm font-semibold">Quick Stats</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 pt-2">
-                <div className="grid grid-cols-3 gap-4">
-                  <div className="text-center p-3 rounded-lg bg-muted/30">
-                    <p className="text-2xl font-bold tabular-nums">{athletes.length}</p>
-                    <p className="text-xs text-muted-foreground mt-1">Atleti Totali</p>
-                  </div>
-                  <div className="text-center p-3 rounded-lg bg-destructive/5">
-                    <p className="text-2xl font-bold tabular-nums text-destructive">
-                      {highPriorityAlerts.length}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">Alert Attivi</p>
-                  </div>
-                  <div className="text-center p-3 rounded-lg bg-warning/5">
-                    <p className="text-2xl font-bold tabular-nums text-warning">
-                      {pendingFeedback.length}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">Feedback</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* ===== HEALTHY ATHLETES ===== */}
+            {/* Info Alerts (No Check-ins) */}
             <Card className="col-span-12 lg:col-span-6 border-0 shadow-sm">
               <CardHeader className="pb-2 pt-4 px-4">
                 <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-success" />
-                  <CardTitle className="text-sm font-semibold">Optimal Zone</CardTitle>
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <CardTitle className="text-sm font-bold">⏳ Awaiting Check-in</CardTitle>
                   <Badge variant="secondary" className="ml-auto text-xs tabular-nums">
-                    {athletes.length - new Set(highPriorityAlerts.map(a => a.athleteId)).size}
+                    {infoAlerts.length}
                   </Badge>
                 </div>
+                <p className="text-xs text-muted-foreground">Athletes who haven't checked in today</p>
               </CardHeader>
-              <CardContent className="p-4 pt-2">
-                <div className="flex flex-wrap gap-2">
-                  {athletes
-                    .filter(a => !highPriorityAlerts.some(alert => alert.athleteId === a.id))
-                    .slice(0, 12)
-                    .map(athlete => {
-                      const initials = athlete.full_name
-                        ?.split(" ")
-                        .map((n: string) => n[0])
-                        .join("")
-                        .toUpperCase()
-                        .slice(0, 2) ?? "??";
-                      
-                      return (
-                        <Avatar 
-                          key={athlete.id} 
-                          className="h-9 w-9 border-2 border-success/30 cursor-pointer hover:scale-110 transition-transform"
-                          title={athlete.full_name ?? "Atleta"}
-                          onClick={() => navigate(`/coach/athlete/${athlete.id}`)}
+              <CardContent className="p-0">
+                {infoAlerts.length === 0 ? (
+                  <div className="p-4 text-center">
+                    <p className="text-sm text-muted-foreground">Everyone checked in! 🎉</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="max-h-[140px]">
+                    <div className="p-2 flex flex-wrap gap-2">
+                      {infoAlerts.slice(0, 10).map((alert) => (
+                        <div
+                          key={alert.id}
+                          className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-muted/30 hover:bg-muted/50 cursor-pointer transition-colors"
+                          onClick={() => navigate(`/coach/athlete/${alert.athleteId}`)}
                         >
-                          <AvatarImage src={athlete.avatar_url || undefined} />
-                          <AvatarFallback className="text-[10px] bg-success/10 text-success font-medium">
-                            {initials}
-                          </AvatarFallback>
-                        </Avatar>
-                      );
-                    })}
-                  {athletes.filter(a => !highPriorityAlerts.some(alert => alert.athleteId === a.id)).length > 12 && (
-                    <div 
-                      className="h-9 w-9 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground cursor-pointer hover:bg-muted/80"
-                      onClick={() => navigate("/coach/athletes")}
-                    >
-                      +{athletes.filter(a => !highPriorityAlerts.some(alert => alert.athleteId === a.id)).length - 12}
+                          <Avatar className="h-6 w-6">
+                            <AvatarImage src={alert.avatarUrl || undefined} />
+                            <AvatarFallback className="text-[9px] bg-muted text-muted-foreground">
+                              {alert.avatarInitials}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs font-medium truncate max-w-[80px]">
+                            {alert.athleteName.split(" ")[0]}
+                          </span>
+                        </div>
+                      ))}
+                      {infoAlerts.length > 10 && (
+                        <div className="px-2 py-1.5 text-xs text-muted-foreground">
+                          +{infoAlerts.length - 10} more
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
+                  </ScrollArea>
+                )}
               </CardContent>
             </Card>
 
@@ -718,15 +562,16 @@ export default function CoachHome() {
   );
 }
 
-// Alert Row Component
+// ===== ALERT ROW COMPONENT =====
 function AlertRow({ 
   alert, 
   onClick 
 }: { 
-  alert: HighPriorityAlert; 
+  alert: UrgentAlert; 
   onClick: () => void;
 }) {
   const config = getAlertConfig(alert.alertType);
+  const severity = getSeverityStyles(alert.severity);
   const Icon = config.icon;
 
   return (
@@ -736,34 +581,32 @@ function AlertRow({
     >
       {/* Avatar with status indicator */}
       <div className="relative flex-shrink-0">
-        <Avatar className="h-10 w-10">
+        <Avatar className={cn("h-10 w-10 ring-2", severity.ring)}>
           <AvatarImage src={alert.avatarUrl || undefined} />
           <AvatarFallback className={cn("text-sm font-medium", config.bgClass, config.textClass)}>
             {alert.avatarInitials}
           </AvatarFallback>
         </Avatar>
         <div className={cn(
-          "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card flex items-center justify-center",
-          alert.alertLevel === "critical" ? "bg-destructive" : "bg-warning"
+          "absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-2 border-card flex items-center justify-center",
+          severity.bg
         )}>
-          <Icon className="h-2 w-2 text-white" />
+          <Icon className="h-2.5 w-2.5 text-white" />
         </div>
       </div>
       
       {/* Info */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm font-semibold truncate">{alert.athleteName}</p>
           <Badge 
             variant="outline" 
-            className={cn(
-              "text-[10px] px-1.5 py-0 h-5",
-              alert.alertLevel === "critical" 
-                ? "bg-destructive/10 text-destructive border-destructive/30" 
-                : "bg-warning/10 text-warning border-warning/30"
-            )}
+            className={cn("text-[10px] px-1.5 py-0 h-5", severity.badge)}
           >
             {alert.value}
+          </Badge>
+          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5 hidden sm:inline-flex">
+            {config.label}
           </Badge>
         </div>
         <p className="text-xs text-muted-foreground truncate mt-0.5">
@@ -772,7 +615,7 @@ function AlertRow({
       </div>
       
       {/* Action hint */}
-      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
     </div>
   );
 }
