@@ -115,6 +115,50 @@ export type Database = {
         }
         Relationships: []
       }
+      coach_products: {
+        Row: {
+          active: boolean
+          billing_period: string
+          coach_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          price: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          billing_period?: string
+          coach_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          price?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          billing_period?: string
+          coach_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_products_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_foods: {
         Row: {
           athlete_id: string
@@ -589,6 +633,67 @@ export type Database = {
         }
         Relationships: []
       }
+      invoices: {
+        Row: {
+          amount: number
+          athlete_id: string
+          coach_id: string
+          created_at: string
+          id: string
+          invoice_date: string
+          notes: string | null
+          paid_at: string | null
+          product_id: string | null
+          status: string
+        }
+        Insert: {
+          amount: number
+          athlete_id: string
+          coach_id: string
+          created_at?: string
+          id?: string
+          invoice_date?: string
+          notes?: string | null
+          paid_at?: string | null
+          product_id?: string | null
+          status?: string
+        }
+        Update: {
+          amount?: number
+          athlete_id?: string
+          coach_id?: string
+          created_at?: string
+          id?: string
+          invoice_date?: string
+          notes?: string | null
+          paid_at?: string | null
+          product_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "coach_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
@@ -751,6 +856,7 @@ export type Database = {
           brand_color: string | null
           coach_id: string | null
           created_at: string
+          current_period_end: string | null
           full_name: string | null
           id: string
           logo_url: string | null
@@ -762,6 +868,8 @@ export type Database = {
           role: Database["public"]["Enums"]["user_role"]
           settings: Json
           social_links: Json | null
+          subscription_status: Database["public"]["Enums"]["subscription_status"]
+          subscription_tier: string | null
           updated_at: string
         }
         Insert: {
@@ -770,6 +878,7 @@ export type Database = {
           brand_color?: string | null
           coach_id?: string | null
           created_at?: string
+          current_period_end?: string | null
           full_name?: string | null
           id: string
           logo_url?: string | null
@@ -781,6 +890,8 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           settings?: Json
           social_links?: Json | null
+          subscription_status?: Database["public"]["Enums"]["subscription_status"]
+          subscription_tier?: string | null
           updated_at?: string
         }
         Update: {
@@ -789,6 +900,7 @@ export type Database = {
           brand_color?: string | null
           coach_id?: string | null
           created_at?: string
+          current_period_end?: string | null
           full_name?: string | null
           id?: string
           logo_url?: string | null
@@ -800,6 +912,8 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           settings?: Json
           social_links?: Json | null
+          subscription_status?: Database["public"]["Enums"]["subscription_status"]
+          subscription_tier?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1306,6 +1420,7 @@ export type Database = {
         | "recovery"
         | "peaking"
         | "transition"
+      subscription_status: "active" | "past_due" | "canceled" | "trial" | "none"
       user_role: "coach" | "athlete"
       workout_log_status: "scheduled" | "completed" | "missed"
       workout_status: "pending" | "in_progress" | "completed" | "skipped"
@@ -1445,6 +1560,7 @@ export const Constants = {
         "peaking",
         "transition",
       ],
+      subscription_status: ["active", "past_due", "canceled", "trial", "none"],
       user_role: ["coach", "athlete"],
       workout_log_status: ["scheduled", "completed", "missed"],
       workout_status: ["pending", "in_progress", "completed", "skipped"],
