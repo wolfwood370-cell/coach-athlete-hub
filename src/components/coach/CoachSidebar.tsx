@@ -9,6 +9,7 @@ import {
   LogOut,
   Zap,
   ChevronLeft,
+  CreditCard,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ const mainNavItems = [
   { title: "Calendar", url: "/coach/calendar", icon: Calendar },
   { title: "Messages", url: "/coach/messages", icon: MessageSquare },
   { title: "Analytics", url: "/coach/analytics", icon: BarChart3 },
+  { title: "Business", url: "/coach/business", icon: CreditCard },
 ];
 
 const secondaryNavItems = [
