@@ -63,6 +63,15 @@ export interface UpdateSubscriptionPayload {
   periodEnd?: string;
 }
 
+export interface AssignSubscriptionPayload {
+  athleteId: string;
+  productId: string;
+  productName: string;
+  startDate: Date;
+  periodEnd: Date;
+  price: number;
+}
+
 // ===== MAIN HOOK =====
 
 export function useCoachBusinessData() {
@@ -258,6 +267,53 @@ export function useCoachBusinessData() {
     },
   });
 
+  // ===== MUTATION: Assign Subscription =====
+  const assignSubscriptionMutation = useMutation({
+    mutationFn: async (payload: AssignSubscriptionPayload) => {
+      if (!user) throw new Error("Not authenticated");
+
+      // 1. Update athlete's profile with subscription info
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
+          subscription_status: "active",
+          subscription_tier: payload.productName,
+          current_period_end: payload.periodEnd.toISOString(),
+        })
+        .eq("id", payload.athleteId);
+
+      if (profileError) throw profileError;
+
+      // 2. Create an invoice record for tracking
+      const { error: invoiceError } = await supabase.from("invoices").insert({
+        coach_id: user.id,
+        athlete_id: payload.athleteId,
+        product_id: payload.productId,
+        amount: payload.price,
+        status: "pending",
+        invoice_date: payload.startDate.toISOString(),
+        notes: `Subscription assigned: ${payload.productName}`,
+      });
+
+      if (invoiceError) throw invoiceError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["athlete-subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["coach-invoices"] });
+      toast({
+        title: "Subscription assigned",
+        description: "The athlete's subscription has been activated.",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Failed to assign subscription",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // ===== COMBINED STATE =====
   const isLoading = productsLoading || subscriptionsLoading || invoicesLoading;
   const error = productsError || subscriptionsError || invoicesError;
@@ -277,5 +333,7 @@ export function useCoachBusinessData() {
     deleteProduct: deleteProductMutation.mutate,
     updateSubscription: updateSubscriptionMutation.mutate,
     markInvoicePaid: markInvoicePaidMutation.mutate,
+    assignSubscription: assignSubscriptionMutation.mutate,
+    isAssigningSubscription: assignSubscriptionMutation.isPending,
   };
 }

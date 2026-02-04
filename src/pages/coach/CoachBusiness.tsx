@@ -80,6 +80,8 @@ function getStatusBadge(status: string) {
   }
 }
 
+import { AssignSubscriptionDialog } from "@/components/coach/business/AssignSubscriptionDialog";
+
 export default function CoachBusiness() {
   const {
     products,
@@ -90,6 +92,8 @@ export default function CoachBusiness() {
     isCreatingProduct,
     deleteProduct,
     updateSubscription,
+    assignSubscription,
+    isAssigningSubscription,
   } = useCoachBusinessData();
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -143,15 +147,22 @@ export default function CoachBusiness() {
             <h1 className="text-2xl font-bold text-foreground">Business Hub</h1>
             <p className="text-muted-foreground">Manage your products, subscriptions, and revenue</p>
           </div>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="h-4 w-4" />
-                Create New Product
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
+          <div className="flex items-center gap-2">
+            <AssignSubscriptionDialog
+              athletes={athleteSubscriptions}
+              products={products}
+              onAssign={assignSubscription}
+              isAssigning={isAssigningSubscription}
+            />
+            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Create New Product
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
                 <DialogTitle>Create New Product</DialogTitle>
                 <DialogDescription>
                   Add a new coaching product or subscription tier
@@ -221,6 +232,7 @@ export default function CoachBusiness() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+          </div>
         </div>
 
         {/* KPI Stats Grid */}
