@@ -81,6 +81,7 @@ function getStatusBadge(status: string) {
 }
 
 import { AssignSubscriptionDialog } from "@/components/coach/business/AssignSubscriptionDialog";
+import { AssignPlanDialog } from "@/components/coach/business/AssignPlanDialog";
 
 export default function CoachBusiness() {
   const {
@@ -410,28 +411,27 @@ export default function CoachBusiness() {
                             : "—"}
                         </TableCell>
                         <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleMarkAsPaid(athlete.id)}>
-                                <CheckCircle className="h-4 w-4 mr-2 text-primary" />
-                                Mark as Paid
-                              </DropdownMenuItem>
-                              {products.map((product) => (
-                                <DropdownMenuItem
-                                  key={product.id}
-                                  onClick={() => handleChangePlan(athlete.id, product.name)}
-                                >
-                                  <DollarSign className="h-4 w-4 mr-2" />
-                                  Assign: {product.name}
+                          <div className="flex items-center justify-end gap-2">
+                            <AssignPlanDialog
+                              athlete={athlete}
+                              products={products}
+                              onAssign={assignSubscription}
+                              isAssigning={isAssigningSubscription}
+                            />
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleMarkAsPaid(athlete.id)}>
+                                  <CheckCircle className="h-4 w-4 mr-2 text-primary" />
+                                  Mark as Paid
                                 </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
