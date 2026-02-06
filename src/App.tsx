@@ -17,6 +17,7 @@ import CoachAnalytics from "./pages/coach/CoachAnalytics";
 import CoachSettings from "./pages/coach/CoachSettings";
 import CoachBusiness from "./pages/coach/CoachBusiness";
 import ProgramBuilder from "./pages/coach/ProgramBuilder";
+import CoachLibrary from "./pages/coach/CoachLibrary";
 import AthleteDashboard from "./pages/athlete/AthleteDashboard";
 import AthleteTraining from "./pages/athlete/AthleteTraining";
 import AthleteNutrition from "./pages/athlete/AthleteNutrition";
@@ -68,6 +69,7 @@ const App = () => (
               <Route path="/coach/programs" element={<ProgramBuilder />} />
               <Route path="/coach/calendar" element={<CoachCalendar />} />
               <Route path="/coach/messages" element={<CoachMessages />} />
+              <Route path="/coach/library" element={<CoachLibrary />} />
               <Route path="/coach/analytics" element={<CoachAnalytics />} />
               <Route path="/coach/business" element={<CoachBusiness />} />
               <Route path="/coach/settings" element={<CoachSettings />} />
