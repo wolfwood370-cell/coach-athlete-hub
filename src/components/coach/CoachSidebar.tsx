@@ -10,6 +10,7 @@ import {
   Zap,
   ChevronLeft,
   CreditCard,
+  BookOpen,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ const mainNavItems = [
   { title: "Programs", url: "/coach/programs", icon: Dumbbell },
   { title: "Calendar", url: "/coach/calendar", icon: Calendar },
   { title: "Messages", url: "/coach/messages", icon: MessageSquare },
+  { title: "Library", url: "/coach/library", icon: BookOpen },
   { title: "Analytics", url: "/coach/analytics", icon: BarChart3 },
   { title: "Business", url: "/coach/business", icon: CreditCard },
 ];

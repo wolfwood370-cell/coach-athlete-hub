@@ -159,6 +159,36 @@ export type Database = {
           },
         ]
       }
+      content_library: {
+        Row: {
+          coach_id: string
+          created_at: string
+          id: string
+          tags: string[] | null
+          title: string
+          type: Database["public"]["Enums"]["content_type"]
+          url: string | null
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          id?: string
+          tags?: string[] | null
+          title: string
+          type?: Database["public"]["Enums"]["content_type"]
+          url?: string | null
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          id?: string
+          tags?: string[] | null
+          title?: string
+          type?: Database["public"]["Enums"]["content_type"]
+          url?: string | null
+        }
+        Relationships: []
+      }
       custom_foods: {
         Row: {
           athlete_id: string
@@ -1412,6 +1442,7 @@ export type Database = {
       }
     }
     Enums: {
+      content_type: "video" | "pdf" | "link" | "text"
       phase_focus_type:
         | "strength"
         | "hypertrophy"
@@ -1551,6 +1582,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      content_type: ["video", "pdf", "link", "text"],
       phase_focus_type: [
         "strength",
         "hypertrophy",
