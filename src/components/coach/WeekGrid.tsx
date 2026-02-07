@@ -34,6 +34,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Plus,
+  Bookmark,
   Calendar,
   Layers,
   Loader2,
@@ -290,6 +291,7 @@ function DayCell({
   onSelectExercise,
   onAddSlot,
   onCopyDay,
+  onSaveAsTemplate,
 }: {
   dayIndex: number;
   weekIndex: number;
@@ -300,6 +302,7 @@ function DayCell({
   onSelectExercise?: (exercise: ProgramExercise) => void;
   onAddSlot: () => void;
   onCopyDay: () => void;
+  onSaveAsTemplate: () => void;
 }) {
   const { isOver, setNodeRef } = useDroppable({
     id: `day-${weekIndex}-${dayIndex}`,
@@ -343,6 +346,19 @@ function DayCell({
         <div className="flex items-center gap-1">
           {filledExercises.length > 0 && (
             <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-5 w-5 opacity-0 group-hover:opacity-100"
+                    onClick={onSaveAsTemplate}
+                  >
+                    <Bookmark className="h-3 w-3" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Salva come template</TooltipContent>
+              </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -655,6 +671,7 @@ interface WeekGridProps {
   onCopyDay: (sourceDayIndex: number, targetDays: number[], mode: "append" | "overwrite") => void;
   onCopyWeekTo: (targetWeeks: number[]) => void;
   onClearWeek: () => void;
+  onSaveAsTemplate: (dayIndex: number) => void;
   onCopyDayDialogClose?: () => void;
   onCopyWeekDialogClose?: () => void;
 }
@@ -674,6 +691,7 @@ export function WeekGrid({
   onCopyDay,
   onCopyWeekTo,
   onClearWeek,
+  onSaveAsTemplate,
   onCopyDayDialogClose,
   onCopyWeekDialogClose,
 }: WeekGridProps) {
@@ -771,6 +789,7 @@ export function WeekGrid({
               onSelectExercise={(exercise) => onSelectExercise?.(dayIndex, exercise)}
               onAddSlot={() => onAddSlot(dayIndex)}
               onCopyDay={() => handleOpenCopyDayDialog(dayIndex)}
+              onSaveAsTemplate={() => onSaveAsTemplate(dayIndex)}
             />
           ))}
         </div>

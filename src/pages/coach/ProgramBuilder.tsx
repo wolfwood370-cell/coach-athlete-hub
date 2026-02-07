@@ -18,6 +18,9 @@ import { WeekTabs, type PhaseInfo } from "@/components/coach/WeekTabs";
 import { ExerciseContextEditor } from "@/components/coach/ExerciseContextEditor";
 import { PeriodizationHeader } from "@/components/coach/PeriodizationHeader";
 import { CloneWeekDialog } from "@/components/coach/CloneWeekDialog";
+import { SaveDayTemplateDialog } from "@/components/coach/templates/SaveDayTemplateDialog";
+import { TemplatesSidebar } from "@/components/coach/templates/TemplatesSidebar";
+import { useWorkoutTemplates } from "@/hooks/useWorkoutTemplates";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -62,6 +65,7 @@ import {
   Eye,
   FileText,
   Copy,
+  Bookmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -331,6 +335,23 @@ export default function ProgramBuilder() {
   const [cloneWeekDialogOpen, setCloneWeekDialogOpen] = useState(false);
   const [cloneWeekSourceIndex, setCloneWeekSourceIndex] = useState(0);
   const [isCloning, setIsCloning] = useState(false);
+
+  // Workout Templates state
+  const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false);
+  const [saveTemplateDayIndex, setSaveTemplateDayIndex] = useState(0);
+  const [templatesSidebarOpen, setTemplatesSidebarOpen] = useState(false);
+
+  // Workout Templates hook
+  const {
+    templates,
+    allTags,
+    isLoading: templatesLoading,
+    createTemplate,
+    deleteTemplate,
+    isCreating: templatesCreating,
+    isDeleting: templatesDeleting,
+    hydrateTemplate,
+  } = useWorkoutTemplates();
 
   // DnD sensors
   const sensors = useSensors(
@@ -690,6 +711,40 @@ export default function ProgramBuilder() {
     toast.success(`Settimana ${currentWeek + 1} svuotata`);
   }, [currentWeek]);
 
+  // =========================================
+  // Template Handlers
+  // =========================================
+  const DAYS_FULL = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
+
+  const handleOpenSaveTemplateDialog = useCallback((dayIndex: number) => {
+    setSaveTemplateDayIndex(dayIndex);
+    setSaveTemplateDialogOpen(true);
+  }, []);
+
+  const handleSaveTemplate = useCallback(
+    async (data: { name: string; description: string; tags: string[] }) => {
+      const exercises = program[currentWeek]?.[saveTemplateDayIndex] || [];
+      await createTemplate({
+        name: data.name,
+        description: data.description,
+        structure: exercises,
+        tags: data.tags,
+      });
+    },
+    [currentWeek, saveTemplateDayIndex, program, createTemplate]
+  );
+
+  const handleInsertTemplate = useCallback(
+    (exercises: ProgramExercise[]) => {
+      // Append template exercises to the selected day
+      for (const exercise of exercises) {
+        exerciseActions.addExercise(saveTemplateDayIndex, exercise, currentWeek);
+      }
+      toast.success(`Template inserito in ${DAYS_FULL[saveTemplateDayIndex]}!`);
+    },
+    [currentWeek, saveTemplateDayIndex, exerciseActions]
+  );
+
   // Reset entire program - uses store action
   const handleResetProgram = useCallback(() => {
     programActions.reset();
@@ -916,22 +971,35 @@ export default function ProgramBuilder() {
             />
 
             {/* MAIN SECTION: Slot-Based Day Grid */}
-            <WeekGrid
-              currentWeek={currentWeek}
-              totalWeeks={totalWeeks}
-              weekData={weekData}
-              selectedExerciseId={storeSelectedExercise?.exerciseId}
-              isCopyingDay={isCopyingDay}
-              isCopyingWeek={isCopyingWeek}
-              onWeekChange={weekActions.setCurrentWeek}
-              onRemoveExercise={handleRemoveExercise}
-              onToggleSuperset={handleToggleSuperset}
-              onSelectExercise={handleSelectExercise}
-              onAddSlot={handleAddSlot}
-              onCopyDay={handleCopyDay}
-              onCopyWeekTo={handleCopyWeekTo}
-              onClearWeek={handleClearWeek}
-            />
+            <div className="relative flex-1">
+              <WeekGrid
+                currentWeek={currentWeek}
+                totalWeeks={totalWeeks}
+                weekData={weekData}
+                selectedExerciseId={storeSelectedExercise?.exerciseId}
+                isCopyingDay={isCopyingDay}
+                isCopyingWeek={isCopyingWeek}
+                onWeekChange={weekActions.setCurrentWeek}
+                onRemoveExercise={handleRemoveExercise}
+                onToggleSuperset={handleToggleSuperset}
+                onSelectExercise={handleSelectExercise}
+                onAddSlot={handleAddSlot}
+                onCopyDay={handleCopyDay}
+                onCopyWeekTo={handleCopyWeekTo}
+                onClearWeek={handleClearWeek}
+                onSaveAsTemplate={handleOpenSaveTemplateDialog}
+              />
+              {/* Load Templates Button - Floating */}
+              <Button
+                variant="outline"
+                size="sm"
+                className="absolute bottom-4 right-4 shadow-md bg-background"
+                onClick={() => setTemplatesSidebarOpen(true)}
+              >
+                <Bookmark className="h-4 w-4 mr-2" />
+                Carica Template
+              </Button>
+            </div>
           </div>
 
           {/* Right Sidebar - Context Editor */}
@@ -961,6 +1029,29 @@ export default function ProgramBuilder() {
         totalWeeks={totalWeeks}
         onConfirm={handleConfirmCloneWeek}
         isLoading={isCloning}
+      />
+
+      {/* Save Day as Template Dialog */}
+      <SaveDayTemplateDialog
+        open={saveTemplateDialogOpen}
+        onOpenChange={setSaveTemplateDialogOpen}
+        exercises={program[currentWeek]?.[saveTemplateDayIndex] || []}
+        dayName={DAYS_FULL[saveTemplateDayIndex]}
+        onSave={handleSaveTemplate}
+        isLoading={templatesCreating}
+      />
+
+      {/* Templates Sidebar */}
+      <TemplatesSidebar
+        open={templatesSidebarOpen}
+        onOpenChange={setTemplatesSidebarOpen}
+        templates={templates}
+        allTags={allTags}
+        isLoading={templatesLoading}
+        isDeleting={templatesDeleting}
+        onInsert={handleInsertTemplate}
+        onDelete={deleteTemplate}
+        hydrateTemplate={hydrateTemplate}
       />
 
       {/* Save Dialog */}

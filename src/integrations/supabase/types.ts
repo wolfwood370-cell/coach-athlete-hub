@@ -1357,6 +1357,39 @@ export type Database = {
           },
         ]
       }
+      workout_templates: {
+        Row: {
+          coach_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          structure: Json
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          structure?: Json
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          structure?: Json
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       workouts: {
         Row: {
           athlete_id: string
