@@ -63,6 +63,37 @@
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(239 84% 67%) 0%, hsl(262 83% 58%) 100%);
     --gradient-success: linear-gradient(135deg, hsl(160 84% 39%) 0%, hsl(172 66% 50%) 100%);
+
+    /* Material 3 / Material You Tokens (Light) */
+    --m3-primary: 239 84% 40%;
+    --m3-on-primary: 0 0% 100%;
+    --m3-primary-container: 239 84% 90%;
+    --m3-on-primary-container: 239 84% 10%;
+    --m3-secondary: 239 20% 40%;
+    --m3-on-secondary: 0 0% 100%;
+    --m3-secondary-container: 239 20% 90%;
+    --m3-on-secondary-container: 239 20% 10%;
+    --m3-tertiary: 330 50% 40%;
+    --m3-on-tertiary: 0 0% 100%;
+    --m3-tertiary-container: 330 50% 90%;
+    --m3-on-tertiary-container: 330 50% 10%;
+    --m3-error: 0 75% 40%;
+    --m3-on-error: 0 0% 100%;
+    --m3-error-container: 0 75% 90%;
+    --m3-on-error-container: 0 75% 10%;
+    --m3-background: 239 10% 99%;
+    --m3-on-background: 239 10% 10%;
+    --m3-surface: 239 10% 99%;
+    --m3-on-surface: 239 10% 10%;
+    --m3-surface-variant: 239 10% 90%;
+    --m3-on-surface-variant: 239 10% 30%;
+    --m3-outline: 239 10% 50%;
+    --m3-outline-variant: 239 10% 80%;
+    --m3-surface-container-lowest: 0 0% 100%;
+    --m3-surface-container-low: 239 10% 96%;
+    --m3-surface-container: 239 10% 94%;
+    --m3-surface-container-high: 239 10% 92%;
+    --m3-surface-container-highest: 239 10% 90%;
   }
 
   /* Dark Theme - Applied by next-themes */
@@ -100,6 +131,37 @@
     --border: 224 71% 15%;
     --input: 224 71% 15%;
     --ring: 239 84% 67%;
+
+    /* Material 3 / Material You Tokens (Dark) */
+    --m3-primary: 239 84% 80%;
+    --m3-on-primary: 239 84% 20%;
+    --m3-primary-container: 239 84% 30%;
+    --m3-on-primary-container: 239 84% 90%;
+    --m3-secondary: 239 20% 80%;
+    --m3-on-secondary: 239 20% 20%;
+    --m3-secondary-container: 239 20% 30%;
+    --m3-on-secondary-container: 239 20% 90%;
+    --m3-tertiary: 330 50% 80%;
+    --m3-on-tertiary: 330 50% 20%;
+    --m3-tertiary-container: 330 50% 30%;
+    --m3-on-tertiary-container: 330 50% 90%;
+    --m3-error: 0 75% 80%;
+    --m3-on-error: 0 75% 20%;
+    --m3-error-container: 0 75% 30%;
+    --m3-on-error-container: 0 75% 90%;
+    --m3-background: 239 10% 10%;
+    --m3-on-background: 239 10% 90%;
+    --m3-surface: 239 10% 10%;
+    --m3-on-surface: 239 10% 90%;
+    --m3-surface-variant: 239 10% 30%;
+    --m3-on-surface-variant: 239 10% 80%;
+    --m3-outline: 239 10% 60%;
+    --m3-outline-variant: 239 10% 30%;
+    --m3-surface-container-lowest: 239 10% 4%;
+    --m3-surface-container-low: 239 10% 10%;
+    --m3-surface-container: 239 10% 12%;
+    --m3-surface-container-high: 239 10% 17%;
+    --m3-surface-container-highest: 239 10% 22%;
   }
 
   /* Athlete App - Dark Mode Default for Battery & Focus */

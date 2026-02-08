@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { SunThemeSync } from "@/components/logic/SunThemeSync";
 import { OfflineSyncProvider } from "@/providers/OfflineSyncProvider";
+import { MaterialYouProvider } from "@/providers/MaterialYouProvider";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import CoachHome from "./pages/coach/CoachHome";
@@ -24,6 +25,7 @@ import AthleteNutrition from "./pages/athlete/AthleteNutrition";
 import AthleteHealth from "./pages/athlete/AthleteHealth";
 import AthleteProfile from "./pages/athlete/AthleteProfile";
 import WorkoutPlayer from "./pages/athlete/WorkoutPlayer";
+import FocusDashboard from "./pages/athlete/FocusDashboard";
 import OnboardingWizard from "./pages/onboarding/OnboardingWizard";
 import NotFound from "./pages/NotFound";
 
@@ -74,13 +76,14 @@ const App = () => (
               <Route path="/coach/business" element={<CoachBusiness />} />
               <Route path="/coach/settings" element={<CoachSettings />} />
               
-              {/* Athlete Routes */}
-              <Route path="/athlete" element={<AthleteDashboard />} />
-              <Route path="/athlete/workout" element={<AthleteTraining />} />
-              <Route path="/athlete/workout/:id" element={<WorkoutPlayer />} />
-              <Route path="/athlete/nutrition" element={<AthleteNutrition />} />
-              <Route path="/athlete/health" element={<AthleteHealth />} />
-              <Route path="/athlete/profile" element={<AthleteProfile />} />
+              {/* Athlete Routes - Wrapped with MaterialYouProvider */}
+              <Route path="/athlete" element={<MaterialYouProvider><AthleteDashboard /></MaterialYouProvider>} />
+              <Route path="/athlete/focus" element={<MaterialYouProvider><FocusDashboard /></MaterialYouProvider>} />
+              <Route path="/athlete/workout" element={<MaterialYouProvider><AthleteTraining /></MaterialYouProvider>} />
+              <Route path="/athlete/workout/:id" element={<MaterialYouProvider><WorkoutPlayer /></MaterialYouProvider>} />
+              <Route path="/athlete/nutrition" element={<MaterialYouProvider><AthleteNutrition /></MaterialYouProvider>} />
+              <Route path="/athlete/health" element={<MaterialYouProvider><AthleteHealth /></MaterialYouProvider>} />
+              <Route path="/athlete/profile" element={<MaterialYouProvider><AthleteProfile /></MaterialYouProvider>} />
               
               {/* Onboarding */}
               <Route path="/onboarding" element={<OnboardingWizard />} />
