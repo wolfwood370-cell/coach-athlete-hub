@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { AthleteLayout } from "@/components/athlete/AthleteLayout";
+import { ThemeCustomizationCard } from "@/components/athlete/ThemeCustomizationCard";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useGamification } from "@/hooks/useGamification";
@@ -634,6 +635,9 @@ export default function AthleteProfile() {
               </Card>
             )}
           </div>
+
+          {/* Theme Customization Section */}
+          <ThemeCustomizationCard />
 
           {/* Settings Section */}
           <div className="space-y-3">
