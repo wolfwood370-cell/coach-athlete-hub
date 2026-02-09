@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo, useEffect, useState } from "react";
+import React, { createContext, useContext, useMemo, useEffect, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -6,6 +6,34 @@ import { useAuth } from "@/hooks/useAuth";
 // ============================================
 // MATERIAL YOU DYNAMIC THEME ENGINE
 // Based on Material 3 / Material You principles
+// With Neurotype-Based Dynamic Theming (Neuro-Sync)
+// ============================================
+
+// ============================================
+// NEUROTYPE COLOR MAPPING
+// ============================================
+
+export type Neurotype = "1A" | "1B" | "2A" | "2B" | "3";
+
+export const NEUROTYPE_COLORS: Record<Neurotype, { hex: string; label: string; description: string }> = {
+  "1A": { hex: "#D32F2F", label: "Intenso", description: "Intensity & Competitiveness" },
+  "1B": { hex: "#0097A7", label: "Preciso", description: "Speed & Precision" },
+  "2A": { hex: "#7B1FA2", label: "Adattabile", description: "Variety & Adaptability" },
+  "2B": { hex: "#388E3C", label: "Connesso", description: "Sensation & Connection" },
+  "3": { hex: "#F57C00", label: "Stabile", description: "Routine & Stability" },
+};
+
+export const MANUAL_COLOR_OPTIONS = [
+  { hex: "#6366f1", label: "Indigo" },
+  { hex: "#D32F2F", label: "Red" },
+  { hex: "#0097A7", label: "Cyan" },
+  { hex: "#7B1FA2", label: "Violet" },
+  { hex: "#388E3C", label: "Green" },
+  { hex: "#F57C00", label: "Amber" },
+];
+
+// ============================================
+// TYPES
 // ============================================
 
 interface ColorTones {
@@ -85,13 +113,51 @@ interface MaterialTheme {
   };
 }
 
+interface ThemePreferences {
+  isNeuroSyncEnabled: boolean;
+  manualColor: string | null;
+}
+
 interface MaterialYouContextValue {
   theme: MaterialTheme;
   setSeedColor: (color: string) => void;
   toggleDarkMode: () => void;
+  // Neuro-Sync features
+  isNeuroSyncEnabled: boolean;
+  setNeuroSyncEnabled: (enabled: boolean) => void;
+  manualColor: string | null;
+  setManualColor: (color: string | null) => void;
+  userNeurotype: Neurotype | null;
+  neurotypeSeedColor: string | null;
 }
 
 const MaterialYouContext = createContext<MaterialYouContextValue | null>(null);
+
+// ============================================
+// LOCAL STORAGE KEYS
+// ============================================
+
+const STORAGE_KEY_PREFERENCES = "material-you-preferences";
+
+function loadPreferences(): ThemePreferences {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY_PREFERENCES);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.warn("Failed to load theme preferences:", e);
+  }
+  return { isNeuroSyncEnabled: true, manualColor: null };
+}
+
+function savePreferences(prefs: ThemePreferences) {
+  try {
+    localStorage.setItem(STORAGE_KEY_PREFERENCES, JSON.stringify(prefs));
+  } catch (e) {
+    console.warn("Failed to save theme preferences:", e);
+  }
+}
 
 // ============================================
 // COLOR SCIENCE UTILITIES
@@ -292,6 +358,7 @@ function generateTheme(seedColor: string, isDark: boolean): MaterialTheme {
 
 // Default seed color (Indigo)
 const DEFAULT_SEED = "#6366f1";
+const DEFAULT_NEUROTYPE: Neurotype = "1B";
 
 // ============================================
 // PROVIDER COMPONENT
@@ -308,43 +375,78 @@ export function MaterialYouProvider({
 }: MaterialYouProviderProps) {
   const { user } = useAuth();
   const [isDark, setIsDark] = useState(defaultDark);
-  const [manualSeed, setManualSeed] = useState<string | null>(null);
+  
+  // Load preferences from localStorage
+  const [preferences, setPreferences] = useState<ThemePreferences>(() => loadPreferences());
 
-  // Fetch coach's brand color for this athlete
-  const { data: coachBranding } = useQuery({
-    queryKey: ["coach-brand-color", user?.id],
+  // Fetch user's neurotype from profile
+  const { data: userProfile } = useQuery({
+    queryKey: ["user-neurotype", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
 
-      // Get athlete's coach_id
-      const { data: profile } = await supabase
+      const { data } = await supabase
         .from("profiles")
-        .select("coach_id")
+        .select("neurotype, coach_id")
         .eq("id", user.id)
         .single();
 
-      if (!profile?.coach_id) return null;
+      return data;
+    },
+    enabled: !!user?.id,
+    staleTime: 10 * 60 * 1000,
+  });
 
-      // Get coach's brand color
+  // Fetch coach's brand color (fallback if no neurotype sync)
+  const { data: coachBranding } = useQuery({
+    queryKey: ["coach-brand-color", userProfile?.coach_id],
+    queryFn: async () => {
+      if (!userProfile?.coach_id) return null;
+
       const { data: coach } = await supabase
         .from("profiles")
         .select("brand_color")
-        .eq("id", profile.coach_id)
+        .eq("id", userProfile.coach_id)
         .single();
 
       return coach?.brand_color || null;
     },
-    enabled: !!user?.id,
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    enabled: !!userProfile?.coach_id,
+    staleTime: 10 * 60 * 1000,
   });
 
-  // Determine seed color: manual > coach branding > default
-  const seedColor = manualSeed || coachBranding || DEFAULT_SEED;
+  // Parse neurotype from profile
+  const userNeurotype: Neurotype | null = useMemo(() => {
+    const nt = userProfile?.neurotype;
+    if (nt && (nt === "1A" || nt === "1B" || nt === "2A" || nt === "2B" || nt === "3")) {
+      return nt as Neurotype;
+    }
+    return null;
+  }, [userProfile?.neurotype]);
+
+  // Get neurotype color
+  const neurotypeSeedColor = useMemo(() => {
+    const nt = userNeurotype || DEFAULT_NEUROTYPE;
+    return NEUROTYPE_COLORS[nt].hex;
+  }, [userNeurotype]);
+
+  // Determine final seed color based on preferences
+  const seedColor = useMemo(() => {
+    if (preferences.isNeuroSyncEnabled) {
+      return neurotypeSeedColor;
+    }
+    return preferences.manualColor || coachBranding || DEFAULT_SEED;
+  }, [preferences.isNeuroSyncEnabled, preferences.manualColor, neurotypeSeedColor, coachBranding]);
 
   // Generate theme
   const theme = useMemo(() => {
     return generateTheme(seedColor, isDark);
   }, [seedColor, isDark]);
+
+  // Persist preferences when they change
+  useEffect(() => {
+    savePreferences(preferences);
+  }, [preferences]);
 
   // Apply CSS custom properties to document
   useEffect(() => {
@@ -388,13 +490,28 @@ export function MaterialYouProvider({
     root.style.setProperty("--m3-seed", seedColor);
   }, [theme, seedColor]);
 
+  // Handlers
+  const setNeuroSyncEnabled = useCallback((enabled: boolean) => {
+    setPreferences((prev) => ({ ...prev, isNeuroSyncEnabled: enabled }));
+  }, []);
+
+  const setManualColor = useCallback((color: string | null) => {
+    setPreferences((prev) => ({ ...prev, manualColor: color }));
+  }, []);
+
   const value = useMemo(
     () => ({
       theme,
-      setSeedColor: setManualSeed,
+      setSeedColor: setManualColor,
       toggleDarkMode: () => setIsDark((prev) => !prev),
+      isNeuroSyncEnabled: preferences.isNeuroSyncEnabled,
+      setNeuroSyncEnabled,
+      manualColor: preferences.manualColor,
+      setManualColor,
+      userNeurotype,
+      neurotypeSeedColor,
     }),
-    [theme]
+    [theme, preferences, setNeuroSyncEnabled, setManualColor, userNeurotype, neurotypeSeedColor]
   );
 
   return (
