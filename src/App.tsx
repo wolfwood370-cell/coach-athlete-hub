@@ -17,15 +17,16 @@ import CoachSettings from "./pages/coach/CoachSettings";
 import CoachBusiness from "./pages/coach/CoachBusiness";
 import ProgramBuilder from "./pages/coach/ProgramBuilder";
 import CoachLibrary from "./pages/coach/CoachLibrary";
-import AthleteDashboard from "./pages/athlete/AthleteDashboard";
+import FocusDashboard from "./pages/athlete/FocusDashboard";
 import AthleteTraining from "./pages/athlete/AthleteTraining";
 import AthleteNutrition from "./pages/athlete/AthleteNutrition";
 import AthleteHealth from "./pages/athlete/AthleteHealth";
 import AthleteProfile from "./pages/athlete/AthleteProfile";
 import WorkoutPlayer from "./pages/athlete/WorkoutPlayer";
-import FocusDashboard from "./pages/athlete/FocusDashboard";
+import AthleteDashboard from "./pages/athlete/AthleteDashboard";
 import OnboardingWizard from "./pages/onboarding/OnboardingWizard";
 import NotFound from "./pages/NotFound";
+import { RoleRedirect } from "./components/RoleRedirect";
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
@@ -37,7 +38,7 @@ const App = () => (
         
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={<RoleRedirect fallback={<Index />} />} />
             <Route path="/auth" element={<Auth />} />
             
             {/* Coach Routes */}
@@ -53,7 +54,8 @@ const App = () => (
             <Route path="/coach/settings" element={<CoachSettings />} />
             
             {/* Athlete Routes */}
-            <Route path="/athlete" element={<AthleteDashboard />} />
+            <Route path="/athlete" element={<FocusDashboard />} />
+            <Route path="/athlete/dashboard" element={<AthleteDashboard />} />
             <Route path="/athlete/focus" element={<FocusDashboard />} />
             <Route path="/athlete/workout" element={<AthleteTraining />} />
             <Route path="/athlete/workout/:id" element={<WorkoutPlayer />} />

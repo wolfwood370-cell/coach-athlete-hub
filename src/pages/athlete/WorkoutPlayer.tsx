@@ -40,6 +40,7 @@ import { ActiveSessionShell } from "@/components/athlete/workout/ActiveSessionSh
 import { ExerciseCard, type ExerciseData, type SetData } from "@/components/athlete/workout/ExerciseCard";
 import { RestTimerPill } from "@/components/athlete/workout/RestTimerPill";
 import { AthleteLayout } from "@/components/athlete/AthleteLayout";
+import { useActiveSessionStore } from "@/stores/useActiveSessionStore";
 
 // ============================================================
 // CONSTANTS
@@ -122,6 +123,7 @@ export default function WorkoutPlayer() {
   const { logWorkout, isLoggingWorkout, isOnline } = useOfflineSync();
   const haptic = useHapticFeedback();
   const { checkForPR, showPRToast } = usePersonalRecords();
+  const sessionStore = useActiveSessionStore();
 
   // Refs & User
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -244,11 +246,16 @@ export default function WorkoutPlayer() {
     staleTime: 5 * 60 * 1000,
   });
 
+  // Initialize session store & load workout structure
   useEffect(() => {
     if (workoutData?.structure) {
       setExercises(parseWorkoutStructure(workoutData.structure as any[]));
+      // Start active session in store for crash recovery
+      if (id && !sessionStore.isActive) {
+        sessionStore.startSession(id, workoutData.id || id);
+      }
     }
-  }, [workoutData]);
+  }, [workoutData]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Exercise names for history
   const exerciseNames = useMemo(() => exercises.map((ex) => ex.name), [exercises]);
@@ -297,8 +304,11 @@ export default function WorkoutPlayer() {
           };
         })
       );
+      // Persist every field change to localStorage via store
+      const setIndex = parseInt(setId.split("-set-")[1] ?? "0");
+      sessionStore.updateSetField(exerciseId, setIndex, field as any, value as any);
     },
-    []
+    [sessionStore]
   );
 
   const handleSetComplete = useCallback(
@@ -412,6 +422,7 @@ export default function WorkoutPlayer() {
 
     logWorkout(workoutLogInput, {
       onSuccess: () => {
+        sessionStore.endSession(); // Clear localStorage session data
         toast({ title: "Allenamento salvato!", description: `Carico sessione: ${sessionLoad} UA` });
         navigate("/athlete");
       },
