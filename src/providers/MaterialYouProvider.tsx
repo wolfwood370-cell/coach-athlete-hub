@@ -453,7 +453,7 @@ export function MaterialYouProvider({
     const root = document.documentElement;
     const t = theme;
 
-    // Material You semantic tokens
+    // Material You semantic tokens (--m3-*)
     root.style.setProperty("--m3-primary", t.primary);
     root.style.setProperty("--m3-on-primary", t.onPrimary);
     root.style.setProperty("--m3-primary-container", t.primaryContainer);
@@ -488,6 +488,30 @@ export function MaterialYouProvider({
 
     // Seed color for reference
     root.style.setProperty("--m3-seed", seedColor);
+
+    // =============================================
+    // BRIDGE: Map M3 tokens → Standard Tailwind CSS vars
+    // This makes bg-primary, text-foreground etc. reactive
+    // =============================================
+    root.style.setProperty("--primary", `hsl(${t.primary})`);
+    root.style.setProperty("--primary-foreground", `hsl(${t.onPrimary})`);
+    root.style.setProperty("--background", `hsl(${t.background})`);
+    root.style.setProperty("--foreground", `hsl(${t.onBackground})`);
+    root.style.setProperty("--card", `hsl(${t.surfaces.surfaceContainerLow})`);
+    root.style.setProperty("--card-foreground", `hsl(${t.onSurface})`);
+    root.style.setProperty("--popover", `hsl(${t.surfaces.surfaceContainerLow})`);
+    root.style.setProperty("--popover-foreground", `hsl(${t.onSurface})`);
+    root.style.setProperty("--secondary", `hsl(${t.secondaryContainer})`);
+    root.style.setProperty("--secondary-foreground", `hsl(${t.onSecondaryContainer})`);
+    root.style.setProperty("--muted", `hsl(${t.surfaces.surfaceContainerHigh})`);
+    root.style.setProperty("--muted-foreground", `hsl(${t.onSurfaceVariant})`);
+    root.style.setProperty("--accent", `hsl(${t.tertiaryContainer})`);
+    root.style.setProperty("--accent-foreground", `hsl(${t.onTertiaryContainer})`);
+    root.style.setProperty("--destructive", `hsl(${t.error})`);
+    root.style.setProperty("--destructive-foreground", `hsl(${t.onError})`);
+    root.style.setProperty("--border", `hsl(${t.outlineVariant})`);
+    root.style.setProperty("--input", `hsl(${t.outlineVariant})`);
+    root.style.setProperty("--ring", `hsl(${t.primary})`);
   }, [theme, seedColor]);
 
   // Handlers
