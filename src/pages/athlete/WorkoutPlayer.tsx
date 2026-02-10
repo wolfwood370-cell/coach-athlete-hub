@@ -22,16 +22,18 @@ import {
   Flame,
   AlertTriangle,
   Activity,
+  ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useOfflineSync, type WorkoutLogPayload } from "@/hooks/useOfflineSync";
-import { useHapticFeedback } from "@/hooks/useHapticFeedback";
+import { useHapticFeedback, triggerHaptic } from "@/hooks/useHapticFeedback";
 import { useWorkoutStreak } from "@/hooks/useWorkoutStreak";
 import { usePersonalRecords } from "@/hooks/usePersonalRecords";
 import { useExerciseHistory } from "@/hooks/useExerciseHistory";
 import { triggerConfetti, triggerPRConfetti } from "@/utils/ux";
+import useEmblaCarousel from "embla-carousel-react";
 
 // Components
 import { ActiveSessionShell } from "@/components/athlete/workout/ActiveSessionShell";
@@ -127,6 +129,30 @@ export default function WorkoutPlayer() {
   // Workout state
   const [exercises, setExercises] = useState<ExerciseData[]>([]);
   const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
+
+  // Embla Carousel
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    align: "center",
+    containScroll: false,
+    watchDrag: true,
+  });
+
+  // Sync carousel selection with activeExerciseIndex
+  useEffect(() => {
+    if (!emblaApi) return;
+    const onSelect = () => {
+      setActiveExerciseIndex(emblaApi.selectedScrollSnap());
+    };
+    emblaApi.on("select", onSelect);
+    return () => { emblaApi.off("select", onSelect); };
+  }, [emblaApi]);
+
+  // Scroll carousel when activeExerciseIndex changes programmatically
+  useEffect(() => {
+    if (emblaApi && emblaApi.selectedScrollSnap() !== activeExerciseIndex) {
+      emblaApi.scrollTo(activeExerciseIndex);
+    }
+  }, [emblaApi, activeExerciseIndex]);
 
   // Timer
   const [workoutStartTime] = useState<Date>(new Date());
@@ -280,7 +306,7 @@ export default function WorkoutPlayer() {
       handleSetUpdate(exerciseId, setId, "completed", completed);
 
       if (completed) {
-        haptic.medium();
+        triggerHaptic("medium");
         const exercise = exercises.find((ex) => ex.id === exerciseId);
         const restTime = exercise?.restSeconds || 90;
         const set = exercise?.sets.find((s) => s.id === setId);
@@ -311,20 +337,36 @@ export default function WorkoutPlayer() {
         }
         setRestTimerActive(true);
 
-        // Auto-advance active exercise when all sets completed
+        // Auto-advance: check if ALL sets of this exercise are now done
         const updatedExercise = exercises.find((ex) => ex.id === exerciseId);
         if (updatedExercise) {
           const allDone = updatedExercise.sets.every((s) => (s.id === setId ? true : s.completed));
           if (allDone) {
-            const nextIndex = exercises.findIndex((ex) => ex.id === exerciseId) + 1;
+            const currentExIdx = exercises.findIndex((ex) => ex.id === exerciseId);
+            const nextIndex = currentExIdx + 1;
             if (nextIndex < exercises.length) {
-              setTimeout(() => setActiveExerciseIndex(nextIndex), 600);
+              triggerHaptic("success");
+              toast({
+                title: "✅ Esercizio completato!",
+                description: `Prossimo: ${exercises[nextIndex].name}`,
+                action: (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    onClick={() => setActiveExerciseIndex(nextIndex)}
+                  >
+                    Vai <ChevronRight className="h-3 w-3" />
+                  </Button>
+                ),
+              });
+              setTimeout(() => setActiveExerciseIndex(nextIndex), 1200);
             }
           }
         }
       }
     },
-    [exercises, handleSetUpdate, haptic, currentUserId, checkForPR, showPRToast]
+    [exercises, handleSetUpdate, currentUserId, checkForPR, showPRToast, toast]
   );
 
   const handleFinishWorkout = () => {
@@ -499,6 +541,8 @@ export default function WorkoutPlayer() {
         isOnline={isOnline}
         isRecoveryMode={isRecoveryMode}
         onFinish={handleFinishWorkout}
+        currentExercise={activeExerciseIndex + 1}
+        totalExercises={exercises.length}
         restTimerNode={
           <RestTimerPill
             active={restTimerActive}
@@ -510,43 +554,52 @@ export default function WorkoutPlayer() {
           />
         }
       >
-        {/* Exercise Focus View */}
-        <div className="px-4 py-4 space-y-4 pb-32">
-          {/* Exercise Navigation Dots */}
-          <div className="flex items-center justify-center gap-1.5 py-2">
-            {exercises.map((ex, i) => {
-              const allDone = ex.sets.every((s) => s.completed);
-              return (
-                <button
-                  key={ex.id}
-                  onClick={() => setActiveExerciseIndex(i)}
-                  className={cn(
-                    "h-2 rounded-full transition-all duration-300",
-                    i === activeExerciseIndex
-                      ? "w-6 bg-primary"
-                      : allDone
-                      ? "w-2 bg-primary/40"
-                      : "w-2 bg-muted-foreground/30"
-                  )}
-                />
-              );
-            })}
-          </div>
+        {/* Exercise Navigation Dots */}
+        <div className="flex items-center justify-center gap-1.5 py-3 px-4">
+          {exercises.map((ex, i) => {
+            const allDone = ex.sets.every((s) => s.completed);
+            return (
+              <button
+                key={ex.id}
+                onClick={() => setActiveExerciseIndex(i)}
+                className={cn(
+                  "h-2 rounded-full transition-all duration-300",
+                  i === activeExerciseIndex
+                    ? "w-6 bg-primary"
+                    : allDone
+                    ? "w-2 bg-primary/40"
+                    : "w-2 bg-muted-foreground/30"
+                )}
+              />
+            );
+          })}
+        </div>
 
-          {/* Exercise Cards */}
-          {exercises.map((exercise, i) => (
-            <ExerciseCard
-              key={exercise.id}
-              exercise={exercise}
-              exerciseIndex={i}
-              isActive={i === activeExerciseIndex}
-              isRecoveryMode={isRecoveryMode}
-              supersetInfo={getSupersetInfo(exercise)}
-              historyData={exerciseHistory?.[exercise.name]}
-              onSetUpdate={handleSetUpdate}
-              onSetComplete={handleSetComplete}
-            />
-          ))}
+        {/* Exercise label */}
+        <div className="px-4 pb-2">
+          <span className="text-xs font-medium text-muted-foreground">
+            Esercizio {activeExerciseIndex + 1} di {exercises.length}
+          </span>
+        </div>
+
+        {/* Embla Carousel — one exercise at a time */}
+        <div className="overflow-hidden pb-32" ref={emblaRef}>
+          <div className="flex">
+            {exercises.map((exercise, i) => (
+              <div key={exercise.id} className="flex-[0_0_100%] min-w-0 px-4">
+                <ExerciseCard
+                  exercise={exercise}
+                  exerciseIndex={i}
+                  isActive={i === activeExerciseIndex}
+                  isRecoveryMode={isRecoveryMode}
+                  supersetInfo={getSupersetInfo(exercise)}
+                  historyData={exerciseHistory?.[exercise.name]}
+                  onSetUpdate={handleSetUpdate}
+                  onSetComplete={handleSetComplete}
+                />
+              </div>
+            ))}
+          </div>
         </div>
       </ActiveSessionShell>
 

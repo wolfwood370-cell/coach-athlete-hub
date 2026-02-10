@@ -15,6 +15,8 @@ interface ActiveSessionShellProps {
   onFinish: () => void;
   children: ReactNode;
   restTimerNode?: ReactNode;
+  currentExercise?: number;
+  totalExercises?: number;
 }
 
 function formatTime(seconds: number): string {
@@ -33,6 +35,8 @@ export function ActiveSessionShell({
   onFinish,
   children,
   restTimerNode,
+  currentExercise,
+  totalExercises,
 }: ActiveSessionShellProps) {
   // Prevent accidental back-swipe / navigation
   useEffect(() => {

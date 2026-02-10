@@ -86,7 +86,7 @@ export const ExerciseCard = memo(function ExerciseCard({
           "border-0 overflow-hidden transition-all duration-300",
           isActive
             ? "bg-[hsl(var(--m3-surface-container-high,var(--card)))] shadow-lg ring-1 ring-primary/10"
-            : "bg-[hsl(var(--m3-surface-container,var(--card)))] opacity-60",
+            : "bg-[hsl(var(--m3-surface-container,var(--card)))]",
           supersetInfo && "border-l-4 border-l-primary",
           allCompleted && "ring-1 ring-primary/30"
         )}
