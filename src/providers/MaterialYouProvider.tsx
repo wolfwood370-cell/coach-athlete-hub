@@ -366,15 +366,32 @@ const DEFAULT_NEUROTYPE: Neurotype = "1B";
 
 interface MaterialYouProviderProps {
   children: React.ReactNode;
-  defaultDark?: boolean;
 }
 
 export function MaterialYouProvider({ 
   children, 
-  defaultDark = true 
 }: MaterialYouProviderProps) {
   const { user } = useAuth();
-  const [isDark, setIsDark] = useState(defaultDark);
+  
+  // Detect dark mode from document.documentElement .dark class (set by next-themes)
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof document !== "undefined") {
+      return document.documentElement.classList.contains("dark");
+    }
+    return false;
+  });
+
+  // Observe .dark class changes from next-themes
+  useEffect(() => {
+    const root = document.documentElement;
+    const observer = new MutationObserver(() => {
+      setIsDark(root.classList.contains("dark"));
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+    // Sync initial state
+    setIsDark(root.classList.contains("dark"));
+    return () => observer.disconnect();
+  }, []);
   
   // Load preferences from localStorage
   const [preferences, setPreferences] = useState<ThemePreferences>(() => loadPreferences());
@@ -527,7 +544,10 @@ export function MaterialYouProvider({
     () => ({
       theme,
       setSeedColor: setManualColor,
-      toggleDarkMode: () => setIsDark((prev) => !prev),
+      toggleDarkMode: () => {
+        // Toggle next-themes class — the MutationObserver will sync isDark
+        document.documentElement.classList.toggle("dark");
+      },
       isNeuroSyncEnabled: preferences.isNeuroSyncEnabled,
       setNeuroSyncEnabled,
       manualColor: preferences.manualColor,

@@ -7,48 +7,50 @@
 
 @layer base {
   :root {
-    /* Coach Platform - Signal-Over-Noise Philosophy */
-    /* Clean, almost-white background for minimal distraction */
-    --background: hsl(210 20% 98%); /* #F9FAFB equivalent */
-    --foreground: hsl(224 71% 4%);
+    /* =============================================
+       FALLBACK COLORS — overridden at runtime by
+       MaterialYouProvider. These ensure the app
+       renders correctly before JS hydrates.
+       ============================================= */
 
-    --card: hsl(0 0% 100%);
-    --card-foreground: hsl(224 71% 4%);
+    /* Light-mode fallbacks */
+    --background: hsl(270 10% 99%);
+    --foreground: hsl(270 10% 10%);
 
-    --popover: hsl(0 0% 100%);
-    --popover-foreground: hsl(224 71% 4%);
+    --card: hsl(270 10% 96%);
+    --card-foreground: hsl(270 10% 10%);
 
-    /* Indigo/Violet Primary - Modern Tech Accent */
-    --primary: hsl(239 84% 67%); /* #6366f1 - Indigo 500 */
+    --popover: hsl(270 10% 96%);
+    --popover-foreground: hsl(270 10% 10%);
+
+    --primary: hsl(239 84% 40%);
     --primary-foreground: hsl(0 0% 100%);
 
-    --secondary: hsl(220 14% 96%);
-    --secondary-foreground: hsl(224 71% 4%);
+    --secondary: hsl(299 10% 90%);
+    --secondary-foreground: hsl(299 10% 10%);
 
-    --muted: hsl(220 14% 96%);
-    --muted-foreground: hsl(220 9% 46%);
+    --muted: hsl(270 10% 90%);
+    --muted-foreground: hsl(270 10% 30%);
 
-    --accent: hsl(239 84% 67%);
-    --accent-foreground: hsl(0 0% 100%);
+    --accent: hsl(359 30% 90%);
+    --accent-foreground: hsl(359 30% 10%);
 
-    /* Alert System - Clear Visual Hierarchy */
-    --destructive: hsl(0 84% 60%); /* #ef4444 - Red 500 */
+    --destructive: hsl(0 75% 40%);
     --destructive-foreground: hsl(0 0% 100%);
-    
-    --warning: hsl(38 92% 50%); /* #f59e0b - Amber 500 */
+
+    --warning: hsl(38 92% 50%);
     --warning-foreground: hsl(0 0% 100%);
-    
-    --success: hsl(160 84% 39%); /* #10b981 - Emerald 500 */
+
+    --success: hsl(160 84% 39%);
     --success-foreground: hsl(0 0% 100%);
 
-    /* Subtle borders - use whitespace over lines */
-    --border: hsl(220 13% 91%);
-    --input: hsl(220 13% 91%);
-    --ring: hsl(239 84% 67%);
+    --border: hsl(270 10% 80%);
+    --input: hsl(270 10% 80%);
+    --ring: hsl(239 84% 40%);
 
     --radius: 0.5rem;
 
-    /* Sidebar - Dark contrast for navigation clarity */
+    /* Sidebar — always dark for contrast */
     --sidebar-background: hsl(224 71% 4%);
     --sidebar-foreground: hsl(210 20% 98%);
     --sidebar-primary: hsl(239 84% 67%);
@@ -59,68 +61,33 @@
     --sidebar-ring: hsl(239 84% 67%);
     --sidebar-width: 16rem;
     --sidebar-width-collapsed: 4rem;
-
-    /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(239 84% 67%) 0%, hsl(262 83% 58%) 100%);
-    --gradient-success: linear-gradient(135deg, hsl(160 84% 39%) 0%, hsl(172 66% 50%) 100%);
-
-    /* Material 3 / Material You Tokens (Light) */
-    --m3-primary: 239 84% 40%;
-    --m3-on-primary: 0 0% 100%;
-    --m3-primary-container: 239 84% 90%;
-    --m3-on-primary-container: 239 84% 10%;
-    --m3-secondary: 239 20% 40%;
-    --m3-on-secondary: 0 0% 100%;
-    --m3-secondary-container: 239 20% 90%;
-    --m3-on-secondary-container: 239 20% 10%;
-    --m3-tertiary: 330 50% 40%;
-    --m3-on-tertiary: 0 0% 100%;
-    --m3-tertiary-container: 330 50% 90%;
-    --m3-on-tertiary-container: 330 50% 10%;
-    --m3-error: 0 75% 40%;
-    --m3-on-error: 0 0% 100%;
-    --m3-error-container: 0 75% 90%;
-    --m3-on-error-container: 0 75% 10%;
-    --m3-background: 239 10% 99%;
-    --m3-on-background: 239 10% 10%;
-    --m3-surface: 239 10% 99%;
-    --m3-on-surface: 239 10% 10%;
-    --m3-surface-variant: 239 10% 90%;
-    --m3-on-surface-variant: 239 10% 30%;
-    --m3-outline: 239 10% 50%;
-    --m3-outline-variant: 239 10% 80%;
-    --m3-surface-container-lowest: 0 0% 100%;
-    --m3-surface-container-low: 239 10% 96%;
-    --m3-surface-container: 239 10% 94%;
-    --m3-surface-container-high: 239 10% 92%;
-    --m3-surface-container-highest: 239 10% 90%;
   }
 
-  /* Dark Theme - Applied by next-themes */
+  /* Dark fallbacks — overridden by provider at runtime */
   .dark {
-    --background: hsl(224 71% 4%);
-    --foreground: hsl(210 20% 98%);
+    --background: hsl(270 10% 10%);
+    --foreground: hsl(270 10% 90%);
 
-    --card: hsl(224 71% 8%);
-    --card-foreground: hsl(210 20% 98%);
+    --card: hsl(270 10% 10%);
+    --card-foreground: hsl(270 10% 90%);
 
-    --popover: hsl(224 71% 8%);
-    --popover-foreground: hsl(210 20% 98%);
+    --popover: hsl(270 10% 10%);
+    --popover-foreground: hsl(270 10% 90%);
 
-    --primary: hsl(239 84% 67%);
-    --primary-foreground: hsl(0 0% 100%);
+    --primary: hsl(239 84% 80%);
+    --primary-foreground: hsl(239 84% 20%);
 
-    --secondary: hsl(224 71% 12%);
-    --secondary-foreground: hsl(210 20% 98%);
+    --secondary: hsl(299 10% 30%);
+    --secondary-foreground: hsl(299 10% 90%);
 
-    --muted: hsl(224 71% 12%);
-    --muted-foreground: hsl(215 14% 55%);
+    --muted: hsl(270 10% 20%);
+    --muted-foreground: hsl(270 10% 80%);
 
-    --accent: hsl(262 83% 58%);
-    --accent-foreground: hsl(0 0% 100%);
+    --accent: hsl(359 30% 30%);
+    --accent-foreground: hsl(359 30% 90%);
 
-    --destructive: hsl(0 62% 50%);
-    --destructive-foreground: hsl(0 0% 100%);
+    --destructive: hsl(0 75% 80%);
+    --destructive-foreground: hsl(0 75% 20%);
 
     --warning: hsl(38 92% 50%);
     --warning-foreground: hsl(0 0% 100%);
@@ -128,68 +95,9 @@
     --success: hsl(160 84% 39%);
     --success-foreground: hsl(0 0% 100%);
 
-    --border: hsl(224 71% 15%);
-    --input: hsl(224 71% 15%);
-    --ring: hsl(239 84% 67%);
-
-    /* Material 3 / Material You Tokens (Dark) */
-    --m3-primary: 239 84% 80%;
-    --m3-on-primary: 239 84% 20%;
-    --m3-primary-container: 239 84% 30%;
-    --m3-on-primary-container: 239 84% 90%;
-    --m3-secondary: 239 20% 80%;
-    --m3-on-secondary: 239 20% 20%;
-    --m3-secondary-container: 239 20% 30%;
-    --m3-on-secondary-container: 239 20% 90%;
-    --m3-tertiary: 330 50% 80%;
-    --m3-on-tertiary: 330 50% 20%;
-    --m3-tertiary-container: 330 50% 30%;
-    --m3-on-tertiary-container: 330 50% 90%;
-    --m3-error: 0 75% 80%;
-    --m3-on-error: 0 75% 20%;
-    --m3-error-container: 0 75% 30%;
-    --m3-on-error-container: 0 75% 90%;
-    --m3-background: 239 10% 10%;
-    --m3-on-background: 239 10% 90%;
-    --m3-surface: 239 10% 10%;
-    --m3-on-surface: 239 10% 90%;
-    --m3-surface-variant: 239 10% 30%;
-    --m3-on-surface-variant: 239 10% 80%;
-    --m3-outline: 239 10% 60%;
-    --m3-outline-variant: 239 10% 30%;
-    --m3-surface-container-lowest: 239 10% 4%;
-    --m3-surface-container-low: 239 10% 10%;
-    --m3-surface-container: 239 10% 12%;
-    --m3-surface-container-high: 239 10% 17%;
-    --m3-surface-container-highest: 239 10% 22%;
-  }
-
-  /* Athlete App - Dark Mode Default for Battery & Focus */
-  .athlete-theme {
-    --background: hsl(224 71% 4%);
-    --foreground: hsl(210 20% 98%);
-
-    --card: hsl(224 71% 8%);
-    --card-foreground: hsl(210 20% 98%);
-
-    --popover: hsl(224 71% 8%);
-    --popover-foreground: hsl(210 20% 98%);
-
-    --primary: hsl(239 84% 67%);
-    --primary-foreground: hsl(0 0% 100%);
-
-    --secondary: hsl(224 71% 12%);
-    --secondary-foreground: hsl(210 20% 98%);
-
-    --muted: hsl(224 71% 12%);
-    --muted-foreground: hsl(215 14% 55%);
-
-    --accent: hsl(172 66% 50%); /* Cyan accent for athlete */
-    --accent-foreground: hsl(0 0% 100%);
-
-    --border: hsl(224 71% 15%);
-    --input: hsl(224 71% 15%);
-    --ring: hsl(239 84% 67%);
+    --border: hsl(270 10% 30%);
+    --input: hsl(270 10% 30%);
+    --ring: hsl(239 84% 80%);
   }
 }
 
@@ -223,125 +131,37 @@
 }
 
 @layer utilities {
-  /* Gradients */
+  /* Gradient utilities — use current primary */
   .gradient-primary {
-    background: var(--gradient-primary);
-  }
-  
-  .gradient-success {
-    background: var(--gradient-success);
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
   }
 
   .text-gradient-primary {
-    background: var(--gradient-primary);
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
+  /* Smooth theme transitions */
+  body {
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
   /* Glass effect - adapts to theme */
   .glass {
-    background: hsl(224 71% 4% / 0.8);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
   }
 
   .glass-adaptive {
-    background: hsl(var(--background) / 0.8);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
   }
 
-  :root .glass-adaptive {
-    background: hsl(0 0% 100% / 0.85);
-  }
-
-  .dark .glass-adaptive {
-    background: hsl(224 71% 4% / 0.8);
-  }
-
-  /* ========================================
-     SCOPED THEME: COACH (Indigo/Slate)
-     Desktop Admin - Professional Dashboard
-     ======================================== */
-  .theme-coach {
-    --primary: 226 70% 55%;
-    --primary-foreground: 0 0% 100%;
-    --accent: 226 50% 92%;
-    --accent-foreground: 226 70% 30%;
-  }
-
-  .theme-coach:not(.dark) {
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --border: 214 32% 91%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-  }
-
-  .dark.theme-coach,
-  .dark .theme-coach {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 8%;
-    --card-foreground: 210 40% 98%;
-    --muted: 217 33% 12%;
-    --muted-foreground: 215 20% 65%;
-    --border: 217 33% 17%;
-    --secondary: 217 33% 12%;
-    --secondary-foreground: 210 40% 98%;
-  }
-
-  /* ========================================
-     SCOPED THEME: ATHLETE (Violet/Zinc)
-     Mobile Action - High Contrast OLED
-     ======================================== */
-  .theme-athlete {
-    --primary: 262 83% 58%;
-    --primary-foreground: 0 0% 100%;
-    --accent: 262 60% 90%;
-    --accent-foreground: 262 83% 35%;
-  }
-
-  .theme-athlete:not(.dark) {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 4%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 4%;
-    --muted: 240 5% 96%;
-    --muted-foreground: 240 4% 46%;
-    --border: 240 6% 90%;
-    --secondary: 240 5% 96%;
-    --secondary-foreground: 240 6% 10%;
-  }
-
-  .dark.theme-athlete,
-  .dark .theme-athlete {
-    --background: 0 0% 0%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 5%;
-    --card-foreground: 0 0% 98%;
-    --muted: 0 0% 10%;
-    --muted-foreground: 0 0% 64%;
-    --border: 0 0% 15%;
-    --secondary: 0 0% 10%;
-    --secondary-foreground: 0 0% 98%;
-  }
-
-  /* Athlete Bottom Nav - Clean, no heavy borders */
-  .theme-athlete .glass-athlete-nav {
-    background: hsl(0 0% 100% / 0.95);
-    border-top: 1px solid hsl(0 0% 90%);
-  }
-
-  .dark.theme-athlete .glass-athlete-nav,
-  .dark .theme-athlete .glass-athlete-nav {
-    background: hsl(0 0% 0% / 0.95);
-    border-top: 1px solid hsl(0 0% 12%);
+  /* Athlete Bottom Nav glass */
+  .glass-athlete-nav {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
 
   /* Subtle hover lift */
@@ -351,7 +171,7 @@
   
   .hover-lift:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 30px -12px hsl(239 84% 67% / 0.25);
+    box-shadow: 0 8px 30px -12px rgba(0, 0, 0, 0.15);
   }
 
   /* Data-dense spacing utilities */
@@ -375,11 +195,6 @@
 
   .status-success {
     @apply bg-success text-success-foreground;
-  }
-
-  /* Subtle dividers using shadows instead of borders */
-  .divider-subtle {
-    box-shadow: inset 0 1px 0 0 hsl(var(--border) / 0.5);
   }
 
   /* Safe area padding for mobile */
@@ -406,7 +221,7 @@
 @media (pointer: fine) {
   :root {
     scrollbar-width: thin;
-    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+    scrollbar-color: rgba(128, 128, 128, 0.3) transparent;
   }
 
   ::-webkit-scrollbar {
@@ -419,12 +234,12 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: hsl(var(--muted-foreground) / 0.3);
+    background: rgba(128, 128, 128, 0.3);
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--muted-foreground) / 0.5);
+    background: rgba(128, 128, 128, 0.5);
   }
 }
 
