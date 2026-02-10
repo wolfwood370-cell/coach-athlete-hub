@@ -1,19 +1,10 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { AthleteLayout } from "@/components/athlete/AthleteLayout";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
-import { 
-  Collapsible, 
-  CollapsibleContent, 
-  CollapsibleTrigger 
-} from "@/components/ui/collapsible";
 import {
   Dialog,
   DialogContent,
@@ -22,64 +13,36 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import {
-  Play,
   CheckCircle2,
-  ChevronDown,
-  ChevronUp,
   Timer,
-  X,
-  Plus,
-  Minus,
-  RotateCcw,
-  Dumbbell,
-  MessageSquare,
-  Flag,
   Trophy,
   Loader2,
-  Zap,
   TrendingUp,
   Clock,
   Flame,
   AlertTriangle,
   Activity,
-  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useOfflineSync, type WorkoutLogPayload, type SetData as OfflineSetData } from "@/hooks/useOfflineSync";
+import { useOfflineSync, type WorkoutLogPayload } from "@/hooks/useOfflineSync";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { useWorkoutStreak } from "@/hooks/useWorkoutStreak";
 import { usePersonalRecords } from "@/hooks/usePersonalRecords";
 import { useExerciseHistory } from "@/hooks/useExerciseHistory";
 import { triggerConfetti, triggerPRConfetti } from "@/utils/ux";
 
-// Types
-interface SetData {
-  id: string;
-  setNumber: number;
-  targetKg: number;
-  targetReps: number;
-  targetRpe?: number; // Prescribed RPE from coach
-  actualKg: string;
-  actualReps: string;
-  rpe: string;
-  completed: boolean;
-}
+// Components
+import { ActiveSessionShell } from "@/components/athlete/workout/ActiveSessionShell";
+import { ExerciseCard, type ExerciseData, type SetData } from "@/components/athlete/workout/ExerciseCard";
+import { RestTimerPill } from "@/components/athlete/workout/RestTimerPill";
+import { AthleteLayout } from "@/components/athlete/AthleteLayout";
 
-interface ExerciseData {
-  id: string;
-  name: string;
-  videoUrl?: string;
-  coachNotes?: string;
-  restSeconds: number;
-  supersetGroup?: string;
-  sets: SetData[];
-  originalSetsCount?: number; // Original prescribed sets before auto-reg
-  originalTargetRpe?: number; // Original prescribed RPE before auto-reg
-}
+// ============================================================
+// CONSTANTS
+// ============================================================
 
-// Foster RPE Scale - Session Level
 const fosterRpeScale = [
   { value: 1, label: "Riposo", description: "Recupero attivo", color: "bg-emerald-500" },
   { value: 2, label: "Molto Facile", description: "Sforzo minimo", color: "bg-emerald-400" },
@@ -100,14 +63,10 @@ const getRpeColor = (rpe: number): string => {
   return "text-red-500";
 };
 
-const getRpeBgColor = (rpe: number): string => {
-  if (rpe <= 3) return "bg-emerald-500";
-  if (rpe <= 5) return "bg-yellow-500";
-  if (rpe <= 7) return "bg-orange-500";
-  return "bg-red-500";
-};
+// ============================================================
+// PARSE WORKOUT
+// ============================================================
 
-// Parse workout structure from database
 function parseWorkoutStructure(structure: any[]): ExerciseData[] {
   return structure.map((ex, index) => {
     const setsCount = ex.sets || 3;
@@ -124,7 +83,7 @@ function parseWorkoutStructure(structure: any[]): ExerciseData[] {
       sets: Array.from({ length: setsCount }, (_, i) => ({
         id: `${ex.id || index}-set-${i}`,
         setNumber: i + 1,
-        targetKg: parseFloat(ex.load?.replace(/[^0-9.]/g, '') || '0') || 0,
+        targetKg: parseFloat(ex.load?.replace(/[^0-9.]/g, "") || "0") || 0,
         targetReps: parseInt(ex.reps) || 8,
         targetRpe: targetRpe,
         actualKg: "",
@@ -136,66 +95,23 @@ function parseWorkoutStructure(structure: any[]): ExerciseData[] {
   });
 }
 
-// Mock data for development
+// Mock data
 const mockWorkout = {
   id: "mock-1",
   title: "Upper Body Hypertrophy",
   estimatedDuration: 45,
   structure: [
-    {
-      id: "ex1",
-      name: "Bench Press",
-      sets: 4,
-      reps: "8",
-      load: "80kg",
-      rpe: "8",
-      notes: "Controllare la discesa (3 secondi). Focus sulla connessione mente-muscolo.",
-      restSeconds: 120,
-    },
-    {
-      id: "ex2",
-      name: "Incline Dumbbell Press",
-      sets: 3,
-      reps: "10",
-      load: "30kg",
-      rpe: "7",
-      notes: "Angolo 30-45 gradi. Stretch in basso.",
-      restSeconds: 90,
-      supersetGroup: "ss1",
-    },
-    {
-      id: "ex3",
-      name: "Cable Flyes",
-      sets: 3,
-      reps: "12",
-      load: "15kg",
-      rpe: "7",
-      notes: "Squeeze al centro per 1 secondo.",
-      restSeconds: 60,
-      supersetGroup: "ss1",
-    },
-    {
-      id: "ex4",
-      name: "Lat Pulldown",
-      sets: 4,
-      reps: "10",
-      load: "60kg",
-      rpe: "8",
-      notes: "Tira verso il petto. Controlla la fase eccentrica.",
-      restSeconds: 90,
-    },
-    {
-      id: "ex5",
-      name: "Seated Cable Row",
-      sets: 3,
-      reps: "10",
-      load: "55kg",
-      rpe: "7",
-      notes: "Petto in fuori, porta i gomiti indietro.",
-      restSeconds: 90,
-    },
+    { id: "ex1", name: "Bench Press", sets: 4, reps: "8", load: "80kg", rpe: "8", notes: "Controllare la discesa (3 secondi). Focus sulla connessione mente-muscolo.", restSeconds: 120 },
+    { id: "ex2", name: "Incline Dumbbell Press", sets: 3, reps: "10", load: "30kg", rpe: "7", notes: "Angolo 30-45 gradi. Stretch in basso.", restSeconds: 90, supersetGroup: "ss1" },
+    { id: "ex3", name: "Cable Flyes", sets: 3, reps: "12", load: "15kg", rpe: "7", notes: "Squeeze al centro per 1 secondo.", restSeconds: 60, supersetGroup: "ss1" },
+    { id: "ex4", name: "Lat Pulldown", sets: 4, reps: "10", load: "60kg", rpe: "8", notes: "Tira verso il petto. Controlla la fase eccentrica.", restSeconds: 90 },
+    { id: "ex5", name: "Seated Cable Row", sets: 3, reps: "10", load: "55kg", rpe: "7", notes: "Petto in fuori, porta i gomiti indietro.", restSeconds: 90 },
   ],
 };
+
+// ============================================================
+// MAIN COMPONENT
+// ============================================================
 
 export default function WorkoutPlayer() {
   const { id } = useParams();
@@ -204,66 +120,55 @@ export default function WorkoutPlayer() {
   const { logWorkout, isLoggingWorkout, isOnline } = useOfflineSync();
   const haptic = useHapticFeedback();
   const { checkForPR, showPRToast } = usePersonalRecords();
-  
-  // Refs
-  const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Refs & User
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  
+
   // Workout state
   const [exercises, setExercises] = useState<ExerciseData[]>([]);
-  const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
-  const [showCelebration, setShowCelebration] = useState(false);
-  
-  // Timer state
+  const [activeExerciseIndex, setActiveExerciseIndex] = useState(0);
+
+  // Timer
   const [workoutStartTime] = useState<Date>(new Date());
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isWorkoutActive, setIsWorkoutActive] = useState(true);
-  
-  // Rest timer state
+
+  // Rest timer
   const [restTimerActive, setRestTimerActive] = useState(false);
   const [restTimeRemaining, setRestTimeRemaining] = useState(90);
   const [currentRestDuration, setCurrentRestDuration] = useState(90);
-  
-  // Session recap dialog state
+
+  // Recap
   const [showRecapDialog, setShowRecapDialog] = useState(false);
   const [sessionRpe, setSessionRpe] = useState(5);
   const [workoutNotes, setWorkoutNotes] = useState("");
-  
-  // Auto-regulation state
+
+  // Auto-regulation
   const [showAutoRegDialog, setShowAutoRegDialog] = useState(false);
   const [readinessScore, setReadinessScore] = useState<number | null>(null);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
-  
-  // GATEKEEPER: Check if daily check-in exists, redirect if not
-  const [readinessCheckComplete, setReadinessCheckComplete] = useState<boolean | null>(null);
-  const [showReadinessBlocker, setShowReadinessBlocker] = useState(false);
 
-  // Fetch current user ID and check readiness (GATEKEEPER)
+  // Readiness gatekeeper
+  const [readinessCheckComplete, setReadinessCheckComplete] = useState<boolean | null>(null);
+
+  // Fetch user & readiness
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       if (data.user) {
         setCurrentUserId(data.user.id);
-        
-        // Fetch today's readiness to enforce gatekeeper
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toISOString().split("T")[0];
         const { data: readinessData } = await supabase
-          .from('daily_readiness')
-          .select('score')
-          .eq('athlete_id', data.user.id)
-          .eq('date', today)
+          .from("daily_readiness")
+          .select("score")
+          .eq("athlete_id", data.user.id)
+          .eq("date", today)
           .maybeSingle();
-        
-        // Check if readiness check-in exists for today
-        if (!readinessData || readinessData.score === null || readinessData.score === undefined) {
-          // NO CHECK-IN: Block access and show modal
+
+        if (!readinessData || readinessData.score == null) {
           setReadinessCheckComplete(false);
-          setShowReadinessBlocker(true);
         } else {
-          // Check-in exists, allow access
           setReadinessCheckComplete(true);
           setReadinessScore(readinessData.score);
-          
-          // Show auto-reg dialog if readiness is below 45%
           if (readinessData.score < 45) {
             setShowAutoRegDialog(true);
           }
@@ -272,99 +177,63 @@ export default function WorkoutPlayer() {
     });
   }, []);
 
-  // Get workout streak
-  const { currentStreak, isStreakDay } = useWorkoutStreak(currentUserId || undefined);
-  
-  // Apply auto-regulation: reduce sets and intensity
+  const { currentStreak } = useWorkoutStreak(currentUserId || undefined);
+
+  // Auto-regulation
   const applyAutoRegulation = useCallback(() => {
-    setExercises(prev => prev.map(exercise => {
-      // Volume: Reduce Sets by 1 (min 2 sets unless originally 1)
-      const originalSets = exercise.sets.length;
-      let newSetsCount = originalSets;
-      if (originalSets === 1) {
-        newSetsCount = 1; // Keep as is
-      } else if (originalSets === 2) {
-        newSetsCount = 2; // Clamp to minimum 2
-      } else {
-        newSetsCount = originalSets - 1; // Remove 1 set
-      }
-      
-      // Intensity: Reduce target_rpe by 2 (min RPE 5)
-      const originalRpe = exercise.originalTargetRpe || 8;
-      const newTargetRpe = Math.max(5, originalRpe - 2);
-      
-      return {
-        ...exercise,
-        sets: exercise.sets.slice(0, newSetsCount).map(set => ({
-          ...set,
-          targetRpe: newTargetRpe,
-        })),
-      };
-    }));
+    setExercises((prev) =>
+      prev.map((exercise) => {
+        const originalSets = exercise.sets.length;
+        const newSetsCount = originalSets <= 2 ? originalSets : originalSets - 1;
+        const originalRpe = exercise.originalTargetRpe || 8;
+        const newTargetRpe = Math.max(5, originalRpe - 2);
+        return {
+          ...exercise,
+          sets: exercise.sets.slice(0, newSetsCount).map((set) => ({
+            ...set,
+            targetRpe: newTargetRpe,
+          })),
+        };
+      })
+    );
     setIsRecoveryMode(true);
     setShowAutoRegDialog(false);
-    toast({
-      title: "📉 Recovery Mode attivato",
-      description: "Volume (-1 set) e intensità (-2 RPE) ridotti per favorire il recupero.",
-    });
-  }, [toast]);
-  
-  const ignoreAutoReg = useCallback(() => {
-    setShowAutoRegDialog(false);
-    toast({
-      title: "Procedi con cautela",
-      description: "Ascolta il tuo corpo durante l'allenamento.",
-      variant: "destructive",
-    });
+    toast({ title: "📉 Recovery Mode attivato", description: "Volume e intensità ridotti." });
   }, [toast]);
 
-  // Fetch workout from database
+  const ignoreAutoReg = useCallback(() => {
+    setShowAutoRegDialog(false);
+    toast({ title: "Procedi con cautela", description: "Ascolta il tuo corpo.", variant: "destructive" });
+  }, [toast]);
+
+  // Fetch workout
   const { data: workoutData, isLoading } = useQuery({
     queryKey: ["workout", id],
     queryFn: async () => {
-      if (!id || id === "mock" || id.startsWith("mock-")) {
-        return mockWorkout;
-      }
-      
-      const { data, error } = await supabase
-        .from("workouts")
-        .select("*")
-        .eq("id", id)
-        .single();
-      
+      if (!id || id === "mock" || id.startsWith("mock-")) return mockWorkout;
+      const { data, error } = await supabase.from("workouts").select("*").eq("id", id).single();
       if (error) throw error;
       return data;
     },
     staleTime: 5 * 60 * 1000,
   });
 
-  // Initialize exercises from workout data
   useEffect(() => {
     if (workoutData?.structure) {
-      const parsed = parseWorkoutStructure(workoutData.structure as any[]);
-      setExercises(parsed);
+      setExercises(parseWorkoutStructure(workoutData.structure as any[]));
     }
   }, [workoutData]);
 
-  // Extract exercise names for history lookup
-  const exerciseNames = useMemo(() => {
-    return exercises.map(ex => ex.name);
-  }, [exercises]);
+  // Exercise names for history
+  const exerciseNames = useMemo(() => exercises.map((ex) => ex.name), [exercises]);
+  const { data: exerciseHistory } = useExerciseHistory(exerciseNames, currentUserId || undefined);
 
-  // Fetch previous workout history for all exercises
-  const { data: exerciseHistory, isLoading: historyLoading } = useExerciseHistory(
-    exerciseNames,
-    currentUserId || undefined
-  );
-
-  // Workout elapsed timer
+  // Elapsed timer
   useEffect(() => {
     if (!isWorkoutActive) return;
-    
     const interval = setInterval(() => {
-      setElapsedSeconds(Math.floor((new Date().getTime() - workoutStartTime.getTime()) / 1000));
+      setElapsedSeconds(Math.floor((Date.now() - workoutStartTime.getTime()) / 1000));
     }, 1000);
-    
     return () => clearInterval(interval);
   }, [isWorkoutActive, workoutStartTime]);
 
@@ -372,128 +241,111 @@ export default function WorkoutPlayer() {
   useEffect(() => {
     if (!restTimerActive || restTimeRemaining <= 0) {
       if (restTimeRemaining <= 0 && restTimerActive) {
-        // Vibrate with haptic feedback when timer ends
         haptic.warning();
         setRestTimerActive(false);
       }
       return;
     }
-
     const interval = setInterval(() => {
-      setRestTimeRemaining(prev => prev - 1);
+      setRestTimeRemaining((prev) => prev - 1);
     }, 1000);
-
     return () => clearInterval(interval);
   }, [restTimerActive, restTimeRemaining, haptic]);
 
-  // Format time helper
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  // Calculate progress
+  // Computed
   const getTotalSets = () => exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
-  const getCompletedSets = () => exercises.reduce((acc, ex) => acc + ex.sets.filter(s => s.completed).length, 0);
-  const progressPercent = getTotalSets() > 0 ? (getCompletedSets() / getTotalSets()) * 100 : 0;
+  const getCompletedSets = () => exercises.reduce((acc, ex) => acc + ex.sets.filter((s) => s.completed).length, 0);
 
   // Handlers
-  const handleSetUpdate = useCallback((exerciseId: string, setId: string, field: keyof SetData, value: string | boolean) => {
-    setExercises(prev => prev.map(exercise => {
-      if (exercise.id !== exerciseId) return exercise;
-      return {
-        ...exercise,
-        sets: exercise.sets.map(set => {
-          if (set.id !== setId) return set;
-          return { ...set, [field]: value };
+  const handleSetUpdate = useCallback(
+    (exerciseId: string, setId: string, field: string, value: string | boolean) => {
+      setExercises((prev) =>
+        prev.map((exercise) => {
+          if (exercise.id !== exerciseId) return exercise;
+          return {
+            ...exercise,
+            sets: exercise.sets.map((set) => {
+              if (set.id !== setId) return set;
+              return { ...set, [field]: value };
+            }),
+          };
         })
-      };
-    }));
-  }, []);
+      );
+    },
+    []
+  );
 
-  const handleSetComplete = useCallback(async (exerciseId: string, setId: string, completed: boolean) => {
-    handleSetUpdate(exerciseId, setId, 'completed', completed);
-    
-    if (completed) {
-      // Trigger haptic feedback
-      haptic.medium();
-      
-      // Get rest time from exercise
-      const exercise = exercises.find(ex => ex.id === exerciseId);
-      const restTime = exercise?.restSeconds || 90;
-      
-      // Check for PR
-      const set = exercise?.sets.find(s => s.id === setId);
-      if (set && currentUserId && exercise) {
-        const weight = parseFloat(set.actualKg) || set.targetKg;
-        const reps = parseInt(set.actualReps) || set.targetReps;
-        
-        if (weight > 0) {
-          const prResult = await checkForPR(currentUserId, exercise.name, weight, reps);
-          if (prResult.isPR) {
-            triggerPRConfetti();
-            showPRToast(exercise.name, weight, prResult.improvement);
+  const handleSetComplete = useCallback(
+    async (exerciseId: string, setId: string, completed: boolean) => {
+      handleSetUpdate(exerciseId, setId, "completed", completed);
+
+      if (completed) {
+        haptic.medium();
+        const exercise = exercises.find((ex) => ex.id === exerciseId);
+        const restTime = exercise?.restSeconds || 90;
+        const set = exercise?.sets.find((s) => s.id === setId);
+
+        // Check PR
+        if (set && currentUserId && exercise) {
+          const weight = parseFloat(set.actualKg) || set.targetKg;
+          const reps = parseInt(set.actualReps) || set.targetReps;
+          if (weight > 0) {
+            const prResult = await checkForPR(currentUserId, exercise.name, weight, reps);
+            if (prResult.isPR) {
+              triggerPRConfetti();
+              showPRToast(exercise.name, weight, prResult.improvement);
+            }
           }
         }
-      }
-      
-      // Check if in superset
-      if (exercise?.supersetGroup) {
-        const supersetExercises = exercises.filter(ex => ex.supersetGroup === exercise.supersetGroup);
-        const currentIndex = supersetExercises.findIndex(ex => ex.id === exerciseId);
-        const isLastInSuperset = currentIndex === supersetExercises.length - 1;
-        
-        if (!isLastInSuperset) {
-          // Shorter rest between superset exercises
-          setCurrentRestDuration(30);
-          setRestTimeRemaining(30);
+
+        // Superset rest logic
+        if (exercise?.supersetGroup) {
+          const supersetExercises = exercises.filter((ex) => ex.supersetGroup === exercise.supersetGroup);
+          const currentIndex = supersetExercises.findIndex((ex) => ex.id === exerciseId);
+          const isLast = currentIndex === supersetExercises.length - 1;
+          setCurrentRestDuration(isLast ? restTime : 30);
+          setRestTimeRemaining(isLast ? restTime : 30);
         } else {
           setCurrentRestDuration(restTime);
           setRestTimeRemaining(restTime);
         }
-      } else {
-        setCurrentRestDuration(restTime);
-        setRestTimeRemaining(restTime);
-      }
-      
-      setRestTimerActive(true);
-    }
-  }, [exercises, handleSetUpdate, haptic, currentUserId, checkForPR, showPRToast]);
+        setRestTimerActive(true);
 
-  const toggleNotes = (exerciseId: string) => {
-    setExpandedNotes(prev => ({ ...prev, [exerciseId]: !prev[exerciseId] }));
-  };
+        // Auto-advance active exercise when all sets completed
+        const updatedExercise = exercises.find((ex) => ex.id === exerciseId);
+        if (updatedExercise) {
+          const allDone = updatedExercise.sets.every((s) => (s.id === setId ? true : s.completed));
+          if (allDone) {
+            const nextIndex = exercises.findIndex((ex) => ex.id === exerciseId) + 1;
+            if (nextIndex < exercises.length) {
+              setTimeout(() => setActiveExerciseIndex(nextIndex), 600);
+            }
+          }
+        }
+      }
+    },
+    [exercises, handleSetUpdate, haptic, currentUserId, checkForPR, showPRToast]
+  );
 
   const handleFinishWorkout = () => {
     setIsWorkoutActive(false);
     setRestTimerActive(false);
-    
-    // Trigger celebration with confetti
     triggerConfetti();
     haptic.success();
-    setShowCelebration(true);
-    
-    // Show recap dialog after a brief delay for celebration effect
-    setTimeout(() => {
-      setShowRecapDialog(true);
-    }, 500);
+    setTimeout(() => setShowRecapDialog(true), 500);
   };
 
   const handleSaveWorkoutLog = async () => {
     const durationMinutes = Math.round(elapsedSeconds / 60);
     const sessionLoad = durationMinutes * sessionRpe;
-    
-    // Auto-append recovery mode note if applicable
-    const finalNotes = isRecoveryMode 
-      ? `${workoutNotes}${workoutNotes ? '\n' : ''}[Auto-Regulated due to Low Readiness: ${readinessScore}%]`
+    const finalNotes = isRecoveryMode
+      ? `${workoutNotes}${workoutNotes ? "\n" : ""}[Auto-Regulated: Readiness ${readinessScore}%]`
       : workoutNotes;
-    
-    // Prepare data for offline sync
-    const workoutLogInput: Omit<WorkoutLogPayload, 'type'> = {
+
+    const workoutLogInput: Omit<WorkoutLogPayload, "type"> = {
       local_id: `workout-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       workout_id: id || "mock",
-      athlete_id: "", // Will be set by the hook
+      athlete_id: "",
       started_at: workoutStartTime.toISOString(),
       completed_at: new Date().toISOString(),
       srpe: sessionRpe,
@@ -502,7 +354,7 @@ export default function WorkoutPlayer() {
       exercises: exercises.map((ex, index) => ({
         exercise_name: ex.name,
         exercise_order: index,
-        sets_data: ex.sets.map(set => ({
+        sets_data: ex.sets.map((set) => ({
           set_number: set.setNumber,
           reps: parseInt(set.actualReps) || set.targetReps,
           weight_kg: parseFloat(set.actualKg) || set.targetKg,
@@ -513,39 +365,26 @@ export default function WorkoutPlayer() {
       })),
     };
 
-    // Get user ID
     const { data: userData } = await supabase.auth.getUser();
-    if (userData.user) {
-      workoutLogInput.athlete_id = userData.user.id;
-    }
+    if (userData.user) workoutLogInput.athlete_id = userData.user.id;
 
-    // Log workout (works offline too)
     logWorkout(workoutLogInput, {
       onSuccess: () => {
-        toast({
-          title: "Allenamento salvato!",
-          description: `Carico sessione: ${sessionLoad} UA`,
-        });
+        toast({ title: "Allenamento salvato!", description: `Carico sessione: ${sessionLoad} UA` });
         navigate("/athlete");
       },
     });
   };
 
   // Rest timer controls
-  const skipRest = () => {
-    setRestTimerActive(false);
-    setRestTimeRemaining(currentRestDuration);
-  };
+  const skipRest = () => { setRestTimerActive(false); setRestTimeRemaining(currentRestDuration); };
+  const addRestTime = (seconds: number) => { setRestTimeRemaining((prev) => Math.max(0, prev + seconds)); };
+  const resetRestTimer = () => { setRestTimeRemaining(currentRestDuration); };
 
-  const addRestTime = (seconds: number) => {
-    setRestTimeRemaining(prev => Math.max(0, prev + seconds));
-  };
+  // ============================================================
+  // LOADING & GATEKEEPER
+  // ============================================================
 
-  const resetRestTimer = () => {
-    setRestTimeRemaining(currentRestDuration);
-  };
-
-  // Loading state (also wait for readiness check)
   if (isLoading || readinessCheckComplete === null) {
     return (
       <AthleteLayout>
@@ -555,23 +394,19 @@ export default function WorkoutPlayer() {
       </AthleteLayout>
     );
   }
-  
-  // GATEKEEPER: Block access if no daily readiness check-in
+
   if (readinessCheckComplete === false) {
     return (
       <AthleteLayout>
         <div className="flex flex-col items-center justify-center h-[70vh] px-6 text-center">
-          <div className="h-20 w-20 rounded-full bg-warning/15 flex items-center justify-center mb-6">
-            <AlertTriangle className="h-10 w-10 text-warning" />
+          <div className="h-20 w-20 rounded-full bg-amber-500/15 flex items-center justify-center mb-6">
+            <AlertTriangle className="h-10 w-10 text-amber-500" />
           </div>
           <h2 className="text-xl font-bold mb-2">Check-in Richiesto</h2>
           <p className="text-muted-foreground mb-6 max-w-xs">
-            Prima di iniziare l'allenamento, completa il check-in giornaliero per monitorare il tuo recupero.
+            Prima di iniziare l'allenamento, completa il check-in giornaliero.
           </p>
-          <Button 
-            onClick={() => navigate("/athlete")}
-            className="gradient-primary"
-          >
+          <Button onClick={() => navigate("/athlete")} className="bg-primary text-primary-foreground">
             <Activity className="h-4 w-4 mr-2" />
             Vai al Check-in
           </Button>
@@ -580,29 +415,40 @@ export default function WorkoutPlayer() {
     );
   }
 
-  // Calculate Foster Load for recap
+  // Recap values
   const durationMinutes = Math.round(elapsedSeconds / 60);
   const sessionLoad = durationMinutes * sessionRpe;
-  const rpeInfo = fosterRpeScale.find(r => r.value === sessionRpe);
+  const rpeInfo = fosterRpeScale.find((r) => r.value === sessionRpe);
+
+  // Superset helpers
+  const getSupersetInfo = (exercise: ExerciseData) => {
+    if (!exercise.supersetGroup) return undefined;
+    const group = exercises.filter((ex) => ex.supersetGroup === exercise.supersetGroup);
+    const idx = group.findIndex((ex) => ex.id === exercise.id);
+    return { index: idx, total: group.length, isFirst: idx === 0 };
+  };
+
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
-    <AthleteLayout>
+    <>
       {/* Auto-Regulation Dialog */}
       <Dialog open={showAutoRegDialog} onOpenChange={setShowAutoRegDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-amber-600">
               <AlertTriangle className="h-5 w-5" />
-              Low Readiness Detected ({readinessScore}%)
+              Low Readiness ({readinessScore}%)
             </DialogTitle>
             <DialogDescription className="pt-2">
-              I tuoi indicatori di recupero sono bassi oggi. Il tuo Coach raccomanda di ridurre volume e intensità per proteggere la tua salute.
+              I tuoi indicatori di recupero sono bassi. Si consiglia di ridurre volume e intensità.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="py-4 space-y-4">
-            {/* Readiness indicator */}
-            <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30">
+            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30">
               <div className="flex items-center gap-3">
                 <Activity className="h-8 w-8 text-amber-500" />
                 <div className="flex-1">
@@ -611,424 +457,98 @@ export default function WorkoutPlayer() {
                     <span className="text-lg font-bold text-amber-600">{readinessScore}%</span>
                   </div>
                   <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-red-500 to-amber-500 transition-all"
-                      style={{ width: `${readinessScore}%` }}
-                    />
+                    <div className="h-full bg-gradient-to-r from-red-500 to-amber-500" style={{ width: `${readinessScore}%` }} />
                   </div>
                 </div>
               </div>
             </div>
-            
-            {/* Auto-reg preview */}
+
             <div className="p-3 rounded-lg bg-secondary/50 space-y-2">
               <p className="text-xs font-medium text-muted-foreground">Modifiche proposte:</p>
               <div className="flex items-center gap-4 text-sm">
                 <span className="flex items-center gap-1.5">
                   <span className="text-muted-foreground">Set:</span>
-                  <span className="line-through text-muted-foreground/60">-1</span>
-                  <span className="text-amber-600 font-medium">(min 2)</span>
+                  <span className="text-amber-600 font-medium">-1 (min 2)</span>
                 </span>
                 <span className="flex items-center gap-1.5">
                   <span className="text-muted-foreground">RPE:</span>
-                  <span className="line-through text-muted-foreground/60">-2</span>
-                  <span className="text-amber-600 font-medium">(min 5)</span>
+                  <span className="text-amber-600 font-medium">-2 (min 5)</span>
                 </span>
               </div>
             </div>
-            
-            <p className="text-xs text-muted-foreground text-center">
-              Esempio: 4×8 @RPE8 → 3×8 @RPE6
-            </p>
           </div>
-          
+
           <div className="flex flex-col gap-2">
-            <Button 
-              onClick={applyAutoRegulation}
-              className="w-full bg-amber-500 hover:bg-amber-600 text-white"
-            >
+            <Button onClick={applyAutoRegulation} className="w-full bg-amber-500 hover:bg-amber-600 text-white">
               <Activity className="h-4 w-4 mr-2" />
-              Applica Auto-Reg (-1 Set, -2 RPE)
+              Applica Auto-Reg
             </Button>
-            <Button 
-              variant="outline" 
-              onClick={ignoreAutoReg}
-              className="w-full"
-            >
+            <Button variant="outline" onClick={ignoreAutoReg} className="w-full">
               Mi sento bene (Ignora)
             </Button>
           </div>
         </DialogContent>
       </Dialog>
-      
-      {/* Fixed Header */}
-      <div className="sticky top-0 z-40 glass-adaptive border-b border-border/30">
-        <div className="px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-semibold truncate">
-                  {workoutData?.title || mockWorkout.title}
-                </h1>
-                {isRecoveryMode && (
-                  <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 text-[10px] h-5">
-                    📉 Recovery Mode
-                  </Badge>
-                )}
-              </div>
-              <div className="flex items-center gap-3 mt-0.5">
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Timer className="h-3 w-3" />
-                  <span className="tabular-nums font-medium">{formatTime(elapsedSeconds)}</span>
-                </div>
-                <span className="text-xs text-muted-foreground">•</span>
-                <span className="text-xs text-muted-foreground">
-                  {getCompletedSets()}/{getTotalSets()} sets
-                </span>
-                {!isOnline && (
-                  <Badge variant="secondary" className="text-[9px] h-4">
-                    Offline
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <Button 
-              onClick={handleFinishWorkout}
-              size="sm"
-              className="gradient-primary h-8 px-3 text-xs font-semibold"
-            >
-              <Flag className="h-3.5 w-3.5 mr-1" />
-              Termina
-            </Button>
-          </div>
-          
-          {/* Progress bar */}
-          <div className="mt-3 h-1.5 bg-secondary rounded-full overflow-hidden">
-            <div 
-              className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-300 ease-out"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-        </div>
-      </div>
 
-      {/* Scrollable Exercise List */}
-      <ScrollArea className="h-[calc(100vh-180px)]" ref={scrollRef}>
+      {/* Active Session Shell */}
+      <ActiveSessionShell
+        title={workoutData?.title || mockWorkout.title}
+        elapsedSeconds={elapsedSeconds}
+        completedSets={getCompletedSets()}
+        totalSets={getTotalSets()}
+        isOnline={isOnline}
+        isRecoveryMode={isRecoveryMode}
+        onFinish={handleFinishWorkout}
+        restTimerNode={
+          <RestTimerPill
+            active={restTimerActive}
+            remaining={restTimeRemaining}
+            total={currentRestDuration}
+            onSkip={skipRest}
+            onAdd={addRestTime}
+            onReset={resetRestTimer}
+          />
+        }
+      >
+        {/* Exercise Focus View */}
         <div className="px-4 py-4 space-y-4 pb-32">
-          {exercises.map((exercise, exerciseIndex) => {
-            const isSuperset = !!exercise.supersetGroup;
-            const supersetExercises = isSuperset 
-              ? exercises.filter(ex => ex.supersetGroup === exercise.supersetGroup)
-              : [];
-            const supersetIndex = supersetExercises.findIndex(ex => ex.id === exercise.id);
-            const isFirstInSuperset = supersetIndex === 0;
-            const isLastInSuperset = supersetIndex === supersetExercises.length - 1;
-            
-            return (
-              <Card 
-                key={exercise.id} 
-                className={cn(
-                  "border-0 overflow-hidden",
-                  isSuperset && "border-l-4 border-l-primary"
-                )}
-              >
-                <CardContent className="p-0">
-                  {/* Superset indicator */}
-                  {isSuperset && isFirstInSuperset && (
-                    <div className="px-4 py-1.5 bg-primary/10 border-b border-primary/20 flex items-center gap-2">
-                      <Zap className="h-3 w-3 text-primary" />
-                      <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">
-                        Superset ({supersetExercises.length} esercizi)
-                      </span>
-                    </div>
+          {/* Exercise Navigation Dots */}
+          <div className="flex items-center justify-center gap-1.5 py-2">
+            {exercises.map((ex, i) => {
+              const allDone = ex.sets.every((s) => s.completed);
+              return (
+                <button
+                  key={ex.id}
+                  onClick={() => setActiveExerciseIndex(i)}
+                  className={cn(
+                    "h-2 rounded-full transition-all duration-300",
+                    i === activeExerciseIndex
+                      ? "w-6 bg-primary"
+                      : allDone
+                      ? "w-2 bg-primary/40"
+                      : "w-2 bg-muted-foreground/30"
                   )}
-                  
-                  {/* Exercise Header */}
-                  <div className="p-4 border-b border-border/30">
-                    <div className="flex items-start gap-3">
-                      <div className="h-10 w-10 rounded-lg bg-primary/15 flex items-center justify-center flex-shrink-0">
-                        <Dumbbell className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                          {isSuperset ? `${supersetIndex + 1}/${supersetExercises.length}` : `Esercizio ${exerciseIndex + 1}`}
-                        </span>
-                        <h3 className="font-semibold text-sm">{exercise.name}</h3>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          {/* Sets × Reps badge with recovery mode diff */}
-                          <Badge variant="secondary" className="text-[10px] h-4">
-                            {isRecoveryMode && exercise.originalSetsCount && exercise.originalSetsCount !== exercise.sets.length ? (
-                              <>
-                                <span className="line-through text-muted-foreground/60 mr-1">{exercise.originalSetsCount}</span>
-                                <span className="text-amber-600">{exercise.sets.length}</span>
-                              </>
-                            ) : (
-                              exercise.sets.length
-                            )}
-                            {' × '}{exercise.sets[0]?.targetReps || 8}
-                          </Badge>
-                          
-                          {/* Weight badge */}
-                          {exercise.sets[0]?.targetKg > 0 && (
-                            <Badge variant="outline" className="text-[10px] h-4">
-                              {exercise.sets[0].targetKg}kg
-                            </Badge>
-                          )}
-                          
-                          {/* RPE badge with recovery mode diff */}
-                          {exercise.sets[0]?.targetRpe && (
-                            <Badge 
-                              variant="outline" 
-                              className={cn(
-                                "text-[10px] h-4",
-                                isRecoveryMode && "border-amber-500/30 bg-amber-500/10"
-                              )}
-                            >
-                              RPE:{' '}
-                              {isRecoveryMode && exercise.originalTargetRpe && exercise.originalTargetRpe !== exercise.sets[0].targetRpe ? (
-                                <>
-                                  <span className="line-through text-muted-foreground/60 mx-0.5">{exercise.originalTargetRpe}</span>
-                                  <span className="text-amber-600 font-semibold">{exercise.sets[0].targetRpe}</span>
-                                </>
-                              ) : (
-                                <span>{exercise.sets[0].targetRpe}</span>
-                              )}
-                            </Badge>
-                          )}
-                          
-                          {/* HISTORY: Last workout data for this exercise */}
-                          {exerciseHistory && exerciseHistory[exercise.name] && (
-                            <Badge 
-                              variant="outline" 
-                              className="text-[10px] h-4 border-accent/30 bg-accent/10 text-accent-foreground gap-1"
-                            >
-                              <History className="h-2.5 w-2.5" />
-                              Last ({new Date(exerciseHistory[exercise.name]!.date).toLocaleDateString('it-IT', { day: 'numeric', month: 'short' })}): {exerciseHistory[exercise.name]!.weight_kg}kg × {exerciseHistory[exercise.name]!.reps}
-                              {exerciseHistory[exercise.name]!.rpe && ` @RPE${exerciseHistory[exercise.name]!.rpe}`}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Video Placeholder */}
-                    <div className="mt-3 aspect-video bg-secondary/50 rounded-lg flex items-center justify-center">
-                      <Play className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    
-                    {/* Coach Notes (Collapsible) */}
-                    {exercise.coachNotes && (
-                      <Collapsible 
-                        open={expandedNotes[exercise.id]} 
-                        onOpenChange={() => toggleNotes(exercise.id)}
-                      >
-                        <CollapsibleTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="w-full mt-3 h-8 text-xs text-muted-foreground justify-between"
-                          >
-                            <span className="flex items-center gap-1.5">
-                              <MessageSquare className="h-3 w-3" />
-                              Note del Coach
-                            </span>
-                            {expandedNotes[exercise.id] ? (
-                              <ChevronUp className="h-3 w-3" />
-                            ) : (
-                              <ChevronDown className="h-3 w-3" />
-                            )}
-                          </Button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <div className="mt-2 p-3 rounded-lg bg-primary/5 border border-primary/10">
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                              {exercise.coachNotes}
-                            </p>
-                          </div>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    )}
-                  </div>
-                  
-                  {/* Sets Table */}
-                  <div className="p-3">
-                    {/* Table Header */}
-                    <div className="grid grid-cols-[2.5rem_1fr_1fr_1fr_2.5rem] gap-2 mb-2 px-1">
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground text-center">Set</span>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground text-center">Kg</span>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground text-center">Reps</span>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground text-center">RPE</span>
-                      <span className="text-[10px] uppercase tracking-wider text-muted-foreground text-center">✓</span>
-                    </div>
-                    
-                    {/* Sets Rows */}
-                    <div className="space-y-2">
-                      {exercise.sets.map((set) => (
-                        <div 
-                          key={set.id}
-                          className={cn(
-                            "grid grid-cols-[2.5rem_1fr_1fr_1fr_2.5rem] gap-2 items-center p-2 rounded-lg transition-colors",
-                            set.completed ? "bg-success/10" : "bg-secondary/30"
-                          )}
-                        >
-                          {/* Set Number */}
-                          <div className="text-center">
-                            <span className={cn(
-                              "text-sm font-bold",
-                              set.completed ? "text-success" : "text-muted-foreground"
-                            )}>
-                              {set.setNumber}
-                            </span>
-                            <p className="text-[9px] text-muted-foreground">
-                              {set.targetKg > 0 ? `${set.targetKg}kg` : '—'}
-                            </p>
-                          </div>
-                          
-                          {/* Actual KG */}
-                          <Input
-                            type="number"
-                            inputMode="decimal"
-                            placeholder={set.targetKg > 0 ? set.targetKg.toString() : "kg"}
-                            value={set.actualKg}
-                            onChange={(e) => handleSetUpdate(exercise.id, set.id, 'actualKg', e.target.value)}
-                            className={cn(
-                              "h-9 text-center text-sm font-medium",
-                              set.completed && "border-success/30 bg-success/5"
-                            )}
-                          />
-                          
-                          {/* Actual Reps */}
-                          <Input
-                            type="number"
-                            inputMode="numeric"
-                            placeholder={set.targetReps.toString()}
-                            value={set.actualReps}
-                            onChange={(e) => handleSetUpdate(exercise.id, set.id, 'actualReps', e.target.value)}
-                            className={cn(
-                              "h-9 text-center text-sm font-medium",
-                              set.completed && "border-success/30 bg-success/5"
-                            )}
-                          />
-                          
-                          {/* RPE */}
-                          <Input
-                            type="number"
-                            inputMode="numeric"
-                            min={1}
-                            max={10}
-                            placeholder="RPE"
-                            value={set.rpe}
-                            onChange={(e) => handleSetUpdate(exercise.id, set.id, 'rpe', e.target.value)}
-                            className={cn(
-                              "h-9 text-center text-sm font-medium",
-                              set.completed && "border-success/30 bg-success/5",
-                              set.rpe && getRpeColor(parseInt(set.rpe))
-                            )}
-                          />
-                          
-                          {/* Complete Checkbox */}
-                          <div className="flex justify-center">
-                            <Checkbox
-                              checked={set.completed}
-                              onCheckedChange={(checked) => 
-                                handleSetComplete(exercise.id, set.id, checked as boolean)
-                              }
-                              className={cn(
-                                "h-6 w-6 rounded-full",
-                                set.completed && "border-success bg-success text-success-foreground"
-                              )}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </ScrollArea>
-
-      {/* Floating Rest Timer */}
-      {restTimerActive && (
-        <div className="fixed bottom-20 left-4 right-4 z-50">
-          <div className="glass rounded-2xl p-4 shadow-xl border border-border/30">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Timer className="h-5 w-5 text-primary" />
-                <span className="text-sm font-medium">Recupero</span>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={skipRest}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-            
-            {/* Timer Display */}
-            <div className="text-center mb-4">
-              <span className={cn(
-                "text-5xl font-bold tabular-nums transition-colors",
-                restTimeRemaining <= 10 ? "text-destructive animate-pulse" : "text-foreground"
-              )}>
-                {formatTime(restTimeRemaining)}
-              </span>
-            </div>
-            
-            {/* Progress Bar */}
-            <div className="h-2 bg-secondary rounded-full overflow-hidden mb-4">
-              <div 
-                className={cn(
-                  "h-full transition-all duration-1000 ease-linear",
-                  restTimeRemaining <= 10 ? "bg-destructive" : "bg-primary"
-                )}
-                style={{ width: `${(restTimeRemaining / currentRestDuration) * 100}%` }}
-              />
-            </div>
-            
-            {/* Controls */}
-            <div className="flex items-center justify-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9"
-                onClick={() => addRestTime(-15)}
-              >
-                <Minus className="h-3 w-3 mr-1" />
-                15s
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9"
-                onClick={resetRestTimer}
-              >
-                <RotateCcw className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9"
-                onClick={() => addRestTime(15)}
-              >
-                <Plus className="h-3 w-3 mr-1" />
-                15s
-              </Button>
-              <Button
-                size="sm"
-                className="h-9 ml-2"
-                onClick={skipRest}
-              >
-                Skip
-              </Button>
-            </div>
+                />
+              );
+            })}
           </div>
+
+          {/* Exercise Cards */}
+          {exercises.map((exercise, i) => (
+            <ExerciseCard
+              key={exercise.id}
+              exercise={exercise}
+              exerciseIndex={i}
+              isActive={i === activeExerciseIndex}
+              isRecoveryMode={isRecoveryMode}
+              supersetInfo={getSupersetInfo(exercise)}
+              historyData={exerciseHistory?.[exercise.name]}
+              onSetUpdate={handleSetUpdate}
+              onSetComplete={handleSetComplete}
+            />
+          ))}
         </div>
-      )}
+      </ActiveSessionShell>
 
       {/* Session Recap Dialog */}
       <Dialog open={showRecapDialog} onOpenChange={setShowRecapDialog}>
@@ -1038,9 +558,7 @@ export default function WorkoutPlayer() {
               <Trophy className="h-5 w-5 text-primary" />
               Sessione Completata!
             </DialogTitle>
-            <DialogDescription>
-              Come è andato l'allenamento?
-            </DialogDescription>
+            <DialogDescription>Come è andato l'allenamento?</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-6 py-4">
@@ -1057,72 +575,61 @@ export default function WorkoutPlayer() {
                   <p className="font-bold text-orange-600 dark:text-orange-400">
                     🔥 {currentStreak} giorni consecutivi!
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Stai costruendo un'abitudine solida!
-                  </p>
+                  <p className="text-xs text-muted-foreground">Stai costruendo un'abitudine solida!</p>
                 </div>
               </div>
             )}
-            
+
             {/* Session Stats */}
             <div className="grid grid-cols-3 gap-3">
-              <div className="text-center p-3 rounded-lg bg-secondary">
+              <div className="text-center p-3 rounded-xl bg-secondary">
                 <Clock className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
                 <p className="text-lg font-bold tabular-nums">{durationMinutes}</p>
                 <p className="text-[10px] text-muted-foreground uppercase">Minuti</p>
               </div>
-              <div className="text-center p-3 rounded-lg bg-secondary">
-                <CheckCircle2 className="h-4 w-4 mx-auto mb-1 text-success" />
+              <div className="text-center p-3 rounded-xl bg-secondary">
+                <CheckCircle2 className="h-4 w-4 mx-auto mb-1 text-primary" />
                 <p className="text-lg font-bold tabular-nums">{getCompletedSets()}</p>
                 <p className="text-[10px] text-muted-foreground uppercase">Set</p>
               </div>
-              <div className="text-center p-3 rounded-lg bg-primary/10">
+              <div className="text-center p-3 rounded-xl bg-primary/10">
                 <TrendingUp className="h-4 w-4 mx-auto mb-1 text-primary" />
                 <p className="text-lg font-bold tabular-nums">{sessionLoad}</p>
                 <p className="text-[10px] text-muted-foreground uppercase">Carico UA</p>
               </div>
             </div>
 
-            {/* Foster RPE Selection */}
+            {/* Foster RPE */}
             <div className="space-y-3">
-              <label className="text-sm font-medium">
-                Quanto è stato duro? (sRPE)
-              </label>
-              
+              <label className="text-sm font-medium">Quanto è stato duro? (sRPE)</label>
               <div className="flex items-center gap-4">
-                <span className={cn("text-4xl font-bold", getRpeColor(sessionRpe))}>
-                  {sessionRpe}
-                </span>
+                <span className={cn("text-4xl font-bold", getRpeColor(sessionRpe))}>{sessionRpe}</span>
                 <div className="flex-1">
-                  <Slider
-                    value={[sessionRpe]}
-                    onValueChange={([value]) => setSessionRpe(value)}
-                    min={1}
-                    max={10}
-                    step={1}
-                    className="w-full"
-                  />
+                  <Slider value={[sessionRpe]} onValueChange={([v]) => setSessionRpe(v)} min={1} max={10} step={1} />
                 </div>
               </div>
-              
               {rpeInfo && (
-                <div className={cn("p-3 rounded-lg", rpeInfo.color, "text-white")}>
+                <div className={cn("p-3 rounded-xl", rpeInfo.color, "text-white")}>
                   <p className="font-semibold">{rpeInfo.label}</p>
                   <p className="text-sm opacity-90">{rpeInfo.description}</p>
                 </div>
               )}
             </div>
 
-            {/* Foster Load Display */}
-            <div className="p-4 rounded-lg bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20">
+            {/* Foster Load */}
+            <div className="p-4 rounded-xl bg-primary/10 border border-primary/20">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider">Carico Sessione</p>
-                  <p className="text-3xl font-bold text-primary">{sessionLoad} <span className="text-sm font-normal">UA</span></p>
+                  <p className="text-3xl font-bold text-primary">
+                    {sessionLoad} <span className="text-sm font-normal">UA</span>
+                  </p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-muted-foreground">Formula Foster</p>
-                  <p className="text-sm font-mono">{durationMinutes} min × RPE {sessionRpe}</p>
+                  <p className="text-sm font-mono">
+                    {durationMinutes} min × RPE {sessionRpe}
+                  </p>
                 </div>
               </div>
             </div>
@@ -1131,7 +638,7 @@ export default function WorkoutPlayer() {
             <div className="space-y-2">
               <label className="text-sm font-medium">Note (opzionale)</label>
               <Input
-                placeholder="Come ti sei sentito? Qualcosa da segnalare?"
+                placeholder="Come ti sei sentito?"
                 value={workoutNotes}
                 onChange={(e) => setWorkoutNotes(e.target.value)}
               />
@@ -1139,28 +646,20 @@ export default function WorkoutPlayer() {
           </div>
 
           <div className="flex gap-3">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => setShowRecapDialog(false)}
-            >
+            <Button variant="outline" className="flex-1" onClick={() => setShowRecapDialog(false)}>
               Modifica
             </Button>
             <Button
-              className="flex-1 gradient-primary"
+              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
               onClick={handleSaveWorkoutLog}
               disabled={isLoggingWorkout}
             >
-              {isLoggingWorkout ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Trophy className="h-4 w-4 mr-2" />
-              )}
+              {isLoggingWorkout ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trophy className="h-4 w-4 mr-2" />}
               Salva
             </Button>
           </div>
         </DialogContent>
       </Dialog>
-    </AthleteLayout>
+    </>
   );
 }
