@@ -1,4 +1,4 @@
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Timer, Flag, Wifi, WifiOff } from "lucide-react";
@@ -23,6 +23,53 @@ function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+}
+
+// Hold-to-Finish Button (prevents accidental taps)
+function HoldToFinishButton({ onFinish }: { onFinish: () => void }) {
+  const [progress, setProgress] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const HOLD_MS = 1200;
+  const STEP = 40;
+
+  const start = useCallback(() => {
+    let p = 0;
+    timerRef.current = setInterval(() => {
+      p += (STEP / HOLD_MS) * 100;
+      setProgress(Math.min(p, 100));
+      if (p >= 100) {
+        if (timerRef.current) clearInterval(timerRef.current);
+        timerRef.current = null;
+        onFinish();
+      }
+    }, STEP);
+  }, [onFinish]);
+
+  const cancel = useCallback(() => {
+    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
+    setProgress(0);
+  }, []);
+
+  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
+
+  return (
+    <button
+      onPointerDown={start}
+      onPointerUp={cancel}
+      onPointerLeave={cancel}
+      className="relative h-8 px-3 text-xs font-semibold rounded-md overflow-hidden bg-primary text-primary-foreground shrink-0 select-none touch-none"
+    >
+      {/* Fill overlay */}
+      <div
+        className="absolute inset-0 bg-destructive/80 transition-none"
+        style={{ width: `${progress}%` }}
+      />
+      <span className="relative flex items-center gap-1">
+        <Flag className="h-3.5 w-3.5" />
+        {progress > 0 ? "Tieni premuto…" : "Termina"}
+      </span>
+    </button>
+  );
 }
 
 export function ActiveSessionShell({
@@ -81,14 +128,7 @@ export function ActiveSessionShell({
               )}
             </div>
           </div>
-          <Button
-            onClick={onFinish}
-            size="sm"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 h-8 px-3 text-xs font-semibold shrink-0"
-          >
-            <Flag className="h-3.5 w-3.5 mr-1" />
-            Termina
-          </Button>
+          <HoldToFinishButton onFinish={onFinish} />
         </div>
 
         {/* Progress bar */}

@@ -23,6 +23,7 @@ import AthleteNutrition from "./pages/athlete/AthleteNutrition";
 import AthleteHealth from "./pages/athlete/AthleteHealth";
 import AthleteProfile from "./pages/athlete/AthleteProfile";
 import WorkoutPlayer from "./pages/athlete/WorkoutPlayer";
+import WorkoutSummary from "./pages/athlete/WorkoutSummary";
 import AthleteDashboard from "./pages/athlete/AthleteDashboard";
 import OnboardingWizard from "./pages/onboarding/OnboardingWizard";
 import NotFound from "./pages/NotFound";
@@ -59,6 +60,7 @@ const App = () => (
             <Route path="/athlete/focus" element={<FocusDashboard />} />
             <Route path="/athlete/workout" element={<AthleteTraining />} />
             <Route path="/athlete/workout/:id" element={<WorkoutPlayer />} />
+            <Route path="/athlete/workout/summary/:sessionId" element={<WorkoutSummary />} />
             <Route path="/athlete/nutrition" element={<AthleteNutrition />} />
             <Route path="/athlete/health" element={<AthleteHealth />} />
             <Route path="/athlete/profile" element={<AthleteProfile />} />
