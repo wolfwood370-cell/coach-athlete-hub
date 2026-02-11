@@ -17,6 +17,7 @@ import {
 import { 
   Plus,
   Zap,
+  Copy,
   Scale,
   TrendingUp,
   TrendingDown,
@@ -40,6 +41,8 @@ import { useNutritionTargets } from "@/hooks/useNutritionTargets";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
 import { toast } from "sonner";
 import { FoodDatabase } from "@/components/nutrition/FoodDatabase";
+import { CalorieBankCard } from "@/components/nutrition/CalorieBankCard";
+import { SmartCopyDrawer } from "@/components/nutrition/SmartCopyDrawer";
 import {
   Line,
   Scatter,
@@ -545,6 +548,7 @@ export default function AthleteNutrition() {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [foodDbOpen, setFoodDbOpen] = useState(false);
   const [showSecondFab, setShowSecondFab] = useState(false);
+  const [smartCopyOpen, setSmartCopyOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const haptic = useHapticFeedback();
   
@@ -724,6 +728,9 @@ export default function AthleteNutrition() {
           </div>
         )}
         
+        {/* ===== WEEKLY CALORIE BANK ===== */}
+        <CalorieBankCard />
+        
         {/* ===== METABOLIC STATUS (New AI Coach Card) ===== */}
         <MetabolicStatusCard
           tdee={tdeeData.estimatedTDEE}
@@ -891,11 +898,11 @@ export default function AthleteNutrition() {
       </div>
 
       {/* ===== FLOATING ACTION BUTTONS ===== */}
-      {/* Secondary FAB - Food Database (appears when primary is clicked) */}
+      {/* Secondary FAB - Food Database */}
       <div
         className={cn(
           "fixed bottom-20 right-4 z-40 transition-all duration-300 ease-out",
-          showSecondFab ? "translate-x-[-72px] opacity-100" : "translate-x-0 opacity-0 pointer-events-none"
+          showSecondFab ? "translate-y-[-72px] opacity-100" : "translate-y-0 opacity-0 pointer-events-none"
         )}
       >
         <Button
@@ -910,7 +917,26 @@ export default function AthleteNutrition() {
         </Button>
       </div>
       
-      {/* Primary FAB - toggles menu or opens quick add */}
+      {/* Tertiary FAB - Smart Copy */}
+      <div
+        className={cn(
+          "fixed bottom-20 right-4 z-40 transition-all duration-300 ease-out",
+          showSecondFab ? "translate-x-[-72px] opacity-100" : "translate-x-0 opacity-0 pointer-events-none"
+        )}
+      >
+        <Button
+          onClick={() => {
+            setSmartCopyOpen(true);
+            setShowSecondFab(false);
+          }}
+          className="h-14 w-14 rounded-full shadow-xl bg-tertiary/80 hover:bg-tertiary"
+          size="icon"
+        >
+          <Copy className="h-6 w-6" />
+        </Button>
+      </div>
+      
+      {/* Primary FAB */}
       <Button
         onClick={() => {
           if (showSecondFab) {
@@ -945,7 +971,14 @@ export default function AthleteNutrition() {
         onFoodLogged={fetchTodayNutrition}
       />
 
-      {/* ===== QUICK ADD DRAWER ===== */}
+      {/* ===== SMART COPY DRAWER ===== */}
+      <SmartCopyDrawer
+        open={smartCopyOpen}
+        onOpenChange={setSmartCopyOpen}
+        onLogged={fetchTodayNutrition}
+      />
+
+
       <Drawer open={quickAddOpen} onOpenChange={setQuickAddOpen}>
         <DrawerContent className="max-h-[85vh]">
           <div className="mx-auto w-full max-w-md flex flex-col overflow-hidden">
