@@ -387,6 +387,8 @@ export default function WorkoutPlayer() {
     setTimeout(() => setShowRecapDialog(true), 500);
   };
 
+
+
   const handleSaveWorkoutLog = async () => {
     const durationMinutes = Math.round(elapsedSeconds / 60);
     const sessionLoad = durationMinutes * sessionRpe;
@@ -422,9 +424,9 @@ export default function WorkoutPlayer() {
 
     logWorkout(workoutLogInput, {
       onSuccess: () => {
-        sessionStore.endSession(); // Clear localStorage session data
+        sessionStore.endSession();
         toast({ title: "Allenamento salvato!", description: `Carico sessione: ${sessionLoad} UA` });
-        navigate("/athlete");
+        navigate(`/athlete/workout/summary/${id || "mock"}`);
       },
     });
   };
