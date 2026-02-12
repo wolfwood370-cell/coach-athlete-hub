@@ -9,7 +9,9 @@ import { useAthleteRiskAnalysis } from "@/hooks/useAthleteRiskAnalysis";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { Users, UserPlus, Search, LayoutGrid, List, ChevronRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Users, UserPlus, Search, LayoutGrid, List, ChevronRight, Radio } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -23,6 +25,26 @@ export default function CoachAthletes() {
   const { allAthletes, isLoading } = useAthleteRiskAnalysis();
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
+
+  // Query for athletes with active (in_progress) workout sessions
+  const { data: liveAthleteIds = [] } = useQuery({
+    queryKey: ["live-sessions", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const athleteIds = allAthletes.map(a => a.athleteId);
+      if (athleteIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("workout_logs")
+        .select("athlete_id")
+        .in("athlete_id", athleteIds)
+        .eq("status", "scheduled")
+        .not("started_at", "is", null);
+      if (error) return [];
+      return [...new Set((data ?? []).map(d => d.athlete_id))];
+    },
+    enabled: !!user && allAthletes.length > 0,
+    refetchInterval: 30000, // Poll every 30s for live status
+  });
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -171,6 +193,7 @@ export default function CoachAthletes() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredAthletes.map((athlete) => {
               const active = isActive(athlete.readinessDate);
+              const isLive = liveAthleteIds.includes(athlete.athleteId);
               
               return (
                 <Card
@@ -180,7 +203,8 @@ export default function CoachAthletes() {
                     "group cursor-pointer transition-all duration-200 p-4",
                     "bg-card border border-border/50",
                     "hover:border-primary/50 hover:shadow-md hover:scale-[1.02]",
-                    "active:scale-[0.98]"
+                    "active:scale-[0.98]",
+                    isLive && "ring-2 ring-success/40"
                   )}
                 >
                   <div className="flex items-center gap-3">
@@ -192,24 +216,36 @@ export default function CoachAthletes() {
                           {athlete.avatarInitials}
                         </AvatarFallback>
                       </Avatar>
-                      <div
-                        className={cn(
-                          "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card",
-                          active ? "bg-success" : "bg-muted-foreground/50"
-                        )}
-                      />
+                      {isLive ? (
+                        <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card bg-success animate-pulse" />
+                      ) : (
+                        <div
+                          className={cn(
+                            "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card",
+                            active ? "bg-success" : "bg-muted-foreground/50"
+                          )}
+                        />
+                      )}
                     </div>
 
                     {/* Name & Status */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">
-                        {athlete.athleteName}
-                      </h3>
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">
+                          {athlete.athleteName}
+                        </h3>
+                        {isLive && (
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 bg-success/10 text-success border-success/30 gap-1 shrink-0">
+                            <Radio className="h-2.5 w-2.5" />
+                            Live
+                          </Badge>
+                        )}
+                      </div>
                       <p className={cn(
                         "text-xs mt-0.5",
-                        active ? "text-success" : "text-muted-foreground"
+                        isLive ? "text-success" : active ? "text-success" : "text-muted-foreground"
                       )}>
-                        {active ? "Attivo" : "Inattivo"}
+                        {isLive ? "In allenamento" : active ? "Attivo" : "Inattivo"}
                       </p>
                     </div>
 
@@ -234,6 +270,7 @@ export default function CoachAthletes() {
           <Card className="divide-y divide-border/50">
             {filteredAthletes.map((athlete) => {
               const active = isActive(athlete.readinessDate);
+              const isLive = liveAthleteIds.includes(athlete.athleteId);
               
               return (
                 <div
@@ -249,12 +286,16 @@ export default function CoachAthletes() {
                         {athlete.avatarInitials}
                       </AvatarFallback>
                     </Avatar>
-                    <div
-                      className={cn(
-                        "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card",
-                        active ? "bg-success" : "bg-muted-foreground/50"
-                      )}
-                    />
+                    {isLive ? (
+                      <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card bg-success animate-pulse" />
+                    ) : (
+                      <div
+                        className={cn(
+                          "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card",
+                          active ? "bg-success" : "bg-muted-foreground/50"
+                        )}
+                      />
+                    )}
                   </div>
 
                   {/* Name */}
@@ -268,15 +309,22 @@ export default function CoachAthletes() {
                   </div>
 
                   {/* Status Badge */}
-                  <Badge 
-                    variant="secondary" 
-                    className={cn(
-                      "text-xs",
-                      active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
-                    )}
-                  >
-                    {active ? "Attivo" : "Inattivo"}
-                  </Badge>
+                  {isLive ? (
+                    <Badge variant="secondary" className="text-xs bg-success/10 text-success border-success/30 gap-1">
+                      <Radio className="h-3 w-3" />
+                      Live
+                    </Badge>
+                  ) : (
+                    <Badge 
+                      variant="secondary" 
+                      className={cn(
+                        "text-xs",
+                        active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {active ? "Attivo" : "Inattivo"}
+                    </Badge>
+                  )}
 
                   <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>

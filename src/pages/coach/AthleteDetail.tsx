@@ -134,98 +134,85 @@ import { TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui
 import { Info, ShieldAlert, ShieldCheck, Gauge } from "lucide-react";
 import { toast } from "sonner";
 import { StrategyContent } from "@/components/coach/athlete/StrategyContent";
+import { useAthleteExerciseList, useAthleteStrengthProgression, useAthleteVolumeIntensity } from "@/hooks/useAthleteAnalytics";
 
-// Mock exercise list for the combobox
-const EXERCISE_LIST = [
-  { value: "back-squat", label: "Back Squat" },
-  { value: "bench-press", label: "Bench Press" },
-  { value: "deadlift", label: "Deadlift" },
-  { value: "overhead-press", label: "Overhead Press" },
-  { value: "barbell-row", label: "Barbell Row" },
-  { value: "pull-up", label: "Pull-Up" },
-  { value: "front-squat", label: "Front Squat" },
-  { value: "romanian-deadlift", label: "Romanian Deadlift" },
-  { value: "incline-bench", label: "Incline Bench Press" },
-  { value: "leg-press", label: "Leg Press" },
-];
-
-// Mock exercise history data generator
-const generateMockExerciseData = (exerciseValue: string) => {
-  const baseWeight = exerciseValue === "deadlift" ? 180 : 
-                     exerciseValue === "back-squat" ? 140 :
-                     exerciseValue === "bench-press" ? 100 :
-                     exerciseValue === "leg-press" ? 200 : 80;
-  
-  const history: Array<{
-    date: Date;
-    scheme: string;
-    bestWeight: number;
-    rpe: number;
-    estimated1RM: number;
-    totalVolume: number;
-    isPR: boolean;
-  }> = [];
-  
-  let currentMax = baseWeight;
-  
-  for (let i = 12; i >= 0; i--) {
-    const date = subMonths(new Date(), i * 0.25);
-    const reps = Math.floor(Math.random() * 5) + 3;
-    const sets = Math.floor(Math.random() * 3) + 3;
-    const weight = currentMax + Math.floor(Math.random() * 10) - 3;
-    const estimated1RM = Math.round(weight * (1 + reps / 30));
-    const isPR = weight > currentMax;
-    
-    if (isPR) currentMax = weight;
-    
-    history.push({
-      date,
-      scheme: `${sets}x${reps}`,
-      bestWeight: weight,
-      rpe: Math.floor(Math.random() * 3) + 7,
-      estimated1RM,
-      totalVolume: sets * reps * weight,
-      isPR
-    });
-  }
-  
-  return history;
-};
-
-// Exercise Stats Content Component
+// Exercise Stats Content Component - uses REAL data from workout_exercises
 function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) {
-  const [selectedExercise, setSelectedExercise] = useState(EXERCISE_LIST[0].value);
+  const { data: exerciseNames = [], isLoading: namesLoading } = useAthleteExerciseList(athleteId);
+  const [selectedExercise, setSelectedExercise] = useState("");
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [chartView, setChartView] = useState<"1rm" | "weight" | "volume">("1rm");
 
-  // Get exercise data based on selection
-  const exerciseData = useMemo(() => {
-    return generateMockExerciseData(selectedExercise);
-  }, [selectedExercise]);
+  // Auto-select first exercise when list loads
+  useMemo(() => {
+    if (exerciseNames.length > 0 && !selectedExercise) {
+      setSelectedExercise(exerciseNames[0]);
+    }
+  }, [exerciseNames, selectedExercise]);
 
-  // Calculate KPIs
+  const { data: strengthData = [], isLoading: strengthLoading } = useAthleteStrengthProgression(athleteId, selectedExercise);
+  const { data: volumeData = [], isLoading: volumeLoading } = useAthleteVolumeIntensity(athleteId);
+
+  // Transform strength data for display
+  const exerciseData = useMemo(() => {
+    return strengthData.map((d, idx, arr) => {
+      const prevMax = arr.slice(0, idx).reduce((max, p) => Math.max(max, p.estimated1RM), 0);
+      return {
+        date: new Date(d.date),
+        dateFormatted: d.dateFormatted,
+        bestWeight: d.estimated1RM, // using estimated1RM as representative weight
+        rpe: 0,
+        estimated1RM: d.estimated1RM,
+        totalVolume: 0,
+        isPR: d.estimated1RM > prevMax && prevMax > 0,
+        scheme: "",
+      };
+    });
+  }, [strengthData]);
+
+  // KPIs
   const kpis = useMemo(() => {
     if (exerciseData.length === 0) return { estimated1RM: 0, maxVolume: 0, frequency: 0 };
-    
     const estimated1RM = Math.max(...exerciseData.map(d => d.estimated1RM));
-    const maxVolume = Math.max(...exerciseData.map(d => d.totalVolume));
-    const frequency = exerciseData.length;
-    
-    return { estimated1RM, maxVolume, frequency };
-  }, [exerciseData]);
+    const maxVolume = volumeData.length > 0 ? Math.max(...volumeData.map(d => d.totalTonnage)) : 0;
+    return { estimated1RM: Math.round(estimated1RM), maxVolume, frequency: exerciseData.length };
+  }, [exerciseData, volumeData]);
 
-  // Chart data based on view
+  // Chart data
   const chartData = useMemo(() => {
+    if (chartView === "volume") {
+      return volumeData.map(d => ({ date: d.dateFormatted, value: d.totalTonnage, isPR: false }));
+    }
     return exerciseData.map(d => ({
-      date: format(d.date, "MMM d"),
-      value: chartView === "1rm" ? d.estimated1RM : 
-             chartView === "weight" ? d.bestWeight : 
-             d.totalVolume,
-      isPR: d.isPR
+      date: d.dateFormatted,
+      value: chartView === "1rm" ? d.estimated1RM : d.bestWeight,
+      isPR: d.isPR,
     }));
-  }, [exerciseData, chartView]);
+  }, [exerciseData, volumeData, chartView]);
 
-  const selectedLabel = EXERCISE_LIST.find(e => e.value === selectedExercise)?.label || "Select exercise";
+  const isLoading = namesLoading || strengthLoading;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-20 w-full" />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" />
+        </div>
+        <Skeleton className="h-[300px] w-full" />
+      </div>
+    );
+  }
+
+  if (exerciseNames.length === 0) {
+    return (
+      <Card className="p-12 text-center">
+        <Dumbbell className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+        <h3 className="text-lg font-semibold mb-1">No Exercise Data</h3>
+        <p className="text-sm text-muted-foreground">This athlete hasn't completed any workouts yet.</p>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -253,7 +240,7 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
                   className="w-full sm:w-[240px] justify-between"
                 >
                   <Dumbbell className="h-4 w-4 mr-2 shrink-0" />
-                  <span className="truncate">{selectedLabel}</span>
+                  <span className="truncate">{selectedExercise || "Select exercise"}</span>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
@@ -263,22 +250,22 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
                   <CommandList>
                     <CommandEmpty>No exercise found.</CommandEmpty>
                     <CommandGroup>
-                      {EXERCISE_LIST.map((exercise) => (
+                      {exerciseNames.map((name) => (
                         <CommandItem
-                          key={exercise.value}
-                          value={exercise.value}
-                          onSelect={(currentValue) => {
-                            setSelectedExercise(currentValue);
+                          key={name}
+                          value={name}
+                          onSelect={(val) => {
+                            setSelectedExercise(val);
                             setComboboxOpen(false);
                           }}
                         >
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              selectedExercise === exercise.value ? "opacity-100" : "opacity-0"
+                              selectedExercise === name ? "opacity-100" : "opacity-0"
                             )}
                           />
-                          {exercise.label}
+                          {name}
                         </CommandItem>
                       ))}
                     </CommandGroup>
@@ -292,7 +279,6 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
 
       {/* Performance KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Estimated 1RM */}
         <Card className="overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -307,8 +293,6 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
             </div>
           </CardContent>
         </Card>
-
-        {/* Max Volume */}
         <Card className="overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -323,15 +307,13 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
             </div>
           </CardContent>
         </Card>
-
-        {/* Frequency */}
         <Card className="overflow-hidden">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Frequency</p>
                 <p className="text-3xl font-bold text-foreground">{kpis.frequency}x</p>
-                <p className="text-xs text-muted-foreground mt-1">Last 3 months</p>
+                <p className="text-xs text-muted-foreground mt-1">Sessions with this exercise</p>
               </div>
               <div className="h-14 w-14 rounded-xl bg-chart-3/10 flex items-center justify-center">
                 <Repeat className="h-7 w-7 text-chart-3" />
@@ -347,153 +329,67 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <CardTitle className="text-base">Progression Over Time</CardTitle>
             <div className="flex items-center gap-2">
-              <Button
-                variant={chartView === "1rm" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setChartView("1rm")}
-                className="text-xs"
-              >
-                Est. 1RM
-              </Button>
-              <Button
-                variant={chartView === "weight" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setChartView("weight")}
-                className="text-xs"
-              >
-                Max Weight
-              </Button>
-              <Button
-                variant={chartView === "volume" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setChartView("volume")}
-                className="text-xs"
-              >
-                Volume
-              </Button>
+              <Button variant={chartView === "1rm" ? "default" : "outline"} size="sm" onClick={() => setChartView("1rm")} className="text-xs">Est. 1RM</Button>
+              <Button variant={chartView === "weight" ? "default" : "outline"} size="sm" onClick={() => setChartView("weight")} className="text-xs">Max Weight</Button>
+              <Button variant={chartView === "volume" ? "default" : "outline"} size="sm" onClick={() => setChartView("volume")} className="text-xs">Volume</Button>
             </div>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
-                <XAxis 
-                  dataKey="date" 
-                  stroke="hsl(var(--muted-foreground))" 
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                />
-                <YAxis 
-                  stroke="hsl(var(--muted-foreground))" 
-                  fontSize={12}
-                  tickLine={false}
-                  axisLine={false}
-                  tickFormatter={(value) => chartView === "volume" ? `${(value / 1000).toFixed(1)}k` : `${value}`}
-                />
-                <ChartTooltip 
-                  content={({ active, payload }) => {
-                    if (!active || !payload?.length) return null;
-                    const data = payload[0].payload;
-                    return (
-                      <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
-                        <p className="text-sm font-medium text-foreground">{data.date}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {chartView === "1rm" ? "Est. 1RM" : chartView === "weight" ? "Max Weight" : "Volume"}: 
-                          <span className="font-semibold text-foreground ml-1">
-                            {chartView === "volume" ? `${data.value.toLocaleString()} kg` : `${data.value} kg`}
-                          </span>
-                        </p>
-                        {data.isPR && (
-                          <Badge variant="default" className="mt-1 text-xs bg-amber-500/20 text-amber-500 border-amber-500/30">
-                            <Trophy className="h-3 w-3 mr-1" /> PR!
-                          </Badge>
-                        )}
-                      </div>
-                    );
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="value"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={2}
-                  dot={(props) => {
-                    const { cx, cy, payload } = props;
-                    if (payload.isPR) {
+          {chartData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Activity className="h-8 w-8 text-muted-foreground mb-2" />
+              <p className="text-sm text-muted-foreground">No data for this exercise yet</p>
+            </div>
+          ) : (
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false}
+                    tickFormatter={(value) => chartView === "volume" ? `${(value / 1000).toFixed(1)}k` : `${value}`}
+                  />
+                  <ChartTooltip 
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const data = payload[0].payload;
                       return (
-                        <g key={`dot-${cx}-${cy}`}>
-                          <circle cx={cx} cy={cy} r={6} fill="hsl(var(--primary))" />
-                          <circle cx={cx} cy={cy} r={3} fill="hsl(var(--primary-foreground))" />
-                        </g>
+                        <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
+                          <p className="text-sm font-medium text-foreground">{data.date}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {chartView === "1rm" ? "Est. 1RM" : chartView === "weight" ? "Max Weight" : "Volume"}: 
+                            <span className="font-semibold text-foreground ml-1">
+                              {chartView === "volume" ? `${data.value.toLocaleString()} kg` : `${data.value} kg`}
+                            </span>
+                          </p>
+                          {data.isPR && (
+                            <Badge variant="default" className="mt-1 text-xs bg-amber-500/20 text-amber-500 border-amber-500/30">
+                              <Trophy className="h-3 w-3 mr-1" /> PR!
+                            </Badge>
+                          )}
+                        </div>
                       );
-                    }
-                    return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={4} fill="hsl(var(--primary))" />;
-                  }}
-                  activeDot={{ r: 6, fill: "hsl(var(--primary))" }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* History Table */}
-      <Card className="overflow-hidden">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Session History</CardTitle>
-        </CardHeader>
-        <CardContent className="pt-0">
-          <div className="overflow-x-auto -mx-6">
-            <Table>
-              <TableHeader>
-                <TableRow className="border-border/50">
-                  <TableHead className="pl-6">Date</TableHead>
-                  <TableHead>Scheme</TableHead>
-                  <TableHead>Best Weight</TableHead>
-                  <TableHead>RPE</TableHead>
-                  <TableHead className="pr-6 text-right">Est. 1RM</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {exerciseData.slice().reverse().slice(0, 10).map((session, idx) => (
-                  <TableRow key={idx} className="border-border/30">
-                    <TableCell className="pl-6 font-medium">
-                      <div className="flex items-center gap-2">
-                        {session.isPR && (
-                          <Trophy className="h-4 w-4 text-amber-500" />
-                        )}
-                        {format(session.date, "MMM d, yyyy")}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="font-mono">
-                        {session.scheme}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-semibold">{session.bestWeight} kg</TableCell>
-                    <TableCell>
-                      <Badge 
-                        variant="outline" 
-                        className={cn(
-                          "font-mono",
-                          session.rpe >= 9 ? "border-destructive/50 text-destructive" :
-                          session.rpe >= 8 ? "border-amber-500/50 text-amber-500" :
-                          "border-green-500/50 text-green-500"
-                        )}
-                      >
-                        {session.rpe}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="pr-6 text-right font-semibold">
-                      {session.estimated1RM} kg
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                    }}
+                  />
+                  <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2}
+                    dot={(props) => {
+                      const { cx, cy, payload } = props;
+                      if (payload.isPR) {
+                        return (
+                          <g key={`dot-${cx}-${cy}`}>
+                            <circle cx={cx} cy={cy} r={6} fill="hsl(var(--primary))" />
+                            <circle cx={cx} cy={cy} r={3} fill="hsl(var(--primary-foreground))" />
+                          </g>
+                        );
+                      }
+                      return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={4} fill="hsl(var(--primary))" />;
+                    }}
+                    activeDot={{ r: 6, fill: "hsl(var(--primary))" }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
