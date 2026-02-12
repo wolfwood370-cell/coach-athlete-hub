@@ -9,7 +9,7 @@ import { useAthleteRiskAnalysis } from "@/hooks/useAthleteRiskAnalysis";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Users, UserPlus, Search, LayoutGrid, List, ChevronRight, Radio } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -43,8 +43,25 @@ export default function CoachAthletes() {
       return [...new Set((data ?? []).map(d => d.athlete_id))];
     },
     enabled: !!user && allAthletes.length > 0,
-    refetchInterval: 30000, // Poll every 30s for live status
+    refetchInterval: 30000,
   });
+
+  // Realtime: instantly update live status when any workout_log changes
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel("live-sessions-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "workout_logs" },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["live-sessions", user.id] });
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, queryClient]);
 
   useEffect(() => {
     if (!authLoading && !user) {

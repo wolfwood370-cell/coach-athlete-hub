@@ -17,12 +17,16 @@ import { VolumeIntensityChart } from "@/components/coach/analytics/VolumeIntensi
 import { AcwrGauge } from "@/components/coach/analytics/AcwrGauge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users } from "lucide-react";
+import { useRealtimeAnalytics } from "@/hooks/useRealtimeAnalytics";
 
 export default function CoachAnalytics() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { data: athletes, isLoading: athletesLoading } = useCoachAthletes();
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | undefined>();
+
+  // Live realtime subscription — charts auto-refresh when athlete logs data
+  useRealtimeAnalytics(selectedAthleteId);
 
   useEffect(() => {
     if (!authLoading && !user) {

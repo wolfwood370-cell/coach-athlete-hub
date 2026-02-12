@@ -135,6 +135,7 @@ import { Info, ShieldAlert, ShieldCheck, Gauge } from "lucide-react";
 import { toast } from "sonner";
 import { StrategyContent } from "@/components/coach/athlete/StrategyContent";
 import { useAthleteExerciseList, useAthleteStrengthProgression, useAthleteVolumeIntensity } from "@/hooks/useAthleteAnalytics";
+import { useRealtimeAnalytics } from "@/hooks/useRealtimeAnalytics";
 
 // Exercise Stats Content Component - uses REAL data from workout_exercises
 function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) {
@@ -142,6 +143,9 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
   const [selectedExercise, setSelectedExercise] = useState("");
   const [comboboxOpen, setComboboxOpen] = useState(false);
   const [chartView, setChartView] = useState<"1rm" | "weight" | "volume">("1rm");
+
+  // Live realtime updates
+  useRealtimeAnalytics(athleteId);
 
   // Auto-select first exercise when list loads
   useMemo(() => {
