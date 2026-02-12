@@ -1449,7 +1449,26 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      analytics_athlete_progress: {
+        Row: {
+          athlete_id: string | null
+          readiness_score: number | null
+          rpe_average: number | null
+          sessions_completed: number | null
+          sets_completed: number | null
+          total_volume: number | null
+          workout_date: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workout_logs_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       clone_program_week: {
