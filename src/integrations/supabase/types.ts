@@ -115,6 +115,70 @@ export type Database = {
         }
         Relationships: []
       }
+      coach_alerts: {
+        Row: {
+          athlete_id: string
+          coach_id: string
+          created_at: string
+          dismissed: boolean
+          id: string
+          link: string | null
+          message: string
+          read: boolean
+          severity: string
+          type: string
+          workout_log_id: string | null
+        }
+        Insert: {
+          athlete_id: string
+          coach_id: string
+          created_at?: string
+          dismissed?: boolean
+          id?: string
+          link?: string | null
+          message: string
+          read?: boolean
+          severity?: string
+          type?: string
+          workout_log_id?: string | null
+        }
+        Update: {
+          athlete_id?: string
+          coach_id?: string
+          created_at?: string
+          dismissed?: boolean
+          id?: string
+          link?: string | null
+          message?: string
+          read?: boolean
+          severity?: string
+          type?: string
+          workout_log_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "coach_alerts_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_alerts_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "coach_alerts_workout_log_id_fkey"
+            columns: ["workout_log_id"]
+            isOneToOne: false
+            referencedRelation: "workout_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       coach_products: {
         Row: {
           active: boolean
