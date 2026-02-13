@@ -1,0 +1,128 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "./useAuth";
+
+export interface CoachAlert {
+  id: string;
+  coach_id: string;
+  athlete_id: string;
+  workout_log_id: string | null;
+  type: string;
+  severity: "high" | "medium" | "low";
+  message: string;
+  link: string | null;
+  read: boolean;
+  dismissed: boolean;
+  created_at: string;
+  athlete?: {
+    id: string;
+    full_name: string | null;
+    avatar_url: string | null;
+  };
+}
+
+export function useCoachAlerts() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const alertsQuery = useQuery({
+    queryKey: ["coach-alerts", user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+
+      const { data, error } = await supabase
+        .from("coach_alerts")
+        .select(`
+          *,
+          athlete:profiles!coach_alerts_athlete_id_fkey(id, full_name, avatar_url)
+        `)
+        .eq("coach_id", user.id)
+        .eq("dismissed", false)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      return (data || []) as CoachAlert[];
+    },
+    enabled: !!user?.id,
+  });
+
+  // Realtime subscription for new alerts
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const channel = supabase
+      .channel(`coach-alerts-${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "coach_alerts",
+          filter: `coach_id=eq.${user.id}`,
+        },
+        (payload) => {
+          queryClient.invalidateQueries({ queryKey: ["coach-alerts"] });
+
+          // Browser push notification
+          if ("Notification" in window && Notification.permission === "granted") {
+            const alert = payload.new as CoachAlert;
+            new Notification("⚠️ Risk Alert", {
+              body: alert.message,
+              icon: "/favicon.ico",
+              tag: alert.id,
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, queryClient]);
+
+  // Request notification permission
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  const dismissAlert = useMutation({
+    mutationFn: async (alertId: string) => {
+      const { error } = await supabase
+        .from("coach_alerts")
+        .update({ dismissed: true })
+        .eq("id", alertId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["coach-alerts"] });
+    },
+  });
+
+  const markAsRead = useMutation({
+    mutationFn: async (alertId: string) => {
+      const { error } = await supabase
+        .from("coach_alerts")
+        .update({ read: true })
+        .eq("id", alertId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["coach-alerts"] });
+    },
+  });
+
+  const unreadCount = (alertsQuery.data || []).filter((a) => !a.read).length;
+
+  return {
+    alerts: alertsQuery.data || [],
+    isLoading: alertsQuery.isLoading,
+    unreadCount,
+    dismissAlert,
+    markAsRead,
+  };
+}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { CoachLayout } from "@/components/coach/CoachLayout";
 import { RoomList } from "@/components/coach/messages/RoomList";
 import { ChatPane } from "@/components/coach/messages/ChatPane";
@@ -12,6 +12,7 @@ import { toast } from "sonner";
 
 export default function CoachMessages() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, loading: authLoading } = useAuth();
   const { rooms, isLoading, getOrCreateDirectRoom, markRoomAsRead } = useChatRooms();
   const isMobile = useIsMobile();
@@ -21,6 +22,23 @@ export default function CoachMessages() {
   const [showContext, setShowContext] = useState(false);
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+
+  // Parse alert context from URL
+  const alertContextParam = searchParams.get("alertContext");
+  const alertContext = alertContextParam
+    ? (() => { try { return JSON.parse(decodeURIComponent(alertContextParam)); } catch { return null; } })()
+    : null;
+
+  // Auto-select room from URL param
+  const roomIdParam = searchParams.get("room");
+  useEffect(() => {
+    if (roomIdParam && rooms.length > 0 && !selectedRoom) {
+      const room = rooms.find((r) => r.id === roomIdParam);
+      if (room) {
+        handleSelectRoom(room);
+      }
+    }
+  }, [roomIdParam, rooms]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -102,6 +120,7 @@ export default function CoachMessages() {
               onBack={handleBack}
               onToggleContext={handleToggleContext}
               showBackButton={isMobile}
+              alertContext={alertContext}
             />
           </div>
 
