@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { InviteAthleteDialog } from "@/components/coach/InviteAthleteDialog";
+import { RiskAlertCard } from "@/components/coach/RiskAlertCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
@@ -15,6 +16,9 @@ import {
   type AlertType,
   type AlertSeverity,
 } from "@/hooks/useCoachDashboardMetrics";
+import { useCoachAlerts, type CoachAlert } from "@/hooks/useCoachAlerts";
+import { useChatRooms } from "@/hooks/useChatRooms";
+import { toast } from "sonner";
 import { 
   AlertTriangle,
   ShieldAlert,
@@ -113,9 +117,34 @@ export default function CoachHome() {
     isLoading,
   } = useCoachDashboardMetrics();
 
+  const {
+    alerts: smartAlerts,
+    isLoading: alertsLoading,
+    dismissAlert,
+  } = useCoachAlerts();
+
+  const { getOrCreateDirectRoom } = useChatRooms();
+
   // Separate alerts by severity for Bento layout
   const criticalAlerts = urgentAlerts.filter(a => a.severity === "critical" || a.severity === "warning");
   const infoAlerts = urgentAlerts.filter(a => a.severity === "info");
+
+  const handleMessageFromAlert = async (alert: CoachAlert) => {
+    try {
+      if (!user?.id) return;
+      const roomId = await getOrCreateDirectRoom.mutateAsync(alert.athlete_id);
+      // Navigate to messages with alert context
+      const alertContext = encodeURIComponent(JSON.stringify({
+        message: alert.message,
+        severity: alert.severity,
+        workoutLogId: alert.workout_log_id,
+        createdAt: alert.created_at,
+      }));
+      navigate(`/coach/messages?room=${roomId}&alertContext=${alertContext}`);
+    } catch {
+      toast.error("Errore nell'apertura della chat");
+    }
+  };
 
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -171,8 +200,16 @@ export default function CoachHome() {
         {/* ===== BENTO GRID LAYOUT ===== */}
         {hasAthletes && (
           <div className="grid grid-cols-12 gap-4 lg:gap-5">
+
+            {/* ===== ROW 0: SMART ALERTS (WATCHDOG) ===== */}
+            <RiskAlertCard
+              alerts={smartAlerts}
+              isLoading={alertsLoading}
+              onDismiss={(id) => dismissAlert.mutate(id)}
+              onMessageAthlete={handleMessageFromAlert}
+              onNavigate={(link) => navigate(link)}
+            />
             
-            {/* ===== ROW 1: URGENT ALERTS (RED) + BUSINESS HEALTH (GREEN) ===== */}
             
             {/* Urgent Alerts - Takes more space */}
             <Card className="col-span-12 lg:col-span-8 border-l-4 border-l-destructive shadow-sm">

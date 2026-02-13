@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { format, isToday, isYesterday } from "date-fns";
 import { it } from "date-fns/locale";
-import { ArrowLeft, Info, Send, Mic, Image as ImageIcon, Link2, Loader2, Video } from "lucide-react";
+import { ArrowLeft, Info, Send, Mic, Image as ImageIcon, Link2, Loader2, Video, AlertTriangle, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -17,11 +18,19 @@ import { MessageBubble } from "./MessageBubble";
 const MAX_VIDEO_SIZE_MB = 50;
 const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
 
+interface AlertContextData {
+  message: string;
+  severity: "high" | "medium" | "low";
+  workoutLogId: string | null;
+  createdAt: string;
+}
+
 interface ChatPaneProps {
   room: ChatRoom | null;
   onBack?: () => void;
   onToggleContext?: () => void;
   showBackButton?: boolean;
+  alertContext?: AlertContextData | null;
 }
 
 function DateSeparator({ date }: { date: Date }) {
@@ -42,11 +51,15 @@ export function ChatPane({
   room,
   onBack,
   onToggleContext,
-  showBackButton = false
+  showBackButton = false,
+  alertContext,
 }: ChatPaneProps) {
   const { user } = useAuth();
   const { messages, isLoading, sendMessage, subscribeToMessages } = useMessages(room?.id || null);
-  const [inputValue, setInputValue] = useState("");
+  const [inputValue, setInputValue] = useState(
+    alertContext ? `Hey, I saw that tough session. ${alertContext.message}. Everything okay?` : ""
+  );
+  const [showAlertBanner, setShowAlertBanner] = useState(!!alertContext);
   const [isSending, setIsSending] = useState(false);
   const [isUploadingVideo, setIsUploadingVideo] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -301,6 +314,25 @@ export function ChatPane({
         className="hidden"
         onChange={handleVideoSelect}
       />
+
+      {/* Alert Context Banner */}
+      {showAlertBanner && alertContext && (
+        <div className="shrink-0 border-t border-warning/30 bg-warning/5 px-4 py-2 flex items-start gap-3">
+          <AlertTriangle className="h-4 w-4 text-warning mt-0.5 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium text-warning">Alert Context</p>
+            <p className="text-xs text-muted-foreground truncate">{alertContext.message}</p>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 text-muted-foreground"
+            onClick={() => setShowAlertBanner(false)}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      )}
 
       {/* Input Area */}
       <div className="shrink-0 border-t p-3">
