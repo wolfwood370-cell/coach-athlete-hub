@@ -35,13 +35,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  calculateACWR,
-  calculateDailyStrain,
-  buildDailyLoadArray,
-  type AcwrZone,
-  type DailyLoad,
-} from "@/lib/math/trainingMetrics";
+import type { AcwrZone } from "@/lib/math/trainingMetrics";
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -141,134 +135,57 @@ const FILTERS: { key: QuickFilter; label: string; icon: typeof Filter }[] = [
   { key: "disengaged", label: "Disengaged", icon: Shield },
 ];
 
-const LOOKBACK_DAYS = 42;
+// ── ACWR zone helper ──────────────────────────────────────────────────
 
-// ── Data Hook ──────────────────────────────────────────────────────────
+function acwrToZone(ratio: number | null): AcwrZone {
+  if (ratio === null) return "insufficient-data";
+  if (ratio < 0.8) return "detraining";
+  if (ratio <= 1.3) return "optimal";
+  if (ratio <= 1.5) return "warning";
+  return "high-risk";
+}
+
+// ── Data Hook (server-side view) ──────────────────────────────────────
 
 function useRiskTableData() {
   const { user, profile } = useAuth();
   const isCoach = !!user && profile?.role === "coach";
 
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - LOOKBACK_DAYS);
-  const cutoffISO = cutoff.toISOString();
-
-  // 1. Fetch athletes
-  const athletesQ = useQuery({
-    queryKey: ["risk-table-athletes", user?.id],
+  const { data: rows = [], isLoading } = useQuery({
+    queryKey: ["coach-dashboard-analytics", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, avatar_url, onboarding_completed")
-        .eq("coach_id", user!.id)
-        .eq("role", "athlete");
+        .from("analytics_athlete_summary")
+        .select("*")
+        .eq("coach_id", user!.id);
       if (error) throw error;
       return data;
     },
     enabled: isCoach,
+    staleTime: 60_000, // 1 min cache
   });
 
-  const athleteIds = athletesQ.data?.map((a) => a.id) ?? [];
-
-  // 2. Fetch workout logs (last 42 days for ACWR + compliance)
-  const logsQ = useQuery({
-    queryKey: ["risk-table-logs", user?.id, athleteIds.join(",")],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("workout_logs")
-        .select("athlete_id, completed_at, rpe_global, duration_seconds, total_load_au, status")
-        .in("athlete_id", athleteIds)
-        .gte("completed_at", cutoffISO)
-        .order("completed_at", { ascending: true });
-      if (error) throw error;
-      return data;
-    },
-    enabled: isCoach && athleteIds.length > 0,
-  });
-
-  // 3. Fetch scheduled workouts for compliance (last 30 days)
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
-
-  const scheduledQ = useQuery({
-    queryKey: ["risk-table-scheduled", user?.id, athleteIds.join(",")],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("workout_logs")
-        .select("athlete_id, status")
-        .in("athlete_id", athleteIds)
-        .gte("scheduled_date", thirtyDaysAgoStr);
-      if (error) throw error;
-      return data;
-    },
-    enabled: isCoach && athleteIds.length > 0,
-  });
-
-  // 4. Fetch active injuries
-  const injuriesQ = useQuery({
-    queryKey: ["risk-table-injuries", user?.id, athleteIds.join(",")],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("injuries")
-        .select("athlete_id")
-        .in("athlete_id", athleteIds)
-        .neq("status", "healed");
-      if (error) throw error;
-      return data;
-    },
-    enabled: isCoach && athleteIds.length > 0,
-  });
-
-  // 5. Compute per-athlete risk data
   const athletes: RiskTableAthlete[] = useMemo(() => {
-    if (!athletesQ.data) return [];
-
-    const logs = logsQ.data ?? [];
-    const scheduled = scheduledQ.data ?? [];
-    const injuries = injuriesQ.data ?? [];
-
-    return athletesQ.data.map((profile) => {
-      // ACWR calculation using trainingMetrics
-      const athleteLogs = logs.filter((l) => l.athlete_id === profile.id && l.completed_at);
-      const dailyLoads: DailyLoad[] = athleteLogs.map((log) => ({
-        date: log.completed_at!.split("T")[0],
-        load: calculateDailyStrain(log.total_load_au, log.rpe_global, log.duration_seconds),
-      }));
-      const dailyArray = buildDailyLoadArray(dailyLoads, LOOKBACK_DAYS);
-      const acwrResult = calculateACWR(dailyArray);
-
-      // Compliance: completed / total scheduled (last 30 days)
-      const athleteScheduled = scheduled.filter((s) => s.athlete_id === profile.id);
-      const totalScheduled = athleteScheduled.length;
-      const totalCompleted = athleteScheduled.filter((s) => s.status === "completed").length;
-      const compliance30d = totalScheduled > 0 ? Math.round((totalCompleted / totalScheduled) * 100) : 0;
-
-      // Status
-      const hasInjury = injuries.some((i) => i.athlete_id === profile.id);
-      const isOnboarding = !profile.onboarding_completed;
+    return rows.map((row: any) => {
+      const acwr = row.current_acwr != null ? Number(row.current_acwr) : null;
+      const hasInjury = row.has_active_injury === true;
+      const isOnboarding = !row.onboarding_completed;
       const status: AthleteStatus = hasInjury ? "injured" : isOnboarding ? "onboarding" : "active";
 
-      // Last login approximation: use latest completed_at as proxy
-      const latestLog = athleteLogs.length > 0 ? athleteLogs[athleteLogs.length - 1].completed_at : null;
-
       return {
-        id: profile.id,
-        name: profile.full_name ?? "Atleta",
-        avatarUrl: profile.avatar_url,
+        id: row.athlete_id,
+        name: row.full_name ?? "Atleta",
+        avatarUrl: row.avatar_url,
         status,
-        acwr: acwrResult.ratio,
-        acwrZone: acwrResult.zone,
-        compliance30d,
-        lastLoginAt: latestLog,
+        acwr,
+        acwrZone: acwrToZone(acwr),
+        compliance30d: Number(row.compliance_rate) || 0,
+        lastLoginAt: row.last_workout_date,
       };
     });
-  }, [athletesQ.data, logsQ.data, scheduledQ.data, injuriesQ.data]);
+  }, [rows]);
 
-  return {
-    athletes,
-    isLoading: athletesQ.isLoading || logsQ.isLoading,
-  };
+  return { athletes, isLoading };
 }
 
 // ── Component ──────────────────────────────────────────────────────────

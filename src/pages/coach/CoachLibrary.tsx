@@ -13,6 +13,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useContentLibrary, ContentType, ContentItem } from "@/hooks/useContentLibrary";
 import { AddResourceDialog } from "@/components/coach/library/AddResourceDialog";
 import { ResourceCard } from "@/components/coach/library/ResourceCard";
@@ -180,16 +185,19 @@ export default function CoachLibrary() {
           </div>
         )}
 
-        {/* Telestration Player */}
-        {telestrationVideo && telestrationVideo.url && (
-          <div className="rounded-lg border border-border bg-card p-4">
-            <TelestrationPlayer
-              url={telestrationVideo.url}
-              title={telestrationVideo.title}
-              onClose={() => setTelestrationVideo(null)}
-            />
-          </div>
-        )}
+        {/* Telestration Dialog */}
+        <Dialog open={!!telestrationVideo} onOpenChange={(open) => !open && setTelestrationVideo(null)}>
+          <DialogContent className="max-w-4xl p-6">
+            <DialogTitle className="sr-only">Video Telestration</DialogTitle>
+            {telestrationVideo?.url && (
+              <TelestrationPlayer
+                url={telestrationVideo.url}
+                title={telestrationVideo.title}
+                onClose={() => setTelestrationVideo(null)}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
 
         {/* Content Grid */}
         {isLoading ? (
