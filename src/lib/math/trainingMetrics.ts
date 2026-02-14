@@ -1,3 +1,4 @@
+// Core ACWR Math Logic — commit sync fix
 /**
  * Training Metrics — Pure math utilities for workload management.
  *

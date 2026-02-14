@@ -1,3 +1,4 @@
+// Offline persistence layer v1 — forces idb-keyval commit sync
 import { get, set, del } from "idb-keyval";
 import type { PersistedClient } from "@tanstack/react-query-persist-client";
 
