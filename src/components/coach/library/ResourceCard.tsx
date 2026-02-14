@@ -22,6 +22,7 @@ import { formatDistanceToNow } from "date-fns";
 interface ResourceCardProps {
   resource: ContentItem;
   onDelete: (id: string) => void;
+  onOpenVideo?: () => void;
 }
 
 const typeIcons: Record<ContentType, React.ReactNode> = {
@@ -38,9 +39,11 @@ const typeColors: Record<ContentType, string> = {
   text: "bg-purple-500/10 text-purple-500",
 };
 
-export function ResourceCard({ resource, onDelete }: ResourceCardProps) {
+export function ResourceCard({ resource, onDelete, onOpenVideo }: ResourceCardProps) {
   const handleOpen = () => {
-    if (resource.url) {
+    if (onOpenVideo) {
+      onOpenVideo();
+    } else if (resource.url) {
       window.open(resource.url, "_blank", "noopener,noreferrer");
     }
   };
@@ -101,7 +104,7 @@ export function ResourceCard({ resource, onDelete }: ResourceCardProps) {
           </div>
         )}
         
-        {resource.url && (
+        {(resource.url || onOpenVideo) && (
           <Button 
             variant="outline" 
             size="sm" 
@@ -109,7 +112,7 @@ export function ResourceCard({ resource, onDelete }: ResourceCardProps) {
             onClick={handleOpen}
           >
             <ExternalLink className="h-3.5 w-3.5" />
-            Open Resource
+            {onOpenVideo ? "Open Telestration" : "Open Resource"}
           </Button>
         )}
       </CardContent>

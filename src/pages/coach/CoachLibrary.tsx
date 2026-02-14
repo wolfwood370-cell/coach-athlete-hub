@@ -13,9 +13,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { useContentLibrary, ContentType } from "@/hooks/useContentLibrary";
+import { useContentLibrary, ContentType, ContentItem } from "@/hooks/useContentLibrary";
 import { AddResourceDialog } from "@/components/coach/library/AddResourceDialog";
 import { ResourceCard } from "@/components/coach/library/ResourceCard";
+import { TelestrationPlayer } from "@/components/coach/video/TelestrationPlayer";
 
 const typeLabels: Record<ContentType, string> = {
   video: "Video",
@@ -30,6 +31,7 @@ export default function CoachLibrary() {
   const [search, setSearch] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<ContentType[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [telestrationVideo, setTelestrationVideo] = useState<ContentItem | null>(null);
 
   const filteredContent = useMemo(() => {
     return content.filter((item) => {
@@ -178,6 +180,17 @@ export default function CoachLibrary() {
           </div>
         )}
 
+        {/* Telestration Player */}
+        {telestrationVideo && telestrationVideo.url && (
+          <div className="rounded-lg border border-border bg-card p-4">
+            <TelestrationPlayer
+              url={telestrationVideo.url}
+              title={telestrationVideo.title}
+              onClose={() => setTelestrationVideo(null)}
+            />
+          </div>
+        )}
+
         {/* Content Grid */}
         {isLoading ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -192,6 +205,7 @@ export default function CoachLibrary() {
                 key={resource.id} 
                 resource={resource} 
                 onDelete={deleteContent}
+                onOpenVideo={resource.type === "video" && resource.url ? () => setTelestrationVideo(resource) : undefined}
               />
             ))}
           </div>
