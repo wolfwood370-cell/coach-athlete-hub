@@ -1,23 +1,27 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import {
+  calculateACWR,
+  calculateDailyStrain,
+  buildDailyLoadArray,
+  type DailyLoad,
+  type AcwrResult,
+} from "@/lib/math/trainingMetrics";
 
-interface WorkoutLog {
-  id: string;
-  rpe_global: number | null;
-  duration_seconds: number | null;
-  completed_at: string | null;
+const LOOKBACK_DAYS = 42; // 6 weeks for robust chronic window
+
+// Re-export the result type for consumers
+export type { AcwrResult };
+
+// Legacy-compatible wrapper type
+export interface AcwrHookResult {
+  data: (AcwrResult & { status: AcwrResult["zone"] }) | null;
+  isLoading: boolean;
+  error: Error | null;
 }
 
-interface AcwrResult {
-  ratio: number | null;
-  acuteLoad: number;
-  chronicLoad: number;
-  status: "optimal" | "warning" | "high-risk" | "insufficient-data";
-  label: string;
-}
-
-export function useAcwrData(): { data: AcwrResult | null; isLoading: boolean; error: Error | null } {
+export function useAcwrData(): AcwrHookResult {
   const { user } = useAuth();
 
   const { data, isLoading, error } = useQuery({
@@ -28,110 +32,64 @@ export function useAcwrData(): { data: AcwrResult | null; isLoading: boolean; er
           ratio: null,
           acuteLoad: 0,
           chronicLoad: 0,
-          status: "insufficient-data",
+          zone: "insufficient-data",
           label: "No data",
         };
       }
 
-      // Get last 28 days of workout logs
-      const twentyEightDaysAgo = new Date();
-      twentyEightDaysAgo.setDate(twentyEightDaysAgo.getDate() - 28);
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - LOOKBACK_DAYS);
 
       const { data: logs, error: logsError } = await supabase
         .from("workout_logs")
-        .select("id, rpe_global, duration_seconds, completed_at")
+        .select("id, rpe_global, duration_seconds, total_load_au, completed_at")
         .eq("athlete_id", user.id)
         .not("completed_at", "is", null)
-        .gte("completed_at", twentyEightDaysAgo.toISOString())
-        .order("completed_at", { ascending: false });
+        .gte("completed_at", cutoff.toISOString())
+        .order("completed_at", { ascending: true });
 
       if (logsError) throw logsError;
-
       if (!logs || logs.length === 0) {
         return {
           ratio: null,
           acuteLoad: 0,
           chronicLoad: 0,
-          status: "insufficient-data",
+          zone: "insufficient-data",
           label: "Dati insufficienti",
         };
       }
 
-      // Calculate load for each workout: RPE * Minutes
-      const loadsWithDates = logs
-        .filter((log): log is WorkoutLog & { rpe_global: number; duration_seconds: number; completed_at: string } => 
-          log.rpe_global !== null && log.duration_seconds !== null && log.completed_at !== null
-        )
+      // Convert workout logs to daily load entries
+      const dailyLoads: DailyLoad[] = logs
+        .filter((l) => l.completed_at !== null)
         .map((log) => ({
-          date: new Date(log.completed_at),
-          load: log.rpe_global * (log.duration_seconds / 60), // RPE * minutes
+          date: log.completed_at!.split("T")[0],
+          load: calculateDailyStrain(
+            log.total_load_au,
+            log.rpe_global,
+            log.duration_seconds,
+          ),
         }));
 
-      if (loadsWithDates.length === 0) {
-        return {
-          ratio: null,
-          acuteLoad: 0,
-          chronicLoad: 0,
-          status: "insufficient-data",
-          label: "Dati insufficienti",
-        };
-      }
+      // Build continuous 42-day array (filling rest days with 0)
+      const dailyArray = buildDailyLoadArray(dailyLoads, LOOKBACK_DAYS);
 
-      const now = new Date();
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(now.getDate() - 7);
-
-      // Acute load: AVERAGE load over last 7 days
-      const acuteLoads = loadsWithDates.filter((l) => l.date >= sevenDaysAgo);
-      const acuteLoad = acuteLoads.length > 0 
-        ? acuteLoads.reduce((sum, l) => sum + l.load, 0) / 7
-        : 0;
-
-      // Chronic load: AVERAGE load over last 28 days
-      const chronicLoad = loadsWithDates.reduce((sum, l) => sum + l.load, 0) / 28;
-
-      // Calculate ACWR
-      if (chronicLoad === 0) {
-        return {
-          ratio: null,
-          acuteLoad,
-          chronicLoad,
-          status: "insufficient-data",
-          label: "Dati insufficienti",
-        };
-      }
-
-      const ratio = acuteLoad / chronicLoad;
-
-      // Determine status based on ACWR
-      let status: AcwrResult["status"];
-      let label: string;
-
-      if (ratio >= 0.8 && ratio <= 1.3) {
-        status = "optimal";
-        label = "Optimal";
-      } else if (ratio > 1.5) {
-        status = "high-risk";
-        label = "High Risk";
-      } else {
-        status = "warning";
-        label = "Warning";
-      }
-
-      return {
-        ratio: Math.round(ratio * 100) / 100,
-        acuteLoad: Math.round(acuteLoad),
-        chronicLoad: Math.round(chronicLoad),
-        status,
-        label,
-      };
+      return calculateACWR(dailyArray);
     },
     enabled: !!user?.id,
-    staleTime: Infinity, // Offline-first: rely on cache, invalidate explicitly
+    staleTime: Infinity,
   });
 
+  // Map `zone` → legacy `status` for backward compatibility
+  const mapped = data
+    ? {
+        ...data,
+        status: data.zone === "detraining" ? ("warning" as const) : data.zone,
+      }
+    : null;
+
   return {
-    data: data ?? null,
+    data: mapped,
     isLoading,
     error: error as Error | null,
   };
