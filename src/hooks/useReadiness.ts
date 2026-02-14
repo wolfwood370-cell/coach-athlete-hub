@@ -4,6 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { subDays, format } from "date-fns";
+import {
+  mean,
+  standardDeviation,
+  computeReadiness,
+  type MetricStatus,
+  type ReadinessBreakdown,
+} from "@/lib/math/readinessMath";
 
 type SorenessLevel = 0 | 1 | 2 | 3;
 
@@ -74,6 +81,10 @@ export interface ReadinessResult {
   penalties: ScorePenalty[];
   isNewUser: boolean;
   dataPoints: number;
+  /** Z-Score breakdown from scientific normalisation */
+  breakdown: ReadinessBreakdown | null;
+  hrvStatus: MetricStatus;
+  rhrStatus: MetricStatus;
 }
 
 export function useReadiness() {
@@ -104,8 +115,11 @@ export function useReadiness() {
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  // Calculate rolling baseline from historical data
-  const baseline = useMemo((): BaselineData => {
+  // Calculate rolling baseline with mean + standard deviation
+  const baseline = useMemo((): BaselineData & {
+    hrvSd: number;
+    restingHrSd: number;
+  } => {
     if (!metricsHistory || metricsHistory.length === 0) {
       return {
         hrvBaseline: null,
@@ -113,6 +127,8 @@ export function useReadiness() {
         sleepBaseline: null,
         dataPoints: 0,
         isNewUser: true,
+        hrvSd: 0,
+        restingHrSd: 0,
       };
     }
 
@@ -128,17 +144,9 @@ export function useReadiness() {
       .filter(m => m.sleep_hours !== null)
       .map(m => m.sleep_hours as number);
 
-    const hrvBaseline = hrvValues.length >= 3 
-      ? hrvValues.reduce((a, b) => a + b, 0) / hrvValues.length 
-      : null;
-    
-    const restingHrBaseline = hrValues.length >= 3
-      ? hrValues.reduce((a, b) => a + b, 0) / hrValues.length
-      : null;
-    
-    const sleepBaseline = sleepValues.length >= 3
-      ? sleepValues.reduce((a, b) => a + b, 0) / sleepValues.length
-      : null;
+    const hrvBaseline = hrvValues.length >= 3 ? mean(hrvValues) : null;
+    const restingHrBaseline = hrValues.length >= 3 ? mean(hrValues) : null;
+    const sleepBaseline = sleepValues.length >= 3 ? mean(sleepValues) : null;
 
     const dataPoints = Math.max(hrvValues.length, hrValues.length, sleepValues.length);
 
@@ -148,6 +156,8 @@ export function useReadiness() {
       sleepBaseline,
       dataPoints,
       isNewUser: dataPoints < 3,
+      hrvSd: hrvValues.length >= 3 ? standardDeviation(hrvValues) : 0,
+      restingHrSd: hrValues.length >= 3 ? standardDeviation(hrValues) : 0,
     };
   }, [metricsHistory]);
 
@@ -204,102 +214,58 @@ export function useReadiness() {
     enabled: !!user?.id,
   });
 
-  // Calculate objective score (60% of total)
-  const calculateObjectiveScore = useCallback((
-    data: ReadinessData,
-    baselineData: BaselineData
-  ): { score: number; penalties: ScorePenalty[] } => {
-    let score = 60; // Start with max objective points
-    const penalties: ScorePenalty[] = [];
+  // Main readiness calculation — Z-Score driven
+  const calculateReadiness = useCallback((data: ReadinessData): ReadinessResult => {
+    const hasBaseline = !baseline.isNewUser;
 
-    // Sleep Penalty: -10 points for every hour below 7h
-    const sleepDeficit = Math.max(0, 7 - data.sleepHours);
-    if (sleepDeficit > 0) {
-      const sleepPenalty = Math.min(30, sleepDeficit * 10); // Cap at 30
-      score -= sleepPenalty;
+    const breakdown = computeReadiness({
+      hrvToday: data.hrvRmssd,
+      hrvMean: baseline.hrvBaseline ?? 0,
+      hrvSd: baseline.hrvSd,
+      rhrToday: data.restingHr,
+      rhrMean: baseline.restingHrBaseline ?? 0,
+      rhrSd: baseline.restingHrSd,
+      energy: data.energy,
+      mood: data.mood,
+      stress: data.stress,
+      sleepQuality: data.sleepQuality,
+      hasBaseline,
+    });
+
+    const totalScore = breakdown.score;
+
+    // Build penalties array for backward compatibility
+    const penalties: ScorePenalty[] = [];
+    if (hasBaseline && data.hrvRmssd !== null && breakdown.hrvZ < -1) {
       penalties.push({
-        label: `Sonno insufficiente (-${Math.round(sleepPenalty)}pts)`,
-        points: -Math.round(sleepPenalty),
+        label: `HRV z=${breakdown.hrvZ.toFixed(1)} (sotto baseline)`,
+        points: -(60 - breakdown.hrvComponent),
+        type: "hrv",
+      });
+    }
+    if (data.sleepHours < 7) {
+      const deficit = Math.round(7 - data.sleepHours);
+      penalties.push({
+        label: `Solo ${data.sleepHours}h di sonno (-${deficit * 5}pts)`,
+        points: -deficit * 5,
         type: "sleep",
       });
     }
 
-    // HRV Penalty (only if we have baseline and today's HRV)
-    if (data.hrvRmssd !== null && baselineData.hrvBaseline !== null) {
-      const hrvDeviation = ((data.hrvRmssd - baselineData.hrvBaseline) / baselineData.hrvBaseline) * 100;
-      
-      if (hrvDeviation < -20) {
-        // HRV drops > 20% below baseline: -40 points
-        score -= 40;
-        penalties.push({
-          label: `HRV critico ${Math.round(hrvDeviation)}% (-40pts)`,
-          points: -40,
-          type: "hrv",
-        });
-      } else if (hrvDeviation < -10) {
-        // HRV drops 10-20% below baseline: -20 points
-        score -= 20;
-        penalties.push({
-          label: `HRV basso ${Math.round(hrvDeviation)}% (-20pts)`,
-          points: -20,
-          type: "hrv",
-        });
-      }
-    }
-
-    return { score: Math.max(0, score), penalties };
-  }, []);
-
-  // Calculate subjective score (40% of total)
-  const calculateSubjectiveScore = useCallback((data: ReadinessData): number => {
-    // Average of energy, mood, and inverted stress, mapped from 1-10 to 0-40
-    const energyNorm = (data.energy - 1) / 9; // 0-1
-    const moodNorm = (data.mood - 1) / 9; // 0-1
-    const stressNorm = (10 - data.stress) / 9; // Inverted: low stress = high score
-    const sleepQualityNorm = (data.sleepQuality - 1) / 9; // 0-1
-
-    // Weighted average
-    const subjectiveAvg = (energyNorm * 0.3 + moodNorm * 0.25 + stressNorm * 0.25 + sleepQualityNorm * 0.2);
-    return Math.round(subjectiveAvg * 40); // Map to 0-40 points
-  }, []);
-
-  // Main readiness calculation
-  const calculateReadiness = useCallback((data: ReadinessData): ReadinessResult => {
-    // Handle new user state (< 3 days of data)
-    if (baseline.isNewUser) {
-      // For new users, use only subjective data and show neutral score
-      const subjectiveScore = calculateSubjectiveScore(data);
-      const neutralObjective = 30; // Neutral starting point for objective
-      const totalScore = Math.round(neutralObjective + subjectiveScore);
-
-      return {
-        score: totalScore,
-        level: totalScore >= 75 ? "high" : totalScore >= 50 ? "moderate" : "low",
-        color: totalScore >= 75 ? "text-success" : totalScore >= 50 ? "text-warning" : "text-destructive",
-        bgColor: totalScore >= 75 ? "bg-success" : totalScore >= 50 ? "bg-warning" : "bg-destructive",
-        label: totalScore >= 75 ? "Alta Prontezza" : totalScore >= 50 ? "Prontezza Moderata" : "Bassa Prontezza",
-        reason: `Accumula ${3 - baseline.dataPoints} giorni di dati per baseline personalizzata`,
-        penalties: [],
-        isNewUser: true,
-        dataPoints: baseline.dataPoints,
-      };
-    }
-
-    // Calculate 60% objective + 40% subjective
-    const { score: objectiveScore, penalties } = calculateObjectiveScore(data, baseline);
-    const subjectiveScore = calculateSubjectiveScore(data);
-    const totalScore = Math.min(100, Math.max(0, objectiveScore + subjectiveScore));
-
     // Determine primary reason
     let reason = "Tutti i parametri ottimali";
-    if (penalties.length > 0) {
-      // Sort by severity and take the worst one
-      const worstPenalty = penalties.reduce((a, b) => Math.abs(a.points) > Math.abs(b.points) ? a : b);
-      reason = worstPenalty.label;
-    } else if (data.sleepHours < 7) {
-      reason = `Solo ${data.sleepHours}h di sonno`;
+    if (!hasBaseline) {
+      reason = `Accumula ${3 - baseline.dataPoints} giorni di dati per baseline personalizzata`;
+    } else if (breakdown.hrvStatus === "low") {
+      reason = `HRV sotto baseline (z=${breakdown.hrvZ.toFixed(1)})`;
+    } else if (breakdown.rhrStatus === "low") {
+      reason = "Frequenza cardiaca a riposo elevata";
     } else if (data.stress > 6) {
       reason = "Livello di stress elevato";
+    } else if (data.sleepHours < 7) {
+      reason = `Solo ${data.sleepHours}h di sonno`;
+    } else if (totalScore >= 80) {
+      reason = "Prime to Perform 🚀";
     }
 
     return {
@@ -310,10 +276,13 @@ export function useReadiness() {
       label: totalScore >= 75 ? "Alta Prontezza" : totalScore >= 50 ? "Prontezza Moderata" : "Bassa Prontezza",
       reason,
       penalties,
-      isNewUser: false,
+      isNewUser: !hasBaseline,
       dataPoints: baseline.dataPoints,
+      breakdown,
+      hrvStatus: breakdown.hrvStatus,
+      rhrStatus: breakdown.rhrStatus,
     };
-  }, [baseline, calculateObjectiveScore, calculateSubjectiveScore]);
+  }, [baseline]);
 
   // Legacy score function for backwards compatibility
   const calculateScore = useCallback((data: ReadinessData): number => {
