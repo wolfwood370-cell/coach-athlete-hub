@@ -1,5 +1,4 @@
 import { useRef, useState, useCallback, useEffect } from "react";
-import ReactPlayer from "react-player";
 
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -14,8 +13,10 @@ import {
   RotateCcw,
   Triangle,
   X,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 /* ——— types ——— */
 type DrawTool = "line" | "angle";
@@ -36,6 +37,7 @@ interface TelestrationPlayerProps {
   url: string;
   title?: string;
   onClose?: () => void;
+  onSave?: (data: { strokes: Stroke[]; timestamp: number }) => void;
 }
 
 const SPEED_OPTIONS = [0.25, 0.5, 1] as const;
@@ -113,7 +115,7 @@ function drawStroke(
 }
 
 /* ——— component ——— */
-export function TelestrationPlayer({ url, title, onClose }: TelestrationPlayerProps) {
+export function TelestrationPlayer({ url, title, onClose, onSave }: TelestrationPlayerProps) {
   const playerRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -148,6 +150,12 @@ export function TelestrationPlayer({ url, title, onClose }: TelestrationPlayerPr
     window.addEventListener("resize", syncCanvasSize);
     return () => window.removeEventListener("resize", syncCanvasSize);
   }, [syncCanvasSize]);
+
+  /* ——— sync playbackRate ——— */
+  useEffect(() => {
+    const vid = playerRef.current;
+    if (vid) vid.playbackRate = speed;
+  }, [speed]);
 
   /* ——— repaint ——— */
   const repaint = useCallback(() => {
@@ -255,19 +263,17 @@ export function TelestrationPlayer({ url, title, onClose }: TelestrationPlayerPr
         className="relative w-full rounded-lg overflow-hidden bg-black"
         style={{ aspectRatio: "16/9" }}
       >
-        <ReactPlayer
+        <video
           ref={playerRef}
           src={url}
-          playing={playing}
-          playbackRate={speed}
-          width="100%"
-          height="100%"
+          className="absolute inset-0 w-full h-full object-contain"
           onTimeUpdate={(e) => {
             const vid = e.currentTarget;
             if (vid.duration) setPlayed(vid.currentTime / vid.duration);
           }}
-          onDurationChange={(e) => setDuration(e.currentTarget.duration || 0)}
-          style={{ position: "absolute", inset: 0 }}
+          onLoadedMetadata={(e) => setDuration(e.currentTarget.duration || 0)}
+          onPlay={() => setPlaying(true)}
+          onPause={() => setPlaying(false)}
         />
 
         {/* drawing canvas overlay */}
@@ -299,7 +305,11 @@ export function TelestrationPlayer({ url, title, onClose }: TelestrationPlayerPr
         <Button
           variant="outline"
           size="icon"
-          onClick={() => setPlaying(!playing)}
+          onClick={() => {
+            const vid = playerRef.current;
+            if (!vid) return;
+            if (vid.paused) vid.play(); else vid.pause();
+          }}
           className="shrink-0"
         >
           {playing ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
@@ -317,10 +327,32 @@ export function TelestrationPlayer({ url, title, onClose }: TelestrationPlayerPr
           className="flex-1"
         />
 
-        <Button variant="ghost" size="sm" onClick={cycleSpeed} className="tabular-nums shrink-0">
+        <Button variant="ghost" size="sm" onClick={() => {
+          cycleSpeed();
+          const vid = playerRef.current;
+          if (vid) vid.playbackRate = SPEED_OPTIONS[(SPEED_OPTIONS.indexOf(speed as any) + 1) % SPEED_OPTIONS.length];
+        }} className="tabular-nums shrink-0">
           {speed}x
         </Button>
       </div>
+
+      {/* Save Analysis */}
+      {strokes.length > 0 && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 w-full"
+          onClick={() => {
+            const data = { strokes, timestamp: played * duration };
+            console.log("Telestration analysis saved:", JSON.stringify(data, null, 2));
+            if (onSave) onSave(data);
+            toast.success("Analysis Saved", { description: `${strokes.length} annotation(s) at ${formatTime(played * duration)}` });
+          }}
+        >
+          <Save className="h-3.5 w-3.5" />
+          Save Analysis
+        </Button>
+      )}
 
       {/* drawing toolbar */}
       <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-2">
