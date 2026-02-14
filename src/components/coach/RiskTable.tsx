@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,13 +32,22 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
-import type { AcwrZone } from "@/lib/math/trainingMetrics";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  calculateACWR,
+  calculateDailyStrain,
+  buildDailyLoadArray,
+  type AcwrZone,
+  type DailyLoad,
+} from "@/lib/math/trainingMetrics";
 
 // ── Types ──────────────────────────────────────────────────────────────
 
 type AthleteStatus = "active" | "onboarding" | "injured";
 
-export interface RiskTableAthlete {
+interface RiskTableAthlete {
   id: string;
   name: string;
   avatarUrl: string | null;
@@ -51,91 +61,6 @@ export interface RiskTableAthlete {
 type SortField = "name" | "acwr" | "compliance30d" | "lastLoginAt";
 type SortDir = "asc" | "desc";
 type QuickFilter = "all" | "high-risk" | "low-compliance" | "disengaged";
-
-// ── Mock Data ──────────────────────────────────────────────────────────
-
-const MOCK_ATHLETES: RiskTableAthlete[] = [
-  {
-    id: "mock-1",
-    name: "Marco Rossi",
-    avatarUrl: null,
-    status: "active",
-    acwr: 1.62,
-    acwrZone: "high-risk",
-    compliance30d: 92,
-    lastLoginAt: new Date(Date.now() - 2 * 3600_000).toISOString(),
-  },
-  {
-    id: "mock-2",
-    name: "Elena Bianchi",
-    avatarUrl: null,
-    status: "active",
-    acwr: 1.08,
-    acwrZone: "optimal",
-    compliance30d: 88,
-    lastLoginAt: new Date(Date.now() - 5 * 3600_000).toISOString(),
-  },
-  {
-    id: "mock-3",
-    name: "Luca Ferrari",
-    avatarUrl: null,
-    status: "injured",
-    acwr: 0.55,
-    acwrZone: "detraining",
-    compliance30d: 40,
-    lastLoginAt: new Date(Date.now() - 10 * 24 * 3600_000).toISOString(),
-  },
-  {
-    id: "mock-4",
-    name: "Giulia Conti",
-    avatarUrl: null,
-    status: "active",
-    acwr: 1.45,
-    acwrZone: "warning",
-    compliance30d: 75,
-    lastLoginAt: new Date(Date.now() - 1 * 24 * 3600_000).toISOString(),
-  },
-  {
-    id: "mock-5",
-    name: "Andrea Moretti",
-    avatarUrl: null,
-    status: "onboarding",
-    acwr: null,
-    acwrZone: "insufficient-data",
-    compliance30d: 0,
-    lastLoginAt: new Date(Date.now() - 3 * 24 * 3600_000).toISOString(),
-  },
-  {
-    id: "mock-6",
-    name: "Sara Colombo",
-    avatarUrl: null,
-    status: "active",
-    acwr: 0.72,
-    acwrZone: "detraining",
-    compliance30d: 55,
-    lastLoginAt: new Date(Date.now() - 8 * 24 * 3600_000).toISOString(),
-  },
-  {
-    id: "mock-7",
-    name: "Davide Romano",
-    avatarUrl: null,
-    status: "active",
-    acwr: 1.15,
-    acwrZone: "optimal",
-    compliance30d: 95,
-    lastLoginAt: new Date(Date.now() - 30 * 60_000).toISOString(),
-  },
-  {
-    id: "mock-8",
-    name: "Francesca Ricci",
-    avatarUrl: null,
-    status: "active",
-    acwr: 1.55,
-    acwrZone: "high-risk",
-    compliance30d: 30,
-    lastLoginAt: new Date(Date.now() - 12 * 24 * 3600_000).toISOString(),
-  },
-];
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -216,15 +141,141 @@ const FILTERS: { key: QuickFilter; label: string; icon: typeof Filter }[] = [
   { key: "disengaged", label: "Disengaged", icon: Shield },
 ];
 
-// ── Component ──────────────────────────────────────────────────────────
+const LOOKBACK_DAYS = 42;
 
-interface RiskTableProps {
-  athletes?: RiskTableAthlete[];
+// ── Data Hook ──────────────────────────────────────────────────────────
+
+function useRiskTableData() {
+  const { user, profile } = useAuth();
+  const isCoach = !!user && profile?.role === "coach";
+
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - LOOKBACK_DAYS);
+  const cutoffISO = cutoff.toISOString();
+
+  // 1. Fetch athletes
+  const athletesQ = useQuery({
+    queryKey: ["risk-table-athletes", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name, avatar_url, onboarding_completed")
+        .eq("coach_id", user!.id)
+        .eq("role", "athlete");
+      if (error) throw error;
+      return data;
+    },
+    enabled: isCoach,
+  });
+
+  const athleteIds = athletesQ.data?.map((a) => a.id) ?? [];
+
+  // 2. Fetch workout logs (last 42 days for ACWR + compliance)
+  const logsQ = useQuery({
+    queryKey: ["risk-table-logs", user?.id, athleteIds.join(",")],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("workout_logs")
+        .select("athlete_id, completed_at, rpe_global, duration_seconds, total_load_au, status")
+        .in("athlete_id", athleteIds)
+        .gte("completed_at", cutoffISO)
+        .order("completed_at", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+    enabled: isCoach && athleteIds.length > 0,
+  });
+
+  // 3. Fetch scheduled workouts for compliance (last 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  const thirtyDaysAgoStr = thirtyDaysAgo.toISOString().split("T")[0];
+
+  const scheduledQ = useQuery({
+    queryKey: ["risk-table-scheduled", user?.id, athleteIds.join(",")],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("workout_logs")
+        .select("athlete_id, status")
+        .in("athlete_id", athleteIds)
+        .gte("scheduled_date", thirtyDaysAgoStr);
+      if (error) throw error;
+      return data;
+    },
+    enabled: isCoach && athleteIds.length > 0,
+  });
+
+  // 4. Fetch active injuries
+  const injuriesQ = useQuery({
+    queryKey: ["risk-table-injuries", user?.id, athleteIds.join(",")],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("injuries")
+        .select("athlete_id")
+        .in("athlete_id", athleteIds)
+        .neq("status", "healed");
+      if (error) throw error;
+      return data;
+    },
+    enabled: isCoach && athleteIds.length > 0,
+  });
+
+  // 5. Compute per-athlete risk data
+  const athletes: RiskTableAthlete[] = useMemo(() => {
+    if (!athletesQ.data) return [];
+
+    const logs = logsQ.data ?? [];
+    const scheduled = scheduledQ.data ?? [];
+    const injuries = injuriesQ.data ?? [];
+
+    return athletesQ.data.map((profile) => {
+      // ACWR calculation using trainingMetrics
+      const athleteLogs = logs.filter((l) => l.athlete_id === profile.id && l.completed_at);
+      const dailyLoads: DailyLoad[] = athleteLogs.map((log) => ({
+        date: log.completed_at!.split("T")[0],
+        load: calculateDailyStrain(log.total_load_au, log.rpe_global, log.duration_seconds),
+      }));
+      const dailyArray = buildDailyLoadArray(dailyLoads, LOOKBACK_DAYS);
+      const acwrResult = calculateACWR(dailyArray);
+
+      // Compliance: completed / total scheduled (last 30 days)
+      const athleteScheduled = scheduled.filter((s) => s.athlete_id === profile.id);
+      const totalScheduled = athleteScheduled.length;
+      const totalCompleted = athleteScheduled.filter((s) => s.status === "completed").length;
+      const compliance30d = totalScheduled > 0 ? Math.round((totalCompleted / totalScheduled) * 100) : 0;
+
+      // Status
+      const hasInjury = injuries.some((i) => i.athlete_id === profile.id);
+      const isOnboarding = !profile.onboarding_completed;
+      const status: AthleteStatus = hasInjury ? "injured" : isOnboarding ? "onboarding" : "active";
+
+      // Last login approximation: use latest completed_at as proxy
+      const latestLog = athleteLogs.length > 0 ? athleteLogs[athleteLogs.length - 1].completed_at : null;
+
+      return {
+        id: profile.id,
+        name: profile.full_name ?? "Atleta",
+        avatarUrl: profile.avatar_url,
+        status,
+        acwr: acwrResult.ratio,
+        acwrZone: acwrResult.zone,
+        compliance30d,
+        lastLoginAt: latestLog,
+      };
+    });
+  }, [athletesQ.data, logsQ.data, scheduledQ.data, injuriesQ.data]);
+
+  return {
+    athletes,
+    isLoading: athletesQ.isLoading || logsQ.isLoading,
+  };
 }
 
-export function RiskTable({ athletes: externalAthletes }: RiskTableProps) {
+// ── Component ──────────────────────────────────────────────────────────
+
+export function RiskTable() {
   const navigate = useNavigate();
-  const athletes = externalAthletes ?? MOCK_ATHLETES;
+  const { athletes, isLoading } = useRiskTableData();
 
   const [sortField, setSortField] = useState<SortField>("acwr");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -298,6 +349,23 @@ export function RiskTable({ athletes: externalAthletes }: RiskTableProps) {
             100
         )
       : 0;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="grid grid-cols-3 gap-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
+        <Skeleton className="h-64 rounded-xl" />
+      </div>
+    );
+  }
+
+  if (athletes.length === 0) {
+    return null; // No athletes, no table
+  }
 
   return (
     <div className="space-y-4">
