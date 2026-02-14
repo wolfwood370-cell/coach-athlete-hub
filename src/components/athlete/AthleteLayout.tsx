@@ -3,6 +3,7 @@ import { Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SunThemeToggle } from "@/components/SunThemeToggle";
+import { SyncIndicator } from "@/components/athlete/SyncIndicator";
 import { ResponsivePhoneWrapper } from "./PhoneMockup";
 
 interface AthleteLayoutProps {
@@ -20,7 +21,7 @@ export function AthleteLayout({ children, title }: AthleteLayoutProps) {
       {title && (
         <header className="flex-shrink-0 sticky top-0 z-40 bg-white/95 dark:bg-black/95 backdrop-blur-md px-4 py-3 border-b border-border/20">
           <div className="flex items-center justify-between">
-            <div className="w-9" /> {/* Spacer for centering */}
+            <SyncIndicator />
             <h1 className="text-lg font-semibold text-center flex-1">{title}</h1>
             <Popover>
               <PopoverTrigger asChild>
