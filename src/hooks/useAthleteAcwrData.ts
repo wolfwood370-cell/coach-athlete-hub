@@ -126,6 +126,7 @@ export function useAthleteAcwrData(athleteId: string | undefined): {
       };
     },
     enabled: !!athleteId,
+    staleTime: Infinity,
   });
 
   return {

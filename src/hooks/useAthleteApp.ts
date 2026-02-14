@@ -208,7 +208,7 @@ export function useAthleteApp(): AthleteAppState {
       };
     },
     enabled: !!athleteId,
-    staleTime: 10 * 60 * 1000,
+    staleTime: Infinity,
   });
 
   // ===== TODAY'S WORKOUT =====
@@ -277,7 +277,7 @@ export function useAthleteApp(): AthleteAppState {
       };
     },
     enabled: !!athleteId,
-    staleTime: 60 * 1000,
+    staleTime: Infinity,
   });
 
   // ===== NUTRITION CONSUMED (Mock for now - would connect to food logging) =====
@@ -310,7 +310,7 @@ export function useAthleteApp(): AthleteAppState {
       );
     },
     enabled: !!athleteId,
-    staleTime: 30 * 1000,
+    staleTime: Infinity,
   });
 
   // ===== COMPUTED VALUES =====

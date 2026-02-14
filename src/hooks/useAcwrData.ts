@@ -127,6 +127,7 @@ export function useAcwrData(): { data: AcwrResult | null; isLoading: boolean; er
       };
     },
     enabled: !!user?.id,
+    staleTime: Infinity, // Offline-first: rely on cache, invalidate explicitly
   });
 
   return {

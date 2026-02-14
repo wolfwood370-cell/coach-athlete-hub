@@ -1,9 +1,11 @@
-import { memo, useCallback } from "react";
+import { memo } from "react";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { useSetMutation } from "@/hooks/useSetMutation";
 
 interface SetInputRowProps {
+  exerciseId: string;
   setNumber: number;
   targetKg: number;
   targetReps: number;
@@ -24,6 +26,7 @@ function getRpeColor(rpe: number): string {
 }
 
 export const SetInputRow = memo(function SetInputRow({
+  exerciseId,
   setNumber,
   targetKg,
   targetReps,
@@ -35,6 +38,17 @@ export const SetInputRow = memo(function SetInputRow({
   onUpdate,
   onComplete,
 }: SetInputRowProps) {
+  const { mutate: syncSet } = useSetMutation();
+
+  const handleUpdate = (field: string, value: string | boolean) => {
+    onUpdate(field, value);
+    syncSet({ exerciseId, setIndex: setNumber - 1, field, value });
+  };
+
+  const handleComplete = (checked: boolean) => {
+    onComplete(checked);
+    syncSet({ exerciseId, setIndex: setNumber - 1, field: "completed", value: checked });
+  };
   return (
     <div
       className={cn(
@@ -65,7 +79,7 @@ export const SetInputRow = memo(function SetInputRow({
         inputMode="decimal"
         placeholder={targetKg > 0 ? targetKg.toString() : "kg"}
         value={actualKg}
-        onChange={(e) => onUpdate("actualKg", e.target.value)}
+        onChange={(e) => handleUpdate("actualKg", e.target.value)}
         className={cn(
           "h-11 text-center text-sm font-semibold rounded-lg border-0",
           completed
@@ -80,7 +94,7 @@ export const SetInputRow = memo(function SetInputRow({
         inputMode="numeric"
         placeholder={targetReps.toString()}
         value={actualReps}
-        onChange={(e) => onUpdate("actualReps", e.target.value)}
+        onChange={(e) => handleUpdate("actualReps", e.target.value)}
         className={cn(
           "h-11 text-center text-sm font-semibold rounded-lg border-0",
           completed
@@ -97,7 +111,7 @@ export const SetInputRow = memo(function SetInputRow({
         max={10}
         placeholder={targetRpe ? targetRpe.toString() : "RPE"}
         value={rpe}
-        onChange={(e) => onUpdate("rpe", e.target.value)}
+        onChange={(e) => handleUpdate("rpe", e.target.value)}
         className={cn(
           "h-11 text-center text-sm font-semibold rounded-lg border-0",
           completed ? "bg-primary/5" : "bg-background",
@@ -109,7 +123,7 @@ export const SetInputRow = memo(function SetInputRow({
       <div className="flex justify-center">
         <Checkbox
           checked={completed}
-          onCheckedChange={(checked) => onComplete(checked as boolean)}
+          onCheckedChange={(checked) => handleComplete(checked as boolean)}
           className={cn(
             "h-7 w-7 rounded-full transition-all duration-200",
             completed && "border-primary bg-primary text-primary-foreground data-[state=checked]:bg-primary data-[state=checked]:border-primary"

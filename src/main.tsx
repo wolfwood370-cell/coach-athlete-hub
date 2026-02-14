@@ -1,14 +1,18 @@
 import { createRoot } from "react-dom/client";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { MaterialYouProvider } from "./providers/MaterialYouProvider";
+import { idbPersister } from "./lib/queryPersister";
 import App from "./App.tsx";
 import "./index.css";
+
+const MS_24H = 24 * 60 * 60 * 1000;
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      gcTime: 30 * 60 * 1000, // 30 minutes (formerly cacheTime)
+      staleTime: Infinity,        // Data is fresh until explicitly invalidated
+      gcTime: MS_24H,             // Keep unused cache for 24 hours
       retry: (failureCount, error) => {
         // Don't retry on 4xx errors
         if (error && typeof error === 'object' && 'status' in error) {
@@ -17,7 +21,7 @@ const queryClient = new QueryClient({
         }
         return failureCount < 3;
       },
-      networkMode: 'offlineFirst', // Enable offline-first behavior
+      networkMode: 'offlineFirst',
     },
     mutations: {
       networkMode: 'offlineFirst',
@@ -25,10 +29,16 @@ const queryClient = new QueryClient({
   },
 });
 
+const persistOptions = {
+  persister: idbPersister,
+  maxAge: MS_24H,
+  buster: "v1", // bump to invalidate cache across deploys
+};
+
 createRoot(document.getElementById("root")!).render(
-  <QueryClientProvider client={queryClient}>
+  <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
     <MaterialYouProvider>
       <App />
     </MaterialYouProvider>
-  </QueryClientProvider>
+  </PersistQueryClientProvider>
 );

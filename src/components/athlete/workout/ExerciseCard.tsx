@@ -289,6 +289,7 @@ export const ExerciseCard = memo(function ExerciseCard({
               {exercise.sets.map((set) => (
                 <SetInputRow
                   key={set.id}
+                  exerciseId={exercise.id}
                   setNumber={set.setNumber}
                   targetKg={set.targetKg}
                   targetReps={set.targetReps}
