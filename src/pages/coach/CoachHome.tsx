@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { InviteAthleteDialog } from "@/components/coach/InviteAthleteDialog";
+import { RiskTable } from "@/components/coach/RiskTable";
 import { RiskAlertCard } from "@/components/coach/RiskAlertCard";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
@@ -199,6 +200,7 @@ export default function CoachHome() {
 
         {/* ===== BENTO GRID LAYOUT ===== */}
         {hasAthletes && (
+          <>
           <div className="grid grid-cols-12 gap-4 lg:gap-5">
 
             {/* ===== ROW 0: SMART ALERTS (WATCHDOG) ===== */}
@@ -593,6 +595,12 @@ export default function CoachHome() {
             </Card>
 
           </div>
+
+          {/* ===== RISK TABLE ===== */}
+          <div className="mt-6">
+            <RiskTable />
+          </div>
+          </>
         )}
       </div>
     </CoachLayout>
