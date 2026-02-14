@@ -190,6 +190,9 @@ export function useAthleteApp(): AthleteAppState {
         penalties: [],
         isNewUser: baseline.isNewUser,
         dataPoints: baseline.dataPoints,
+        breakdown: null,
+        hrvStatus: "optimal" as const,
+        rhrStatus: "optimal" as const,
       };
     }
     return calculateReadiness(readiness);

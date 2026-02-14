@@ -326,7 +326,7 @@ export default function AthleteDashboard() {
     ? calculateReadiness(readiness)
     : {
         score: 0,
-        level: "moderate",
+        level: "moderate" as const,
         color: "text-muted-foreground",
         bgColor: "bg-muted",
         label: "Check-in Non Completato",
@@ -334,6 +334,9 @@ export default function AthleteDashboard() {
         penalties: [],
         isNewUser: baseline.isNewUser,
         dataPoints: baseline.dataPoints,
+        breakdown: null,
+        hrvStatus: "optimal" as const,
+        rhrStatus: "optimal" as const,
       };
   
   const displayScore = subjectiveOverride !== null ? subjectiveOverride : readinessResult.score;
