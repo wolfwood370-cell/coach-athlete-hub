@@ -23,17 +23,20 @@ export function useSetMutation() {
     mutationFn: async (payload: SetPayload) => {
       // The actual DB write happens at session-end (bulk save).
       // This mutation is for local-first persistence via the Zustand store.
-      // We treat it as a no-op server call; real sync is batched.
       return payload;
     },
 
     onMutate: async (payload) => {
       const { exerciseId, setIndex, field, value } = payload;
 
-      // Snapshot for rollback
+      // 1. Cancel any outgoing refetches so they don't overwrite our optimistic update
+      await queryClient.cancelQueries({ queryKey: ["athlete-today-workout"] });
+      await queryClient.cancelQueries({ queryKey: ["athlete-active-program"] });
+
+      // 2. Snapshot for rollback
       const prevLogs = useActiveSessionStore.getState().sessionLogs;
 
-      // Optimistic update
+      // 3. Optimistic update in Zustand store (immediate UI)
       if (field === "completed" && value === true) {
         const logs = useActiveSessionStore.getState().sessionLogs[exerciseId] ?? [];
         const current = logs.find((l) => l.setIndex === setIndex);
@@ -59,7 +62,7 @@ export function useSetMutation() {
     },
 
     onSettled: () => {
-      // Invalidate workout-related queries on settle
+      // Re-sync from server in background
       queryClient.invalidateQueries({ queryKey: ["athlete-today-workout"] });
     },
   });
