@@ -1,0 +1,175 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import Stripe from "https://esm.sh/stripe@18.5.0";
+import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+
+const logStep = (step: string, details?: unknown) => {
+  const d = details ? ` - ${JSON.stringify(details)}` : "";
+  console.log(`[STRIPE-WEBHOOK] ${step}${d}`);
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204 });
+  }
+
+  try {
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY not set");
+    if (!webhookSecret) throw new Error("STRIPE_WEBHOOK_SECRET not set");
+
+    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+
+    const body = await req.text();
+    const signature = req.headers.get("Stripe-Signature");
+    if (!signature) throw new Error("Missing Stripe-Signature header");
+
+    let event: Stripe.Event;
+    try {
+      event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
+    } catch (err) {
+      logStep("Signature verification failed", { error: String(err) });
+      return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 400 });
+    }
+
+    logStep("Event received", { type: event.type, id: event.id });
+
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const athleteId = session.metadata?.athlete_id;
+        const planId = session.metadata?.plan_id;
+        const subscriptionId = typeof session.subscription === "string" ? session.subscription : null;
+        const customerId = typeof session.customer === "string" ? session.customer : null;
+
+        logStep("checkout.session.completed", { athleteId, planId, subscriptionId });
+
+        if (!athleteId || !planId) {
+          logStep("Missing metadata, skipping");
+          break;
+        }
+
+        // Fetch subscription details from Stripe for period_end
+        let periodEnd: string | null = null;
+        if (subscriptionId) {
+          const sub = await stripe.subscriptions.retrieve(subscriptionId);
+          periodEnd = new Date(sub.current_period_end * 1000).toISOString();
+        }
+
+        // Upsert athlete_subscriptions
+        const { data: existing } = await adminClient
+          .from("athlete_subscriptions")
+          .select("id")
+          .eq("athlete_id", athleteId)
+          .eq("plan_id", planId)
+          .maybeSingle();
+
+        if (existing) {
+          await adminClient
+            .from("athlete_subscriptions")
+            .update({
+              status: "active",
+              stripe_subscription_id: subscriptionId,
+              stripe_customer_id: customerId,
+              current_period_end: periodEnd,
+            })
+            .eq("id", existing.id);
+        } else {
+          await adminClient.from("athlete_subscriptions").insert({
+            athlete_id: athleteId,
+            plan_id: planId,
+            status: "active",
+            stripe_subscription_id: subscriptionId,
+            stripe_customer_id: customerId,
+            current_period_end: periodEnd,
+          });
+        }
+
+        logStep("Subscription activated", { athleteId, planId });
+        break;
+      }
+
+      case "invoice.payment_succeeded": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subscriptionId = typeof invoice.subscription === "string" ? invoice.subscription : null;
+
+        if (!subscriptionId) break;
+
+        // Fetch updated period from Stripe
+        const sub = await stripe.subscriptions.retrieve(subscriptionId);
+        const periodEnd = new Date(sub.current_period_end * 1000).toISOString();
+
+        const { data: subRecord } = await adminClient
+          .from("athlete_subscriptions")
+          .select("id")
+          .eq("stripe_subscription_id", subscriptionId)
+          .maybeSingle();
+
+        if (subRecord) {
+          await adminClient
+            .from("athlete_subscriptions")
+            .update({
+              status: "active",
+              current_period_end: periodEnd,
+            })
+            .eq("id", subRecord.id);
+          logStep("Renewal updated", { subscriptionId, periodEnd });
+        }
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const subId = subscription.id;
+
+        await adminClient
+          .from("athlete_subscriptions")
+          .update({ status: "canceled" })
+          .eq("stripe_subscription_id", subId);
+
+        logStep("Subscription canceled", { subId });
+        break;
+      }
+
+      case "customer.subscription.updated": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const subId = subscription.id;
+        const status = subscription.status;
+        const periodEnd = new Date(subscription.current_period_end * 1000).toISOString();
+
+        const mappedStatus = status === "active" ? "active"
+          : status === "past_due" ? "past_due"
+          : status === "canceled" ? "canceled"
+          : "incomplete";
+
+        await adminClient
+          .from("athlete_subscriptions")
+          .update({ status: mappedStatus, current_period_end: periodEnd })
+          .eq("stripe_subscription_id", subId);
+
+        logStep("Subscription updated", { subId, status: mappedStatus });
+        break;
+      }
+
+      default:
+        logStep("Unhandled event type", { type: event.type });
+    }
+
+    return new Response(JSON.stringify({ received: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logStep("ERROR", { message: msg });
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+});
