@@ -57,23 +57,23 @@ export function RiskAlertCard({
               )}
             </div>
             <div>
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                ⚡ Smart Alerts
+               <CardTitle className="text-base font-bold flex items-center gap-2">
+                ⚡ Avvisi Intelligenti
               </CardTitle>
               <p className="text-xs text-muted-foreground">
-                Automated risk detection from workout data
+                Rilevamento automatico rischi dai dati di allenamento
               </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {highAlerts.length > 0 && (
               <Badge variant="destructive" className="tabular-nums text-sm px-3">
-                {highAlerts.length} critical
+                {highAlerts.length} critici
               </Badge>
             )}
             {mediumAlerts.length > 0 && (
               <Badge className="tabular-nums text-sm px-3 bg-warning/10 text-warning border-warning/30">
-                {mediumAlerts.length} warning
+                {mediumAlerts.length} attenzione
               </Badge>
             )}
           </div>
@@ -152,7 +152,7 @@ export function RiskAlertCard({
                             : "border-warning/50 text-warning"
                         )}
                       >
-                        {alert.severity === "high" ? "Critical" : "Warning"}
+                        {alert.severity === "high" ? "Critico" : "Attenzione"}
                       </Badge>
                     </div>
                   </div>
@@ -169,7 +169,7 @@ export function RiskAlertCard({
                       }}
                     >
                       <MessageSquare className="h-3.5 w-3.5" />
-                      Message
+                      Messaggio
                     </Button>
                     <Button
                       size="icon"

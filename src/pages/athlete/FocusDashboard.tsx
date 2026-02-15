@@ -106,7 +106,7 @@ const ReadinessDial = ({
               {score}
             </motion.span>
             <span className="text-xs text-muted-foreground uppercase tracking-wider mt-1">
-              Readiness
+              Prontezza
             </span>
           </>
         ) : (
@@ -207,7 +207,7 @@ const SyncIndicator = ({ status }: { status: "synced" | "syncing" | "offline" })
         <Cloud className="h-3.5 w-3.5 text-success" />
       )}
       <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
-        {status === "syncing" ? "Syncing" : status === "offline" ? "Offline" : "Synced"}
+        {status === "syncing" ? "Sincronizzazione" : status === "offline" ? "Offline" : "Sincronizzato"}
       </span>
     </div>
   );
@@ -342,7 +342,7 @@ export default function FocusDashboard() {
                     {dailyState.sleepHours > 0 && (
                       <MetricPill
                         icon={Moon}
-                        label="Sleep"
+                        label="Sonno"
                         value={dailyState.sleepHours}
                         unit="h"
                       />
@@ -449,7 +449,7 @@ export default function FocusDashboard() {
                     : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
                 )}
               >
-                {nutrition.isTrainingDay ? "🏋️ Training Day" : "🌿 Rest Day"}
+                {nutrition.isTrainingDay ? "🏋️ Giorno di Allenamento" : "🌿 Giorno di Recupero"}
               </Badge>
             </div>
           </div>

@@ -59,36 +59,36 @@ export function AddResourceDialog({ onAdd, isLoading }: AddResourceDialogProps) 
       <DialogTrigger asChild>
         <Button className="gap-2">
           <Plus className="h-4 w-4" />
-          Add Resource
+          Aggiungi Risorsa
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add New Resource</DialogTitle>
+          <DialogTitle>Aggiungi Nuova Risorsa</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Title</Label>
+            <Label htmlFor="title">Titolo</Label>
             <Input
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g., Mobility Warm-up Guide"
+              placeholder="Es. Guida al Riscaldamento Mobilità"
               required
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="type">Type</Label>
+            <Label htmlFor="type">Tipo</Label>
             <Select value={type} onValueChange={(v) => setType(v as ContentType)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="video">Video</SelectItem>
-                <SelectItem value="pdf">PDF Document</SelectItem>
-                <SelectItem value="link">External Link</SelectItem>
-                <SelectItem value="text">Text/Notes</SelectItem>
+                <SelectItem value="pdf">Documento PDF</SelectItem>
+                <SelectItem value="link">Link Esterno</SelectItem>
+                <SelectItem value="text">Testo/Note</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -105,21 +105,21 @@ export function AddResourceDialog({ onAdd, isLoading }: AddResourceDialogProps) 
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="tags">Tags (comma-separated)</Label>
+            <Label htmlFor="tags">Tag (separati da virgola)</Label>
             <Input
               id="tags"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="mobility, warmup, beginner"
+              placeholder="mobilità, riscaldamento, principiante"
             />
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-              Cancel
+              Annulla
             </Button>
             <Button type="submit" disabled={isLoading || !title}>
-              {isLoading ? "Adding..." : "Add Resource"}
+              {isLoading ? "Aggiunta..." : "Aggiungi Risorsa"}
             </Button>
           </div>
         </form>

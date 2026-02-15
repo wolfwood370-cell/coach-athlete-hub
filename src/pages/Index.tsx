@@ -148,7 +148,7 @@ export default function Index() {
       {/* Footer */}
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-6 text-center text-sm text-muted-foreground">
-          © 2024 FitCoach. Piattaforma Fitness Coaching.
+          © 2025 FitCoach. Piattaforma Fitness Coaching.
         </div>
       </footer>
     </div>

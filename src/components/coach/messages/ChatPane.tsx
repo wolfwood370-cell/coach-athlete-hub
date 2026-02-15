@@ -57,7 +57,7 @@ export function ChatPane({
   const { user } = useAuth();
   const { messages, isLoading, sendMessage, subscribeToMessages } = useMessages(room?.id || null);
   const [inputValue, setInputValue] = useState(
-    alertContext ? `Hey, I saw that tough session. ${alertContext.message}. Everything okay?` : ""
+    alertContext ? `Hey, ho visto quella sessione intensa. ${alertContext.message}. Tutto bene?` : ""
   );
   const [showAlertBanner, setShowAlertBanner] = useState(!!alertContext);
   const [isSending, setIsSending] = useState(false);
@@ -320,7 +320,7 @@ export function ChatPane({
         <div className="shrink-0 border-t border-warning/30 bg-warning/5 px-4 py-2 flex items-start gap-3">
           <AlertTriangle className="h-4 w-4 text-warning mt-0.5 flex-shrink-0" />
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-warning">Alert Context</p>
+            <p className="text-xs font-medium text-warning">Contesto Avviso</p>
             <p className="text-xs text-muted-foreground truncate">{alertContext.message}</p>
           </div>
           <Button

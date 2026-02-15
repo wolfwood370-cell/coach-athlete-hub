@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { format, addMonths, addYears } from "date-fns";
+import { it } from "date-fns/locale";
 import { CalendarIcon, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -86,8 +87,8 @@ export function AssignPlanDialog({
     });
 
     toast({
-      title: "Plan assigned",
-      description: `${selectedProduct.name} assigned to ${athlete.full_name || "Athlete"}`,
+      title: "Piano assegnato",
+      description: `${selectedProduct.name} assegnato a ${athlete.full_name || "Atleta"}`,
     });
 
     // Reset and close
@@ -104,30 +105,30 @@ export function AssignPlanDialog({
         {trigger || (
           <Button variant="outline" size="sm" className="gap-1.5">
             <CreditCard className="h-3.5 w-3.5" />
-            Assign Plan
+            Assegna Piano
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[400px]">
         <DialogHeader>
-          <DialogTitle>Assign Plan to {athlete.full_name || "Athlete"}</DialogTitle>
+          <DialogTitle>Assegna Piano a {athlete.full_name || "Atleta"}</DialogTitle>
           <DialogDescription>
-            Select a product and start date to activate the subscription.
+            Seleziona un prodotto e una data di inizio per attivare l'abbonamento.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           {/* Product Select */}
           <div className="space-y-2">
-            <Label htmlFor="product">Select Product</Label>
+            <Label htmlFor="product">Seleziona Prodotto</Label>
             <Select value={selectedProductId} onValueChange={setSelectedProductId}>
               <SelectTrigger id="product">
-                <SelectValue placeholder="Choose a product..." />
+                <SelectValue placeholder="Scegli un prodotto..." />
               </SelectTrigger>
               <SelectContent>
                 {products.length === 0 ? (
                   <SelectItem value="none" disabled>
-                    No products available
+                    Nessun prodotto disponibile
                   </SelectItem>
                 ) : (
                   products.map((product) => (
@@ -135,7 +136,7 @@ export function AssignPlanDialog({
                       <div className="flex items-center gap-2">
                         <span>{product.name}</span>
                         <span className="text-muted-foreground">
-                          €{Number(product.price).toFixed(2)}/{product.billing_period}
+                          €{Number(product.price).toFixed(2)}/{product.billing_period === "monthly" ? "mese" : product.billing_period === "yearly" ? "anno" : ""}
                         </span>
                       </div>
                     </SelectItem>
@@ -147,7 +148,7 @@ export function AssignPlanDialog({
 
           {/* Start Date Picker */}
           <div className="space-y-2">
-            <Label>Start Date</Label>
+            <Label>Data di Inizio</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -158,7 +159,7 @@ export function AssignPlanDialog({
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {startDate ? format(startDate, "PPP") : "Pick a date"}
+                  {startDate ? format(startDate, "PPP", { locale: it }) : "Seleziona una data"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -176,21 +177,21 @@ export function AssignPlanDialog({
           {/* Summary */}
           {selectedProduct && startDate && (
             <div className="rounded-lg border bg-muted/50 p-3 text-sm">
-              <p className="font-medium">Subscription Summary</p>
+              <p className="font-medium">Riepilogo Abbonamento</p>
               <div className="mt-2 space-y-1 text-muted-foreground">
                 <p>
-                  Product: <span className="text-foreground">{selectedProduct.name}</span>
+                  Prodotto: <span className="text-foreground">{selectedProduct.name}</span>
                 </p>
                 <p>
-                  Amount: <span className="text-foreground">€{Number(selectedProduct.price).toFixed(2)}</span>
+                  Importo: <span className="text-foreground">€{Number(selectedProduct.price).toFixed(2)}</span>
                 </p>
                 <p>
-                  Billing: <span className="text-foreground capitalize">{selectedProduct.billing_period}</span>
+                  Fatturazione: <span className="text-foreground capitalize">{selectedProduct.billing_period === "monthly" ? "Mensile" : selectedProduct.billing_period === "yearly" ? "Annuale" : "Una Tantum"}</span>
                 </p>
                 <p>
-                  Period End:{" "}
+                  Scadenza:{" "}
                   <span className="text-foreground">
-                    {format(calculatePeriodEnd(startDate, selectedProduct.billing_period), "PPP")}
+                    {format(calculatePeriodEnd(startDate, selectedProduct.billing_period), "PPP", { locale: it })}
                   </span>
                 </p>
               </div>
@@ -200,10 +201,10 @@ export function AssignPlanDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
+            Annulla
           </Button>
           <Button onClick={handleAssign} disabled={!canAssign || isAssigning}>
-            {isAssigning ? "Assigning..." : "Assign Plan"}
+            {isAssigning ? "Assegnazione..." : "Assegna Piano"}
           </Button>
         </DialogFooter>
       </DialogContent>

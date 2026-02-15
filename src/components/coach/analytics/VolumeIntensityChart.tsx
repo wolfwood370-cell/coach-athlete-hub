@@ -53,8 +53,8 @@ export function VolumeIntensityChart({ athleteId }: VolumeIntensityChartProps) {
               <BarChart3 className="h-4 w-4 text-chart-4" />
             </div>
             <div>
-              <CardTitle className="text-sm font-semibold">Volume vs Intensity</CardTitle>
-              <p className="text-xs text-muted-foreground">Tonnage (bars) vs Avg RPE (line)</p>
+              <CardTitle className="text-sm font-semibold">Volume vs Intensità</CardTitle>
+              <p className="text-xs text-muted-foreground">Tonnellaggio (barre) vs RPE Medio (linea)</p>
             </div>
           </div>
           {hasData && (
@@ -73,7 +73,7 @@ export function VolumeIntensityChart({ athleteId }: VolumeIntensityChartProps) {
         {!hasData ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <Activity className="h-8 w-8 text-muted-foreground mb-2" />
-            <p className="text-xs text-muted-foreground">No workout data available</p>
+            <p className="text-xs text-muted-foreground">Nessun dato di allenamento disponibile</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={180}>
@@ -109,12 +109,12 @@ export function VolumeIntensityChart({ athleteId }: VolumeIntensityChartProps) {
                 }}
                 formatter={(value: number, name: string) => [
                   name === 'totalTonnage' ? `${(value / 1000).toFixed(1)}t` : value,
-                  name === 'totalTonnage' ? 'Tonnage' : 'Avg RPE',
+                  name === 'totalTonnage' ? 'Tonnellaggio' : 'RPE Medio',
                 ]}
               />
               <Legend 
                 wrapperStyle={{ fontSize: '10px' }}
-                formatter={(value) => value === 'totalTonnage' ? 'Tonnage' : 'Avg RPE'}
+                formatter={(value) => value === 'totalTonnage' ? 'Tonnellaggio' : 'RPE Medio'}
               />
               <Bar 
                 yAxisId="tonnage" 
