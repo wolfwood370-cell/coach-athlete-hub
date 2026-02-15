@@ -6,6 +6,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const DAYS_IT = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -24,7 +26,6 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verify the coach
     const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -38,7 +39,6 @@ Deno.serve(async (req) => {
 
     const coachId = user.id;
 
-    // Verify role
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch all active athletes for this coach
+    // Fetch all active athletes
     const { data: athletes } = await supabase
       .from("profiles")
       .select("id, full_name")
@@ -66,38 +66,43 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Current week: Monday to Sunday
     const now = new Date();
+    const currentDay = now.getDay(); // 0=Sun, 1=Mon...
+    const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
     const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() - now.getDay() + 1); // Monday
+    weekStart.setDate(now.getDate() + mondayOffset);
+    weekStart.setHours(0, 0, 0, 0);
     const weekStartStr = weekStart.toISOString().split("T")[0];
 
-    const sevenDaysAgo = new Date(now);
-    sevenDaysAgo.setDate(now.getDate() - 7);
-    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split("T")[0];
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+    const weekEndStr = weekEnd.toISOString().split("T")[0];
+
+    const todayStr = now.toISOString().split("T")[0];
+    const dayName = DAYS_IT[now.getDay()];
+    const timeStr = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
 
     const athleteIds = athletes.map((a) => a.id);
 
-    // Fetch workout data for all athletes in parallel
-    const [workoutLogsRes, workoutsRes, nutritionRes] = await Promise.all([
+    // Fetch all workout_logs for this week (scheduled + completed + missed)
+    const [logsRes, nutritionRes] = await Promise.all([
       supabase
         .from("workout_logs")
-        .select("athlete_id, completed_at, rpe_global, duration_minutes, total_load_au, status")
+        .select("athlete_id, completed_at, rpe_global, duration_minutes, total_load_au, status, scheduled_date, srpe")
         .in("athlete_id", athleteIds)
-        .gte("created_at", sevenDaysAgo.toISOString()),
-      supabase
-        .from("workouts")
-        .select("athlete_id, scheduled_date, status")
-        .in("athlete_id", athleteIds)
-        .gte("scheduled_date", sevenDaysAgoStr),
+        .gte("scheduled_date", weekStartStr)
+        .lte("scheduled_date", weekEndStr),
       supabase
         .from("nutrition_logs")
         .select("athlete_id, calories, protein, carbs, fats, date")
         .in("athlete_id", athleteIds)
-        .gte("date", sevenDaysAgoStr),
+        .gte("date", weekStartStr)
+        .lte("date", weekEndStr),
     ]);
 
-    const workoutLogs = workoutLogsRes.data || [];
-    const workouts = workoutsRes.data || [];
+    const allLogs = logsRes.data || [];
     const nutritionLogs = nutritionRes.data || [];
 
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
@@ -108,7 +113,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Process athletes with concurrency limit
     const CONCURRENCY = 3;
     const results: { athlete_id: string; status: string }[] = [];
 
@@ -118,17 +122,29 @@ Deno.serve(async (req) => {
       const batchResults = await Promise.all(
         batch.map(async (athlete) => {
           try {
-            const athleteLogs = workoutLogs.filter((l) => l.athlete_id === athlete.id);
-            const athleteWorkouts = workouts.filter((w) => w.athlete_id === athlete.id);
+            const athleteLogs = allLogs.filter((l) => l.athlete_id === athlete.id);
             const athleteNutrition = nutritionLogs.filter((n) => n.athlete_id === athlete.id);
 
-            const completedCount = athleteLogs.filter((l) => l.status === "completed").length;
-            const scheduledCount = athleteWorkouts.length;
-            const compliance = scheduledCount > 0 ? Math.round((completedCount / scheduledCount) * 100) : 0;
+            // Categorize workouts by time
+            const completed = athleteLogs.filter((l) => l.status === "completed");
+            const missed = athleteLogs.filter(
+              (l) => l.status === "missed" || (l.status === "scheduled" && l.scheduled_date && l.scheduled_date < todayStr)
+            );
+            const remaining = athleteLogs.filter(
+              (l) => l.status === "scheduled" && l.scheduled_date && l.scheduled_date >= todayStr
+            );
 
-            const totalVolume = athleteLogs.reduce((sum, l) => sum + (l.total_load_au || 0), 0);
-            const avgRpe = athleteLogs.length > 0
-              ? (athleteLogs.reduce((sum, l) => sum + (l.rpe_global || 0), 0) / athleteLogs.length).toFixed(1)
+            const completedCount = completed.length;
+            const missedCount = missed.length;
+            const remainingCount = remaining.length;
+            const totalScheduled = completedCount + missedCount + remainingCount;
+            const compliance = totalScheduled > 0
+              ? Math.round((completedCount / totalScheduled) * 100)
+              : 0;
+
+            const totalVolume = completed.reduce((sum, l) => sum + (l.total_load_au || 0), 0);
+            const avgRpe = completed.length > 0
+              ? (completed.reduce((sum, l) => sum + (l.rpe_global || 0), 0) / completed.length).toFixed(1)
               : "N/A";
 
             const avgCalories = athleteNutrition.length > 0
@@ -139,23 +155,36 @@ Deno.serve(async (req) => {
               compliance_pct: compliance,
               total_volume: totalVolume,
               workouts_completed: completedCount,
-              workouts_scheduled: scheduledCount,
+              workouts_missed: missedCount,
+              workouts_remaining: remainingCount,
+              workouts_scheduled: totalScheduled,
               avg_rpe: avgRpe,
               avg_daily_calories: avgCalories,
             };
 
-            // Generate AI summary
-            const prompt = `Sei un coach sportivo italiano. Analizza questa settimana per ${athlete.full_name || "l'atleta"}.
+            // Build time-aware AI prompt
+            const weekDoneContext = remainingCount === 0
+              ? "La settimana di allenamento è conclusa. Fornisci un riepilogo completo."
+              : `Ci sono ancora ${remainingCount} allenament${remainingCount === 1 ? "o" : "i"} in programma. Motiva l'atleta a dare il massimo nelle sessioni rimanenti.`;
 
-Dati:
-- Compliance allenamenti: ${compliance}% (${completedCount}/${scheduledCount} sessioni)
+            const prompt = `Sei un coach sportivo italiano esperto. Analizza la settimana corrente per ${athlete.full_name || "l'atleta"}.
+
+Contesto temporale: Oggi è ${dayName}, ore ${timeStr}. Settimana dal ${weekStartStr} al ${weekEndStr}.
+
+Dati settimana:
+- Allenamenti completati: ${completedCount}
+- Allenamenti saltati: ${missedCount}
+- Allenamenti ancora in programma: ${remainingCount}
+- Compliance attuale: ${compliance}% (${completedCount}/${totalScheduled})
 - Volume totale: ${totalVolume} UA
 - RPE medio: ${avgRpe}
 - Calorie medie giornaliere: ${avgCalories ? avgCalories + " kcal" : "Non registrate"}
 
-Scrivi un breve report (max 280 caratteri) in italiano. Sii tecnico ma incoraggiante. Evidenzia punti di forza e aree di miglioramento. Non usare emoji.`;
+${weekDoneContext}
 
-            const aiResponse = await fetch("https://api.lovable.dev/v1/chat/completions", {
+Scrivi un breve report (max 280 caratteri) in italiano. Sii tecnico ma incoraggiante. Non usare emoji.`;
+
+            const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
               method: "POST",
               headers: {
                 Authorization: `Bearer ${lovableApiKey}`,
@@ -174,10 +203,10 @@ Scrivi un breve report (max 280 caratteri) in italiano. Sii tecnico ma incoraggi
               const aiData = await aiResponse.json();
               aiSummary = aiData.choices?.[0]?.message?.content?.trim() || "";
             } else {
-              aiSummary = `Compliance: ${compliance}%. Volume: ${totalVolume} UA. RPE medio: ${avgRpe}.`;
+              console.error("AI error:", aiResponse.status, await aiResponse.text());
+              aiSummary = `Compliance: ${compliance}%. Completati: ${completedCount}/${totalScheduled}. Volume: ${totalVolume} UA. RPE medio: ${avgRpe}.`;
             }
 
-            // Upsert into weekly_checkins
             const { error: upsertError } = await supabase
               .from("weekly_checkins")
               .upsert(
