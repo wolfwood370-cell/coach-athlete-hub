@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
-export type ContentType = "video" | "pdf" | "link" | "text";
+export type ContentType = "video" | "pdf" | "link" | "text" | "ai_knowledge";
 
 export interface ContentItem {
   id: string;
@@ -20,6 +20,8 @@ export interface CreateContentPayload {
   type: ContentType;
   url?: string;
   tags?: string[];
+  /** Raw text content for ai_knowledge type */
+  aiContent?: string;
 }
 
 export function useContentLibrary() {
@@ -52,7 +54,7 @@ export function useContentLibrary() {
         .insert({
           coach_id: user.id,
           title: payload.title,
-          type: payload.type,
+          type: payload.type as any,
           url: payload.url || null,
           tags: payload.tags || [],
         })
@@ -60,14 +62,42 @@ export function useContentLibrary() {
         .single();
 
       if (error) throw error;
+
+      // If ai_knowledge, trigger ingestion automatically
+      if (payload.type === "ai_knowledge" && payload.aiContent) {
+        try {
+          const { error: fnError } = await supabase.functions.invoke("ingest-knowledge", {
+            body: {
+              content: payload.aiContent,
+              metadata: {
+                source: payload.title,
+                type: "ai_knowledge",
+                resource_id: data.id,
+              },
+            },
+          });
+          if (fnError) {
+            console.error("Ingestion error:", fnError);
+            toast.warning("Risorsa salvata, ma l'indicizzazione AI ha avuto un problema. Riprova dal menu.");
+          }
+        } catch (e) {
+          console.error("Ingestion error:", e);
+          toast.warning("Risorsa salvata, ma l'indicizzazione AI ha avuto un problema.");
+        }
+      }
+
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["content-library"] });
-      toast.success("Resource added successfully");
+      if (variables.type === "ai_knowledge") {
+        toast.success("Risorsa salvata e AI aggiornata (Training avviato...) 🧠");
+      } else {
+        toast.success("Risorsa aggiunta con successo");
+      }
     },
     onError: (error) => {
-      toast.error("Failed to add resource: " + error.message);
+      toast.error("Errore nell'aggiunta: " + error.message);
     },
   });
 
@@ -82,10 +112,10 @@ export function useContentLibrary() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["content-library"] });
-      toast.success("Resource deleted");
+      toast.success("Risorsa eliminata");
     },
     onError: (error) => {
-      toast.error("Failed to delete resource: " + error.message);
+      toast.error("Errore nell'eliminazione: " + error.message);
     },
   });
 
