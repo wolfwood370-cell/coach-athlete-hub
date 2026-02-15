@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, RefreshCw, Copy, CheckCircle2, AlertTriangle, TrendingDown, Loader2 } from "lucide-react";
+import { Sparkles, RefreshCw, Copy, CheckCircle2, AlertTriangle, TrendingDown, Loader2, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -179,7 +180,19 @@ export function AiInsightCard({ athleteId }: AiInsightCardProps) {
 
             {/* Sentiment bar */}
             <div className="flex items-center gap-3 pt-2 border-t border-border/50">
-              <span className="text-xs text-muted-foreground">Sentiment</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-xs text-muted-foreground flex items-center gap-1 cursor-help whitespace-nowrap">
+                      Stato di Forma
+                      <HelpCircle className="h-3 w-3" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[220px] text-xs">
+                    Indice calcolato su base RPE, VBT e trend di recupero.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
                 <div
                   className={cn(
