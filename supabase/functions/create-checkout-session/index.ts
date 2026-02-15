@@ -1,0 +1,176 @@
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import Stripe from "https://esm.sh/stripe@18.5.0";
+import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+const logStep = (step: string, details?: unknown) => {
+  const d = details ? ` - ${JSON.stringify(details)}` : "";
+  console.log(`[CREATE-CHECKOUT] ${step}${d}`);
+};
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const supabaseClient = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+  );
+
+  try {
+    logStep("Function started");
+
+    const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
+
+    // Auth
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) throw new Error("No authorization header");
+    const token = authHeader.replace("Bearer ", "");
+    const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
+    if (userError) throw new Error(`Auth error: ${userError.message}`);
+    const user = userData.user;
+    if (!user?.email) throw new Error("User not authenticated");
+    logStep("User authenticated", { userId: user.id, email: user.email });
+
+    // Parse body
+    const { plan_id, athlete_id } = await req.json();
+    if (!plan_id) throw new Error("plan_id is required");
+    logStep("Request body", { plan_id, athlete_id });
+
+    // The athlete_id is used when a coach generates a checkout link for an athlete
+    const targetAthleteId = athlete_id || user.id;
+
+    // Fetch billing plan using service role to bypass RLS
+    const adminClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+    );
+
+    const { data: plan, error: planError } = await adminClient
+      .from("billing_plans")
+      .select("*")
+      .eq("id", plan_id)
+      .single();
+
+    if (planError || !plan) throw new Error("Plan not found");
+    logStep("Plan fetched", { planName: plan.name, amount: plan.price_amount });
+
+    // Init Stripe
+    const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
+
+    // Get or create Stripe Price
+    let stripePriceId = plan.stripe_price_id;
+
+    if (!stripePriceId) {
+      logStep("No stripe_price_id, creating product + price on Stripe");
+
+      // Create Stripe product
+      const product = await stripe.products.create({
+        name: plan.name,
+        description: plan.description || undefined,
+        metadata: { plan_id: plan.id, coach_id: plan.coach_id },
+      });
+
+      // Create Stripe price
+      const isRecurring = plan.billing_interval !== "one_time";
+      const priceParams: Stripe.PriceCreateParams = {
+        product: product.id,
+        unit_amount: plan.price_amount,
+        currency: plan.currency,
+      };
+
+      if (isRecurring) {
+        priceParams.recurring = {
+          interval: plan.billing_interval === "year" ? "year" : "month",
+        };
+      }
+
+      const price = await stripe.prices.create(priceParams);
+      stripePriceId = price.id;
+
+      // Save back to DB
+      await adminClient
+        .from("billing_plans")
+        .update({ stripe_price_id: price.id, stripe_product_id: product.id })
+        .eq("id", plan.id);
+
+      logStep("Stripe product/price created", { productId: product.id, priceId: price.id });
+    }
+
+    // Get athlete email for checkout
+    const { data: athleteProfile } = await adminClient
+      .from("profiles")
+      .select("full_name")
+      .eq("id", targetAthleteId)
+      .single();
+
+    // Find or lookup Stripe customer by athlete's auth email
+    const { data: { user: athleteUser } } = await adminClient.auth.admin.getUserById(targetAthleteId);
+    const athleteEmail = athleteUser?.email;
+
+    let customerId: string | undefined;
+    if (athleteEmail) {
+      const customers = await stripe.customers.list({ email: athleteEmail, limit: 1 });
+      if (customers.data.length > 0) {
+        customerId = customers.data[0].id;
+      }
+    }
+
+    // Create Checkout session
+    const isSubscription = plan.billing_interval !== "one_time";
+    const origin = req.headers.get("origin") || "https://lovable.dev";
+
+    const sessionParams: Stripe.Checkout.SessionCreateParams = {
+      customer: customerId,
+      customer_email: customerId ? undefined : athleteEmail || undefined,
+      line_items: [{ price: stripePriceId!, quantity: 1 }],
+      mode: isSubscription ? "subscription" : "payment",
+      success_url: `${origin}/athlete/dashboard?payment=success`,
+      cancel_url: `${origin}/athlete/profile?payment=cancelled`,
+      metadata: {
+        athlete_id: targetAthleteId,
+        plan_id: plan.id,
+        coach_id: plan.coach_id,
+      },
+    };
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+    logStep("Checkout session created", { sessionId: session.id, url: session.url });
+
+    // Create or update athlete_subscriptions record
+    const { data: existingSub } = await adminClient
+      .from("athlete_subscriptions")
+      .select("id")
+      .eq("athlete_id", targetAthleteId)
+      .eq("plan_id", plan.id)
+      .maybeSingle();
+
+    if (!existingSub) {
+      await adminClient.from("athlete_subscriptions").insert({
+        athlete_id: targetAthleteId,
+        plan_id: plan.id,
+        status: "incomplete",
+        stripe_customer_id: customerId || null,
+      });
+    }
+
+    return new Response(JSON.stringify({ url: session.url }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : String(error);
+    logStep("ERROR", { message: msg });
+    return new Response(JSON.stringify({ error: msg }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+    });
+  }
+});
