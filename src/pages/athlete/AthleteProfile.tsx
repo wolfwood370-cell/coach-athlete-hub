@@ -7,11 +7,13 @@ import { ThemeCustomizationCard } from "@/components/athlete/ThemeCustomizationC
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useGamification } from "@/hooks/useGamification";
+import { useAthleteSubscription } from "@/hooks/useBillingPlans";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -41,6 +43,8 @@ import {
   TrendingUp,
   Loader2,
   Dumbbell,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -639,16 +643,12 @@ export default function AthleteProfile() {
           {/* Theme Customization Section */}
           <ThemeCustomizationCard />
 
+          {/* Subscription Section */}
+          <SubscriptionSection />
+
           {/* Settings Section */}
           <div className="space-y-3">
             <h2 className="text-lg font-semibold">Impostazioni</h2>
-
-            <SettingsRow
-              icon={CreditCard}
-              label="Abbonamento"
-              value="Gestisci il tuo piano"
-              onClick={() => toast.info("Funzionalità in arrivo!")}
-            />
 
             <SettingsRow
               icon={Moon}
@@ -678,5 +678,81 @@ export default function AthleteProfile() {
         </div>
       </div>
     </AthleteLayout>
+  );
+}
+
+// Subscription status section
+function SubscriptionSection() {
+  const { data: subscription, isLoading } = useAthleteSubscription();
+
+  if (isLoading) {
+    return (
+      <Card className="border-border/50 bg-card/50">
+        <CardContent className="p-4">
+          <Skeleton className="h-20 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const isActive = subscription?.status === "active";
+  const plan = subscription?.billing_plans;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <CreditCard className="h-5 w-5 text-primary" />
+        <h2 className="text-lg font-semibold">Abbonamento</h2>
+      </div>
+
+      <Card className={cn(
+        "border-border/50 bg-card/50 backdrop-blur-sm",
+        isActive && "border-primary/30"
+      )}>
+        <CardContent className="p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {isActive ? (
+                <CheckCircle className="h-5 w-5 text-primary" />
+              ) : (
+                <XCircle className="h-5 w-5 text-muted-foreground" />
+              )}
+              <span className="font-medium">
+                {isActive ? "Attivo" : "Nessun abbonamento"}
+              </span>
+            </div>
+            {isActive && (
+              <Badge variant="default" className="bg-primary/20 text-primary border-primary/30">
+                Attivo
+              </Badge>
+            )}
+          </div>
+
+          {plan && (
+            <div className="text-sm text-muted-foreground space-y-1">
+              <p>Piano: <span className="text-foreground font-medium">{plan.name}</span></p>
+              <p>
+                €{(plan.price_amount / 100).toFixed(2)} / {plan.billing_interval === "month" ? "mese" : plan.billing_interval === "year" ? "anno" : "una tantum"}
+              </p>
+              {subscription?.current_period_end && (
+                <p>
+                  Scadenza: {new Date(subscription.current_period_end).toLocaleDateString("it-IT", {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  })}
+                </p>
+              )}
+            </div>
+          )}
+
+          {!isActive && (
+            <p className="text-sm text-muted-foreground">
+              Contatta il tuo coach per attivare un piano di abbonamento.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }

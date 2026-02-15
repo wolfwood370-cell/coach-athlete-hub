@@ -39,7 +39,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  DollarSign,
   Users,
   Clock,
   Plus,
@@ -48,9 +47,11 @@ import {
   CreditCard,
   TrendingUp,
   Package,
-  CheckCircle,
+  Euro,
 } from "lucide-react";
-import { useCoachBusinessData, type CreateProductPayload } from "@/hooks/useCoachBusinessData";
+import { useCoachBusinessData } from "@/hooks/useCoachBusinessData";
+import { useBillingPlans } from "@/hooks/useBillingPlans";
+import { RequestPaymentDialog } from "@/components/coach/business/RequestPaymentDialog";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -81,48 +82,60 @@ function getStatusBadge(status: string) {
   }
 }
 
-import { AssignSubscriptionDialog } from "@/components/coach/business/AssignSubscriptionDialog";
-import { AssignPlanDialog } from "@/components/coach/business/AssignPlanDialog";
-
 export default function CoachBusiness() {
   const {
-    products,
     athleteSubscriptions,
     businessMetrics,
-    isLoading,
-    createProduct,
-    isCreatingProduct,
-    deleteProduct,
-    updateSubscription,
-    assignSubscription,
-    isAssigningSubscription,
+    isLoading: businessLoading,
   } = useCoachBusinessData();
 
+  const {
+    plans,
+    isLoadingPlans,
+    createPlan,
+    isCreatingPlan,
+    deletePlan,
+    generateCheckout,
+    isGeneratingCheckout,
+  } = useBillingPlans();
+
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [newProduct, setNewProduct] = useState<CreateProductPayload>({
+  const [newPlan, setNewPlan] = useState({
     name: "",
-    price: 0,
-    billing_period: "monthly",
+    price: "",
+    billing_interval: "month",
     description: "",
   });
 
-  const handleCreateProduct = () => {
-    if (!newProduct.name || newProduct.price <= 0) return;
-    createProduct(newProduct, {
-      onSuccess: () => {
-        setIsCreateDialogOpen(false);
-        setNewProduct({ name: "", price: 0, billing_period: "monthly", description: "" });
+  // Payment request dialog state
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [selectedAthlete, setSelectedAthlete] = useState<{ id: string; name: string } | null>(null);
+
+  const handleCreatePlan = () => {
+    const priceInCents = Math.round(parseFloat(newPlan.price) * 100);
+    if (!newPlan.name || priceInCents <= 0) return;
+    createPlan(
+      {
+        name: newPlan.name,
+        price_amount: priceInCents,
+        billing_interval: newPlan.billing_interval,
+        description: newPlan.description || undefined,
       },
-    });
+      {
+        onSuccess: () => {
+          setIsCreateDialogOpen(false);
+          setNewPlan({ name: "", price: "", billing_interval: "month", description: "" });
+        },
+      }
+    );
   };
 
-  const handleMarkAsPaid = (athleteId: string) => {
-    updateSubscription({ athleteId, status: "active" });
+  const openPaymentDialog = (athleteId: string, athleteName: string) => {
+    setSelectedAthlete({ id: athleteId, name: athleteName });
+    setPaymentDialogOpen(true);
   };
 
-  const handleChangePlan = (athleteId: string, tier: string) => {
-    updateSubscription({ athleteId, status: "active", tier });
-  };
+  const isLoading = businessLoading || isLoadingPlans;
 
   if (isLoading) {
     return (
@@ -147,103 +160,89 @@ export default function CoachBusiness() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Business Hub</h1>
-            <p className="text-muted-foreground">Gestisci prodotti, abbonamenti e ricavi</p>
+            <p className="text-muted-foreground">Gestisci piani, abbonamenti e pagamenti Stripe</p>
           </div>
-          <div className="flex items-center gap-2">
-            <AssignSubscriptionDialog
-              athletes={athleteSubscriptions}
-              products={products}
-              onAssign={assignSubscription}
-              isAssigning={isAssigningSubscription}
-            />
-            <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="gap-2">
-                 <Plus className="h-4 w-4" />
-                  Nuovo Prodotto
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                <DialogTitle>Crea Nuovo Prodotto</DialogTitle>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <Plus className="h-4 w-4" />
+                Nuovo Piano
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Crea Nuovo Piano</DialogTitle>
                 <DialogDescription>
-                  Aggiungi un nuovo pacchetto di coaching o livello di abbonamento
+                  Definisci un piano di coaching. Sarà sincronizzato con Stripe al primo checkout.
                 </DialogDescription>
               </DialogHeader>
-                <div className="space-y-4 py-4">
+              <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Nome Prodotto</Label>
+                  <Label htmlFor="plan-name">Nome Piano</Label>
                   <Input
-                    id="name"
-                    placeholder="e.g., 1:1 Coaching Gold"
-                    value={newProduct.name}
-                    onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
+                    id="plan-name"
+                    placeholder="e.g., Elite Coaching"
+                    value={newPlan.name}
+                    onChange={(e) => setNewPlan({ ...newPlan, name: e.target.value })}
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="price">Prezzo (€)</Label>
+                    <Label htmlFor="plan-price">Prezzo (€)</Label>
                     <Input
-                      id="price"
+                      id="plan-price"
                       type="number"
                       min="0"
                       step="0.01"
                       placeholder="150.00"
-                      value={newProduct.price || ""}
-                      onChange={(e) =>
-                        setNewProduct({ ...newProduct, price: parseFloat(e.target.value) || 0 })
-                      }
+                      value={newPlan.price}
+                      onChange={(e) => setNewPlan({ ...newPlan, price: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="billing">Periodo di Fatturazione</Label>
+                    <Label>Fatturazione</Label>
                     <Select
-                      value={newProduct.billing_period}
-                      onValueChange={(value: "monthly" | "one-time" | "yearly") =>
-                        setNewProduct({ ...newProduct, billing_period: value })
-                      }
+                      value={newPlan.billing_interval}
+                      onValueChange={(v) => setNewPlan({ ...newPlan, billing_interval: v })}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="monthly">Mensile</SelectItem>
-                        <SelectItem value="yearly">Annuale</SelectItem>
-                        <SelectItem value="one-time">Una Tantum</SelectItem>
+                        <SelectItem value="month">Mensile</SelectItem>
+                        <SelectItem value="year">Annuale</SelectItem>
+                        <SelectItem value="one_time">Una Tantum</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="description">Descrizione</Label>
+                  <Label htmlFor="plan-desc">Descrizione</Label>
                   <Textarea
-                    id="description"
-                    placeholder="Cosa include questo prodotto..."
-                    value={newProduct.description}
-                    onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                    id="plan-desc"
+                    placeholder="Cosa include questo piano..."
+                    value={newPlan.description}
+                    onChange={(e) => setNewPlan({ ...newPlan, description: e.target.value })}
                   />
                 </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                   Annulla
+                  Annulla
                 </Button>
-                <Button onClick={handleCreateProduct} disabled={isCreatingProduct}>
-                  {isCreatingProduct ? "Creazione..." : "Crea Prodotto"}
+                <Button onClick={handleCreatePlan} disabled={isCreatingPlan}>
+                  {isCreatingPlan ? "Creazione..." : "Crea Piano"}
                 </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
-          </div>
         </div>
 
-        {/* KPI Stats Grid */}
+        {/* KPI Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="border-primary/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Ricavo Mensile Stimato
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">MRR Stimato</CardTitle>
               <TrendingUp className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
@@ -256,79 +255,64 @@ export default function CoachBusiness() {
 
           <Card className="border-secondary/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Clienti Attivi
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">Clienti Attivi</CardTitle>
               <Users className="h-4 w-4 text-secondary-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">
-                {businessMetrics.activeClients}
-              </div>
+              <div className="text-3xl font-bold text-foreground">{businessMetrics.activeClients}</div>
               <p className="text-xs text-muted-foreground mt-1">su {athleteSubscriptions.length} atleti totali</p>
             </CardContent>
           </Card>
 
           <Card className="border-accent/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Pagamenti in Sospeso
-              </CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">In Sospeso</CardTitle>
               <Clock className="h-4 w-4 text-accent-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">
-                {businessMetrics.pendingPayments}
-              </div>
+              <div className="text-3xl font-bold text-foreground">{businessMetrics.pendingPayments}</div>
               <p className="text-xs text-muted-foreground mt-1">€{businessMetrics.pendingAmount.toFixed(2)} in sospeso</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Products Section */}
+        {/* Billing Plans */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <Package className="h-5 w-5 text-primary" />
-              <CardTitle>I Tuoi Prodotti</CardTitle>
+              <CardTitle>Piani Attivi</CardTitle>
             </div>
-            <CardDescription>Pacchetti di coaching e livelli di abbonamento</CardDescription>
+            <CardDescription>I tuoi piani di coaching con integrazione Stripe</CardDescription>
           </CardHeader>
           <CardContent>
-            {products.length === 0 ? (
+            {plans.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>Nessun prodotto ancora. Crea il primo pacchetto di coaching per iniziare.</p>
+                <p>Nessun piano ancora. Crea il primo per iniziare a ricevere pagamenti.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {products.map((product) => (
-                  <Card key={product.id} className="relative group">
+                {plans.map((plan) => (
+                  <Card key={plan.id} className="relative group">
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between">
                         <div>
-                          <CardTitle className="text-base">{product.name}</CardTitle>
+                          <CardTitle className="text-base">{plan.name}</CardTitle>
                           <CardDescription className="text-xs capitalize">
-                            {product.billing_period}
+                            {plan.billing_interval === "month" ? "Mensile" : plan.billing_interval === "year" ? "Annuale" : "Una Tantum"}
                           </CardDescription>
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
+                            <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => deleteProduct(product.id)}
-                            >
+                            <DropdownMenuItem className="text-destructive" onClick={() => deletePlan(plan.id)}>
                               <Trash2 className="h-4 w-4 mr-2" />
-                              Archivia Prodotto
+                              Archivia Piano
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -336,15 +320,19 @@ export default function CoachBusiness() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-2xl font-bold">
-                        €{Number(product.price).toFixed(2)}
+                        €{(plan.price_amount / 100).toFixed(2)}
                         <span className="text-sm font-normal text-muted-foreground">
-                          /{product.billing_period === "monthly" ? "mese" : product.billing_period === "yearly" ? "anno" : ""}
+                          /{plan.billing_interval === "month" ? "mese" : plan.billing_interval === "year" ? "anno" : ""}
                         </span>
                       </div>
-                      {product.description && (
-                        <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                          {product.description}
-                        </p>
+                      {plan.stripe_price_id && (
+                        <Badge variant="outline" className="mt-2 text-xs">
+                          <CreditCard className="h-3 w-3 mr-1" />
+                          Stripe collegato
+                        </Badge>
+                      )}
+                      {plan.description && (
+                        <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{plan.description}</p>
                       )}
                     </CardContent>
                   </Card>
@@ -354,24 +342,24 @@ export default function CoachBusiness() {
           </CardContent>
         </Card>
 
-        {/* Client Subscription Table */}
+        {/* Athletes Table with Payment Request */}
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
               <CreditCard className="h-5 w-5 text-primary" />
               <CardTitle>Abbonamenti Clienti</CardTitle>
             </div>
-            <CardDescription>Gestisci gli abbonamenti dei tuoi atleti</CardDescription>
+            <CardDescription>Gestisci abbonamenti e richiedi pagamenti via Stripe</CardDescription>
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[400px]">
               <Table>
                 <TableHeader>
                   <TableRow>
-                     <TableHead>Atleta</TableHead>
-                    <TableHead>Piano Attuale</TableHead>
+                    <TableHead>Atleta</TableHead>
+                    <TableHead>Piano</TableHead>
                     <TableHead>Stato</TableHead>
-                    <TableHead>Data Rinnovo</TableHead>
+                    <TableHead>Rinnovo</TableHead>
                     <TableHead className="text-right">Azioni</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -397,9 +385,7 @@ export default function CoachBusiness() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <span className="text-muted-foreground">
-                            {athlete.subscription_tier || "—"}
-                          </span>
+                          <span className="text-muted-foreground">{athlete.subscription_tier || "—"}</span>
                         </TableCell>
                         <TableCell>{getStatusBadge(athlete.subscription_status)}</TableCell>
                         <TableCell>
@@ -408,27 +394,16 @@ export default function CoachBusiness() {
                             : "—"}
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <AssignPlanDialog
-                              athlete={athlete}
-                              products={products}
-                              onAssign={assignSubscription}
-                              isAssigning={isAssigningSubscription}
-                            />
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleMarkAsPaid(athlete.id)}>
-                                  <CheckCircle className="h-4 w-4 mr-2 text-primary" />
-                                  Segna come Pagato
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => openPaymentDialog(athlete.id, athlete.full_name || "Atleta")}
+                            disabled={plans.length === 0}
+                          >
+                            <Euro className="h-3.5 w-3.5" />
+                            Richiedi Pagamento
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))
@@ -439,6 +414,19 @@ export default function CoachBusiness() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Payment Request Dialog */}
+      {selectedAthlete && (
+        <RequestPaymentDialog
+          open={paymentDialogOpen}
+          onOpenChange={setPaymentDialogOpen}
+          athleteId={selectedAthlete.id}
+          athleteName={selectedAthlete.name}
+          plans={plans}
+          onGenerateCheckout={generateCheckout}
+          isGenerating={isGeneratingCheckout}
+        />
+      )}
     </CoachLayout>
   );
 }

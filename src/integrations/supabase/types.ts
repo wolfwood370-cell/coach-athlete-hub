@@ -183,6 +183,95 @@ export type Database = {
           },
         ]
       }
+      athlete_subscriptions: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          current_period_end: string | null
+          id: string
+          plan_id: string
+          status: Database["public"]["Enums"]["billing_sub_status"]
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          plan_id: string
+          status?: Database["public"]["Enums"]["billing_sub_status"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          current_period_end?: string | null
+          id?: string
+          plan_id?: string
+          status?: Database["public"]["Enums"]["billing_sub_status"]
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "billing_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      billing_plans: {
+        Row: {
+          active: boolean
+          billing_interval: string
+          coach_id: string
+          created_at: string
+          currency: string
+          description: string | null
+          id: string
+          name: string
+          price_amount: number
+          stripe_price_id: string | null
+          stripe_product_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          billing_interval?: string
+          coach_id: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          name: string
+          price_amount?: number
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          billing_interval?: string
+          coach_id?: string
+          created_at?: string
+          currency?: string
+          description?: string | null
+          id?: string
+          name?: string
+          price_amount?: number
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       chat_participants: {
         Row: {
           id: string
@@ -2098,6 +2187,7 @@ export type Database = {
       }
     }
     Enums: {
+      billing_sub_status: "active" | "past_due" | "canceled" | "incomplete"
       content_type: "video" | "pdf" | "link" | "text" | "ai_knowledge"
       cycle_phase: "menstrual" | "follicular" | "ovulatory" | "luteal"
       meal_time: "breakfast" | "lunch" | "dinner" | "snack"
@@ -2240,6 +2330,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      billing_sub_status: ["active", "past_due", "canceled", "incomplete"],
       content_type: ["video", "pdf", "link", "text", "ai_knowledge"],
       cycle_phase: ["menstrual", "follicular", "ovulatory", "luteal"],
       meal_time: ["breakfast", "lunch", "dinner", "snack"],
