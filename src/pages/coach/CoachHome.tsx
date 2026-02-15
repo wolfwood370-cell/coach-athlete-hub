@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { InviteAthleteDialog } from "@/components/coach/InviteAthleteDialog";
 import { RiskTable } from "@/components/coach/RiskTable";
 import { RiskAlertCard } from "@/components/coach/RiskAlertCard";
-import { MacroCycleTimeline } from "@/components/coach/planning/MacroCycleTimeline";
+
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
@@ -595,11 +595,6 @@ export default function CoachHome() {
               </CardContent>
             </Card>
 
-          </div>
-
-          {/* ===== MACRO-CYCLE TIMELINE ===== */}
-          <div className="mt-6">
-            <MacroCycleTimeline />
           </div>
 
           {/* ===== RISK TABLE ===== */}
