@@ -104,28 +104,31 @@ serve(async (req) => {
       );
     }
 
-    // 1. Embed the query
-    const queryEmbedding = await getEmbedding(query, openaiKey);
+    // 1. Try to embed the query and retrieve RAG context
+    let contextChunks = "";
+    try {
+      const queryEmbedding = await getEmbedding(query, openaiKey);
 
-    // 2. Retrieve relevant context chunks via match_documents RPC
-    const { data: matches, error: matchError } = await supabase.rpc("match_documents", {
-      query_embedding: JSON.stringify(queryEmbedding),
-      p_coach_id: coachId,
-      match_threshold: 0.5,
-      match_count: 3,
-    });
+      const { data: matches, error: matchError } = await supabase.rpc("match_documents", {
+        query_embedding: JSON.stringify(queryEmbedding),
+        p_coach_id: coachId,
+        match_threshold: 0.5,
+        match_count: 3,
+      });
 
-    if (matchError) {
-      console.error("match_documents error:", matchError);
+      if (matchError) {
+        console.error("match_documents error:", matchError);
+      }
+
+      contextChunks = (matches || [])
+        .map((m: { content: string; similarity: number; metadata: Record<string, unknown> }, i: number) => {
+          const source = m.metadata?.source ? ` (Fonte: ${m.metadata.source})` : "";
+          return `[Chunk ${i + 1}${source} — Similarità: ${(m.similarity * 100).toFixed(0)}%]\n${m.content}`;
+        })
+        .join("\n\n");
+    } catch (embeddingError) {
+      console.warn("Embedding/RAG failed, proceeding without context:", embeddingError);
     }
-
-    // 3. Build context string from matched documents
-    const contextChunks = (matches || [])
-      .map((m: { content: string; similarity: number; metadata: Record<string, unknown> }, i: number) => {
-        const source = m.metadata?.source ? ` (Fonte: ${m.metadata.source})` : "";
-        return `[Chunk ${i + 1}${source} — Similarità: ${(m.similarity * 100).toFixed(0)}%]\n${m.content}`;
-      })
-      .join("\n\n");
 
     const hasContext = contextChunks.length > 0;
 
