@@ -7,36 +7,30 @@
 
 @layer base {
   :root {
-    /* =============================================
-       FALLBACK COLORS — overridden at runtime by
-       MaterialYouProvider. These ensure the app
-       renders correctly before JS hydrates.
-       ============================================= */
-
-    /* Light-mode fallbacks — Midnight & Neon palette */
+    /* Scientific Light Theme — Slate-50 / Violet-600 */
     --background: hsl(210 40% 98%);
-    --foreground: hsl(222 47% 11%);
+    --foreground: hsl(222.2 84% 4.9%);
 
     --card: hsl(0 0% 100%);
-    --card-foreground: hsl(222 47% 11%);
+    --card-foreground: hsl(222.2 84% 4.9%);
 
     --popover: hsl(0 0% 100%);
-    --popover-foreground: hsl(222 47% 11%);
+    --popover-foreground: hsl(222.2 84% 4.9%);
 
-    --primary: hsl(263 70% 50%);
-    --primary-foreground: hsl(0 0% 100%);
+    --primary: hsl(262.1 83.3% 57.8%);
+    --primary-foreground: hsl(210 40% 98%);
 
-    --secondary: hsl(210 40% 96%);
-    --secondary-foreground: hsl(222 47% 11%);
+    --secondary: hsl(210 40% 96.1%);
+    --secondary-foreground: hsl(222.2 47.4% 11.2%);
 
-    --muted: hsl(210 40% 96%);
-    --muted-foreground: hsl(215 16% 47%);
+    --muted: hsl(210 40% 96.1%);
+    --muted-foreground: hsl(215.4 16.3% 46.9%);
 
-    --accent: hsl(210 40% 96%);
-    --accent-foreground: hsl(222 47% 11%);
+    --accent: hsl(210 40% 96.1%);
+    --accent-foreground: hsl(222.2 47.4% 11.2%);
 
-    --destructive: hsl(0 84% 60%);
-    --destructive-foreground: hsl(0 0% 100%);
+    --destructive: hsl(0 84.2% 60.2%);
+    --destructive-foreground: hsl(210 40% 98%);
 
     --warning: hsl(38 92% 50%);
     --warning-foreground: hsl(0 0% 100%);
@@ -44,55 +38,55 @@
     --success: hsl(160 84% 39%);
     --success-foreground: hsl(0 0% 100%);
 
-    --border: hsl(214 32% 91%);
-    --input: hsl(214 32% 91%);
-    --ring: hsl(263 70% 50%);
+    --border: hsl(214.3 31.8% 91.4%);
+    --input: hsl(214.3 31.8% 91.4%);
+    --ring: hsl(262.1 83.3% 57.8%);
 
     --radius: 0.75rem;
 
     /* Chart palette */
     --chart-volume: hsl(160 84% 39%);
-    --chart-intensity: hsl(263 70% 50%);
+    --chart-intensity: hsl(262.1 83.3% 57.8%);
     --chart-fatigue: hsl(347 77% 50%);
 
     /* Sidebar — always dark for contrast */
-    --sidebar-background: hsl(222 47% 6%);
+    --sidebar-background: hsl(222.2 84% 4.9%);
     --sidebar-foreground: hsl(210 40% 98%);
-    --sidebar-primary: hsl(263 70% 65%);
-    --sidebar-primary-foreground: hsl(0 0% 100%);
-    --sidebar-accent: hsl(222 47% 10%);
+    --sidebar-primary: hsl(263.4 70% 50.4%);
+    --sidebar-primary-foreground: hsl(210 40% 98%);
+    --sidebar-accent: hsl(217.2 32.6% 17.5%);
     --sidebar-accent-foreground: hsl(210 40% 98%);
-    --sidebar-border: hsl(222 47% 14%);
-    --sidebar-ring: hsl(263 70% 65%);
+    --sidebar-border: hsl(217.2 32.6% 17.5%);
+    --sidebar-ring: hsl(263.4 70% 50.4%);
     --sidebar-width: 16rem;
     --sidebar-width-collapsed: 4rem;
   }
 
-  /* Dark fallbacks — overridden by provider at runtime */
+  /* Scientific Dark Theme — Slate-950 / Violet-500 */
   .dark {
-    --background: hsl(222 47% 4%);
+    --background: hsl(222.2 84% 4.9%);
     --foreground: hsl(210 40% 98%);
 
-    --card: hsl(222 47% 7%);
+    --card: hsl(222.2 84% 4.9%);
     --card-foreground: hsl(210 40% 98%);
 
-    --popover: hsl(222 47% 7%);
+    --popover: hsl(222.2 84% 4.9%);
     --popover-foreground: hsl(210 40% 98%);
 
-    --primary: hsl(263 70% 65%);
-    --primary-foreground: hsl(0 0% 100%);
+    --primary: hsl(263.4 70% 50.4%);
+    --primary-foreground: hsl(210 40% 98%);
 
-    --secondary: hsl(217 33% 17%);
+    --secondary: hsl(217.2 32.6% 17.5%);
     --secondary-foreground: hsl(210 40% 98%);
 
-    --muted: hsl(217 33% 17%);
-    --muted-foreground: hsl(215 20% 65%);
+    --muted: hsl(217.2 32.6% 17.5%);
+    --muted-foreground: hsl(215 20.2% 65.1%);
 
-    --accent: hsl(217 33% 17%);
+    --accent: hsl(217.2 32.6% 17.5%);
     --accent-foreground: hsl(210 40% 98%);
 
-    --destructive: hsl(0 63% 55%);
-    --destructive-foreground: hsl(0 0% 100%);
+    --destructive: hsl(0 62.8% 30.6%);
+    --destructive-foreground: hsl(210 40% 98%);
 
     --warning: hsl(38 92% 50%);
     --warning-foreground: hsl(0 0% 100%);
@@ -100,12 +94,12 @@
     --success: hsl(160 84% 39%);
     --success-foreground: hsl(0 0% 100%);
 
-    --border: hsl(0 0% 100% / 0.1);
-    --input: hsl(0 0% 100% / 0.1);
-    --ring: hsl(263 70% 65%);
+    --border: hsl(217.2 32.6% 17.5%);
+    --input: hsl(217.2 32.6% 17.5%);
+    --ring: hsl(263.4 70% 50.4%);
 
     --chart-volume: hsl(160 72% 45%);
-    --chart-intensity: hsl(263 70% 65%);
+    --chart-intensity: hsl(263.4 70% 50.4%);
     --chart-fatigue: hsl(347 77% 55%);
   }
 }
