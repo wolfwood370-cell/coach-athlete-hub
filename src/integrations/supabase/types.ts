@@ -227,6 +227,36 @@ export type Database = {
           },
         ]
       }
+      badges: {
+        Row: {
+          category: string
+          created_at: string
+          description: string
+          icon_key: string
+          id: string
+          name: string
+          threshold_value: number | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          description: string
+          icon_key: string
+          id: string
+          name: string
+          threshold_value?: number | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string
+          icon_key?: string
+          id?: string
+          name?: string
+          threshold_value?: number | null
+        }
+        Relationships: []
+      }
       billing_plans: {
         Row: {
           active: boolean
@@ -1157,6 +1187,39 @@ export type Database = {
           },
         ]
       }
+      leaderboard_cache: {
+        Row: {
+          coach_id: string | null
+          id: string
+          max_load_kg: number
+          streak_weeks: number
+          updated_at: string
+          user_id: string
+          week_volume: number
+          workout_count: number
+        }
+        Insert: {
+          coach_id?: string | null
+          id?: string
+          max_load_kg?: number
+          streak_weeks?: number
+          updated_at?: string
+          user_id: string
+          week_volume?: number
+          workout_count?: number
+        }
+        Update: {
+          coach_id?: string | null
+          id?: string
+          max_load_kg?: number
+          streak_weeks?: number
+          updated_at?: string
+          user_id?: string
+          week_volume?: number
+          workout_count?: number
+        }
+        Relationships: []
+      }
       meal_logs: {
         Row: {
           calories: number
@@ -1417,6 +1480,7 @@ export type Database = {
           current_period_end: string | null
           full_name: string | null
           id: string
+          leaderboard_anonymous: boolean
           logo_url: string | null
           neurotype: string | null
           onboarding_completed: boolean
@@ -1439,6 +1503,7 @@ export type Database = {
           current_period_end?: string | null
           full_name?: string | null
           id: string
+          leaderboard_anonymous?: boolean
           logo_url?: string | null
           neurotype?: string | null
           onboarding_completed?: boolean
@@ -1461,6 +1526,7 @@ export type Database = {
           current_period_end?: string | null
           full_name?: string | null
           id?: string
+          leaderboard_anonymous?: boolean
           logo_url?: string | null
           neurotype?: string | null
           onboarding_completed?: boolean
@@ -1820,6 +1886,35 @@ export type Database = {
             columns: ["coach_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_badges: {
+        Row: {
+          awarded_at: string
+          badge_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          awarded_at?: string
+          badge_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          awarded_at?: string
+          badge_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_badges_badge_id_fkey"
+            columns: ["badge_id"]
+            isOneToOne: false
+            referencedRelation: "badges"
             referencedColumns: ["id"]
           },
         ]

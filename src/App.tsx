@@ -20,6 +20,7 @@ import CoachBusiness from "./pages/coach/CoachBusiness";
 import ProgramBuilder from "./pages/coach/ProgramBuilder";
 import CoachLibrary from "./pages/coach/CoachLibrary";
 import FocusDashboard from "./pages/athlete/FocusDashboard";
+import AthleteLeaderboard from "./pages/athlete/AthleteLeaderboard";
 import AthleteTraining from "./pages/athlete/AthleteTraining";
 import AthleteNutrition from "./pages/athlete/AthleteNutrition";
 import AthleteHealth from "./pages/athlete/AthleteHealth";
@@ -69,6 +70,7 @@ const App = () => (
             <Route path="/athlete/messages" element={<AthleteMessages />} />
             <Route path="/athlete/nutrition" element={<AthleteNutrition />} />
             <Route path="/athlete/health" element={<AthleteHealth />} />
+            <Route path="/athlete/leaderboard" element={<AthleteLeaderboard />} />
             <Route path="/athlete/profile" element={<AthleteProfile />} />
             
             {/* Onboarding */}
