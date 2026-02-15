@@ -198,10 +198,31 @@ export function ResourceCard({ resource, onDelete, onOpenVideo }: ResourceCardPr
         </div>
       </CardHeader>
       
-      <CardContent className="pt-0">
-        {resource.tags.length > 0 && (
+      <CardContent className="pt-0 space-y-2">
+        {/* AI Knowledge category badge */}
+        {isAiKnowledge && (() => {
+          const catTag = resource.tags.find((t) => t.startsWith("cat:"));
+          if (!catTag) return null;
+          const categoryLabels: Record<string, string> = {
+            "tecnica_allenamento": "🏋️‍♂️ Tecnica & Allenamento",
+            "fisiologia_recupero": "🧬 Fisiologia & Recupero",
+            "nutrizione": "🥑 Nutrizione",
+            "mindset": "🧠 Mindset",
+            "admin_policy": "📋 Admin & Policy",
+            "altro": "📄 Altro",
+          };
+          const catKey = catTag.replace("cat:", "");
+          const label = categoryLabels[catKey] || catKey;
+          return (
+            <Badge variant="outline" className="text-xs border-violet-500/30 text-violet-400">
+              {label}
+            </Badge>
+          );
+        })()}
+
+        {resource.tags.filter((t) => !t.startsWith("cat:")).length > 0 && (
           <div className="flex flex-wrap gap-1.5">
-            {resource.tags.map((tag) => (
+            {resource.tags.filter((t) => !t.startsWith("cat:")).map((tag) => (
               <Badge key={tag} variant="secondary" className="text-xs">
                 {tag}
               </Badge>

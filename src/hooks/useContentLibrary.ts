@@ -22,6 +22,8 @@ export interface CreateContentPayload {
   tags?: string[];
   /** Raw text content for ai_knowledge type */
   aiContent?: string;
+  /** Category for ai_knowledge type */
+  aiCategory?: string;
 }
 
 export function useContentLibrary() {
@@ -49,6 +51,12 @@ export function useContentLibrary() {
     mutationFn: async (payload: CreateContentPayload) => {
       if (!user?.id) throw new Error("Not authenticated");
 
+      const tags = [...(payload.tags || [])];
+      // Store AI category as a special tag for display
+      if (payload.type === "ai_knowledge" && payload.aiCategory) {
+        tags.unshift(`cat:${payload.aiCategory}`);
+      }
+
       const { data, error } = await supabase
         .from("content_library")
         .insert({
@@ -56,7 +64,7 @@ export function useContentLibrary() {
           title: payload.title,
           type: payload.type as any,
           url: payload.url || null,
-          tags: payload.tags || [],
+          tags,
         })
         .select()
         .single();
@@ -73,6 +81,7 @@ export function useContentLibrary() {
                 source: payload.title,
                 type: "ai_knowledge",
                 resource_id: data.id,
+                category: payload.aiCategory || "altro",
               },
             },
           });
