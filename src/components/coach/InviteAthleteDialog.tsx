@@ -43,7 +43,7 @@ export function InviteAthleteDialog({ onAthleteInvited, trigger }: InviteAthlete
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
 
   const form = useForm<InviteFormData>({
     resolver: zodResolver(inviteFormSchema),
@@ -67,9 +67,7 @@ export function InviteAthleteDialog({ onAthleteInvited, trigger }: InviteAthlete
     setIsSubmitting(true);
 
     try {
-      // Create an invite token instead of a profile
-      // The profile will be created automatically when the athlete signs up
-      // via the handle_new_user trigger that checks for pending invites
+      // 1. Create the invite token
       const { error } = await supabase.from("invite_tokens").insert({
         coach_id: user.id,
         email: data.email.toLowerCase().trim(),
@@ -80,9 +78,22 @@ export function InviteAthleteDialog({ onAthleteInvited, trigger }: InviteAthlete
         throw error;
       }
 
+      // 2. Send invitation email via edge function
+      const { data: emailResult, error: emailError } = await supabase.functions.invoke("send-email", {
+        body: {
+          to: data.email.toLowerCase().trim(),
+          type: "invite",
+          data: { coachName: profile?.full_name || "Il tuo Coach" },
+        },
+      });
+
+      if (emailError) {
+        console.warn("Email send failed, but invite was created:", emailError);
+      }
+
       toast({
-        title: "Atleta invitato!",
-        description: `Invito inviato a ${data.email}. Potrà registrarsi per unirsi al tuo team.`,
+        title: "Invito inviato! ✉️",
+        description: `Email di invito inviata a ${data.email}.`,
       });
 
       form.reset();
