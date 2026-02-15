@@ -1,9 +1,11 @@
 import { ReactNode, useEffect, useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Timer, Flag, Wifi, WifiOff } from "lucide-react";
+import { Timer, Flag, Wifi, WifiOff, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResponsivePhoneWrapper } from "@/components/athlete/PhoneMockup";
+import { Drawer, DrawerContent, DrawerTrigger } from "@/components/ui/drawer";
+import { BarPathCamera } from "@/components/athlete/vision/BarPathCamera";
 
 interface ActiveSessionShellProps {
   title: string;
@@ -85,6 +87,7 @@ export function ActiveSessionShell({
   currentExercise,
   totalExercises,
 }: ActiveSessionShellProps) {
+  const [visionOpen, setVisionOpen] = useState(false);
   // Prevent accidental back-swipe / navigation
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -128,7 +131,21 @@ export function ActiveSessionShell({
               )}
             </div>
           </div>
-          <HoldToFinishButton onFinish={onFinish} />
+          <div className="flex items-center gap-2 shrink-0">
+            <Drawer open={visionOpen} onOpenChange={setVisionOpen}>
+              <DrawerTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs gap-1">
+                  <Video className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Analisi Video</span>
+                  <span className="sm:hidden">📹</span>
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent className="h-[95dvh] p-0">
+                <BarPathCamera onClose={() => setVisionOpen(false)} />
+              </DrawerContent>
+            </Drawer>
+            <HoldToFinishButton onFinish={onFinish} />
+          </div>
         </div>
 
         {/* Progress bar */}
