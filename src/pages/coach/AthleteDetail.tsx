@@ -139,6 +139,7 @@ import { useRealtimeAnalytics } from "@/hooks/useRealtimeAnalytics";
 import { VelocityTrendChart } from "@/components/coach/analytics/VelocityTrendChart";
 import { BarPathGallery } from "@/components/coach/video/BarPathGallery";
 import { AiInsightCard } from "@/components/coach/analytics/AiInsightCard";
+import { DataSeeder } from "@/components/dev/DataSeeder";
 
 // Exercise Stats Content Component - uses REAL data from workout_exercises
 function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) {
@@ -2934,7 +2935,10 @@ export default function AthleteDetail() {
 
             </div>
 
-            {/* AI Insight Card */}
+            {/* AI Insight Card + Dev Seeder */}
+            <div className="flex items-center gap-2 justify-end">
+              {id && <DataSeeder athleteId={id} />}
+            </div>
             <AiInsightCard athleteId={id} />
           </TabsContent>
 
