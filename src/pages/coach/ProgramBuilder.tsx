@@ -20,6 +20,7 @@ import { PeriodizationHeader } from "@/components/coach/PeriodizationHeader";
 import { CloneWeekDialog } from "@/components/coach/CloneWeekDialog";
 import { SaveDayTemplateDialog } from "@/components/coach/templates/SaveDayTemplateDialog";
 import { TemplatesSidebar } from "@/components/coach/templates/TemplatesSidebar";
+import { AiProgramWizard } from "@/components/coach/program/AiProgramWizard";
 import { useWorkoutTemplates } from "@/hooks/useWorkoutTemplates";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,7 @@ import {
   FileText,
   Copy,
   Bookmark,
+  Wand2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -340,6 +342,7 @@ export default function ProgramBuilder() {
   const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false);
   const [saveTemplateDayIndex, setSaveTemplateDayIndex] = useState(0);
   const [templatesSidebarOpen, setTemplatesSidebarOpen] = useState(false);
+  const [aiWizardOpen, setAiWizardOpen] = useState(false);
 
   // Workout Templates hook
   const {
@@ -751,6 +754,22 @@ export default function ProgramBuilder() {
     toast.success("Programma resettato");
   }, [programActions]);
 
+  // Handle AI Program apply - loads generated data into the store
+  const handleAiProgramApply = useCallback((aiProgramData: ProgramData, rationale: string) => {
+    // Load the AI-generated week into the store
+    const state = useProgramBuilderStore.getState();
+    const currentProgram = { ...state.program };
+    
+    // Merge AI data into week 0 (current)
+    const aiWeek = aiProgramData[0];
+    if (aiWeek) {
+      currentProgram[0] = aiWeek;
+    }
+    
+    programActions.loadProgram(currentProgram, state.programId || '', state.programName || 'AI Generated');
+    console.log("AI Rationale:", rationale);
+  }, [programActions]);
+
   // Handle weeks generated from periodization - uses store action
   const handleWeeksGenerated = useCallback((weeks: number) => {
     weekActions.setTotalWeeks(weeks);
@@ -943,6 +962,15 @@ export default function ProgramBuilder() {
                 <Badge variant="outline" className="text-xs">
                   {totalExercises} esercizi
                 </Badge>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5"
+                  onClick={() => setAiWizardOpen(true)}
+                >
+                  <Wand2 className="h-3.5 w-3.5" />
+                  ✨ AI Designer
+                </Button>
                 <Button
                   size="sm"
                   className="h-8 gradient-primary"
@@ -1253,6 +1281,15 @@ export default function ProgramBuilder() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* AI Program Wizard */}
+      <AiProgramWizard
+        open={aiWizardOpen}
+        onOpenChange={setAiWizardOpen}
+        athleteId={selectedAthlete?.id || null}
+        athleteName={selectedAthlete?.full_name || "Atleta"}
+        onApply={handleAiProgramApply}
+      />
     </CoachLayout>
   );
 }
