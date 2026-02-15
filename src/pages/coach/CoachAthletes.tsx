@@ -104,7 +104,7 @@ export default function CoachAthletes() {
   }
 
   return (
-    <CoachLayout title="Atleti" subtitle="Gestisci il tuo roster di atleti">
+    <CoachLayout title="Athletes" subtitle="Manage your athlete roster">
       <div className="space-y-6 animate-fade-in">
         {/* Header Actions */}
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">

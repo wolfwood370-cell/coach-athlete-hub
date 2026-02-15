@@ -43,31 +43,31 @@ function getTrainingModifiers(phase: CyclePhase, dayInCycle: number): TrainingMo
   switch (phase) {
     case "menstrual":
       return {
-        volume_suggestion: "Scarico",
+        volume_suggestion: "Deload",
         strength_potential: 35,
-        injury_risk: "Basso",
-        nutrition_focus: "Ferro & Idratazione",
+        injury_risk: "Low",
+        nutrition_focus: "Iron & Hydration",
       };
     case "follicular":
       return {
-        volume_suggestion: "Massima Intensità",
+        volume_suggestion: "Push Hard",
         strength_potential: 80,
-        injury_risk: "Basso",
-        nutrition_focus: "Carboidrati per l'intensità",
+        injury_risk: "Low",
+        nutrition_focus: "Carbs for intensity",
       };
     case "ovulatory":
       return {
-        volume_suggestion: "Picco Prestazione",
+        volume_suggestion: "Peak Performance",
         strength_potential: 95,
-        injury_risk: "Alto — Protezione Articolare",
-        nutrition_focus: "Proteine & Antiossidanti",
+        injury_risk: "High — Protect Knees",
+        nutrition_focus: "Protein & Antioxidants",
       };
     case "luteal":
       return {
-        volume_suggestion: "Mantenimento",
+        volume_suggestion: "Maintenance",
         strength_potential: 55,
-        injury_risk: "Moderato",
-        nutrition_focus: "Idratazione & Magnesio",
+        injury_risk: "Moderate",
+        nutrition_focus: "Hydration & Magnesium",
       };
   }
 }
@@ -75,22 +75,22 @@ function getTrainingModifiers(phase: CyclePhase, dayInCycle: number): TrainingMo
 function getPowerTip(phase: CyclePhase): string {
   switch (phase) {
     case "menstrual":
-      return "Il riposo è produttivo. Concentrati su mobilità e lavoro a bassa intensità.";
+      return "Rest is productive. Focus on mobility and low-intensity work.";
     case "follicular":
-      return "L'estrogeno sta salendo. Punta al massimale oggi! 💪";
+      return "Estrogen is rising. Go for a PR today! 💪";
     case "ovulatory":
-      return "Finestra di forza massima — riscaldamento approfondito per proteggere le articolazioni.";
+      return "Peak strength window — but warm up thoroughly to protect joints.";
     case "luteal":
-      return "Temperatura corporea più alta. Focus su lavoro aerobico a regime costante.";
+      return "Body temp is higher. Focus on steady-state aerobic work.";
   }
 }
 
 function getPhaseLabel(phase: CyclePhase): string {
   switch (phase) {
-    case "menstrual": return "Fase Mestruale";
-    case "follicular": return "Fase Follicolare";
-    case "ovulatory": return "Fase Ovulatoria";
-    case "luteal": return "Fase Luteale";
+    case "menstrual": return "Menstrual Phase";
+    case "follicular": return "Follicular Phase";
+    case "ovulatory": return "Ovulatory Phase";
+    case "luteal": return "Luteal Phase";
   }
 }
 

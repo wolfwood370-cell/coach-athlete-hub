@@ -106,7 +106,7 @@ const ReadinessDial = ({
               {score}
             </motion.span>
             <span className="text-xs text-muted-foreground uppercase tracking-wider mt-1">
-              Prontezza
+              Readiness
             </span>
           </>
         ) : (
@@ -207,7 +207,7 @@ const SyncIndicator = ({ status }: { status: "synced" | "syncing" | "offline" })
         <Cloud className="h-3.5 w-3.5 text-success" />
       )}
       <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
-        {status === "syncing" ? "Sincronizzazione" : status === "offline" ? "Non in Linea" : "Sincronizzato"}
+        {status === "syncing" ? "Syncing" : status === "offline" ? "Offline" : "Synced"}
       </span>
     </div>
   );
@@ -342,7 +342,7 @@ export default function FocusDashboard() {
                     {dailyState.sleepHours > 0 && (
                       <MetricPill
                         icon={Moon}
-                        label="Sonno"
+                        label="Sleep"
                         value={dailyState.sleepHours}
                         unit="h"
                       />
@@ -393,7 +393,7 @@ export default function FocusDashboard() {
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                        Esecuzione di oggi
+                        Workout di oggi
                       </p>
                       <p className="font-semibold">{todayWorkout.title}</p>
                       <div className="flex items-center gap-2 mt-0.5">
@@ -425,7 +425,7 @@ export default function FocusDashboard() {
             <div className="flex gap-3">
               <QuickActionCard
                 icon={Utensils}
-                title="Registra Pasto"
+                title="Log Pasto"
                 subtitle={`${nutrition.percentages.calories}% kcal`}
                 onClick={() => navigate("/athlete/nutrition")}
               />
@@ -449,7 +449,7 @@ export default function FocusDashboard() {
                     : "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
                 )}
               >
-                {nutrition.isTrainingDay ? "🏋️ Giorno di Allenamento" : "🌿 Giorno di Riposo"}
+                {nutrition.isTrainingDay ? "🏋️ Training Day" : "🌿 Rest Day"}
               </Badge>
             </div>
           </div>

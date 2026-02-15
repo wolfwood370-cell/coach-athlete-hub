@@ -164,7 +164,7 @@ export function CyclePhaseCard({
                 <div className="flex items-center gap-2 mb-1">
                   <PhaseIcon className={cn("h-4 w-4", config.iconColor)} />
                   <h3 className="font-semibold text-sm leading-tight">
-                    {cycleStatus.phaseLabel} — Giorno {cycleStatus.daysIntoCycle}
+                    {cycleStatus.phaseLabel} — Day {cycleStatus.daysIntoCycle}
                   </h3>
                 </div>
 
@@ -173,7 +173,7 @@ export function CyclePhaseCard({
                 </p>
 
                 <p className="text-[10px] text-muted-foreground/70 mt-1">
-                  Prossimo ciclo ~{format(cycleStatus.predictedNextPeriod, "d MMM")}
+                  Next period ~{format(cycleStatus.predictedNextPeriod, "MMM d")}
                 </p>
               </div>
             </div>
@@ -188,11 +188,11 @@ export function CyclePhaseCard({
                 {mods.volume_suggestion}
               </Badge>
 
-               <Badge
+              <Badge
                 variant="outline"
                 className="text-[10px] font-medium bg-secondary/50 border-border/50"
               >
-                Forza {mods.strength_potential}%
+                Strength {mods.strength_potential}%
               </Badge>
 
               {isHighRisk && (
@@ -222,7 +222,7 @@ export function CyclePhaseCard({
             >
               <span className="flex items-center gap-1.5">
                 <Droplets className="h-3.5 w-3.5" />
-                Registra Sintomi
+                Log Symptoms
               </span>
               <ChevronRight className="h-3.5 w-3.5" />
             </Button>
@@ -261,11 +261,11 @@ export function CycleSetupCTA({ onSetup }: { onSetup: () => void }) {
             <div className="flex-1">
               <h3 className="font-semibold text-sm">Cycle-Sync Engine</h3>
               <p className="text-xs text-muted-foreground">
-                Ottimizza l'allenamento in base alle fasi del ciclo
+                Optimize training around your cycle phases
               </p>
             </div>
             <Button size="sm" variant="outline" className="text-xs">
-              Configura
+              Setup
             </Button>
           </div>
         </CardContent>
