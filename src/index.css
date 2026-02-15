@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&display=swap');
 
 @tailwind base;
@@ -13,29 +13,29 @@
        renders correctly before JS hydrates.
        ============================================= */
 
-    /* Light-mode fallbacks */
-    --background: hsl(270 10% 99%);
-    --foreground: hsl(270 10% 10%);
+    /* Light-mode fallbacks — Midnight & Neon palette */
+    --background: hsl(210 40% 98%);
+    --foreground: hsl(222 47% 11%);
 
-    --card: hsl(270 10% 96%);
-    --card-foreground: hsl(270 10% 10%);
+    --card: hsl(0 0% 100%);
+    --card-foreground: hsl(222 47% 11%);
 
-    --popover: hsl(270 10% 96%);
-    --popover-foreground: hsl(270 10% 10%);
+    --popover: hsl(0 0% 100%);
+    --popover-foreground: hsl(222 47% 11%);
 
-    --primary: hsl(239 84% 40%);
+    --primary: hsl(263 70% 50%);
     --primary-foreground: hsl(0 0% 100%);
 
-    --secondary: hsl(299 10% 90%);
-    --secondary-foreground: hsl(299 10% 10%);
+    --secondary: hsl(210 40% 96%);
+    --secondary-foreground: hsl(222 47% 11%);
 
-    --muted: hsl(270 10% 90%);
-    --muted-foreground: hsl(270 10% 30%);
+    --muted: hsl(210 40% 96%);
+    --muted-foreground: hsl(215 16% 47%);
 
-    --accent: hsl(359 30% 90%);
-    --accent-foreground: hsl(359 30% 10%);
+    --accent: hsl(210 40% 96%);
+    --accent-foreground: hsl(222 47% 11%);
 
-    --destructive: hsl(0 75% 40%);
+    --destructive: hsl(0 84% 60%);
     --destructive-foreground: hsl(0 0% 100%);
 
     --warning: hsl(38 92% 50%);
@@ -44,50 +44,55 @@
     --success: hsl(160 84% 39%);
     --success-foreground: hsl(0 0% 100%);
 
-    --border: hsl(270 10% 80%);
-    --input: hsl(270 10% 80%);
-    --ring: hsl(239 84% 40%);
+    --border: hsl(214 32% 91%);
+    --input: hsl(214 32% 91%);
+    --ring: hsl(263 70% 50%);
 
-    --radius: 0.5rem;
+    --radius: 0.75rem;
+
+    /* Chart palette */
+    --chart-volume: hsl(160 84% 39%);
+    --chart-intensity: hsl(263 70% 50%);
+    --chart-fatigue: hsl(347 77% 50%);
 
     /* Sidebar — always dark for contrast */
-    --sidebar-background: hsl(224 71% 4%);
-    --sidebar-foreground: hsl(210 20% 98%);
-    --sidebar-primary: hsl(239 84% 67%);
+    --sidebar-background: hsl(222 47% 6%);
+    --sidebar-foreground: hsl(210 40% 98%);
+    --sidebar-primary: hsl(263 70% 65%);
     --sidebar-primary-foreground: hsl(0 0% 100%);
-    --sidebar-accent: hsl(224 71% 8%);
-    --sidebar-accent-foreground: hsl(210 20% 98%);
-    --sidebar-border: hsl(224 71% 10%);
-    --sidebar-ring: hsl(239 84% 67%);
+    --sidebar-accent: hsl(222 47% 10%);
+    --sidebar-accent-foreground: hsl(210 40% 98%);
+    --sidebar-border: hsl(222 47% 14%);
+    --sidebar-ring: hsl(263 70% 65%);
     --sidebar-width: 16rem;
     --sidebar-width-collapsed: 4rem;
   }
 
   /* Dark fallbacks — overridden by provider at runtime */
   .dark {
-    --background: hsl(270 10% 10%);
-    --foreground: hsl(270 10% 90%);
+    --background: hsl(222 47% 4%);
+    --foreground: hsl(210 40% 98%);
 
-    --card: hsl(270 10% 10%);
-    --card-foreground: hsl(270 10% 90%);
+    --card: hsl(222 47% 7%);
+    --card-foreground: hsl(210 40% 98%);
 
-    --popover: hsl(270 10% 10%);
-    --popover-foreground: hsl(270 10% 90%);
+    --popover: hsl(222 47% 7%);
+    --popover-foreground: hsl(210 40% 98%);
 
-    --primary: hsl(239 84% 80%);
-    --primary-foreground: hsl(239 84% 20%);
+    --primary: hsl(263 70% 65%);
+    --primary-foreground: hsl(0 0% 100%);
 
-    --secondary: hsl(299 10% 30%);
-    --secondary-foreground: hsl(299 10% 90%);
+    --secondary: hsl(217 33% 17%);
+    --secondary-foreground: hsl(210 40% 98%);
 
-    --muted: hsl(270 10% 20%);
-    --muted-foreground: hsl(270 10% 80%);
+    --muted: hsl(217 33% 17%);
+    --muted-foreground: hsl(215 20% 65%);
 
-    --accent: hsl(359 30% 30%);
-    --accent-foreground: hsl(359 30% 90%);
+    --accent: hsl(217 33% 17%);
+    --accent-foreground: hsl(210 40% 98%);
 
-    --destructive: hsl(0 75% 80%);
-    --destructive-foreground: hsl(0 75% 20%);
+    --destructive: hsl(0 63% 55%);
+    --destructive-foreground: hsl(0 0% 100%);
 
     --warning: hsl(38 92% 50%);
     --warning-foreground: hsl(0 0% 100%);
@@ -95,9 +100,13 @@
     --success: hsl(160 84% 39%);
     --success-foreground: hsl(0 0% 100%);
 
-    --border: hsl(270 10% 30%);
-    --input: hsl(270 10% 30%);
-    --ring: hsl(239 84% 80%);
+    --border: hsl(0 0% 100% / 0.1);
+    --input: hsl(0 0% 100% / 0.1);
+    --ring: hsl(263 70% 65%);
+
+    --chart-volume: hsl(160 72% 45%);
+    --chart-intensity: hsl(263 70% 65%);
+    --chart-fatigue: hsl(347 77% 55%);
   }
 }
 
@@ -109,14 +118,14 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Inter', system-ui, sans-serif;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
   }
 
   /* Tabular numbers for data displays */
   .tabular-nums,
   [data-numeric],
   .stat-value {
-    font-feature-settings: "tnum", "cv02", "cv03", "cv04", "cv11";
+    font-feature-settings: "tnum", "cv02", "cv03", "cv04", "cv11", "ss01";
     font-variant-numeric: tabular-nums;
   }
 
@@ -127,6 +136,61 @@
 
   p {
     text-wrap: pretty;
+  }
+}
+
+@layer components {
+  /* ── Primary button inner glow ── */
+  .btn-primary-glow {
+    background: linear-gradient(
+      180deg,
+      hsl(263 70% 58%) 0%,
+      hsl(263 70% 50%) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 0 hsl(263 70% 72% / 0.4),
+      0 1px 3px 0 hsl(263 70% 30% / 0.25);
+  }
+
+  .dark .btn-primary-glow {
+    background: linear-gradient(
+      180deg,
+      hsl(263 70% 68%) 0%,
+      hsl(263 70% 58%) 100%
+    );
+    box-shadow:
+      inset 0 1px 0 0 hsl(263 70% 80% / 0.3),
+      0 1px 3px 0 hsl(263 70% 20% / 0.4);
+  }
+
+  /* ── Interactive card hover ── */
+  .card-interactive {
+    @apply transition-all duration-200 ease-out;
+    border: 1px solid var(--border);
+  }
+
+  .card-interactive:hover {
+    border-color: hsl(263 70% 50% / 0.5);
+    box-shadow: 0 8px 30px -12px hsl(263 70% 50% / 0.15);
+    transform: translateY(-1px);
+  }
+
+  .dark .card-interactive:hover {
+    border-color: hsl(263 70% 65% / 0.4);
+    box-shadow: 0 8px 30px -12px hsl(263 70% 65% / 0.1);
+  }
+
+  /* ── Glass panel ── */
+  .glass-panel {
+    background: hsl(0 0% 100% / 0.08);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid hsl(0 0% 100% / 0.15);
+  }
+
+  .dark .glass-panel {
+    background: hsl(0 0% 0% / 0.2);
+    border-color: hsl(0 0% 100% / 0.1);
   }
 }
 
@@ -147,6 +211,7 @@
   body {
     transition: background-color 0.2s ease, color 0.2s ease;
   }
+
   /* Glass effect - adapts to theme */
   .glass {
     backdrop-filter: blur(16px);
