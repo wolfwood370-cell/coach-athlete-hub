@@ -138,6 +138,7 @@ import { useAthleteExerciseList, useAthleteStrengthProgression, useAthleteVolume
 import { useRealtimeAnalytics } from "@/hooks/useRealtimeAnalytics";
 import { VelocityTrendChart } from "@/components/coach/analytics/VelocityTrendChart";
 import { BarPathGallery } from "@/components/coach/video/BarPathGallery";
+import { AiInsightCard } from "@/components/coach/analytics/AiInsightCard";
 
 // Exercise Stats Content Component - uses REAL data from workout_exercises
 function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) {
@@ -2932,6 +2933,9 @@ export default function AthleteDetail() {
               </Card>
 
             </div>
+
+            {/* AI Insight Card */}
+            <AiInsightCard athleteId={id} />
           </TabsContent>
 
           {/* Program Tab - Weekly Microcycle */}
