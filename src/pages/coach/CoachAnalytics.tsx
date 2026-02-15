@@ -44,20 +44,20 @@ export default function CoachAnalytics() {
   const selectedAthlete = athletes?.find((a) => a.id === selectedAthleteId);
 
   return (
-    <CoachLayout title="Analytics" subtitle="Performance insights & trends">
+    <CoachLayout title="Analisi" subtitle="Insight prestazionali e tendenze">
       <div className="space-y-6 animate-fade-in">
         {/* Athlete Selector */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Users className="h-4 w-4" />
-            <span>Athlete:</span>
+            <span>Atleta:</span>
           </div>
           {athletesLoading ? (
             <Skeleton className="h-10 w-[200px]" />
           ) : athletes && athletes.length > 0 ? (
             <Select value={selectedAthleteId} onValueChange={setSelectedAthleteId}>
               <SelectTrigger className="w-[220px]">
-                <SelectValue placeholder="Select athlete">
+                <SelectValue placeholder="Seleziona atleta">
                   {selectedAthlete && (
                     <div className="flex items-center gap-2">
                       <Avatar className="h-5 w-5">
@@ -88,7 +88,7 @@ export default function CoachAnalytics() {
               </SelectContent>
             </Select>
           ) : (
-            <p className="text-sm text-muted-foreground">No athletes found</p>
+            <p className="text-sm text-muted-foreground">Nessun atleta trovato</p>
           )}
         </div>
 

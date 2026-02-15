@@ -86,9 +86,9 @@ export default function CoachLibrary() {
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">Resource Library</h1>
+            <h1 className="text-2xl font-semibold">Libreria Risorse</h1>
             <p className="text-muted-foreground text-sm">
-              Educational content to share with your athletes
+              Contenuti educativi da condividere con i tuoi atleti
             </p>
           </div>
           <AddResourceDialog onAdd={createContent} isLoading={isCreating} />
@@ -99,7 +99,7 @@ export default function CoachLibrary() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search resources..."
+              placeholder="Cerca risorse..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -110,7 +110,7 @@ export default function CoachLibrary() {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="gap-2">
                 <Filter className="h-4 w-4" />
-                Filters
+                Filtri
                 {hasActiveFilters && (
                   <Badge variant="secondary" className="ml-1 h-5 px-1.5">
                     {selectedTypes.length + selectedTags.length}
@@ -119,7 +119,7 @@ export default function CoachLibrary() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Type</DropdownMenuLabel>
+              <DropdownMenuLabel>Tipo</DropdownMenuLabel>
               {(Object.keys(typeLabels) as ContentType[]).map((type) => (
                 <DropdownMenuCheckboxItem
                   key={type}
@@ -155,7 +155,7 @@ export default function CoachLibrary() {
                     className="w-full justify-start"
                     onClick={clearFilters}
                   >
-                    Clear all filters
+                    Rimuovi tutti i filtri
                   </Button>
                 </>
               )}
@@ -222,11 +222,11 @@ export default function CoachLibrary() {
             <div className="p-4 rounded-full bg-muted mb-4">
               <BookOpen className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="font-medium text-lg">No resources found</h3>
+            <h3 className="font-medium text-lg">Nessuna risorsa trovata</h3>
             <p className="text-muted-foreground text-sm mt-1">
               {hasActiveFilters 
-                ? "Try adjusting your filters or search query"
-                : "Start building your library by adding your first resource"
+                ? "Prova a modificare i filtri o la ricerca"
+                : "Inizia a costruire la tua libreria aggiungendo la prima risorsa"
               }
             </p>
           </div>
