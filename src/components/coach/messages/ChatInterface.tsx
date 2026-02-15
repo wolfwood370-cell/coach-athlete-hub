@@ -23,11 +23,13 @@ import {
   User,
   Loader2,
   Brain,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Conversation } from "./ChatList";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
+import { useAiQuota } from "@/hooks/useAiQuota";
 
 // Mock message types for demo
 type MessageType = "text" | "audio" | "image" | "link";
@@ -208,6 +210,8 @@ export function ChatInterface({
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiHistory, setAiHistory] = useState<{ role: string; content: string }[]>([]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { data: quota, refetch: refetchQuota } = useAiQuota(isAiMode);
+  const quotaExhausted = quota ? quota.message_count >= quota.daily_limit : false;
 
   // Scroll to bottom when AI messages change
   useEffect(() => {
@@ -322,6 +326,7 @@ export function ChatInterface({
       );
     } finally {
       setIsAiLoading(false);
+      refetchQuota();
     }
   };
 
@@ -426,6 +431,19 @@ export function ChatInterface({
               )}
             />
           </div>
+
+          {/* Quota Badge */}
+          {isAiMode && quota && (
+            <Badge
+              variant={quotaExhausted ? "destructive" : "secondary"}
+              className="text-[10px] shrink-0"
+            >
+              <Sparkles className="h-3 w-3 mr-1" />
+              {quotaExhausted
+                ? "Crediti AI esauriti"
+                : `${quota.message_count}/${quota.daily_limit} oggi`}
+            </Badge>
+          )}
 
           {/* Context Toggle (Mobile) */}
           {showContextButton && !isAiMode && (
@@ -590,7 +608,9 @@ export function ChatInterface({
             <Textarea
               placeholder={
                 isAiMode
-                  ? "Chiedi al Coach AI (risponde dai documenti)..."
+                  ? quotaExhausted
+                    ? "Limite giornaliero raggiunto..."
+                    : "Chiedi al Coach AI (risponde dai documenti)..."
                   : "Scrivi un messaggio..."
               }
               className={cn(
@@ -616,7 +636,7 @@ export function ChatInterface({
               "h-10 w-10 shrink-0",
               isAiMode && "bg-gradient-to-r from-violet-500 to-cyan-500 hover:from-violet-600 hover:to-cyan-600"
             )}
-            disabled={!messageText.trim() || isAiLoading}
+            disabled={!messageText.trim() || isAiLoading || (isAiMode && quotaExhausted)}
             onClick={isAiMode ? handleSendAiMessage : undefined}
           >
             {isAiLoading ? (
@@ -630,7 +650,9 @@ export function ChatInterface({
         {/* Hint */}
         <p className="text-[10px] text-muted-foreground text-center mt-2">
           {isAiMode
-            ? "🧠 Il tuo assistente virtuale sta cercando nei manuali del coach..."
+            ? quotaExhausted
+              ? "⛔ Hai raggiunto il limite giornaliero. L'assistente tornerà domani!"
+              : "🧠 Il tuo assistente virtuale sta cercando nei manuali del coach..."
             : "💡 Per i video, usa Loom o YouTube e condividi il link"
           }
         </p>

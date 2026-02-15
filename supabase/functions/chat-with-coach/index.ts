@@ -43,6 +43,15 @@ async function getEmbedding(text: string, apiKey: string, retries = 3): Promise<
   throw new Error("Embedding failed after retries");
 }
 
+// Check if two dates are the same calendar day (UTC)
+function isSameDay(d1: Date, d2: Date): boolean {
+  return (
+    d1.getUTCFullYear() === d2.getUTCFullYear() &&
+    d1.getUTCMonth() === d2.getUTCMonth() &&
+    d1.getUTCDate() === d2.getUTCDate()
+  );
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -103,6 +112,45 @@ serve(async (req) => {
       );
     }
 
+    // ── Quota check (lazy reset) ──
+    const now = new Date();
+    let { data: usage } = await supabase
+      .from("ai_usage_tracking")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+
+    if (!usage) {
+      // First ever message – create row
+      const { data: newRow } = await supabase
+        .from("ai_usage_tracking")
+        .insert({ user_id: user.id, message_count: 0, last_reset_at: now.toISOString() })
+        .select()
+        .single();
+      usage = newRow;
+    }
+
+    if (usage) {
+      const lastReset = new Date(usage.last_reset_at);
+
+      // Lazy reset if different day
+      if (!isSameDay(lastReset, now)) {
+        await supabase
+          .from("ai_usage_tracking")
+          .update({ message_count: 0, last_reset_at: now.toISOString() })
+          .eq("user_id", user.id);
+        usage.message_count = 0;
+      }
+
+      // Check limit
+      if (usage.message_count >= usage.daily_limit) {
+        return new Response(
+          JSON.stringify({ error: "Hai raggiunto il limite giornaliero di messaggi AI." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
     // 1. Try to embed the query and retrieve RAG context
     let contextChunks = "";
     if (openaiKey) {
@@ -135,7 +183,6 @@ serve(async (req) => {
 
     const hasContext = contextChunks.length > 0;
 
-    // 4. Build messages for LLM
     const systemPrompt = hasContext
       ? `Sei un Assistente AI che rispecchia la filosofia specifica del Coach. Rispondi ESCLUSIVAMENTE usando il seguente Contesto. Se la risposta non è nel contesto, rispondi: "Non ho informazioni specifiche su questo argomento nella knowledge base del Coach. Ti consiglio di chiedere direttamente al tuo Coach."
 
@@ -158,7 +205,7 @@ REGOLE:
       { role: "user", content: query },
     ];
 
-    // 5. Call Lovable AI Gateway with streaming
+    // Call Lovable AI Gateway with streaming
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -188,6 +235,14 @@ REGOLE:
       const errorText = await aiResponse.text();
       console.error("AI gateway error:", aiResponse.status, errorText);
       throw new Error("Errore nel servizio AI");
+    }
+
+    // ── Increment usage after successful AI call ──
+    if (usage) {
+      await supabase
+        .from("ai_usage_tracking")
+        .update({ message_count: usage.message_count + 1 })
+        .eq("user_id", user.id);
     }
 
     // Stream the response back
