@@ -310,6 +310,33 @@ export type Database = {
           },
         ]
       }
+      coach_knowledge_base: {
+        Row: {
+          coach_id: string
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          metadata: Json | null
+        }
+        Insert: {
+          coach_id: string
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+        }
+        Update: {
+          coach_id?: string
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+        }
+        Relationships: []
+      }
       coach_products: {
         Row: {
           active: boolean
@@ -1997,6 +2024,20 @@ export type Database = {
         Returns: string
       }
       is_coach_of_athlete: { Args: { p_athlete_id: string }; Returns: boolean }
+      match_documents: {
+        Args: {
+          match_count?: number
+          match_threshold?: number
+          p_coach_id: string
+          query_embedding: string
+        }
+        Returns: {
+          content: string
+          id: string
+          metadata: Json
+          similarity: number
+        }[]
+      }
       schedule_program_week: {
         Args: { p_athlete_id: string; p_start_date: string; p_week_id: string }
         Returns: number
