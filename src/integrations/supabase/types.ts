@@ -14,6 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      athlete_ai_insights: {
+        Row: {
+          action_items: string[]
+          athlete_id: string
+          coach_id: string
+          created_at: string
+          id: string
+          insight_text: string
+          sentiment_score: number
+          week_start_date: string
+        }
+        Insert: {
+          action_items?: string[]
+          athlete_id: string
+          coach_id: string
+          created_at?: string
+          id?: string
+          insight_text: string
+          sentiment_score?: number
+          week_start_date: string
+        }
+        Update: {
+          action_items?: string[]
+          athlete_id?: string
+          coach_id?: string
+          created_at?: string
+          id?: string
+          insight_text?: string
+          sentiment_score?: number
+          week_start_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_ai_insights_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_athlete_summary"
+            referencedColumns: ["athlete_id"]
+          },
+          {
+            foreignKeyName: "athlete_ai_insights_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "athlete_ai_insights_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_athlete_summary"
+            referencedColumns: ["athlete_id"]
+          },
+          {
+            foreignKeyName: "athlete_ai_insights_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       athlete_cycle_settings: {
         Row: {
           athlete_id: string
