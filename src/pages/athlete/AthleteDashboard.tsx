@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
+import { triggerConfetti } from "@/utils/ux";
+import { toast } from "sonner";
 import { AthleteLayout } from "@/components/athlete/AthleteLayout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -214,11 +216,24 @@ const BodyPartChip = ({
 
 export default function AthleteDashboard() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [subjectiveOverride, setSubjectiveOverride] = useState<number | null>(null);
   const [showOverrideSlider, setShowOverrideSlider] = useState(false);
   const [tempOverride, setTempOverride] = useState(70);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Payment success celebration
+  useEffect(() => {
+    if (searchParams.get("payment") === "success") {
+      triggerConfetti();
+      toast.success("Pagamento confermato! 🎉", {
+        description: "Il tuo abbonamento è ora attivo.",
+        duration: 5000,
+      });
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [searchParams]);
   
   // Fetch current user ID for gamification
   useEffect(() => {
