@@ -32,6 +32,7 @@ import {
   AlertTriangle,
   Sparkles,
   Dumbbell,
+  Camera,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +44,7 @@ import { toast } from "sonner";
 import { FoodDatabase } from "@/components/nutrition/FoodDatabase";
 import { CalorieBankCard } from "@/components/nutrition/CalorieBankCard";
 import { SmartCopyDrawer } from "@/components/nutrition/SmartCopyDrawer";
+import { FoodCameraScanner } from "@/components/athlete/nutrition/FoodCameraScanner";
 import {
   Line,
   Scatter,
@@ -549,6 +551,7 @@ export default function AthleteNutrition() {
   const [foodDbOpen, setFoodDbOpen] = useState(false);
   const [showSecondFab, setShowSecondFab] = useState(false);
   const [smartCopyOpen, setSmartCopyOpen] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const haptic = useHapticFeedback();
   
@@ -917,6 +920,25 @@ export default function AthleteNutrition() {
         </Button>
       </div>
       
+      {/* Quaternary FAB - AI Camera Scanner */}
+      <div
+        className={cn(
+          "fixed bottom-20 right-4 z-40 transition-all duration-300 ease-out",
+          showSecondFab ? "translate-y-[-144px] opacity-100" : "translate-y-0 opacity-0 pointer-events-none"
+        )}
+      >
+        <Button
+          onClick={() => {
+            setScannerOpen(true);
+            setShowSecondFab(false);
+          }}
+          className="h-14 w-14 rounded-full shadow-xl bg-primary/90 hover:bg-primary"
+          size="icon"
+        >
+          <Camera className="h-6 w-6" />
+        </Button>
+      </div>
+      
       {/* Tertiary FAB - Smart Copy */}
       <div
         className={cn(
@@ -976,6 +998,13 @@ export default function AthleteNutrition() {
         open={smartCopyOpen}
         onOpenChange={setSmartCopyOpen}
         onLogged={fetchTodayNutrition}
+      />
+
+      {/* ===== AI FOOD CAMERA SCANNER ===== */}
+      <FoodCameraScanner
+        open={scannerOpen}
+        onOpenChange={setScannerOpen}
+        onMealLogged={fetchTodayNutrition}
       />
 
 

@@ -1020,6 +1020,51 @@ export type Database = {
           },
         ]
       }
+      meal_logs: {
+        Row: {
+          calories: number
+          carbs: number
+          confidence_score: number | null
+          created_at: string
+          date: string
+          fats: number
+          id: string
+          meal_time: Database["public"]["Enums"]["meal_time"]
+          name: string
+          photo_url: string | null
+          protein: number
+          user_id: string
+        }
+        Insert: {
+          calories?: number
+          carbs?: number
+          confidence_score?: number | null
+          created_at?: string
+          date?: string
+          fats?: number
+          id?: string
+          meal_time?: Database["public"]["Enums"]["meal_time"]
+          name: string
+          photo_url?: string | null
+          protein?: number
+          user_id: string
+        }
+        Update: {
+          calories?: number
+          carbs?: number
+          confidence_score?: number | null
+          created_at?: string
+          date?: string
+          fats?: number
+          id?: string
+          meal_time?: Database["public"]["Enums"]["meal_time"]
+          name?: string
+          photo_url?: string | null
+          protein?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
@@ -1957,6 +2002,7 @@ export type Database = {
     Enums: {
       content_type: "video" | "pdf" | "link" | "text"
       cycle_phase: "menstrual" | "follicular" | "ovulatory" | "luteal"
+      meal_time: "breakfast" | "lunch" | "dinner" | "snack"
       phase_focus_type:
         | "strength"
         | "hypertrophy"
@@ -2098,6 +2144,7 @@ export const Constants = {
     Enums: {
       content_type: ["video", "pdf", "link", "text"],
       cycle_phase: ["menstrual", "follicular", "ovulatory", "luteal"],
+      meal_time: ["breakfast", "lunch", "dinner", "snack"],
       phase_focus_type: [
         "strength",
         "hypertrophy",
