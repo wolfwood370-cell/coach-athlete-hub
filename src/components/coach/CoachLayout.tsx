@@ -1,11 +1,12 @@
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { CoachSidebar } from "./CoachSidebar";
-import { Bell, Search, ChevronRight, Settings } from "lucide-react";
+import { Search, ChevronRight, Settings } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SunThemeToggle } from "@/components/SunThemeToggle";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 interface CoachLayoutProps {
   children: React.ReactNode;
@@ -60,10 +61,7 @@ function CoachHeader({ title, subtitle }: { title?: string; subtitle?: string })
             <SunThemeToggle />
           </PopoverContent>
         </Popover>
-        <Button variant="ghost" size="icon" className="relative h-9 w-9">
-          <Bell className="h-[18px] w-[18px] text-muted-foreground" />
-          <span className="absolute top-2 right-2 h-2 w-2 bg-destructive rounded-full ring-2 ring-background" />
-        </Button>
+        <NotificationBell />
       </div>
     </header>
   );
