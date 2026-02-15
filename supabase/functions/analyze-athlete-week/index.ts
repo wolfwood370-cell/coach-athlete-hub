@@ -21,7 +21,6 @@ serve(async (req) => {
       });
     }
 
-    // Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Non autenticato" }), {
@@ -34,7 +33,6 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Verify caller is coach of athlete
     const userClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -46,10 +44,10 @@ serve(async (req) => {
       });
     }
 
-    // Verify coach relationship
+    // Fetch athlete profile with gender
     const { data: athleteProfile } = await supabase
       .from("profiles")
-      .select("coach_id, full_name")
+      .select("coach_id, full_name, onboarding_data")
       .eq("id", athlete_id)
       .single();
 
@@ -61,50 +59,58 @@ serve(async (req) => {
     }
 
     const athleteName = athleteProfile.full_name || "Atleta";
+    // Extract gender from onboarding_data or default to unknown
+    const onboardingData = athleteProfile.onboarding_data as Record<string, unknown> | null;
+    const athleteGender = (onboardingData?.gender as string) || "unknown";
 
-    // Calculate date range (last 7 days)
+    // Date range
     const now = new Date();
     const weekAgo = new Date(now);
     weekAgo.setDate(weekAgo.getDate() - 7);
     const weekStart = weekAgo.toISOString().split("T")[0];
     const today = now.toISOString().split("T")[0];
 
-    // 1. Fetch workout data with VBT metrics
-    const { data: workoutLogs } = await supabase
-      .from("workout_logs")
-      .select(`
-        id, completed_at, rpe_global, srpe, duration_minutes, status,
-        workout_exercises (
-          exercise_name, mean_velocity_ms, peak_velocity_ms, rom_cm, calc_power_watts, sets_data
-        )
-      `)
-      .eq("athlete_id", athlete_id)
-      .gte("completed_at", weekAgo.toISOString())
-      .order("completed_at", { ascending: true });
+    // Fetch data in parallel
+    const [workoutResult, cycleResult, readinessResult] = await Promise.all([
+      supabase
+        .from("workout_logs")
+        .select(`
+          id, completed_at, rpe_global, srpe, duration_minutes, status,
+          workout_exercises (
+            exercise_name, mean_velocity_ms, peak_velocity_ms, rom_cm, calc_power_watts, sets_data
+          )
+        `)
+        .eq("athlete_id", athlete_id)
+        .gte("completed_at", weekAgo.toISOString())
+        .order("completed_at", { ascending: true }),
 
-    // 2. Fetch cycle logs
-    const { data: cycleLogs } = await supabase
-      .from("daily_cycle_logs")
-      .select("date, current_phase, symptom_tags, notes")
-      .eq("athlete_id", athlete_id)
-      .gte("date", weekStart)
-      .lte("date", today)
-      .order("date", { ascending: true });
+      athleteGender === "female"
+        ? supabase
+            .from("daily_cycle_logs")
+            .select("date, current_phase, symptom_tags, notes")
+            .eq("athlete_id", athlete_id)
+            .gte("date", weekStart)
+            .lte("date", today)
+            .order("date", { ascending: true })
+        : Promise.resolve({ data: null }),
 
-    // 3. Fetch readiness data
-    const { data: readinessData } = await supabase
-      .from("daily_readiness")
-      .select("date, score, sleep_quality, energy, mood, stress_level, sleep_hours, body_weight")
-      .eq("athlete_id", athlete_id)
-      .gte("date", weekStart)
-      .lte("date", today)
-      .order("date", { ascending: true });
+      supabase
+        .from("daily_readiness")
+        .select("date, score, sleep_quality, energy, mood, stress_level, sleep_hours, body_weight")
+        .eq("athlete_id", athlete_id)
+        .gte("date", weekStart)
+        .lte("date", today)
+        .order("date", { ascending: true }),
+    ]);
 
-    // Aggregate data for prompt
+    const workoutLogs = workoutResult.data;
+    const cycleLogs = cycleResult.data;
+    const readinessData = readinessResult.data;
+
+    // Aggregate workout data
     const completedWorkouts = (workoutLogs || []).filter((w) => w.status === "completed");
     const totalSessions = completedWorkouts.length;
 
-    // VBT metrics aggregation
     let totalVelocityPoints = 0;
     let sumVelocity = 0;
     let totalVolume = 0;
@@ -114,24 +120,19 @@ serve(async (req) => {
       const exercises = log.workout_exercises as Array<{
         exercise_name: string;
         mean_velocity_ms: number | null;
-        peak_velocity_ms: number | null;
         sets_data: Array<{ weight_kg?: number; reps?: number }>;
       }>;
 
       exercises?.forEach((ex) => {
-        // Volume
         if (Array.isArray(ex.sets_data)) {
           ex.sets_data.forEach((s) => {
             totalVolume += (Number(s.weight_kg) || 0) * (Number(s.reps) || 0);
           });
         }
-
-        // VBT
         if (ex.mean_velocity_ms && Number(ex.mean_velocity_ms) > 0) {
           const v = Number(ex.mean_velocity_ms);
           sumVelocity += v;
           totalVelocityPoints++;
-
           if (!exerciseSummaries[ex.exercise_name]) {
             exerciseSummaries[ex.exercise_name] = { count: 0, avgVelocity: 0, velocitySum: 0 };
           }
@@ -141,7 +142,6 @@ serve(async (req) => {
       });
     });
 
-    // Calculate averages
     Object.keys(exerciseSummaries).forEach((k) => {
       const s = exerciseSummaries[k];
       s.avgVelocity = Math.round((s.velocitySum / s.count) * 1000) / 1000;
@@ -152,12 +152,9 @@ serve(async (req) => {
       ? Math.round(completedWorkouts.reduce((s, w) => s + (w.rpe_global || 0), 0) / completedWorkouts.length * 10) / 10
       : null;
 
-    // Cycle phase summary
-    const cyclePhases = (cycleLogs || []).map((c) => c.current_phase);
-    const predominantPhase = cyclePhases.length > 0
-      ? cyclePhases.sort((a, b) => cyclePhases.filter((v) => v === a).length - cyclePhases.filter((v) => v === b).length).pop()
-      : null;
-    const symptoms = (cycleLogs || []).flatMap((c) => c.symptom_tags || []);
+    const vbtDetail = Object.entries(exerciseSummaries)
+      .map(([name, s]) => `${name}: ${s.avgVelocity} m/s media (${s.count} set)`)
+      .join("; ");
 
     // Readiness summary
     const avgReadiness = readinessData && readinessData.length > 0
@@ -167,14 +164,24 @@ serve(async (req) => {
       ? Math.round(readinessData.reduce((s, r) => s + (r.sleep_hours || 0), 0) / readinessData.length * 10) / 10
       : null;
 
-    // Build VBT exercise detail string
-    const vbtDetail = Object.entries(exerciseSummaries)
-      .map(([name, s]) => `${name}: ${s.avgVelocity} m/s media (${s.count} set)`)
-      .join("; ");
+    // Cycle data (only for female)
+    let cycleSection = "";
+    if (athleteGender === "female" && cycleLogs && cycleLogs.length > 0) {
+      const cyclePhases = cycleLogs.map((c) => c.current_phase);
+      const predominantPhase = cyclePhases.sort(
+        (a, b) => cyclePhases.filter((v) => v === a).length - cyclePhases.filter((v) => v === b).length
+      ).pop();
+      const symptoms = cycleLogs.flatMap((c) => c.symptom_tags || []);
+      cycleSection = `
+CICLO MESTRUALE:
+- Fase predominante: ${predominantPhase ?? "Non tracciato"}
+- Sintomi riportati: ${symptoms.length > 0 ? symptoms.join(", ") : "Nessuno"}`;
+    }
 
-    // Build the prompt
+    // Build data context
     const dataContext = `
 DATI SETTIMANA (${weekStart} → ${today}) per ${athleteName}:
+Genere atleta: ${athleteGender}
 
 ALLENAMENTO:
 - Sessioni completate: ${totalSessions}
@@ -185,34 +192,43 @@ VBT (Velocity Based Training):
 - Velocità media concentrica globale: ${avgVelocity ?? "Nessun dato VBT"} m/s
 - Dettaglio per esercizio: ${vbtDetail || "Nessun dato VBT registrato"}
 
-CICLO MESTRUALE:
-- Fase predominante: ${predominantPhase ?? "Non tracciato"}
-- Sintomi riportati: ${symptoms.length > 0 ? symptoms.join(", ") : "Nessuno"}
-
 READINESS:
 - Score medio: ${avgReadiness ?? "N/D"}/100
 - Sonno medio: ${avgSleep ?? "N/D"} ore
+${cycleSection}
 `.trim();
 
+    // Gender guardrail
+    const genderGuardrail = athleteGender === "male"
+      ? `REGOLA CRITICA: L'atleta è MASCHIO. NON menzionare MAI ciclo mestruale, fasi ormonali, ormoni femminili, o sintomi legati al ciclo. Parole PROIBITE: Luteal, Follicolare, Mestruale, Ovulatoria, Ciclo mestruale, Periodo. La sezione "Stato Fisiologico" deve analizzare SOLO sonno, stress, energia e recupero.`
+      : `L'atleta è FEMMINA. Nella sezione "Stato Fisiologico & Readiness" puoi includere l'analisi della fase del ciclo mestruale se i dati sono disponibili.`;
+
     const systemPrompt = `Sei un Direttore delle Prestazioni d'élite (Sports Scientist) per un servizio di coaching high-ticket.
-Analizzi i dati settimanali degli atleti e produci report concisi, scientifici e azionabili.
+Analizzi i dati settimanali degli atleti e produci report strutturati, scientifici e azionabili.
+
+${genderGuardrail}
 
 REGOLE:
 1. Rispondi ESCLUSIVAMENTE in italiano professionale/scientifico.
-2. Produci un'analisi breve (3-5 frasi) seguita da esattamente 3 azioni concrete.
-3. Se ci sono dati VBT, correla i trend di velocità con il carico e la fase del ciclo.
-4. Se la velocità è calata ma il carico è stabile, distingui tra fatica centrale vs periferica.
-5. Sii diretto e assertivo nel tono — questo è un report per un coach professionista.
-6. NON usare formattazione markdown, solo testo piano.`;
+2. Sii diretto e assertivo nel tono — questo è un report per un coach professionista.
+3. NON usare emoji nel corpo del testo.
+4. NON generare una lista di azioni separate. Integra le raccomandazioni nella Strategia Operativa.
+5. Il report DEVE seguire ESATTAMENTE questa struttura Markdown:
 
-    const userPrompt = `Analizza questi dati e genera:
-1. Un paragrafo di analisi (insight_text)  
-2. Esattamente 3 azioni concrete (action_items) — ogni azione max 10 parole
-3. Un punteggio sentiment da 0.0 (critico) a 1.0 (eccellente)
+### 📉 Diagnosi del Carico & VBT
+(Analizza volume, intensità, e trend di velocità. Correla VBT con RPE e carico.)
+
+### 🧬 Stato Fisiologico & Readiness
+(Analizza sonno, stress, recupero. Se femmina e dati disponibili, correla con fase del ciclo.)
+
+### 🎯 Strategia Operativa
+(Un paragrafo narrativo con le raccomandazioni strategiche concrete per la prossima settimana. Es: "Mantenere l'intensità ma ridurre il volume del 20%...")`;
+
+    const userPrompt = `Analizza questi dati e genera il report strutturato.
+Assegna anche un punteggio sentiment da 0.0 (critico) a 1.0 (eccellente).
 
 ${dataContext}`;
 
-    // Call Lovable AI Gateway
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: "AI non configurata" }), {
@@ -244,19 +260,14 @@ ${dataContext}`;
                 properties: {
                   insight_text: {
                     type: "string",
-                    description: "3-5 sentence analysis paragraph in Italian",
-                  },
-                  action_items: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Exactly 3 concrete action items, max 10 words each",
+                    description: "Full markdown report with 3 sections: Diagnosi del Carico & VBT, Stato Fisiologico & Readiness, Strategia Operativa",
                   },
                   sentiment_score: {
                     type: "number",
                     description: "Score from 0.0 (critical) to 1.0 (excellent)",
                   },
                 },
-                required: ["insight_text", "action_items", "sentiment_score"],
+                required: ["insight_text", "sentiment_score"],
                 additionalProperties: false,
               },
             },
@@ -270,51 +281,38 @@ ${dataContext}`;
       const status = aiResponse.status;
       if (status === 429) {
         return new Response(JSON.stringify({ error: "Limite richieste AI raggiunto. Riprova tra qualche minuto." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (status === 402) {
         return new Response(JSON.stringify({ error: "Crediti AI esauriti. Contatta il supporto." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const errText = await aiResponse.text();
       console.error("AI Gateway error:", status, errText);
       return new Response(JSON.stringify({ error: "Errore gateway AI" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const aiData = await aiResponse.json();
-
-    // Extract tool call result
     const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    let analysis: { insight_text: string; action_items: string[]; sentiment_score: number };
+    let analysis: { insight_text: string; sentiment_score: number };
 
     if (toolCall?.function?.arguments) {
       analysis = JSON.parse(toolCall.function.arguments);
     } else {
-      // Fallback: try to parse from content
       const content = aiData.choices?.[0]?.message?.content || "";
       analysis = {
         insight_text: content || "Analisi non disponibile. Dati insufficienti per questa settimana.",
-        action_items: ["Raccogliere più dati questa settimana", "Monitorare readiness giornaliera", "Registrare sessioni VBT"],
         sentiment_score: 0.5,
       };
     }
 
-    // Clamp sentiment
     analysis.sentiment_score = Math.max(0, Math.min(1, analysis.sentiment_score));
-    // Ensure exactly 3 items
-    analysis.action_items = (analysis.action_items || []).slice(0, 3);
-    while (analysis.action_items.length < 3) {
-      analysis.action_items.push("Monitorare parametri questa settimana");
-    }
 
-    // Save to database using service role (bypasses RLS)
+    // Save — action_items defaults to empty array in DB
     const { data: inserted, error: insertError } = await supabase
       .from("athlete_ai_insights")
       .insert({
@@ -322,7 +320,7 @@ ${dataContext}`;
         coach_id: user.id,
         week_start_date: weekStart,
         insight_text: analysis.insight_text,
-        action_items: analysis.action_items,
+        action_items: [],
         sentiment_score: analysis.sentiment_score,
       })
       .select()
@@ -331,8 +329,7 @@ ${dataContext}`;
     if (insertError) {
       console.error("Insert error:", insertError);
       return new Response(JSON.stringify({ error: "Errore salvataggio analisi" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
