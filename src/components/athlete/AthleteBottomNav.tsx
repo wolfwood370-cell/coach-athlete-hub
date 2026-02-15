@@ -6,10 +6,10 @@ import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { title: "Home", url: "/athlete", icon: Home },
-  { title: "Workout", url: "/athlete/workout", icon: Dumbbell },
-  { title: "Nutrition", url: "/athlete/nutrition", icon: Utensils },
-  { title: "Health", url: "/athlete/health", icon: HeartPulse },
-  { title: "Profile", url: "/athlete/profile", icon: User },
+  { title: "Esecuzione", url: "/athlete/workout", icon: Dumbbell },
+  { title: "Nutrizione", url: "/athlete/nutrition", icon: Utensils },
+  { title: "Salute", url: "/athlete/health", icon: HeartPulse },
+  { title: "Profilo", url: "/athlete/profile", icon: User },
 ];
 
 export function AthleteBottomNav() {

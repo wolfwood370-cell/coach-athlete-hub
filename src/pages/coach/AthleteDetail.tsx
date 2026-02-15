@@ -212,8 +212,8 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
     return (
       <Card className="p-12 text-center">
         <Dumbbell className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-        <h3 className="text-lg font-semibold mb-1">No Exercise Data</h3>
-        <p className="text-sm text-muted-foreground">This athlete hasn't completed any workouts yet.</p>
+        <h3 className="text-lg font-semibold mb-1">Nessun Dato Esercizi</h3>
+        <p className="text-sm text-muted-foreground">Questo atleta non ha ancora completato allenamenti.</p>
       </Card>
     );
   }
@@ -229,8 +229,8 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
                 <BarChart3 className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-lg">Exercise Performance</CardTitle>
-                <p className="text-sm text-muted-foreground">Track strength progression per exercise</p>
+                <CardTitle className="text-lg">Prestazioni Esercizio</CardTitle>
+                <p className="text-sm text-muted-foreground">Progressione forza per esercizio</p>
               </div>
             </div>
             
@@ -244,15 +244,15 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
                   className="w-full sm:w-[240px] justify-between"
                 >
                   <Dumbbell className="h-4 w-4 mr-2 shrink-0" />
-                  <span className="truncate">{selectedExercise || "Select exercise"}</span>
+                  <span className="truncate">{selectedExercise || "Seleziona esercizio"}</span>
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[240px] p-0">
                 <Command>
-                  <CommandInput placeholder="Search exercise..." />
+                  <CommandInput placeholder="Cerca esercizio..." />
                   <CommandList>
-                    <CommandEmpty>No exercise found.</CommandEmpty>
+                    <CommandEmpty>Nessun esercizio trovato.</CommandEmpty>
                     <CommandGroup>
                       {exerciseNames.map((name) => (
                         <CommandItem
@@ -287,9 +287,9 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Estimated 1RM</p>
+                <p className="text-sm text-muted-foreground mb-1">1RM Stimato</p>
                 <p className="text-3xl font-bold text-foreground">{kpis.estimated1RM} kg</p>
-                <p className="text-xs text-muted-foreground mt-1">Calculated from best set</p>
+                <p className="text-xs text-muted-foreground mt-1">Calcolato dalla serie migliore</p>
               </div>
               <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center">
                 <Trophy className="h-7 w-7 text-primary" />
@@ -301,9 +301,9 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Max Volume</p>
+                <p className="text-sm text-muted-foreground mb-1">Volume Max</p>
                 <p className="text-3xl font-bold text-foreground">{kpis.maxVolume.toLocaleString()} kg</p>
-                <p className="text-xs text-muted-foreground mt-1">Highest single session</p>
+                <p className="text-xs text-muted-foreground mt-1">Sessione singola più alta</p>
               </div>
               <div className="h-14 w-14 rounded-xl bg-chart-2/10 flex items-center justify-center">
                 <Weight className="h-7 w-7 text-chart-2" />
@@ -315,9 +315,9 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Frequency</p>
+                <p className="text-sm text-muted-foreground mb-1">Frequenza</p>
                 <p className="text-3xl font-bold text-foreground">{kpis.frequency}x</p>
-                <p className="text-xs text-muted-foreground mt-1">Sessions with this exercise</p>
+                <p className="text-xs text-muted-foreground mt-1">Sessioni con questo esercizio</p>
               </div>
               <div className="h-14 w-14 rounded-xl bg-chart-3/10 flex items-center justify-center">
                 <Repeat className="h-7 w-7 text-chart-3" />
@@ -331,10 +331,10 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
       <Card className="overflow-hidden">
         <CardHeader className="pb-2">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <CardTitle className="text-base">Progression Over Time</CardTitle>
+            <CardTitle className="text-base">Progressione nel Tempo</CardTitle>
             <div className="flex items-center gap-2">
-              <Button variant={chartView === "1rm" ? "default" : "outline"} size="sm" onClick={() => setChartView("1rm")} className="text-xs">Est. 1RM</Button>
-              <Button variant={chartView === "weight" ? "default" : "outline"} size="sm" onClick={() => setChartView("weight")} className="text-xs">Max Weight</Button>
+              <Button variant={chartView === "1rm" ? "default" : "outline"} size="sm" onClick={() => setChartView("1rm")} className="text-xs">1RM Stimato</Button>
+              <Button variant={chartView === "weight" ? "default" : "outline"} size="sm" onClick={() => setChartView("weight")} className="text-xs">Carico Max</Button>
               <Button variant={chartView === "volume" ? "default" : "outline"} size="sm" onClick={() => setChartView("volume")} className="text-xs">Volume</Button>
             </div>
           </div>
@@ -343,7 +343,7 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
           {chartData.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Activity className="h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">No data for this exercise yet</p>
+              <p className="text-sm text-muted-foreground">Nessun dato per questo esercizio</p>
             </div>
           ) : (
             <div className="h-[300px] w-full">
@@ -361,7 +361,7 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
                         <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
                           <p className="text-sm font-medium text-foreground">{data.date}</p>
                           <p className="text-sm text-muted-foreground">
-                            {chartView === "1rm" ? "Est. 1RM" : chartView === "weight" ? "Max Weight" : "Volume"}: 
+                            {chartView === "1rm" ? "1RM Stimato" : chartView === "weight" ? "Carico Max" : "Volume"}: 
                             <span className="font-semibold text-foreground ml-1">
                               {chartView === "volume" ? `${data.value.toLocaleString()} kg` : `${data.value} kg`}
                             </span>
@@ -536,8 +536,8 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
               <ShieldCheck className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg">Training Safety Monitor</CardTitle>
-              <p className="text-sm text-muted-foreground">Foster's method load analysis & injury risk metrics</p>
+              <CardTitle className="text-lg">Monitor Sicurezza Allenamento</CardTitle>
+              <p className="text-sm text-muted-foreground">Analisi carico metodo Foster e metriche rischio infortunio</p>
             </div>
           </div>
         </CardHeader>
@@ -549,7 +549,7 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
               <Gauge className="h-5 w-5 text-primary" />
-              Session RPE Load (Last 14 Days)
+              Carico RPE Sessione (Ultimi 14 Giorni)
             </CardTitle>
             <TooltipProvider>
               <Tooltip>
@@ -609,7 +609,7 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
                             </p>
                           </>
                         ) : (
-                          <p className="text-sm text-muted-foreground">Rest Day</p>
+                          <p className="text-sm text-muted-foreground">Giorno di Riposo</p>
                         )}
                       </div>
                     );
@@ -628,15 +628,15 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
           <div className="flex items-center justify-center gap-6 pt-4 border-t border-border/50">
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-chart-3" />
-              <span className="text-xs text-muted-foreground">Recovery (&lt;300)</span>
+              <span className="text-xs text-muted-foreground">Recupero (&lt;300)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-chart-2" />
-              <span className="text-xs text-muted-foreground">Maintenance (300-600)</span>
+              <span className="text-xs text-muted-foreground">Mantenimento (300-600)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-destructive" />
-              <span className="text-xs text-muted-foreground">Overreaching (&gt;600)</span>
+              <span className="text-xs text-muted-foreground">Sovraccarico (&gt;600)</span>
             </div>
           </div>
         </CardContent>
@@ -653,17 +653,17 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
             <div className="flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <p className="text-sm text-muted-foreground">Monotony</p>
+                  <p className="text-sm text-muted-foreground">Monotonia</p>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger>
                         <Info className="h-3.5 w-3.5 text-muted-foreground/50" />
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[220px]">
-                        <p className="text-xs">
-                          <strong>Training Monotony</strong><br />
-                          Mean Load ÷ Standard Deviation<br /><br />
-                          High monotony (&gt;2.0) = repetitive training, higher injury risk
+                         <p className="text-xs">
+                          <strong>Monotonia dell'Allenamento</strong><br />
+                          Carico Medio ÷ Deviazione Standard<br /><br />
+                          Alta monotonia (&gt;2.0) = allenamento ripetitivo, maggior rischio infortunio
                         </p>
                       </TooltipContent>
                     </Tooltip>
@@ -677,8 +677,8 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
                   {riskMetrics.monotony.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {riskMetrics.monotony > 2.0 ? "High Risk" : 
-                   riskMetrics.monotony > 1.5 ? "Moderate" : "Safe"}
+                  {riskMetrics.monotony > 2.0 ? "Alto Rischio" : 
+                   riskMetrics.monotony > 1.5 ? "Moderato" : "Sicuro"}
                 </p>
               </div>
               <div className={cn(
@@ -707,10 +707,10 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
                         <Info className="h-3.5 w-3.5 text-muted-foreground/50" />
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-[220px]">
-                        <p className="text-xs">
-                          <strong>Training Strain</strong><br />
-                          Weekly Load × Monotony<br /><br />
-                          Higher strain increases overtraining and illness risk
+                         <p className="text-xs">
+                          <strong>Strain di Allenamento</strong><br />
+                          Carico Settimanale × Monotonia<br /><br />
+                          Strain elevato aumenta il rischio di sovrallenamento
                         </p>
                       </TooltipContent>
                     </Tooltip>
@@ -720,7 +720,7 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
                   {riskMetrics.strain.toLocaleString()}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Arbitrary Units
+                  Unità Arbitrarie
                 </p>
               </div>
               <div className="h-14 w-14 rounded-xl bg-chart-2/10 flex items-center justify-center">
@@ -735,12 +735,12 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Weekly Load</p>
+                <p className="text-sm text-muted-foreground mb-1">Carico Settimanale</p>
                 <p className="text-3xl font-bold text-foreground">
                   {riskMetrics.weeklyLoad.toLocaleString()}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Total AU (7 days)
+                  UA Totali (7 giorni)
                 </p>
               </div>
               <div className="h-14 w-14 rounded-xl bg-chart-3/10 flex items-center justify-center">
@@ -757,7 +757,7 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <CardTitle className="text-base flex items-center gap-2">
               <Activity className="h-5 w-5 text-primary" />
-              ACWR Trend Analysis
+              Analisi Trend ACWR
             </CardTitle>
             
             {/* Current ACWR Badge */}
@@ -766,7 +766,7 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
               acwrStatus.bgColor
             )}>
               <div className="text-right">
-                <p className="text-xs text-muted-foreground">Current ACWR</p>
+                <p className="text-xs text-muted-foreground">ACWR Attuale</p>
                 <p className={cn("text-2xl font-bold", acwrStatus.color)}>
                   {currentAcwr.toFixed(2)}
                 </p>
@@ -807,13 +807,13 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
                     const status = getAcwrStatus(data.ratio);
                     return (
                       <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
-                        <p className="text-sm font-medium text-foreground mb-2">Week of {data.week}</p>
+                        <p className="text-sm font-medium text-foreground mb-2">Settimana del {data.week}</p>
                         <div className="space-y-1">
                           <p className="text-xs text-muted-foreground">
-                            Acute Load: <span className="font-semibold text-foreground">{data.acute} AU</span>
+                            Carico Acuto: <span className="font-semibold text-foreground">{data.acute} UA</span>
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Chronic Load: <span className="font-semibold text-foreground">{data.chronic} AU</span>
+                            Carico Cronico: <span className="font-semibold text-foreground">{data.chronic} UA</span>
                           </p>
                           <p className={cn("text-sm font-semibold", status.color)}>
                             ACWR: {data.ratio.toFixed(2)}
@@ -839,15 +839,15 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 pt-4 border-t border-border/50">
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-green-500" />
-              <span className="text-xs text-muted-foreground">Optimal (0.8-1.3)</span>
+              <span className="text-xs text-muted-foreground">Ottimale (0.8-1.3)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-amber-500" />
-              <span className="text-xs text-muted-foreground">Warning (&lt;0.8 or 1.3-1.5)</span>
+              <span className="text-xs text-muted-foreground">Attenzione (&lt;0.8 o 1.3-1.5)</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-3 w-3 rounded-full bg-destructive" />
-              <span className="text-xs text-muted-foreground">High Risk (&gt;1.5)</span>
+              <span className="text-xs text-muted-foreground">Alto Rischio (&gt;1.5)</span>
             </div>
           </div>
         </CardContent>
@@ -899,10 +899,10 @@ const generateMockWeightData = () => {
 const generateMockMeasurements = () => {
   const today = new Date();
   const measurementTypes = [
-    { key: "waist", label: "Waist", unit: "cm", baseValue: 84, change: -0.3 },
-    { key: "chest", label: "Chest", unit: "cm", baseValue: 104, change: 0.1 },
-    { key: "thigh", label: "Thigh", unit: "cm", baseValue: 58, change: 0.2 },
-    { key: "arm", label: "Arm", unit: "cm", baseValue: 38, change: 0.15 },
+    { key: "waist", label: "Vita", unit: "cm", baseValue: 84, change: -0.3 },
+    { key: "chest", label: "Petto", unit: "cm", baseValue: 104, change: 0.1 },
+    { key: "thigh", label: "Coscia", unit: "cm", baseValue: 58, change: 0.2 },
+    { key: "arm", label: "Braccio", unit: "cm", baseValue: 38, change: 0.15 },
   ];
   
   return measurementTypes.map(type => {
@@ -1020,8 +1020,8 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
                 <Scale className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-lg">Body Composition Tracking</CardTitle>
-                <p className="text-sm text-muted-foreground">Weight trends & circumference measurements</p>
+                <CardTitle className="text-lg">Composizione Corporea</CardTitle>
+                <p className="text-sm text-muted-foreground">Trend peso e misurazioni circonferenze</p>
               </div>
             </div>
             
@@ -1029,20 +1029,20 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
               <DialogTrigger asChild>
                 <Button className="gap-2">
                   <Plus className="h-4 w-4" />
-                  Log Measurement
+                  Registra Misurazione
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Log New Measurements</DialogTitle>
+                  <DialogTitle>Registra Nuove Misurazioni</DialogTitle>
                   <DialogDescription>
-                    Enter today's body measurements for the athlete.
+                    Inserisci le misurazioni corporee di oggi per l'atleta.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="weight">Weight (kg)</Label>
+                      <Label htmlFor="weight">Peso (kg)</Label>
                       <Input
                         id="weight"
                         type="number"
@@ -1053,7 +1053,7 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="waist">Waist (cm)</Label>
+                      <Label htmlFor="waist">Vita (cm)</Label>
                       <Input
                         id="waist"
                         type="number"
@@ -1066,7 +1066,7 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="chest">Chest (cm)</Label>
+                      <Label htmlFor="chest">Petto (cm)</Label>
                       <Input
                         id="chest"
                         type="number"
@@ -1077,7 +1077,7 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="thigh">Thigh (cm)</Label>
+                      <Label htmlFor="thigh">Coscia (cm)</Label>
                       <Input
                         id="thigh"
                         type="number"
@@ -1090,7 +1090,7 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="arm">Arm (cm)</Label>
+                      <Label htmlFor="arm">Braccio (cm)</Label>
                       <Input
                         id="arm"
                         type="number"
@@ -1104,10 +1104,10 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                    Cancel
+                    Annulla
                   </Button>
                   <Button onClick={handleAddMetric}>
-                    Save Measurements
+                    Salva Misurazioni
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -1124,7 +1124,7 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
                 <TrendingUp className="h-5 w-5 text-primary" />
-                Weight Trend Analysis
+                Analisi Trend Peso
               </CardTitle>
               <TooltipProvider>
                 <Tooltip>
@@ -1135,8 +1135,8 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-[280px]">
                     <p className="text-sm">
-                      <strong>7-Day Moving Average</strong><br />
-                      The solid line shows your true weight trend, smoothing out daily fluctuations from water retention, food timing, etc.
+                      <strong>Media Mobile 7 Giorni</strong><br />
+                      La linea continua mostra il trend reale del peso, eliminando le fluttuazioni giornaliere da ritenzione idrica, timing dei pasti, ecc.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -1147,14 +1147,14 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
             {/* Stats Row */}
             <div className="flex items-center gap-6 mb-4 pb-4 border-b border-border/50">
               <div>
-                <p className="text-sm text-muted-foreground">Current Trend</p>
+                <p className="text-sm text-muted-foreground">Trend Attuale</p>
                 <p className="text-2xl font-bold text-foreground">
                   {weightStats.currentTrend.toFixed(1)} kg
                 </p>
               </div>
               <div className="h-10 w-px bg-border" />
               <div>
-                <p className="text-sm text-muted-foreground">Weekly Change</p>
+                <p className="text-sm text-muted-foreground">Variazione Settimanale</p>
                 <p className={cn(
                   "text-2xl font-bold",
                   weightStats.weeklyChange < 0 ? "text-green-500" : 
@@ -1195,7 +1195,7 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
                           <div className="space-y-1 mt-1">
                             <p className="text-sm text-muted-foreground flex items-center gap-2">
                               <CircleDot className="h-3 w-3 text-muted-foreground/50" />
-                              Actual: <span className="font-semibold text-foreground">{data.weight} kg</span>
+                              Effettivo: <span className="font-semibold text-foreground">{data.weight} kg</span>
                             </p>
                             {data.trend && (
                               <p className="text-sm text-muted-foreground flex items-center gap-2">
@@ -1235,11 +1235,11 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
             <div className="flex items-center justify-center gap-6 pt-4 border-t border-border/50">
               <div className="flex items-center gap-2">
                 <CircleDot className="h-3 w-3 text-muted-foreground/50" />
-                <span className="text-xs text-muted-foreground">Daily Weight</span>
+                <span className="text-xs text-muted-foreground">Peso Giornaliero</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-4 h-0.5 bg-primary rounded" />
-                <span className="text-xs text-muted-foreground">7-Day Trend</span>
+                <span className="text-xs text-muted-foreground">Trend 7 Giorni</span>
               </div>
             </div>
           </CardContent>
@@ -1249,7 +1249,7 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
         <div className="space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
             <Ruler className="h-4 w-4" />
-            Body Measurements
+            Misurazioni Corporee
           </h3>
           
           {measurements.map((measurement) => (
@@ -1301,14 +1301,14 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Target className="h-4 w-4 text-primary" />
-                <span className="text-sm font-medium">Weekly Summary</span>
+                <span className="text-sm font-medium">Riepilogo Settimanale</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                Weight trending {weightStats.weeklyChange < 0 ? "down" : "stable"}, 
-                waist {(measurements.find(m => m.key === "waist")?.weeklyChange ?? 0) < 0 ? "decreasing" : "stable"}. 
+                Peso in {weightStats.weeklyChange < 0 ? "calo" : "mantenimento"}, 
+                vita {(measurements.find(m => m.key === "waist")?.weeklyChange ?? 0) < 0 ? "in diminuzione" : "stabile"}. 
                 {weightStats.weeklyChange < 0 && (measurements.find(m => m.key === "waist")?.weeklyChange ?? 0) < 0 
-                  ? " Good progress on the cut!" 
-                  : " Maintaining composition."}
+                  ? " Buoni progressi nella fase di taglio!" 
+                  : " Composizione in mantenimento."}
               </p>
             </CardContent>
           </Card>
@@ -1404,8 +1404,8 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
                 <Camera className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-lg">Progress Photos</CardTitle>
-                <p className="text-sm text-muted-foreground">Visual transformation tracking</p>
+                <CardTitle className="text-lg">Foto Progresso</CardTitle>
+                <p className="text-sm text-muted-foreground">Monitoraggio visivo della trasformazione</p>
               </div>
             </div>
             
@@ -1413,7 +1413,7 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
               {/* Compare Mode Toggle */}
               <div className="flex items-center gap-2">
                 <Columns2 className="h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Compare</span>
+                <span className="text-sm text-muted-foreground">Confronta</span>
                 <Switch
                   checked={compareMode}
                   onCheckedChange={(checked) => {
@@ -1426,7 +1426,7 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
               {/* Upload Button */}
               <Button className="gap-2">
                 <Upload className="h-4 w-4" />
-                Upload Check-in Photos
+                Carica Foto Check-in
               </Button>
             </div>
           </div>
@@ -1435,9 +1435,9 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
           {compareMode && (
             <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
               <p className="text-sm text-foreground">
-                <strong>Compare Mode Active:</strong> Select two dates below to compare progress side-by-side.
-                {selectedDates.length === 1 && " (1/2 selected)"}
-                {selectedDates.length === 2 && " (2/2 selected - viewing comparison)"}
+                <strong>Modalità Confronto Attiva:</strong> Seleziona due date sotto per confrontare i progressi affiancati.
+                {selectedDates.length === 1 && " (1/2 selezionata)"}
+                {selectedDates.length === 2 && " (2/2 selezionate - visualizzazione confronto)"}
               </p>
             </div>
           )}
@@ -1451,7 +1451,7 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
                 <Columns2 className="h-5 w-5 text-primary" />
-                Side-by-Side Comparison
+                Confronto Affiancato
               </CardTitle>
               
               {/* Pose Selector */}
@@ -1475,7 +1475,7 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
               {/* Before */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Badge variant="secondary" className="text-xs">Before</Badge>
+                  <Badge variant="secondary" className="text-xs">Prima</Badge>
                   <span className="text-sm text-muted-foreground">{comparisonPhotos.before.date}</span>
                 </div>
                 <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden relative">
@@ -1495,7 +1495,7 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
               {/* After */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Badge variant="default" className="text-xs bg-green-500 hover:bg-green-600">After</Badge>
+                  <Badge variant="default" className="text-xs bg-green-500 hover:bg-green-600">Dopo</Badge>
                   <span className="text-sm text-muted-foreground">{comparisonPhotos.after.date}</span>
                 </div>
                 <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden relative">
@@ -1522,7 +1522,7 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
                 onClick={() => setSelectedDates([])}
               >
                 <XIcon className="h-4 w-4" />
-                Clear Selection
+                Cancella Selezione
               </Button>
             </div>
           </CardContent>
@@ -1610,13 +1610,13 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
       {progressData.length === 0 && (
         <Card className="p-12 text-center">
           <Camera className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
-          <h3 className="text-lg font-semibold mb-2">No Progress Photos Yet</h3>
+          <h3 className="text-lg font-semibold mb-2">Nessuna Foto Progresso</h3>
           <p className="text-muted-foreground mb-4">
-            Upload check-in photos to track visual progress over time.
+            Carica foto check-in per monitorare il progresso visivo nel tempo.
           </p>
           <Button className="gap-2">
             <Upload className="h-4 w-4" />
-            Upload First Photos
+            Carica Prime Foto
           </Button>
         </Card>
       )}
@@ -1626,26 +1626,26 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
 
 // Training status options
 const TRAINING_STATUS_OPTIONS = [
-  { value: "active", label: "Active", color: "bg-success text-success-foreground" },
-  { value: "injured", label: "Injured", color: "bg-destructive text-destructive-foreground" },
-  { value: "on_hold", label: "On Hold", color: "bg-warning text-warning-foreground" },
+  { value: "active", label: "Attivo", color: "bg-success text-success-foreground" },
+  { value: "injured", label: "Infortunato", color: "bg-destructive text-destructive-foreground" },
+  { value: "on_hold", label: "In Pausa", color: "bg-warning text-warning-foreground" },
 ];
 
 // Experience level options
 const EXPERIENCE_LEVELS = [
-  { value: "beginner", label: "Beginner" },
-  { value: "intermediate", label: "Intermediate" },
-  { value: "advanced", label: "Advanced" },
+  { value: "beginner", label: "Principiante" },
+  { value: "intermediate", label: "Intermedio" },
+  { value: "advanced", label: "Avanzato" },
   { value: "elite", label: "Elite" },
 ];
 
 // Neurotype options
 const NEUROTYPE_OPTIONS = [
-  { value: "1A", label: "Type 1A", description: "Dopamine dominant - Novelty seeker" },
-  { value: "1B", label: "Type 1B", description: "Dopamine dominant - Thrill seeker" },
-  { value: "2A", label: "Type 2A", description: "Adrenaline dominant - Flexible" },
-  { value: "2B", label: "Type 2B", description: "Adrenaline dominant - Reward-driven" },
-  { value: "3", label: "Type 3", description: "Serotonin dominant - Consistency-focused" },
+  { value: "1A", label: "Tipo 1A", description: "Dominante dopamina - Cercatore di novità" },
+  { value: "1B", label: "Tipo 1B", description: "Dominante dopamina - Cercatore di emozioni" },
+  { value: "2A", label: "Tipo 2A", description: "Dominante adrenalina - Flessibile" },
+  { value: "2B", label: "Tipo 2B", description: "Dominante adrenalina - Orientato alla ricompensa" },
+  { value: "3", label: "Tipo 3", description: "Dominante serotonina - Focalizzato sulla costanza" },
 ];
 
 // Settings Content Component
@@ -1705,12 +1705,12 @@ function SettingsContent({
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Profile saved successfully");
+      toast.success("Profilo salvato con successo");
       queryClient.invalidateQueries({ queryKey: ["athlete-profile", athleteId] });
       onProfileUpdate();
     },
     onError: (error: any) => {
-      toast.error(`Failed to save: ${error.message}`);
+      toast.error(`Errore nel salvataggio: ${error.message}`);
     },
   });
 
@@ -1734,11 +1734,11 @@ function SettingsContent({
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Athlete archived successfully");
+      toast.success("Atleta archiviato con successo");
       navigate("/coach/athletes");
     },
     onError: (error: any) => {
-      toast.error(`Failed to archive: ${error.message}`);
+      toast.error(`Errore nell'archiviazione: ${error.message}`);
     },
   });
 
@@ -1758,8 +1758,8 @@ function SettingsContent({
               <Brain className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <CardTitle className="text-lg">Performance Parameters</CardTitle>
-              <CardDescription>Configure training algorithms and athlete classification</CardDescription>
+              <CardTitle className="text-lg">Parametri Prestazione</CardTitle>
+              <CardDescription>Configura algoritmi di allenamento e classificazione atleta</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -1772,7 +1772,7 @@ function SettingsContent({
             </Label>
             <Select value={neurotype} onValueChange={setNeurotype}>
               <SelectTrigger id="neurotype" className="w-full">
-                <SelectValue placeholder="Select neurotype" />
+                <SelectValue placeholder="Seleziona neurotipo" />
               </SelectTrigger>
               <SelectContent>
                 {NEUROTYPE_OPTIONS.map((option) => (
@@ -1786,7 +1786,7 @@ function SettingsContent({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Affects program volume, intensity, and recovery recommendations
+              Influenza volume, intensità e raccomandazioni di recupero
             </p>
           </div>
 
@@ -1794,12 +1794,12 @@ function SettingsContent({
           <div className="grid gap-2">
             <Label htmlFor="training-status" className="flex items-center gap-2">
               <Shield className="h-4 w-4 text-muted-foreground" />
-              Training Status
+              Stato Allenamento
             </Label>
             <div className="flex items-center gap-3">
               <Select value={trainingStatus} onValueChange={setTrainingStatus}>
                 <SelectTrigger id="training-status" className="w-full">
-                  <SelectValue placeholder="Select status" />
+                  <SelectValue placeholder="Seleziona stato" />
                 </SelectTrigger>
                 <SelectContent>
                   {TRAINING_STATUS_OPTIONS.map((option) => (
@@ -1819,11 +1819,11 @@ function SettingsContent({
           <div className="grid gap-2">
             <Label htmlFor="experience" className="flex items-center gap-2">
               <GraduationCap className="h-4 w-4 text-muted-foreground" />
-              Experience Level
+              Livello Esperienza
             </Label>
             <Select value={experienceLevel} onValueChange={setExperienceLevel}>
               <SelectTrigger id="experience" className="w-full">
-                <SelectValue placeholder="Select level" />
+                <SelectValue placeholder="Seleziona livello" />
               </SelectTrigger>
               <SelectContent>
                 {EXPERIENCE_LEVELS.map((option) => (
@@ -1845,8 +1845,8 @@ function SettingsContent({
               <User className="h-5 w-5 text-chart-2" />
             </div>
             <div>
-              <CardTitle className="text-lg">Profile Information</CardTitle>
-              <CardDescription>Personal details and contact information</CardDescription>
+              <CardTitle className="text-lg">Informazioni Profilo</CardTitle>
+              <CardDescription>Dettagli personali e informazioni di contatto</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -1862,9 +1862,9 @@ function SettingsContent({
             <div className="space-y-2">
               <Button variant="outline" size="sm" disabled>
                 <Camera className="h-4 w-4 mr-2" />
-                Change Photo
+                Cambia Foto
               </Button>
-              <p className="text-xs text-muted-foreground">Photo upload coming soon</p>
+              <p className="text-xs text-muted-foreground">Caricamento foto in arrivo</p>
             </div>
           </div>
 
@@ -1872,13 +1872,13 @@ function SettingsContent({
           <div className="grid gap-2">
             <Label htmlFor="full-name" className="flex items-center gap-2">
               <User className="h-4 w-4 text-muted-foreground" />
-              Full Name
+              Nome Completo
             </Label>
             <Input 
               id="full-name" 
               value={fullName} 
               onChange={(e) => setFullName(e.target.value)}
-              placeholder="Enter full name"
+              placeholder="Inserisci nome completo"
             />
           </div>
 
@@ -1895,7 +1895,7 @@ function SettingsContent({
               className="bg-muted/50 text-muted-foreground cursor-not-allowed"
             />
             <p className="text-xs text-muted-foreground">
-              Login email cannot be changed by coach
+              L'email di accesso non può essere modificata dal coach
             </p>
           </div>
 
@@ -1903,18 +1903,18 @@ function SettingsContent({
           <div className="grid gap-2">
             <Label htmlFor="coach-notes" className="flex items-center gap-2">
               <Phone className="h-4 w-4 text-muted-foreground" />
-              Private Coach Notes
+              Note Private del Coach
             </Label>
             <Textarea 
               id="coach-notes" 
               value={coachNotes}
               onChange={(e) => setCoachNotes(e.target.value)}
-              placeholder="Phone, emergency contact, training preferences, etc."
+              placeholder="Telefono, contatto di emergenza, preferenze di allenamento, ecc."
               rows={4}
               className="resize-none"
             />
             <p className="text-xs text-muted-foreground">
-              Only visible to you. Use for personal notes and contact info.
+              Visibili solo a te. Usa per note personali e informazioni di contatto.
             </p>
           </div>
         </CardContent>
@@ -1930,12 +1930,12 @@ function SettingsContent({
           {saveProfileMutation.isPending ? (
             <>
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Saving...
+              Salvataggio...
             </>
           ) : (
             <>
               <Save className="h-4 w-4 mr-2" />
-              Save Changes
+              Salva Modifiche
             </>
           )}
         </Button>
@@ -1949,8 +1949,8 @@ function SettingsContent({
               <AlertTriangle className="h-5 w-5 text-destructive" />
             </div>
             <div>
-              <CardTitle className="text-lg text-destructive">Danger Zone</CardTitle>
-              <CardDescription>Irreversible actions for this athlete</CardDescription>
+              <CardTitle className="text-lg text-destructive">Zona Pericolosa</CardTitle>
+              <CardDescription>Azioni irreversibili per questo atleta</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -1958,33 +1958,33 @@ function SettingsContent({
           {/* Archive Athlete */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-lg border border-border bg-muted/30">
             <div>
-              <h4 className="font-medium text-foreground">Archive Athlete</h4>
+              <h4 className="font-medium text-foreground">Archivia Atleta</h4>
               <p className="text-sm text-muted-foreground">
-                Hide from active roster but keep all data
+                Nascondi dal roster attivo ma conserva tutti i dati
               </p>
             </div>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="secondary" className="shrink-0">
                   <Archive className="h-4 w-4 mr-2" />
-                  Archive
+                  Archivia
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle>Archive this athlete?</AlertDialogTitle>
+                  <AlertDialogTitle>Archiviare questo atleta?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This will hide {profile?.full_name || "this athlete"} from your active roster. 
-                    All training data will be preserved and can be restored later.
+                    Questo nasconderà {profile?.full_name || "questo atleta"} dal roster attivo. 
+                    Tutti i dati di allenamento saranno conservati e potranno essere ripristinati.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel>Annulla</AlertDialogCancel>
                   <AlertDialogAction 
                     onClick={() => archiveAthleteMutation.mutate()}
                     disabled={archiveAthleteMutation.isPending}
                   >
-                    {archiveAthleteMutation.isPending ? "Archiving..." : "Archive Athlete"}
+                    {archiveAthleteMutation.isPending ? "Archiviazione..." : "Archivia Atleta"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -1994,41 +1994,41 @@ function SettingsContent({
           {/* Delete Athlete */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-lg border border-destructive/30 bg-destructive/5">
             <div>
-              <h4 className="font-medium text-destructive">Delete Athlete</h4>
+              <h4 className="font-medium text-destructive">Elimina Atleta</h4>
               <p className="text-sm text-muted-foreground">
-                Permanently remove athlete and all training logs
+                Rimuovi definitivamente atleta e tutti i log di allenamento
               </p>
             </div>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="destructive" className="shrink-0">
                   <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
+                  Elimina
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
-                  <AlertDialogTitle className="text-destructive">Delete this athlete permanently?</AlertDialogTitle>
+                  <AlertDialogTitle className="text-destructive">Eliminare definitivamente questo atleta?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    This action cannot be undone. This will permanently delete 
-                    {profile?.full_name ? ` ${profile.full_name}'s` : " this athlete's"} profile, 
-                    all workout logs, metrics, and training history.
+                    Questa azione non può essere annullata. Eliminerà permanentemente 
+                    {profile?.full_name ? ` il profilo di ${profile.full_name}` : " il profilo dell'atleta"}, 
+                    tutti i log di allenamento, metriche e storico.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogCancel>Annulla</AlertDialogCancel>
                   <AlertDialogAction 
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     disabled
                   >
-                    Delete Permanently
+                    Elimina Definitivamente
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
           </div>
           <p className="text-xs text-muted-foreground text-center">
-            ⚠️ Permanent deletion is currently disabled for safety
+            ⚠️ L'eliminazione definitiva è attualmente disabilitata per sicurezza
           </p>
         </CardContent>
       </Card>
@@ -2619,43 +2619,43 @@ export default function AthleteDetail() {
             <TabsList className="bg-muted/50 p-1 h-auto flex-wrap md:flex-nowrap w-max md:w-full">
               <TabsTrigger value="overview" className="gap-2 text-xs md:text-sm px-3 py-2">
                 <Activity className="h-4 w-4" />
-                <span className="hidden sm:inline">Overview</span>
-                <span className="sm:hidden">Overview</span>
+                <span className="hidden sm:inline">Panoramica</span>
+                <span className="sm:hidden">Panoramica</span>
               </TabsTrigger>
               <TabsTrigger value="program" className="gap-2 text-xs md:text-sm px-3 py-2">
                 <Dumbbell className="h-4 w-4" />
-                <span className="hidden sm:inline">Workout Program</span>
-                <span className="sm:hidden">Program</span>
+                <span className="hidden sm:inline">Programma</span>
+                <span className="sm:hidden">Programma</span>
               </TabsTrigger>
               <TabsTrigger value="exercise-stats" className="gap-2 text-xs md:text-sm px-3 py-2">
                 <BarChart3 className="h-4 w-4" />
-                <span className="hidden sm:inline">Exercise Stats</span>
-                <span className="sm:hidden">Stats</span>
+                <span className="hidden sm:inline">Statistiche Esercizi</span>
+                <span className="sm:hidden">Stat.</span>
               </TabsTrigger>
               <TabsTrigger value="advanced-stats" className="gap-2 text-xs md:text-sm px-3 py-2">
                 <TrendingUp className="h-4 w-4" />
-                <span className="hidden sm:inline">Advanced Stats</span>
-                <span className="sm:hidden">Advanced</span>
+                <span className="hidden sm:inline">Statistiche Avanzate</span>
+                <span className="sm:hidden">Avanzate</span>
               </TabsTrigger>
               <TabsTrigger value="body-metrics" className="gap-2 text-xs md:text-sm px-3 py-2">
                 <Scale className="h-4 w-4" />
-                <span className="hidden sm:inline">Body Metrics</span>
-                <span className="sm:hidden">Metrics</span>
+                <span className="hidden sm:inline">Misure Corporee</span>
+                <span className="sm:hidden">Misure</span>
               </TabsTrigger>
               <TabsTrigger value="progress-pics" className="gap-2 text-xs md:text-sm px-3 py-2">
                 <Camera className="h-4 w-4" />
-                <span className="hidden sm:inline">Progress Pics</span>
-                <span className="sm:hidden">Photos</span>
+                <span className="hidden sm:inline">Foto Progresso</span>
+                <span className="sm:hidden">Foto</span>
               </TabsTrigger>
               <TabsTrigger value="strategy" className="gap-2 text-xs md:text-sm px-3 py-2">
                 <Utensils className="h-4 w-4" />
-                <span className="hidden sm:inline">Strategy</span>
-                <span className="sm:hidden">Strategy</span>
+                <span className="hidden sm:inline">Strategia</span>
+                <span className="sm:hidden">Strategia</span>
               </TabsTrigger>
               <TabsTrigger value="settings" className="gap-2 text-xs md:text-sm px-3 py-2">
                 <Settings className="h-4 w-4" />
-                <span className="hidden sm:inline">Settings</span>
-                <span className="sm:hidden">Settings</span>
+                <span className="hidden sm:inline">Impostazioni</span>
+                <span className="sm:hidden">Impostazioni</span>
               </TabsTrigger>
             </TabsList>
           </div>
@@ -2669,7 +2669,7 @@ export default function AthleteDetail() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Zap className="h-4 w-4 text-primary" />
-                    Readiness & Load
+                    Readiness & Carico
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -2712,7 +2712,7 @@ export default function AthleteDetail() {
                     {/* ACWR Display */}
                     <div className="flex-1 space-y-3">
                       <div>
-                        <p className="text-xs text-muted-foreground mb-1">ACWR (Acute:Chronic)</p>
+                        <p className="text-xs text-muted-foreground mb-1">ACWR (Acuto:Cronico)</p>
                         {acwrLoading ? (
                           <Skeleton className="h-10 w-20" />
                         ) : acwrData?.status === "insufficient-data" ? (
@@ -2820,7 +2820,7 @@ export default function AthleteDetail() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Target className="h-4 w-4 text-primary" />
-                    Weekly Compliance
+                    Compliance Settimanale
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -2850,7 +2850,7 @@ export default function AthleteDetail() {
 
                   {/* Adherence percentage */}
                   <div className="flex items-center justify-between pt-3 border-t border-border/50">
-                    <span className="text-sm text-muted-foreground">Weekly Adherence</span>
+                    <span className="text-sm text-muted-foreground">Aderenza Settimanale</span>
                     <div className="flex items-center gap-2">
                       <div className="w-24 h-2 rounded-full bg-muted overflow-hidden">
                         <div 
@@ -2884,7 +2884,7 @@ export default function AthleteDetail() {
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
                     <Heart className={cn("h-4 w-4", painStatus.hasPain ? "text-destructive" : "text-success")} />
-                    Pain Status
+                    Stato Dolore
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -2894,7 +2894,7 @@ export default function AthleteDetail() {
                         <AlertTriangle className="h-7 w-7 text-destructive" />
                       </div>
                       <div className="flex-1">
-                        <p className="font-semibold text-destructive text-lg">Active Issue Detected</p>
+                        <p className="font-semibold text-destructive text-lg">Problema Attivo Rilevato</p>
                         <p className="text-sm text-muted-foreground">
                           {'location' in painStatus && String(painStatus.location)}:{' '}
                           <span className="capitalize font-medium text-foreground">
@@ -2953,7 +2953,7 @@ export default function AthleteDetail() {
                     className="gap-2"
                   >
                     <Play className="h-4 w-4" />
-                    Open Program Builder
+                    Apri Program Builder
                     <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
@@ -2963,10 +2963,10 @@ export default function AthleteDetail() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">
-                        Week {phaseProgress.currentWeek} of {phaseProgress.totalWeeks}
+                        Settimana {phaseProgress.currentWeek} di {phaseProgress.totalWeeks}
                       </span>
                       <span className="font-medium text-foreground">
-                        {phaseProgress.daysRemaining} days remaining
+                        {phaseProgress.daysRemaining} giorni rimanenti
                       </span>
                     </div>
                     <div className="h-2 rounded-full bg-muted overflow-hidden">
@@ -3061,7 +3061,7 @@ export default function AthleteDetail() {
                       ) : (
                         <div className="h-full flex flex-col items-center justify-center text-muted-foreground/50">
                           <Coffee className="h-6 w-6 mb-1" />
-                          <span className="text-xs">Rest Day</span>
+                          <span className="text-xs">Giorno di Riposo</span>
                         </div>
                       )}
                     </div>
@@ -3121,7 +3121,7 @@ export default function AthleteDetail() {
                         ) : (
                           <div className="flex items-center gap-2 text-muted-foreground">
                             <Coffee className="h-4 w-4" />
-                            <span className="text-sm">Rest Day</span>
+                            <span className="text-sm">Giorno di Riposo</span>
                           </div>
                         )}
                       </div>
@@ -3138,7 +3138,7 @@ export default function AthleteDetail() {
                   <div className="flex items-center gap-6">
                     <div className="text-center">
                       <p className="text-2xl font-bold text-foreground">{weeklyStats.totalSets}</p>
-                      <p className="text-xs text-muted-foreground">Total Sets</p>
+                      <p className="text-xs text-muted-foreground">Serie Totali</p>
                     </div>
                     <div className="h-8 w-px bg-border" />
                     <div className="text-center">

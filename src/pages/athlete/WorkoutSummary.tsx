@@ -393,7 +393,7 @@ export default function WorkoutSummary() {
                   </div>
                   <div className="flex-1">
                     <p className="font-semibold text-sm text-[hsl(var(--m3-on-tertiary-container,var(--accent-foreground)))]">
-                      Post-Workout Fuel
+                      Alimentazione Post-Allenamento
                     </p>
                     <p className="text-xs text-[hsl(var(--m3-on-tertiary-container,var(--accent-foreground))/0.7)]">
                       Registra il pasto post-allenamento per ottimizzare il recupero

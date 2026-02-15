@@ -97,7 +97,7 @@ interface FmsTest {
 }
 
 const statusConfig = {
-  in_rehab: { label: "In Rehab", color: "bg-warning text-warning-foreground", icon: Clock },
+  in_rehab: { label: "In Riabilitazione", color: "bg-warning text-warning-foreground", icon: Clock },
   recovered: { label: "Recuperato", color: "bg-success text-white", icon: CheckCircle2 },
   chronic: { label: "Cronico", color: "bg-destructive text-destructive-foreground", icon: AlertTriangle },
 };
@@ -435,7 +435,7 @@ export default function AthleteHealth() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="in_rehab">In Rehab</SelectItem>
+                            <SelectItem value="in_rehab">In Riabilitazione</SelectItem>
                             <SelectItem value="recovered">Recuperato</SelectItem>
                             <SelectItem value="chronic">Cronico</SelectItem>
                           </SelectContent>
