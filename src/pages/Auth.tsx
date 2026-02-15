@@ -9,6 +9,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Dumbbell, Users } from "lucide-react";
+import { mapSupabaseError } from "@/lib/errorMapping";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ export default function Auth() {
       // Navigate based on role will be handled by auth state change
       navigate("/");
     } catch (error: any) {
-      toast.error(error.message || "Errore durante il login");
+      toast.error(mapSupabaseError(error));
     } finally {
       setLoading(false);
     }
@@ -53,7 +54,7 @@ export default function Auth() {
       // Navigate based on role
       navigate(signupRole === "coach" ? "/coach" : "/athlete");
     } catch (error: any) {
-      toast.error(error.message || "Errore durante la registrazione");
+      toast.error(mapSupabaseError(error));
     } finally {
       setLoading(false);
     }

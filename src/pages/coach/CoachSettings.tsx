@@ -673,7 +673,7 @@ export default function CoachSettings() {
                 </div>
                 <div className="flex items-center justify-between p-4 rounded-lg border border-border">
                   <div>
-                    <p className="font-medium">Workout Completato</p>
+                    <p className="font-medium">Allenamento Completato</p>
                     <p className="text-sm text-muted-foreground">Quando un atleta completa un allenamento</p>
                   </div>
                   <Switch
@@ -683,7 +683,7 @@ export default function CoachSettings() {
                 </div>
                 <div className="flex items-center justify-between p-4 rounded-lg border border-border">
                   <div>
-                    <p className="font-medium">Workout Saltato</p>
+                    <p className="font-medium">Allenamento Saltato</p>
                     <p className="text-sm text-muted-foreground">Quando un atleta manca un allenamento</p>
                   </div>
                   <Switch

@@ -867,7 +867,7 @@ export default function ProgramBuilder() {
   } : null;
 
   return (
-    <CoachLayout title="Program Builder" subtitle="Crea schede di allenamento drag & drop">
+    <CoachLayout title="Costruttore Programmi" subtitle="Crea schede di allenamento drag & drop">
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
