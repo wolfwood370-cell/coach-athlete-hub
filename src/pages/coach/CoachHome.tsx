@@ -51,37 +51,37 @@ const getAlertConfig = (type: AlertType) => {
   const configs: Record<AlertType, { icon: typeof AlertTriangle; label: string; bgClass: string; textClass: string }> = {
     missed_workout: { 
       icon: CalendarX, 
-      label: "Missed Workout",
+      label: "Allenamento Saltato",
       bgClass: "bg-destructive/10",
       textClass: "text-destructive"
     },
     low_readiness: { 
       icon: Battery, 
-      label: "Low Readiness",
+      label: "Readiness Bassa",
       bgClass: "bg-destructive/10",
       textClass: "text-destructive"
     },
     active_injury: { 
       icon: AlertCircle, 
-      label: "Active Injury",
+      label: "Infortunio Attivo",
       bgClass: "bg-destructive/10",
       textClass: "text-destructive"
     },
     high_acwr: { 
       icon: Flame, 
-      label: "High ACWR",
+      label: "ACWR Elevato",
       bgClass: "bg-warning/10",
       textClass: "text-warning"
     },
     rpe_spike: { 
       icon: Zap, 
-      label: "High RPE",
+      label: "RPE Elevato",
       bgClass: "bg-warning/10",
       textClass: "text-warning"
     },
     no_checkin: { 
       icon: Clock, 
-      label: "No Check-in",
+      label: "Nessun Check-in",
       bgClass: "bg-muted",
       textClass: "text-muted-foreground"
     },
@@ -157,7 +157,7 @@ export default function CoachHome() {
 
   if (authLoading) {
     return (
-      <CoachLayout title="Command Center" subtitle="Loading...">
+      <CoachLayout title="Centro di Comando" subtitle="Caricamento...">
         <div className="space-y-4">
           <Skeleton className="h-48 w-full" />
           <div className="grid grid-cols-3 gap-4">
@@ -173,7 +173,7 @@ export default function CoachHome() {
   const hasAthletes = businessMetrics.activeClients > 0;
 
   return (
-    <CoachLayout title="Command Center" subtitle="Daily Triage Dashboard">
+    <CoachLayout title="Centro di Comando" subtitle="Triage Giornaliero">
       <div className="space-y-5 animate-fade-in">
         
         {/* Empty State for New Coaches */}
@@ -183,16 +183,16 @@ export default function CoachHome() {
               <UserPlus className="h-10 w-10 text-primary" />
             </div>
             <h3 className="text-xl font-bold text-foreground mb-2">
-              Welcome, Coach! 🎯
+              Benvenuto, Coach! 🎯
             </h3>
             <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
-              Invite your first athlete to start monitoring training load, recovery, and performance in real-time.
+              Invita il tuo primo atleta per iniziare a monitorare carico, recupero e performance in tempo reale.
             </p>
             <InviteAthleteDialog 
               trigger={
                 <Button className="gradient-primary h-12 px-8 text-base font-semibold shadow-lg hover:shadow-xl transition-shadow">
                   <UserPlus className="h-5 w-5 mr-2" />
-                  Invite Your First Athlete
+                  Invita il Primo Atleta
                 </Button>
               }
             />
@@ -224,10 +224,10 @@ export default function CoachHome() {
                     </div>
                     <div>
                       <CardTitle className="text-base font-bold flex items-center gap-2">
-                        🚨 Urgent Alerts
+                        🚨 Allerte Urgenti
                       </CardTitle>
                       <p className="text-xs text-muted-foreground">
-                        Missed workouts • Low readiness • Injury risk • ACWR &gt; 1.3
+                        Allenamenti saltati • Readiness bassa • Rischio infortunio • ACWR &gt; 1.3
                       </p>
                     </div>
                   </div>
@@ -256,9 +256,9 @@ export default function CoachHome() {
                     <div className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-success/10 mb-3">
                       <CheckCircle2 className="h-7 w-7 text-success" />
                     </div>
-                    <h3 className="text-base font-semibold text-foreground mb-1">All Clear!</h3>
+                    <h3 className="text-base font-semibold text-foreground mb-1">Tutto OK!</h3>
                     <p className="text-sm text-muted-foreground">
-                      No athletes in the danger zone. Great work!
+                      Nessun atleta in zona critica. Ottimo lavoro!
                     </p>
                   </div>
                 ) : (
@@ -284,7 +284,7 @@ export default function CoachHome() {
                   <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-success/10">
                     <TrendingUp className="h-4 w-4 text-success" />
                   </div>
-                  <CardTitle className="text-sm font-bold">💚 Business Health</CardTitle>
+                  <CardTitle className="text-sm font-bold">💚 Salute Business</CardTitle>
                 </div>
               </CardHeader>
               <CardContent className="p-4 pt-0 space-y-4">
@@ -292,7 +292,7 @@ export default function CoachHome() {
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                   <div className="flex items-center gap-2">
                     <Users className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Active Clients</span>
+                    <span className="text-sm text-muted-foreground">Clienti Attivi</span>
                   </div>
                   <span className="text-xl font-bold tabular-nums">{businessMetrics.activeClients}</span>
                 </div>
@@ -301,7 +301,7 @@ export default function CoachHome() {
                 <div className="flex items-center justify-between p-3 rounded-lg bg-success/5">
                   <div className="flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-success" />
-                    <span className="text-sm text-muted-foreground">Monthly Revenue</span>
+                    <span className="text-sm text-muted-foreground">Ricavo Mensile</span>
                   </div>
                   <span className="text-xl font-bold tabular-nums text-success">
                     €{businessMetrics.monthlyRecurringRevenue}
@@ -312,7 +312,7 @@ export default function CoachHome() {
                 <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
                   <div className="flex items-center gap-2">
                     <Target className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Check-in Rate</span>
+                    <span className="text-sm text-muted-foreground">Tasso Check-in</span>
                   </div>
                   <span className={cn(
                     "text-xl font-bold tabular-nums",
@@ -328,7 +328,7 @@ export default function CoachHome() {
                   <div className="flex items-center justify-between p-3 rounded-lg bg-destructive/5">
                     <div className="flex items-center gap-2">
                       <TrendingDown className="h-4 w-4 text-destructive" />
-                      <span className="text-sm text-muted-foreground">At Risk</span>
+                      <span className="text-sm text-muted-foreground">A Rischio</span>
                     </div>
                     <span className="text-xl font-bold tabular-nums text-destructive">
                       {businessMetrics.churnRisk}
@@ -350,10 +350,10 @@ export default function CoachHome() {
                     </div>
                     <div>
                       <CardTitle className="text-base font-bold flex items-center gap-2">
-                        📝 Needs Feedback
+                        📝 Richiede Feedback
                       </CardTitle>
                       <p className="text-xs text-muted-foreground">
-                        Workouts completed in last 24h awaiting review
+                        Allenamenti completati nelle ultime 24h in attesa di revisione
                       </p>
                     </div>
                   </div>
@@ -376,8 +376,8 @@ export default function CoachHome() {
                     <div className="inline-flex items-center justify-center h-12 w-12 rounded-full bg-muted/50 mb-2">
                       <CheckCircle2 className="h-6 w-6 text-muted-foreground" />
                     </div>
-                    <p className="text-sm text-muted-foreground">No feedback pending</p>
-                    <p className="text-xs text-muted-foreground/70 mt-1">Completed workouts will appear here</p>
+                    <p className="text-sm text-muted-foreground">Nessun feedback in sospeso</p>
+                    <p className="text-xs text-muted-foreground/70 mt-1">Gli allenamenti completati appariranno qui</p>
                   </div>
                 ) : (
                   <ScrollArea className="max-h-[220px]">
@@ -397,7 +397,7 @@ export default function CoachHome() {
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium">
                               <span className="font-semibold">{item.athleteName}</span>
-                              <span className="text-muted-foreground"> completed </span>
+                              <span className="text-muted-foreground"> ha completato </span>
                               <span className="font-medium text-foreground">'{item.workoutTitle}'</span>
                             </p>
                             <div className="flex items-center gap-2 mt-0.5">
@@ -425,7 +425,7 @@ export default function CoachHome() {
                             variant="outline" 
                             className="opacity-0 group-hover:opacity-100 transition-opacity"
                           >
-                            Review
+                            Rivedi
                           </Button>
                           <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         </div>
@@ -442,7 +442,7 @@ export default function CoachHome() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-primary" />
-                    <CardTitle className="text-sm font-bold">📅 Today's Schedule</CardTitle>
+                    <CardTitle className="text-sm font-bold">📅 Programma di Oggi</CardTitle>
                   </div>
                   <Badge variant="secondary" className="tabular-nums">
                     {todaySchedule.length}
@@ -462,7 +462,7 @@ export default function CoachHome() {
                 ) : todaySchedule.length === 0 ? (
                   <div className="p-6 text-center">
                     <p className="text-sm text-muted-foreground">
-                      No workouts scheduled for today
+                      Nessun allenamento programmato per oggi
                     </p>
                     <Button 
                       variant="link" 
@@ -470,7 +470,7 @@ export default function CoachHome() {
                       className="mt-2 text-xs"
                       onClick={() => navigate("/coach/programs")}
                     >
-                      Create a program
+                      Crea un programma
                     </Button>
                   </div>
                 ) : (
@@ -507,17 +507,17 @@ export default function CoachHome() {
               <CardHeader className="pb-2 pt-4 px-4">
                 <div className="flex items-center gap-2">
                   <div className="h-2.5 w-2.5 rounded-full bg-success animate-pulse" />
-                  <CardTitle className="text-sm font-bold">✅ Optimal Zone</CardTitle>
+                  <CardTitle className="text-sm font-bold">✅ Zona Ottimale</CardTitle>
                   <Badge variant="secondary" className="ml-auto text-xs tabular-nums bg-success/10 text-success">
                     {healthyAthletes.length}
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground">Athletes with no critical issues</p>
+                <p className="text-xs text-muted-foreground">Atleti senza criticità</p>
               </CardHeader>
               <CardContent className="p-4 pt-2">
                 {healthyAthletes.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
-                    All athletes need attention
+                    Tutti gli atleti richiedono attenzione
                   </p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
@@ -552,17 +552,17 @@ export default function CoachHome() {
               <CardHeader className="pb-2 pt-4 px-4">
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-muted-foreground" />
-                  <CardTitle className="text-sm font-bold">⏳ Awaiting Check-in</CardTitle>
+                  <CardTitle className="text-sm font-bold">⏳ In Attesa di Check-in</CardTitle>
                   <Badge variant="secondary" className="ml-auto text-xs tabular-nums">
                     {infoAlerts.length}
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground">Athletes who haven't checked in today</p>
+                <p className="text-xs text-muted-foreground">Atleti che non hanno fatto il check-in oggi</p>
               </CardHeader>
               <CardContent className="p-0">
                 {infoAlerts.length === 0 ? (
                   <div className="p-4 text-center">
-                    <p className="text-sm text-muted-foreground">Everyone checked in! 🎉</p>
+                    <p className="text-sm text-muted-foreground">Tutti hanno fatto il check-in! 🎉</p>
                   </div>
                 ) : (
                   <ScrollArea className="max-h-[140px]">
@@ -586,7 +586,7 @@ export default function CoachHome() {
                       ))}
                       {infoAlerts.length > 10 && (
                         <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                          +{infoAlerts.length - 10} more
+                          +{infoAlerts.length - 10} altri
                         </div>
                       )}
                     </div>

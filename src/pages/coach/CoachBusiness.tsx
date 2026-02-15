@@ -68,15 +68,15 @@ function getInitials(name: string | null): string {
 function getStatusBadge(status: string) {
   switch (status) {
     case "active":
-      return <Badge variant="default" className="bg-primary/20 text-primary border-primary/30">Active</Badge>;
+      return <Badge variant="default" className="bg-primary/20 text-primary border-primary/30">Attivo</Badge>;
     case "trial":
-      return <Badge variant="secondary">Trial</Badge>;
+      return <Badge variant="secondary">Prova</Badge>;
     case "past_due":
-      return <Badge variant="destructive">Past Due</Badge>;
+      return <Badge variant="destructive">Scaduto</Badge>;
     case "canceled":
-      return <Badge variant="outline" className="text-muted-foreground">Canceled</Badge>;
+      return <Badge variant="outline" className="text-muted-foreground">Cancellato</Badge>;
     default:
-      return <Badge variant="outline">None</Badge>;
+      return <Badge variant="outline">Nessuno</Badge>;
   }
 }
 
@@ -146,7 +146,7 @@ export default function CoachBusiness() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Business Hub</h1>
-            <p className="text-muted-foreground">Manage your products, subscriptions, and revenue</p>
+            <p className="text-muted-foreground">Gestisci prodotti, abbonamenti e ricavi</p>
           </div>
           <div className="flex items-center gap-2">
             <AssignSubscriptionDialog
@@ -158,20 +158,20 @@ export default function CoachBusiness() {
             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Create New Product
+                 <Plus className="h-4 w-4" />
+                  Nuovo Prodotto
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                <DialogTitle>Create New Product</DialogTitle>
+                <DialogTitle>Crea Nuovo Prodotto</DialogTitle>
                 <DialogDescription>
-                  Add a new coaching product or subscription tier
+                  Aggiungi un nuovo pacchetto di coaching o livello di abbonamento
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-4 py-4">
+                <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Product Name</Label>
+                  <Label htmlFor="name">Nome Prodotto</Label>
                   <Input
                     id="name"
                     placeholder="e.g., 1:1 Coaching Gold"
@@ -181,7 +181,7 @@ export default function CoachBusiness() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="price">Price (€)</Label>
+                    <Label htmlFor="price">Prezzo (€)</Label>
                     <Input
                       id="price"
                       type="number"
@@ -195,7 +195,7 @@ export default function CoachBusiness() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="billing">Billing Period</Label>
+                    <Label htmlFor="billing">Periodo di Fatturazione</Label>
                     <Select
                       value={newProduct.billing_period}
                       onValueChange={(value: "monthly" | "one-time" | "yearly") =>
@@ -206,18 +206,18 @@ export default function CoachBusiness() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="monthly">Monthly</SelectItem>
-                        <SelectItem value="yearly">Yearly</SelectItem>
-                        <SelectItem value="one-time">One-time</SelectItem>
+                        <SelectItem value="monthly">Mensile</SelectItem>
+                        <SelectItem value="yearly">Annuale</SelectItem>
+                        <SelectItem value="one-time">Una Tantum</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
+                  <Label htmlFor="description">Descrizione</Label>
                   <Textarea
                     id="description"
-                    placeholder="What's included in this product..."
+                    placeholder="Cosa include questo prodotto..."
                     value={newProduct.description}
                     onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
                   />
@@ -225,10 +225,10 @@ export default function CoachBusiness() {
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-                  Cancel
+                   Annulla
                 </Button>
                 <Button onClick={handleCreateProduct} disabled={isCreatingProduct}>
-                  {isCreatingProduct ? "Creating..." : "Create Product"}
+                  {isCreatingProduct ? "Creazione..." : "Crea Prodotto"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -241,7 +241,7 @@ export default function CoachBusiness() {
           <Card className="border-primary/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Estimated MRR
+                Ricavo Mensile Stimato
               </CardTitle>
               <TrendingUp className="h-4 w-4 text-primary" />
             </CardHeader>
@@ -249,14 +249,14 @@ export default function CoachBusiness() {
               <div className="text-3xl font-bold text-primary">
                 €{businessMetrics.estimatedMRR.toFixed(2)}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Monthly recurring revenue</p>
+              <p className="text-xs text-muted-foreground mt-1">Ricavo ricorrente mensile</p>
             </CardContent>
           </Card>
 
           <Card className="border-secondary/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Active Clients
+                Clienti Attivi
               </CardTitle>
               <Users className="h-4 w-4 text-secondary-foreground" />
             </CardHeader>
@@ -264,16 +264,14 @@ export default function CoachBusiness() {
               <div className="text-3xl font-bold text-foreground">
                 {businessMetrics.activeClients}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                of {athleteSubscriptions.length} total athletes
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">su {athleteSubscriptions.length} atleti totali</p>
             </CardContent>
           </Card>
 
           <Card className="border-accent/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Pending Payments
+                Pagamenti in Sospeso
               </CardTitle>
               <Clock className="h-4 w-4 text-accent-foreground" />
             </CardHeader>
@@ -281,9 +279,7 @@ export default function CoachBusiness() {
               <div className="text-3xl font-bold text-foreground">
                 {businessMetrics.pendingPayments}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                €{businessMetrics.pendingAmount.toFixed(2)} outstanding
-              </p>
+              <p className="text-xs text-muted-foreground mt-1">€{businessMetrics.pendingAmount.toFixed(2)} in sospeso</p>
             </CardContent>
           </Card>
         </div>
@@ -293,15 +289,15 @@ export default function CoachBusiness() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <Package className="h-5 w-5 text-primary" />
-              <CardTitle>Your Products</CardTitle>
+              <CardTitle>I Tuoi Prodotti</CardTitle>
             </div>
-            <CardDescription>Coaching packages and subscription tiers you offer</CardDescription>
+            <CardDescription>Pacchetti di coaching e livelli di abbonamento</CardDescription>
           </CardHeader>
           <CardContent>
             {products.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No products yet. Create your first coaching product to get started.</p>
+                <p>Nessun prodotto ancora. Crea il primo pacchetto di coaching per iniziare.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -331,7 +327,7 @@ export default function CoachBusiness() {
                               onClick={() => deleteProduct(product.id)}
                             >
                               <Trash2 className="h-4 w-4 mr-2" />
-                              Archive Product
+                              Archivia Prodotto
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -362,27 +358,27 @@ export default function CoachBusiness() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <CreditCard className="h-5 w-5 text-primary" />
-              <CardTitle>Client Subscriptions</CardTitle>
+              <CardTitle>Abbonamenti Clienti</CardTitle>
             </div>
-            <CardDescription>Manage your athletes' subscription status</CardDescription>
+            <CardDescription>Gestisci gli abbonamenti dei tuoi atleti</CardDescription>
           </CardHeader>
           <CardContent>
             <ScrollArea className="h-[400px]">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Athlete</TableHead>
-                    <TableHead>Current Plan</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Renewal Date</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                     <TableHead>Atleta</TableHead>
+                    <TableHead>Piano Attuale</TableHead>
+                    <TableHead>Stato</TableHead>
+                    <TableHead>Data Rinnovo</TableHead>
+                    <TableHead className="text-right">Azioni</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {athleteSubscriptions.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                        No athletes assigned yet
+                        Nessun atleta assegnato
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -427,7 +423,7 @@ export default function CoachBusiness() {
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => handleMarkAsPaid(athlete.id)}>
                                   <CheckCircle className="h-4 w-4 mr-2 text-primary" />
-                                  Mark as Paid
+                                  Segna come Pagato
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
