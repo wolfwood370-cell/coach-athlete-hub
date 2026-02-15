@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
+import { useCyclePhasing } from "@/hooks/useCyclePhasing";
+import { CyclePhaseCard, CycleSetupCTA } from "@/components/athlete/cycle/CyclePhaseCard";
+import { CycleConfigDialog } from "@/components/athlete/cycle/CycleConfigDialog";
 import {
   Drawer,
   DrawerClose,
@@ -226,6 +229,18 @@ export default function AthleteDashboard() {
     });
   }, []);
   
+  // Cycle-Sync Engine
+  const [cycleConfigOpen, setCycleConfigOpen] = useState(false);
+  const {
+    isConfigured: cycleConfigured,
+    cycleStatus,
+    settings: cycleSettings,
+    saveSettings: saveCycleSettings,
+    isSaving: isSavingCycle,
+    logSymptoms,
+    isLoggingSymptoms,
+  } = useCyclePhasing(currentUserId || undefined);
+
   // Gamification data
   const { currentStreak, isStreakDay, loading: streakLoading } = useGamification(currentUserId || undefined);
   
@@ -506,6 +521,31 @@ export default function AthleteDashboard() {
             </motion.div>
           </div>
         </motion.div>
+
+        {/* ===== CYCLE-SYNC ENGINE ===== */}
+        {cycleConfigured && cycleStatus ? (
+          <CyclePhaseCard
+            cycleStatus={cycleStatus}
+            cycleLength={cycleSettings?.cycle_length_days || 28}
+            onLogSymptoms={logSymptoms}
+            isLogging={isLoggingSymptoms}
+          />
+        ) : (
+          <CycleSetupCTA onSetup={() => setCycleConfigOpen(true)} />
+        )}
+
+        {/* Cycle Config Dialog */}
+        <CycleConfigDialog
+          open={cycleConfigOpen}
+          onOpenChange={setCycleConfigOpen}
+          onSave={saveCycleSettings}
+          isSaving={isSavingCycle}
+          defaultValues={{
+            lastPeriodStart: cycleSettings?.last_period_start_date || undefined,
+            cycleLength: cycleSettings?.cycle_length_days || 28,
+            contraceptiveType: cycleSettings?.contraceptive_type || "none",
+          }}
+        />
 
         {/* ===== ACTION STACK ===== */}
         <div className="space-y-3">
