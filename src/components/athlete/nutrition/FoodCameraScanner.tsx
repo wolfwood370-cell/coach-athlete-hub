@@ -22,6 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Camera, Loader2, CheckCircle2, XCircle, RotateCcw, Sparkles, Mic, MicOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import imageCompression from "browser-image-compression";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
@@ -31,7 +32,7 @@ interface FoodCameraScannerProps {
   onMealLogged: () => void;
 }
 
-type ScanStep = "idle" | "describing" | "analyzing" | "review";
+type ScanStep = "idle" | "compressing" | "describing" | "analyzing" | "review";
 
 interface AiResult {
   name: string;
@@ -96,18 +97,31 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Read as base64
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      setImagePreview(base64);
-      setImageBase64(base64);
-      setStep("describing");
-    };
-    reader.readAsDataURL(file);
-
     // Reset input so same file can be selected again
     e.target.value = "";
+
+    setStep("compressing");
+
+    try {
+      const compressed = await imageCompression(file, {
+        maxWidthOrHeight: 1024,
+        maxSizeMB: 0.5,
+        useWebWorker: true,
+      });
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result as string;
+        setImagePreview(base64);
+        setImageBase64(base64);
+        setStep("describing");
+      };
+      reader.readAsDataURL(compressed);
+    } catch (err) {
+      console.error("Compression error:", err);
+      toast.error("Errore nella compressione dell'immagine");
+      reset();
+    }
   };
 
   const toggleSpeechRecognition = useCallback(() => {
@@ -293,6 +307,16 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
                   className="hidden"
                   onChange={handleFileSelect}
                 />
+              </div>
+            )}
+
+            {/* COMPRESSING STATE */}
+            {step === "compressing" && (
+              <div className="flex flex-col items-center gap-6 py-8">
+                <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                <p className="text-sm font-medium text-primary animate-pulse">
+                  Compressione foto...
+                </p>
               </div>
             )}
 
