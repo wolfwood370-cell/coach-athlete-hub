@@ -34,6 +34,7 @@ import { usePersonalRecords } from "@/hooks/usePersonalRecords";
 import { useExerciseHistory } from "@/hooks/useExerciseHistory";
 import { triggerConfetti, triggerPRConfetti } from "@/utils/ux";
 import useEmblaCarousel from "embla-carousel-react";
+import { useWakeLock } from "@/hooks/useWakeLock";
 
 // Components
 import { ActiveSessionShell } from "@/components/athlete/workout/ActiveSessionShell";
@@ -125,7 +126,8 @@ export default function WorkoutPlayer() {
   const { checkForPR, showPRToast } = usePersonalRecords();
   const sessionStore = useActiveSessionStore();
 
-  // Refs & User
+  // Keep screen awake during workout
+  useWakeLock(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   // Workout state

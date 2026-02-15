@@ -5,6 +5,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { SunThemeSync } from "@/components/logic/SunThemeSync";
 import { OfflineSyncProvider } from "@/providers/OfflineSyncProvider";
+import { InstallPrompt } from "@/components/mobile/InstallPrompt";
+import { NetworkBadge } from "@/components/ui/NetworkBadge";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import CoachHome from "./pages/coach/CoachHome";
@@ -37,6 +39,8 @@ const App = () => (
         <Toaster />
         <Sonner />
         <SunThemeSync />
+        <NetworkBadge />
+        <InstallPrompt />
         
         <BrowserRouter>
           <Routes>
