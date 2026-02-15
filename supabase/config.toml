@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.check-achievements]
 verify_jwt = false
+
+[functions.generate-batch-checkins]
+verify_jwt = false

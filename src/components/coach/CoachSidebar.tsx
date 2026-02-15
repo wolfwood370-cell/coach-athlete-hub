@@ -11,6 +11,7 @@ import {
   ChevronLeft,
   CreditCard,
   BookOpen,
+  Inbox,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,7 @@ import {
 
 const mainNavItems = [
   { title: "Dashboard", url: "/coach", icon: LayoutDashboard },
+  { title: "Inbox", url: "/coach/inbox", icon: Inbox },
   { title: "Atleti", url: "/coach/athletes", icon: Users },
   { title: "Programmi", url: "/coach/programs", icon: Dumbbell },
   { title: "Calendario", url: "/coach/calendar", icon: Calendar },
