@@ -220,6 +220,7 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
         fats,
         photo_url: photoUrl,
         confidence_score: result?.confidence_score ?? null,
+        notes: description || null,
       });
 
       if (mealError) throw mealError;
