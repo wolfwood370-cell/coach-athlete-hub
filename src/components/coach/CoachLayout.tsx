@@ -43,7 +43,7 @@ function CoachHeader({ title, subtitle }: { title?: string; subtitle?: string })
         <div className="relative hidden lg:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="Search athletes, programs..." 
+            placeholder="Cerca atleti, programmi..." 
             className="pl-9 w-72 h-9 bg-secondary/50 border-0 text-sm placeholder:text-muted-foreground/60"
           />
         </div>

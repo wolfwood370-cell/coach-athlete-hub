@@ -599,7 +599,7 @@ export default function AthleteDashboard() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <h3 className="font-semibold text-base text-amber-600 dark:text-amber-400">
-                            ☀️ Morning Check-in
+                            ☀️ Check-in Mattutino
                           </h3>
                         </div>
                         <p className="text-xs text-muted-foreground">
@@ -654,7 +654,7 @@ export default function AthleteDashboard() {
                       "text-sm font-medium",
                       displayLevel === "high" ? "text-success" : displayLevel === "moderate" ? "text-warning" : "text-destructive"
                     )}>
-                      Ready to Train · {displayScore}%
+                      Pronto ad Allenarti · {displayScore}%
                     </span>
                     {isOverridden && (
                       <Badge variant="secondary" className="text-[9px] py-0">Override</Badge>

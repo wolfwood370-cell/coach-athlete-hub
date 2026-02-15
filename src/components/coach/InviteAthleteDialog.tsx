@@ -27,9 +27,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 const inviteFormSchema = z.object({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  email: z.string().email("Invalid email address"),
+  firstName: z.string().min(1, "Il nome è obbligatorio"),
+  lastName: z.string().min(1, "Il cognome è obbligatorio"),
+  email: z.string().email("Indirizzo email non valido"),
 });
 
 type InviteFormData = z.infer<typeof inviteFormSchema>;
@@ -58,8 +58,8 @@ export function InviteAthleteDialog({ onAthleteInvited, trigger }: InviteAthlete
     if (!user) {
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "You must be logged in to invite athletes.",
+        title: "Errore",
+        description: "Devi effettuare l'accesso per invitare atleti.",
       });
       return;
     }
@@ -81,8 +81,8 @@ export function InviteAthleteDialog({ onAthleteInvited, trigger }: InviteAthlete
       }
 
       toast({
-        title: "Athlete invited!",
-        description: `Invitation sent to ${data.email}. They can now sign up to join your team.`,
+        title: "Atleta invitato!",
+        description: `Invito inviato a ${data.email}. Potrà registrarsi per unirsi al tuo team.`,
       });
 
       form.reset();
@@ -92,8 +92,8 @@ export function InviteAthleteDialog({ onAthleteInvited, trigger }: InviteAthlete
       console.error("Error inviting athlete:", error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to invite athlete. Please try again.",
+        title: "Errore",
+        description: error.message || "Impossibile invitare l'atleta. Riprova.",
       });
     } finally {
       setIsSubmitting(false);
@@ -114,10 +114,10 @@ export function InviteAthleteDialog({ onAthleteInvited, trigger }: InviteAthlete
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5 text-primary" />
-            Invite Athlete
+            Invita Atleta
           </DialogTitle>
           <DialogDescription>
-            Send an invitation to a new athlete to join your coaching program.
+            Invia un invito a un nuovo atleta per unirsi al tuo programma di coaching.
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -127,7 +127,7 @@ export function InviteAthleteDialog({ onAthleteInvited, trigger }: InviteAthlete
               name="firstName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>First Name</FormLabel>
+                  <FormLabel>Nome</FormLabel>
                   <FormControl>
                     <Input placeholder="Mario" {...field} />
                   </FormControl>
@@ -140,7 +140,7 @@ export function InviteAthleteDialog({ onAthleteInvited, trigger }: InviteAthlete
               name="lastName"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Last Name</FormLabel>
+                  <FormLabel>Cognome</FormLabel>
                   <FormControl>
                     <Input placeholder="Rossi" {...field} />
                   </FormControl>
@@ -168,18 +168,18 @@ export function InviteAthleteDialog({ onAthleteInvited, trigger }: InviteAthlete
                 onClick={() => setOpen(false)}
                 disabled={isSubmitting}
               >
-                Cancel
+                Annulla
               </Button>
               <Button type="submit" disabled={isSubmitting} className="gradient-primary">
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Sending...
+                    Invio...
                   </>
                 ) : (
                   <>
                     <UserPlus className="h-4 w-4 mr-2" />
-                    Send Invite
+                    Invia Invito
                   </>
                 )}
               </Button>
