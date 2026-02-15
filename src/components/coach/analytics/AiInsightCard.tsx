@@ -5,12 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Sparkles, RefreshCw, Copy, CheckCircle2, AlertTriangle, TrendingDown, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
+import ReactMarkdown from "react-markdown";
 
 interface AiInsightCardProps {
   athleteId: string | undefined;
@@ -22,7 +22,6 @@ interface AiInsight {
   coach_id: string;
   week_start_date: string;
   insight_text: string;
-  action_items: string[];
   sentiment_score: number;
   created_at: string;
 }
@@ -53,9 +52,7 @@ function getSentimentConfig(score: number) {
 
 export function AiInsightCard({ athleteId }: AiInsightCardProps) {
   const queryClient = useQueryClient();
-  const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set());
 
-  // Fetch latest insight
   const { data: insight, isLoading } = useQuery({
     queryKey: ["ai-insight", athleteId],
     queryFn: async () => {
@@ -67,27 +64,23 @@ export function AiInsightCard({ athleteId }: AiInsightCardProps) {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-
       if (error) throw error;
       return data as AiInsight | null;
     },
     enabled: !!athleteId,
   });
 
-  // Generate mutation
   const generateMutation = useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("analyze-athlete-week", {
         body: { athlete_id: athleteId },
       });
-
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       return data as AiInsight;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ai-insight", athleteId] });
-      setCheckedItems(new Set());
       toast.success("Analisi AI generata", {
         description: "Il report settimanale è stato aggiornato.",
       });
@@ -97,15 +90,6 @@ export function AiInsightCard({ athleteId }: AiInsightCardProps) {
       toast.error("Errore AI", { description: message });
     },
   });
-
-  const toggleItem = (idx: number) => {
-    setCheckedItems((prev) => {
-      const next = new Set(prev);
-      if (next.has(idx)) next.delete(idx);
-      else next.add(idx);
-      return next;
-    });
-  };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -178,11 +162,11 @@ export function AiInsightCard({ athleteId }: AiInsightCardProps) {
           </div>
         ) : (
           <>
-            {/* Insight Text */}
+            {/* Markdown Report */}
             <div className="relative">
-              <p className="text-sm leading-relaxed text-foreground/90 italic">
-                "{insight.insight_text}"
-              </p>
+              <div className="prose prose-sm dark:prose-invert max-w-none text-foreground/90 [&_h3]:text-sm [&_h3]:font-semibold [&_h3]:mt-4 [&_h3]:mb-2 [&_h3]:first:mt-0 [&_p]:text-sm [&_p]:leading-relaxed [&_p]:mb-2">
+                <ReactMarkdown>{insight.insight_text}</ReactMarkdown>
+              </div>
               <Button
                 variant="ghost"
                 size="icon"
@@ -191,45 +175,6 @@ export function AiInsightCard({ athleteId }: AiInsightCardProps) {
               >
                 <Copy className="h-3 w-3" />
               </Button>
-            </div>
-
-            {/* Action Items */}
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Azioni Consigliate
-              </p>
-              {insight.action_items.map((item, idx) => (
-                <div
-                  key={idx}
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg border p-3 transition-all",
-                    checkedItems.has(idx)
-                      ? "bg-muted/50 border-muted"
-                      : "bg-background hover:border-primary/30"
-                  )}
-                >
-                  <Checkbox
-                    checked={checkedItems.has(idx)}
-                    onCheckedChange={() => toggleItem(idx)}
-                    className="shrink-0"
-                  />
-                  <span className={cn(
-                    "text-sm flex-1",
-                    checkedItems.has(idx) && "line-through text-muted-foreground"
-                  )}>
-                    {item}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 shrink-0 opacity-40 hover:opacity-100"
-                    onClick={() => copyToClipboard(item)}
-                    title="Copia nel messaggio"
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
             </div>
 
             {/* Sentiment bar */}
