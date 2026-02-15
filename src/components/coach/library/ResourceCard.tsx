@@ -9,6 +9,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { 
   Play, 
   FileText, 
@@ -19,6 +25,7 @@ import {
   ExternalLink,
   Brain,
   Loader2,
+  CheckCircle2,
 } from "lucide-react";
 import type { ContentItem, ContentType } from "@/hooks/useContentLibrary";
 import { formatDistanceToNow } from "date-fns";
@@ -36,6 +43,7 @@ const typeIcons: Record<ContentType, React.ReactNode> = {
   pdf: <FileText className="h-5 w-5" />,
   link: <Link2 className="h-5 w-5" />,
   text: <FileEdit className="h-5 w-5" />,
+  ai_knowledge: <Brain className="h-5 w-5" />,
 };
 
 const typeColors: Record<ContentType, string> = {
@@ -43,11 +51,14 @@ const typeColors: Record<ContentType, string> = {
   pdf: "bg-blue-500/10 text-blue-500",
   link: "bg-green-500/10 text-green-500",
   text: "bg-purple-500/10 text-purple-500",
+  ai_knowledge: "bg-violet-500/10 text-violet-500",
 };
 
 export function ResourceCard({ resource, onDelete, onOpenVideo }: ResourceCardProps) {
   const [isIngesting, setIsIngesting] = useState(false);
-  const [isIndexed, setIsIndexed] = useState(false);
+  const [isIndexed, setIsIndexed] = useState(resource.type === "ai_knowledge");
+
+  const isAiKnowledge = resource.type === "ai_knowledge";
 
   const handleOpen = () => {
     if (onOpenVideo) {
@@ -60,7 +71,6 @@ export function ResourceCard({ resource, onDelete, onOpenVideo }: ResourceCardPr
   const handleIngestToAI = async () => {
     setIsIngesting(true);
     try {
-      // Build content from title + tags + url
       const contentParts = [`Titolo: ${resource.title}`];
       if (resource.tags.length > 0) {
         contentParts.push(`Tags: ${resource.tags.join(", ")}`);
@@ -68,7 +78,6 @@ export function ResourceCard({ resource, onDelete, onOpenVideo }: ResourceCardPr
       if (resource.url) {
         contentParts.push(`URL: ${resource.url}`);
       }
-      // For text-based resources, the title IS the content
       const content = contentParts.join("\n");
 
       const { data, error } = await supabase.functions.invoke("ingest-knowledge", {
@@ -96,9 +105,34 @@ export function ResourceCard({ resource, onDelete, onOpenVideo }: ResourceCardPr
   };
 
   return (
-    <Card className="group hover:shadow-md transition-shadow relative">
-      {/* AI Brain badge */}
-      {isIndexed && (
+    <Card className={`group hover:shadow-md transition-shadow relative ${isAiKnowledge ? "border-violet-500/30" : ""}`}>
+      {/* AI Brain badge for ai_knowledge type */}
+      {isAiKnowledge && (
+        <div className="absolute top-2 right-12 z-10">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger>
+                <Badge
+                  variant="secondary"
+                  className="bg-gradient-to-r from-violet-500/15 to-cyan-500/15 text-violet-500 border-violet-500/20 text-[10px] gap-1"
+                >
+                  <Brain className="h-3 w-3" />
+                  AI Brain
+                  {isIndexed && <CheckCircle2 className="h-3 w-3 text-emerald-500" />}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isIndexed
+                  ? "L'AI conosce questo documento ✅"
+                  : "In attesa di indicizzazione..."}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      )}
+
+      {/* Non-AI indexed badge */}
+      {!isAiKnowledge && isIndexed && (
         <div className="absolute top-2 right-12 z-10">
           <Badge variant="secondary" className="bg-violet-500/10 text-violet-500 border-violet-500/20 text-[10px] gap-1">
             <Brain className="h-3 w-3" />
@@ -116,7 +150,7 @@ export function ResourceCard({ resource, onDelete, onOpenVideo }: ResourceCardPr
             <div className="space-y-1">
               <CardTitle className="text-base line-clamp-1">{resource.title}</CardTitle>
               <p className="text-xs text-muted-foreground">
-                Added {formatDistanceToNow(new Date(resource.created_at), { addSuffix: true })}
+                {formatDistanceToNow(new Date(resource.created_at), { addSuffix: true })}
               </p>
             </div>
           </div>
@@ -138,17 +172,19 @@ export function ResourceCard({ resource, onDelete, onOpenVideo }: ResourceCardPr
                   Apri
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem 
-                onClick={handleIngestToAI}
-                disabled={isIngesting || isIndexed}
-              >
-                {isIngesting ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Brain className="h-4 w-4 mr-2" />
-                )}
-                {isIndexed ? "Già indicizzato" : isIngesting ? "Training..." : "🧠 Aggiungi all'AI Brain"}
-              </DropdownMenuItem>
+              {!isAiKnowledge && (
+                <DropdownMenuItem 
+                  onClick={handleIngestToAI}
+                  disabled={isIngesting || isIndexed}
+                >
+                  {isIngesting ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Brain className="h-4 w-4 mr-2" />
+                  )}
+                  {isIndexed ? "Già indicizzato" : isIngesting ? "Training..." : "🧠 Aggiungi all'AI Brain"}
+                </DropdownMenuItem>
+              )}
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={() => onDelete(resource.id)}
@@ -173,7 +209,7 @@ export function ResourceCard({ resource, onDelete, onOpenVideo }: ResourceCardPr
           </div>
         )}
         
-        {(resource.url || onOpenVideo) && (
+        {!isAiKnowledge && (resource.url || onOpenVideo) && (
           <Button 
             variant="outline" 
             size="sm" 

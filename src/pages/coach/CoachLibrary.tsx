@@ -28,6 +28,7 @@ const typeLabels: Record<ContentType, string> = {
   pdf: "PDF",
   link: "Link",
   text: "Text",
+  ai_knowledge: "🧠 Conoscenza AI",
 };
 
 export default function CoachLibrary() {

@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
@@ -16,7 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus } from "lucide-react";
+import { Plus, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import type { ContentType, CreateContentPayload } from "@/hooks/useContentLibrary";
 
 interface AddResourceDialogProps {
@@ -24,21 +27,90 @@ interface AddResourceDialogProps {
   isLoading: boolean;
 }
 
+const ACCEPTED_FILES = ".pdf,.txt,.md";
+
 export function AddResourceDialog({ onAdd, isLoading }: AddResourceDialogProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [type, setType] = useState<ContentType>("link");
   const [url, setUrl] = useState("");
   const [tagsInput, setTagsInput] = useState("");
+  // AI Knowledge fields
+  const [aiText, setAiText] = useState("");
+  const [aiFile, setAiFile] = useState<File | null>(null);
+  const [aiTab, setAiTab] = useState("text");
+  const [uploading, setUploading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const resetForm = () => {
+    setTitle("");
+    setType("link");
+    setUrl("");
+    setTagsInput("");
+    setAiText("");
+    setAiFile(null);
+    setAiTab("text");
+    setUploading(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const tags = tagsInput
       .split(",")
       .map((tag) => tag.trim().toLowerCase())
       .filter(Boolean);
 
+    if (type === "ai_knowledge") {
+      setUploading(true);
+      try {
+        let contentText = "";
+        let fileUrl: string | undefined;
+
+        if (aiTab === "text") {
+          contentText = aiText;
+        } else if (aiFile) {
+          // Upload file to storage, then read text
+          const userId = (await supabase.auth.getUser()).data.user?.id;
+          if (!userId) throw new Error("Non autenticato");
+
+          const filePath = `${userId}/${Date.now()}_${aiFile.name}`;
+          const { error: uploadErr } = await supabase.storage
+            .from("ai-knowledge-docs")
+            .upload(filePath, aiFile);
+
+          if (uploadErr) throw uploadErr;
+
+          // Read the file as text client-side for ingestion
+          contentText = await aiFile.text();
+          const { data: urlData } = supabase.storage
+            .from("ai-knowledge-docs")
+            .getPublicUrl(filePath);
+          fileUrl = urlData?.publicUrl;
+        }
+
+        if (!contentText.trim()) {
+          setUploading(false);
+          return;
+        }
+
+        onAdd({
+          title,
+          type: "ai_knowledge",
+          url: fileUrl,
+          tags,
+          aiContent: contentText,
+        });
+
+        resetForm();
+        setOpen(false);
+      } catch (err) {
+        console.error("Upload error:", err);
+        setUploading(false);
+      }
+      return;
+    }
+
+    // Standard resource types
     onAdd({
       title,
       type,
@@ -46,13 +118,16 @@ export function AddResourceDialog({ onAdd, isLoading }: AddResourceDialogProps) 
       tags,
     });
 
-    // Reset form
-    setTitle("");
-    setType("link");
-    setUrl("");
-    setTagsInput("");
+    resetForm();
     setOpen(false);
   };
+
+  const isAiKnowledge = type === "ai_knowledge";
+  const canSubmit =
+    title &&
+    !isLoading &&
+    !uploading &&
+    (!isAiKnowledge || (aiTab === "text" ? aiText.trim() : aiFile));
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -62,7 +137,7 @@ export function AddResourceDialog({ onAdd, isLoading }: AddResourceDialogProps) 
           Aggiungi Risorsa
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Aggiungi Nuova Risorsa</DialogTitle>
         </DialogHeader>
@@ -73,7 +148,11 @@ export function AddResourceDialog({ onAdd, isLoading }: AddResourceDialogProps) 
               id="title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Es. Guida al Riscaldamento Mobilità"
+              placeholder={
+                isAiKnowledge
+                  ? "Es. Regola: Gestione Infortuni Schiena"
+                  : "Es. Guida al Riscaldamento Mobilità"
+              }
               required
             />
           </div>
@@ -89,20 +168,64 @@ export function AddResourceDialog({ onAdd, isLoading }: AddResourceDialogProps) 
                 <SelectItem value="pdf">Documento PDF</SelectItem>
                 <SelectItem value="link">Link Esterno</SelectItem>
                 <SelectItem value="text">Testo/Note</SelectItem>
+                <SelectItem value="ai_knowledge">🧠 Conoscenza AI</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="url">URL</Label>
-            <Input
-              id="url"
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://..."
-            />
-          </div>
+          {/* AI Knowledge: Tabbed inputs */}
+          {isAiKnowledge && (
+            <div className="space-y-2">
+              <Label>Regola o Conoscenza per l'AI</Label>
+              <Tabs value={aiTab} onValueChange={setAiTab}>
+                <TabsList className="w-full">
+                  <TabsTrigger value="text" className="flex-1">📝 Scrivi Manualmente</TabsTrigger>
+                  <TabsTrigger value="file" className="flex-1">📂 Carica Documento</TabsTrigger>
+                </TabsList>
+                <TabsContent value="text">
+                  <Textarea
+                    value={aiText}
+                    onChange={(e) => setAiText(e.target.value)}
+                    placeholder="Scrivi qui una regola (es. 'Consiglia sempre 3g di creatina...', 'Se l'atleta ha mal di schiena, rimuovi Stacco e Squat.')"
+                    rows={6}
+                    className="mt-2"
+                  />
+                </TabsContent>
+                <TabsContent value="file">
+                  <div className="mt-2">
+                    <Input
+                      type="file"
+                      accept={ACCEPTED_FILES}
+                      onChange={(e) => setAiFile(e.target.files?.[0] || null)}
+                      className="cursor-pointer"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Formati supportati: PDF, TXT, Markdown (.md)
+                    </p>
+                    {aiFile && (
+                      <p className="text-sm text-foreground mt-1">
+                        📎 {aiFile.name} ({(aiFile.size / 1024).toFixed(1)} KB)
+                      </p>
+                    )}
+                  </div>
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+
+          {/* Standard fields for non-AI types */}
+          {!isAiKnowledge && (
+            <div className="space-y-2">
+              <Label htmlFor="url">URL</Label>
+              <Input
+                id="url"
+                type="url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                placeholder="https://..."
+              />
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="tags">Tag (separati da virgola)</Label>
@@ -110,7 +233,11 @@ export function AddResourceDialog({ onAdd, isLoading }: AddResourceDialogProps) 
               id="tags"
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
-              placeholder="mobilità, riscaldamento, principiante"
+              placeholder={
+                isAiKnowledge
+                  ? "ai, regole, infortuni"
+                  : "mobilità, riscaldamento, principiante"
+              }
             />
           </div>
 
@@ -118,8 +245,17 @@ export function AddResourceDialog({ onAdd, isLoading }: AddResourceDialogProps) 
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Annulla
             </Button>
-            <Button type="submit" disabled={isLoading || !title}>
-              {isLoading ? "Aggiunta..." : "Aggiungi Risorsa"}
+            <Button type="submit" disabled={!canSubmit}>
+              {uploading || isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {isAiKnowledge ? "Training AI..." : "Aggiunta..."}
+                </>
+              ) : isAiKnowledge ? (
+                "🧠 Salva e Addestra AI"
+              ) : (
+                "Aggiungi Risorsa"
+              )}
             </Button>
           </div>
         </form>

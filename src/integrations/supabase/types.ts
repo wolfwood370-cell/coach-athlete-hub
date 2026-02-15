@@ -2044,7 +2044,7 @@ export type Database = {
       }
     }
     Enums: {
-      content_type: "video" | "pdf" | "link" | "text"
+      content_type: "video" | "pdf" | "link" | "text" | "ai_knowledge"
       cycle_phase: "menstrual" | "follicular" | "ovulatory" | "luteal"
       meal_time: "breakfast" | "lunch" | "dinner" | "snack"
       phase_focus_type:
@@ -2186,7 +2186,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      content_type: ["video", "pdf", "link", "text"],
+      content_type: ["video", "pdf", "link", "text", "ai_knowledge"],
       cycle_phase: ["menstrual", "follicular", "ovulatory", "luteal"],
       meal_time: ["breakfast", "lunch", "dinner", "snack"],
       phase_focus_type: [
