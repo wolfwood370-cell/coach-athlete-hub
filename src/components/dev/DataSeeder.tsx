@@ -93,7 +93,6 @@ export function DataSeeder({ athleteId }: DataSeederProps) {
             duration_minutes: durationMin,
             rpe_global: session.rpe,
             srpe,
-            total_load_au: srpe,
             exercises_data: [],
             scheduled_date: scheduledDate,
           })
