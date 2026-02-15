@@ -1,0 +1,189 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+};
+
+async function getEmbedding(text: string, apiKey: string): Promise<number[]> {
+  const response = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "text-embedding-3-small",
+      input: text,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Embedding error:", response.status, errorText);
+    throw new Error(`Embedding API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return data.data[0].embedding;
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Non autorizzato" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const openaiKey = Deno.env.get("OPENAI_API_KEY");
+    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+
+    if (!openaiKey) throw new Error("OPENAI_API_KEY is not configured");
+    if (!lovableKey) throw new Error("LOVABLE_API_KEY is not configured");
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    // Verify user and get their coach
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Non autorizzato" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Get the user's profile to find their coach_id
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, coach_id")
+      .eq("id", user.id)
+      .single();
+
+    // Determine which coach's knowledge base to query
+    const coachId = profile?.role === "coach" ? user.id : profile?.coach_id;
+
+    if (!coachId) {
+      return new Response(
+        JSON.stringify({ error: "Nessun coach associato. Contatta il tuo coach." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { query, history } = await req.json();
+
+    if (!query || typeof query !== "string") {
+      return new Response(
+        JSON.stringify({ error: "Query mancante" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // 1. Embed the query
+    const queryEmbedding = await getEmbedding(query, openaiKey);
+
+    // 2. Retrieve relevant context chunks via match_documents RPC
+    const { data: matches, error: matchError } = await supabase.rpc("match_documents", {
+      query_embedding: JSON.stringify(queryEmbedding),
+      p_coach_id: coachId,
+      match_threshold: 0.5,
+      match_count: 3,
+    });
+
+    if (matchError) {
+      console.error("match_documents error:", matchError);
+    }
+
+    // 3. Build context string from matched documents
+    const contextChunks = (matches || [])
+      .map((m: { content: string; similarity: number; metadata: Record<string, unknown> }, i: number) => {
+        const source = m.metadata?.source ? ` (Fonte: ${m.metadata.source})` : "";
+        return `[Chunk ${i + 1}${source} — Similarità: ${(m.similarity * 100).toFixed(0)}%]\n${m.content}`;
+      })
+      .join("\n\n");
+
+    const hasContext = contextChunks.length > 0;
+
+    // 4. Build messages for LLM
+    const systemPrompt = hasContext
+      ? `Sei un Assistente AI che rispecchia la filosofia specifica del Coach. Rispondi ESCLUSIVAMENTE usando il seguente Contesto. Se la risposta non è nel contesto, rispondi: "Non ho informazioni specifiche su questo argomento nella knowledge base del Coach. Ti consiglio di chiedere direttamente al tuo Coach."
+
+CONTESTO:
+${contextChunks}
+
+REGOLE:
+- Rispondi sempre in italiano
+- Cita le fonti quando disponibili
+- Sii conciso ma completo
+- Non inventare informazioni non presenti nel contesto`
+      : `Sei un Assistente AI di un Coach sportivo. Al momento non hai accesso a documenti specifici del Coach nella knowledge base. Rispondi: "Non ho ancora informazioni nella knowledge base del Coach. Chiedi al tuo Coach di caricare i materiali formativi per ricevere risposte personalizzate."`;
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...(history || []).map((m: { role: string; content: string }) => ({
+        role: m.role,
+        content: m.content,
+      })),
+      { role: "user", content: query },
+    ];
+
+    // 5. Call Lovable AI Gateway with streaming
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${lovableKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages,
+        stream: true,
+      }),
+    });
+
+    if (!aiResponse.ok) {
+      if (aiResponse.status === 429) {
+        return new Response(
+          JSON.stringify({ error: "Troppe richieste, riprova tra poco." }),
+          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (aiResponse.status === 402) {
+        return new Response(
+          JSON.stringify({ error: "Crediti AI esauriti." }),
+          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      const errorText = await aiResponse.text();
+      console.error("AI gateway error:", aiResponse.status, errorText);
+      throw new Error("Errore nel servizio AI");
+    }
+
+    // Stream the response back
+    return new Response(aiResponse.body, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+      },
+    });
+  } catch (e) {
+    console.error("chat-with-coach error:", e);
+    return new Response(
+      JSON.stringify({ error: e instanceof Error ? e.message : "Errore sconosciuto" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
