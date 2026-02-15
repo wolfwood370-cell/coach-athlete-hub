@@ -62,7 +62,6 @@ serve(async (req) => {
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     const lovableKey = Deno.env.get("LOVABLE_API_KEY");
 
-    if (!openaiKey) throw new Error("OPENAI_API_KEY is not configured");
     if (!lovableKey) throw new Error("LOVABLE_API_KEY is not configured");
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -106,28 +105,32 @@ serve(async (req) => {
 
     // 1. Try to embed the query and retrieve RAG context
     let contextChunks = "";
-    try {
-      const queryEmbedding = await getEmbedding(query, openaiKey);
+    if (openaiKey) {
+      try {
+        const queryEmbedding = await getEmbedding(query, openaiKey);
 
-      const { data: matches, error: matchError } = await supabase.rpc("match_documents", {
-        query_embedding: JSON.stringify(queryEmbedding),
-        p_coach_id: coachId,
-        match_threshold: 0.5,
-        match_count: 3,
-      });
+        const { data: matches, error: matchError } = await supabase.rpc("match_documents", {
+          query_embedding: JSON.stringify(queryEmbedding),
+          p_coach_id: coachId,
+          match_threshold: 0.5,
+          match_count: 3,
+        });
 
-      if (matchError) {
-        console.error("match_documents error:", matchError);
+        if (matchError) {
+          console.error("match_documents error:", matchError);
+        }
+
+        contextChunks = (matches || [])
+          .map((m: { content: string; similarity: number; metadata: Record<string, unknown> }, i: number) => {
+            const source = m.metadata?.source ? ` (Fonte: ${m.metadata.source})` : "";
+            return `[Chunk ${i + 1}${source} — Similarità: ${(m.similarity * 100).toFixed(0)}%]\n${m.content}`;
+          })
+          .join("\n\n");
+      } catch (embeddingError) {
+        console.warn("Embedding/RAG failed, proceeding without context:", embeddingError);
       }
-
-      contextChunks = (matches || [])
-        .map((m: { content: string; similarity: number; metadata: Record<string, unknown> }, i: number) => {
-          const source = m.metadata?.source ? ` (Fonte: ${m.metadata.source})` : "";
-          return `[Chunk ${i + 1}${source} — Similarità: ${(m.similarity * 100).toFixed(0)}%]\n${m.content}`;
-        })
-        .join("\n\n");
-    } catch (embeddingError) {
-      console.warn("Embedding/RAG failed, proceeding without context:", embeddingError);
+    } else {
+      console.warn("OPENAI_API_KEY not set, skipping RAG embedding");
     }
 
     const hasContext = contextChunks.length > 0;
