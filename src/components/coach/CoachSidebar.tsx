@@ -36,17 +36,17 @@ import {
 
 const mainNavItems = [
   { title: "Dashboard", url: "/coach", icon: LayoutDashboard },
-  { title: "Athletes", url: "/coach/athletes", icon: Users },
-  { title: "Programs", url: "/coach/programs", icon: Dumbbell },
-  { title: "Calendar", url: "/coach/calendar", icon: Calendar },
-  { title: "Messages", url: "/coach/messages", icon: MessageSquare },
-  { title: "Library", url: "/coach/library", icon: BookOpen },
-  { title: "Analytics", url: "/coach/analytics", icon: BarChart3 },
+  { title: "Atleti", url: "/coach/athletes", icon: Users },
+  { title: "Programmi", url: "/coach/programs", icon: Dumbbell },
+  { title: "Calendario", url: "/coach/calendar", icon: Calendar },
+  { title: "Messaggi", url: "/coach/messages", icon: MessageSquare },
+  { title: "Libreria", url: "/coach/library", icon: BookOpen },
+  { title: "Analisi", url: "/coach/analytics", icon: BarChart3 },
   { title: "Business", url: "/coach/business", icon: CreditCard },
 ];
 
 const secondaryNavItems = [
-  { title: "Settings", url: "/coach/settings", icon: Settings },
+  { title: "Impostazioni", url: "/coach/settings", icon: Settings },
 ];
 
 export function CoachSidebar() {
@@ -70,7 +70,7 @@ export function CoachSidebar() {
             {!isCollapsed && (
               <div className="overflow-hidden">
                 <h1 className="text-base font-semibold text-sidebar-foreground">FitCoach</h1>
-                <p className="text-xs text-sidebar-foreground/50">Pro Platform</p>
+                <p className="text-xs text-sidebar-foreground/50">Piattaforma Pro</p>
               </div>
             )}
           </div>
@@ -91,7 +91,7 @@ export function CoachSidebar() {
         <SidebarGroup>
           {!isCollapsed && (
             <SidebarGroupLabel className="text-sidebar-foreground/40 text-[10px] uppercase tracking-widest font-medium px-3 mb-1">
-              Main Menu
+              Menu Principale
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
@@ -130,7 +130,7 @@ export function CoachSidebar() {
         <SidebarGroup className="mt-auto">
           {!isCollapsed && (
             <SidebarGroupLabel className="text-sidebar-foreground/40 text-[10px] uppercase tracking-widest font-medium px-3 mb-1">
-              System
+              Sistema
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
@@ -180,7 +180,7 @@ export function CoachSidebar() {
             {isCollapsed && (
               <TooltipContent side="right">
                 <p className="font-medium">Marco Coach</p>
-                <p className="text-xs text-muted-foreground">Pro Plan</p>
+                <p className="text-xs text-muted-foreground">Piano Pro</p>
               </TooltipContent>
             )}
           </Tooltip>
@@ -188,7 +188,7 @@ export function CoachSidebar() {
             <>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-sidebar-foreground truncate">Marco Coach</p>
-                <p className="text-xs text-sidebar-foreground/50 truncate">Pro Plan</p>
+                <p className="text-xs text-sidebar-foreground/50 truncate">Piano Pro</p>
               </div>
               <button className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors">
                 <LogOut className="h-4 w-4" />

@@ -110,7 +110,7 @@ export function ActiveSessionShell({
               <h1 className="text-base font-semibold truncate">{title}</h1>
               {isRecoveryMode && (
                 <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 text-[10px] h-5 shrink-0">
-                  📉 Recovery
+                  📉 Recupero
                 </Badge>
               )}
             </div>
