@@ -1919,6 +1919,45 @@ export type Database = {
           },
         ]
       }
+      weekly_checkins: {
+        Row: {
+          ai_summary: string | null
+          athlete_id: string
+          coach_id: string
+          coach_notes: string | null
+          created_at: string
+          id: string
+          metrics_snapshot: Json | null
+          status: Database["public"]["Enums"]["checkin_status"]
+          updated_at: string
+          week_start: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          athlete_id: string
+          coach_id: string
+          coach_notes?: string | null
+          created_at?: string
+          id?: string
+          metrics_snapshot?: Json | null
+          status?: Database["public"]["Enums"]["checkin_status"]
+          updated_at?: string
+          week_start: string
+        }
+        Update: {
+          ai_summary?: string | null
+          athlete_id?: string
+          coach_id?: string
+          coach_notes?: string | null
+          created_at?: string
+          id?: string
+          metrics_snapshot?: Json | null
+          status?: Database["public"]["Enums"]["checkin_status"]
+          updated_at?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       workout_exercises: {
         Row: {
           calc_power_watts: number | null
@@ -2283,6 +2322,7 @@ export type Database = {
     }
     Enums: {
       billing_sub_status: "active" | "past_due" | "canceled" | "incomplete"
+      checkin_status: "pending" | "approved" | "sent" | "skipped"
       content_type: "video" | "pdf" | "link" | "text" | "ai_knowledge"
       cycle_phase: "menstrual" | "follicular" | "ovulatory" | "luteal"
       meal_time: "breakfast" | "lunch" | "dinner" | "snack"
@@ -2426,6 +2466,7 @@ export const Constants = {
   public: {
     Enums: {
       billing_sub_status: ["active", "past_due", "canceled", "incomplete"],
+      checkin_status: ["pending", "approved", "sent", "skipped"],
       content_type: ["video", "pdf", "link", "text", "ai_knowledge"],
       cycle_phase: ["menstrual", "follicular", "ovulatory", "luteal"],
       meal_time: ["breakfast", "lunch", "dinner", "snack"],
