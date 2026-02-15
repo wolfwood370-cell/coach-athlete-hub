@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      athlete_cycle_settings: {
+        Row: {
+          athlete_id: string
+          auto_regulation_enabled: boolean
+          created_at: string
+          cycle_length_days: number
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          athlete_id: string
+          auto_regulation_enabled?: boolean
+          created_at?: string
+          cycle_length_days?: number
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          athlete_id?: string
+          auto_regulation_enabled?: boolean
+          created_at?: string
+          cycle_length_days?: number
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_cycle_settings_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: true
+            referencedRelation: "analytics_athlete_summary"
+            referencedColumns: ["athlete_id"]
+          },
+          {
+            foreignKeyName: "athlete_cycle_settings_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       athlete_habits: {
         Row: {
           active: boolean
@@ -379,6 +421,51 @@ export type Database = {
           },
           {
             foreignKeyName: "custom_foods_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      daily_cycle_logs: {
+        Row: {
+          athlete_id: string
+          created_at: string
+          current_phase: Database["public"]["Enums"]["cycle_phase"]
+          date: string
+          id: string
+          notes: string | null
+          symptom_tags: string[] | null
+        }
+        Insert: {
+          athlete_id: string
+          created_at?: string
+          current_phase: Database["public"]["Enums"]["cycle_phase"]
+          date?: string
+          id?: string
+          notes?: string | null
+          symptom_tags?: string[] | null
+        }
+        Update: {
+          athlete_id?: string
+          created_at?: string
+          current_phase?: Database["public"]["Enums"]["cycle_phase"]
+          date?: string
+          id?: string
+          notes?: string | null
+          symptom_tags?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_cycle_logs_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_athlete_summary"
+            referencedColumns: ["athlete_id"]
+          },
+          {
+            foreignKeyName: "daily_cycle_logs_athlete_id_fkey"
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -1328,6 +1415,58 @@ export type Database = {
           },
         ]
       }
+      session_voice_events: {
+        Row: {
+          athlete_id: string
+          confidence_score: number | null
+          created_at: string
+          id: string
+          intent_detected: string | null
+          transcript: string
+          workout_log_id: string
+        }
+        Insert: {
+          athlete_id: string
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          intent_detected?: string | null
+          transcript?: string
+          workout_log_id: string
+        }
+        Update: {
+          athlete_id?: string
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          intent_detected?: string | null
+          transcript?: string
+          workout_log_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_voice_events_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_athlete_summary"
+            referencedColumns: ["athlete_id"]
+          },
+          {
+            foreignKeyName: "session_voice_events_athlete_id_fkey"
+            columns: ["athlete_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_voice_events_workout_log_id_fkey"
+            columns: ["workout_log_id"]
+            isOneToOne: false
+            referencedRelation: "workout_logs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_phases: {
         Row: {
           athlete_id: string
@@ -1401,31 +1540,43 @@ export type Database = {
       }
       workout_exercises: {
         Row: {
+          calc_power_watts: number | null
           created_at: string
           exercise_name: string
           exercise_order: number
           id: string
+          mean_velocity_ms: number | null
           notes: string | null
+          peak_velocity_ms: number | null
+          rom_cm: number | null
           sets_data: Json
           updated_at: string
           workout_log_id: string
         }
         Insert: {
+          calc_power_watts?: number | null
           created_at?: string
           exercise_name: string
           exercise_order?: number
           id?: string
+          mean_velocity_ms?: number | null
           notes?: string | null
+          peak_velocity_ms?: number | null
+          rom_cm?: number | null
           sets_data?: Json
           updated_at?: string
           workout_log_id: string
         }
         Update: {
+          calc_power_watts?: number | null
           created_at?: string
           exercise_name?: string
           exercise_order?: number
           id?: string
+          mean_velocity_ms?: number | null
           notes?: string | null
+          peak_velocity_ms?: number | null
+          rom_cm?: number | null
           sets_data?: Json
           updated_at?: string
           workout_log_id?: string
@@ -1737,6 +1888,7 @@ export type Database = {
     }
     Enums: {
       content_type: "video" | "pdf" | "link" | "text"
+      cycle_phase: "menstrual" | "follicular" | "ovulatory" | "luteal"
       phase_focus_type:
         | "strength"
         | "hypertrophy"
@@ -1877,6 +2029,7 @@ export const Constants = {
   public: {
     Enums: {
       content_type: ["video", "pdf", "link", "text"],
+      cycle_phase: ["menstrual", "follicular", "ovulatory", "luteal"],
       phase_focus_type: [
         "strength",
         "hypertrophy",
