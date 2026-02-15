@@ -52,6 +52,7 @@ import {
 } from "lucide-react";
 import { useCoachBusinessData, type CreateProductPayload } from "@/hooks/useCoachBusinessData";
 import { format } from "date-fns";
+import { it } from "date-fns/locale";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function getInitials(name: string | null): string {
@@ -337,7 +338,7 @@ export default function CoachBusiness() {
                       <div className="text-2xl font-bold">
                         €{Number(product.price).toFixed(2)}
                         <span className="text-sm font-normal text-muted-foreground">
-                          /{product.billing_period === "monthly" ? "mo" : product.billing_period === "yearly" ? "yr" : ""}
+                          /{product.billing_period === "monthly" ? "mese" : product.billing_period === "yearly" ? "anno" : ""}
                         </span>
                       </div>
                       {product.description && (
@@ -392,7 +393,7 @@ export default function CoachBusiness() {
                                 {getInitials(athlete.full_name)}
                               </AvatarFallback>
                             </Avatar>
-                            <span className="font-medium">{athlete.full_name || "Unnamed"}</span>
+                            <span className="font-medium">{athlete.full_name || "Senza nome"}</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -403,7 +404,7 @@ export default function CoachBusiness() {
                         <TableCell>{getStatusBadge(athlete.subscription_status)}</TableCell>
                         <TableCell>
                           {athlete.current_period_end
-                            ? format(new Date(athlete.current_period_end), "MMM d, yyyy")
+                            ? format(new Date(athlete.current_period_end), "d MMM yyyy", { locale: it })
                             : "—"}
                         </TableCell>
                         <TableCell className="text-right">

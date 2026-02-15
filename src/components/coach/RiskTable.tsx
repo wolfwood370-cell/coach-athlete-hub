@@ -106,11 +106,11 @@ function getAcwrBadge(zone: AcwrZone, ratio: number | null) {
 function getStatusBadge(status: AthleteStatus) {
   switch (status) {
     case "active":
-      return <Badge variant="outline" className="text-[10px] border-success/40 text-success">Active</Badge>;
+      return <Badge variant="outline" className="text-[10px] border-success/40 text-success">Attivo</Badge>;
     case "onboarding":
       return <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">Onboarding</Badge>;
     case "injured":
-      return <Badge variant="outline" className="text-[10px] border-destructive/40 text-destructive">Injured</Badge>;
+      return <Badge variant="outline" className="text-[10px] border-destructive/40 text-destructive">Infortunato</Badge>;
   }
 }
 
@@ -130,9 +130,9 @@ function formatLastLogin(dateStr: string | null): { text: string; isStale: boole
 
 const FILTERS: { key: QuickFilter; label: string; icon: typeof Filter }[] = [
   { key: "all", label: "Tutti", icon: Filter },
-  { key: "high-risk", label: "High Risk", icon: AlertTriangle },
-  { key: "low-compliance", label: "Low Compliance", icon: TrendingDown },
-  { key: "disengaged", label: "Disengaged", icon: Shield },
+  { key: "high-risk", label: "Alto Rischio", icon: AlertTriangle },
+  { key: "low-compliance", label: "Bassa Compliance", icon: TrendingDown },
+  { key: "disengaged", label: "Disimpegnati", icon: Shield },
 ];
 
 // ── ACWR zone helper ──────────────────────────────────────────────────
@@ -294,7 +294,7 @@ export function RiskTable() {
               <Shield className="h-5 w-5 text-primary" />
             </div>
             <div>
-              <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Active Clients</p>
+              <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Clienti Attivi</p>
               <p className="text-2xl font-bold tabular-nums">{totalActive}</p>
             </div>
           </CardContent>
@@ -305,7 +305,7 @@ export function RiskTable() {
               <AlertTriangle className="h-5 w-5 text-warning" />
             </div>
             <div>
-              <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Action Needed</p>
+              <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Azione Richiesta</p>
               <p className="text-2xl font-bold tabular-nums text-warning">{actionNeeded}</p>
             </div>
           </CardContent>
@@ -319,7 +319,7 @@ export function RiskTable() {
               <TrendingDown className={cn("h-5 w-5", highRiskPct > 30 ? "text-destructive" : "text-success")} />
             </div>
             <div>
-              <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">High Risk Ratio</p>
+              <p className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">Ratio Alto Rischio</p>
               <p className={cn(
                 "text-2xl font-bold tabular-nums",
                 highRiskPct > 30 ? "text-destructive" : "text-success"
@@ -334,7 +334,7 @@ export function RiskTable() {
       {/* ── Quick Filters ───────────────────────────────────── */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3 pt-4 px-4 flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base font-bold">📊 Athlete Risk Overview</CardTitle>
+          <CardTitle className="text-base font-bold">📊 Panoramica Rischio Atleti</CardTitle>
           <div className="flex gap-1.5">
             {FILTERS.map((f) => (
               <Button
@@ -363,7 +363,7 @@ export function RiskTable() {
                     <ArrowUpDown className="h-3 w-3" />
                   </Button>
                 </TableHead>
-                <TableHead className="w-[90px]">Status</TableHead>
+                <TableHead className="w-[90px]">Stato</TableHead>
                 <TableHead className="w-[100px]">
                   <Button variant="ghost" size="sm" className="h-7 -ml-2 text-xs gap-1" onClick={() => toggleSort("acwr")}>
                     ACWR

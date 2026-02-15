@@ -98,7 +98,7 @@ export default function CoachMessages() {
   };
 
   return (
-    <CoachLayout title="Command Center" subtitle="Comunicazioni e contesto atleti">
+    <CoachLayout title="Centro Comunicazioni" subtitle="Messaggi e contesto atleti">
       <div className="animate-fade-in h-[calc(100vh-10rem)] min-h-[500px]">
         {/* 3-Pane Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 h-full rounded-lg overflow-hidden border bg-card">

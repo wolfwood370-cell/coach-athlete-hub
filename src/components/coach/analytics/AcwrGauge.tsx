@@ -40,10 +40,10 @@ export function AcwrGauge({ athleteId }: AcwrGaugeProps) {
 
   // Zone colors and labels
   const zones = [
-    { min: 0, max: 40, label: "Low", color: "bg-chart-5" },
-    { min: 40, max: 65, label: "Optimal", color: "bg-success" },
-    { min: 65, max: 75, label: "Warning", color: "bg-warning" },
-    { min: 75, max: 100, label: "High Risk", color: "bg-destructive" },
+    { min: 0, max: 40, label: "Basso", color: "bg-chart-5" },
+    { min: 40, max: 65, label: "Ottimale", color: "bg-success" },
+    { min: 65, max: 75, label: "Attenzione", color: "bg-warning" },
+    { min: 75, max: 100, label: "Alto Rischio", color: "bg-destructive" },
   ];
 
   const getStatusConfig = () => {
@@ -53,28 +53,28 @@ export function AcwrGauge({ athleteId }: AcwrGaugeProps) {
           icon: CheckCircle,
           color: "text-success",
           bg: "bg-success/10",
-          label: "Optimal Zone",
+          label: "Zona Ottimale",
         };
       case "warning":
         return {
           icon: AlertTriangle,
           color: "text-warning",
           bg: "bg-warning/10",
-          label: "Warning Zone",
+          label: "Zona Attenzione",
         };
       case "high-risk":
         return {
           icon: AlertTriangle,
           color: "text-destructive",
           bg: "bg-destructive/10",
-          label: "High Risk",
+          label: "Alto Rischio",
         };
       default:
         return {
           icon: Activity,
           color: "text-muted-foreground",
           bg: "bg-muted",
-          label: "Insufficient Data",
+          label: "Dati Insufficienti",
         };
     }
   };
@@ -90,8 +90,8 @@ export function AcwrGauge({ athleteId }: AcwrGaugeProps) {
             <StatusIcon className={cn("h-4 w-4", config.color)} />
           </div>
           <div>
-            <CardTitle className="text-sm font-semibold">Workload Management</CardTitle>
-            <p className="text-xs text-muted-foreground">Acute:Chronic Workload Ratio</p>
+            <CardTitle className="text-sm font-semibold">Gestione Carico</CardTitle>
+            <p className="text-xs text-muted-foreground">Rapporto Carico Acuto:Cronico</p>
           </div>
         </div>
       </CardHeader>
@@ -99,9 +99,9 @@ export function AcwrGauge({ athleteId }: AcwrGaugeProps) {
         {status === "insufficient-data" ? (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <Activity className="h-10 w-10 text-muted-foreground mb-3" />
-            <p className="text-sm text-muted-foreground">Not enough training data</p>
+            <p className="text-sm text-muted-foreground">Dati di allenamento insufficienti</p>
             <p className="text-xs text-muted-foreground mt-1">
-              Need at least 2 weeks of workout logs
+              Servono almeno 2 settimane di log
             </p>
           </div>
         ) : (
@@ -150,13 +150,13 @@ export function AcwrGauge({ athleteId }: AcwrGaugeProps) {
               <div className="text-center">
                 <div className="text-lg font-semibold">{acuteLoad}</div>
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                  Acute (7d avg)
+                  Acuto (media 7gg)
                 </div>
               </div>
               <div className="text-center">
                 <div className="text-lg font-semibold">{chronicLoad}</div>
                 <div className="text-[10px] text-muted-foreground uppercase tracking-wide">
-                  Chronic (28d avg)
+                  Cronico (media 28gg)
                 </div>
               </div>
             </div>

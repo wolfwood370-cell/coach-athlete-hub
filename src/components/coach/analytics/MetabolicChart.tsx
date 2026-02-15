@@ -51,8 +51,8 @@ export function MetabolicChart({ athleteId }: MetabolicChartProps) {
             <Scale className="h-4 w-4 text-primary" />
           </div>
           <div>
-            <CardTitle className="text-sm font-semibold">Metabolic Response</CardTitle>
-            <p className="text-xs text-muted-foreground">Weight vs Caloric Adherence (30 days)</p>
+            <CardTitle className="text-sm font-semibold">Risposta Metabolica</CardTitle>
+            <p className="text-xs text-muted-foreground">Peso vs Aderenza Calorica (30 giorni)</p>
           </div>
         </div>
       </CardHeader>
@@ -60,7 +60,7 @@ export function MetabolicChart({ athleteId }: MetabolicChartProps) {
         {!hasData ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Flame className="h-10 w-10 text-muted-foreground mb-3" />
-            <p className="text-sm text-muted-foreground">No metabolic data available yet</p>
+            <p className="text-sm text-muted-foreground">Nessun dato metabolico disponibile</p>
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={300}>
@@ -112,7 +112,7 @@ export function MetabolicChart({ athleteId }: MetabolicChartProps) {
                 dataKey="caloriesLogged" 
                 fill="hsl(var(--primary))" 
                 opacity={0.6}
-                name="Calories Logged"
+                name="Calorie Registrate"
                 radius={[4, 4, 0, 0]}
               />
               <Line 
@@ -123,7 +123,7 @@ export function MetabolicChart({ athleteId }: MetabolicChartProps) {
                 strokeWidth={2}
                 dot={{ fill: 'hsl(var(--chart-2))', r: 3 }}
                 connectNulls
-                name="Body Weight (kg)"
+                name="Peso Corporeo (kg)"
               />
             </ComposedChart>
           </ResponsiveContainer>

@@ -190,7 +190,7 @@ export function DailyRings({
           size={80}
           strokeWidth={6}
           icon={Flame}
-          label="Fuel"
+          label="Energia"
           value={fuelDisplay}
           unit={fuelUnit}
         />
@@ -202,8 +202,8 @@ export function DailyRings({
           size={104}
           strokeWidth={8}
           icon={trainingProgress >= 100 ? Check : Dumbbell}
-          label="Training"
-          value={trainingProgress >= 100 ? "Done" : "To Do"}
+          label="Allenamento"
+          value={trainingProgress >= 100 ? "Fatto" : "Da Fare"}
           isCenter
         />
 
@@ -214,7 +214,7 @@ export function DailyRings({
           size={80}
           strokeWidth={6}
           icon={Check}
-          label="Habits"
+          label="Abitudini"
           value={`${habitsCompleted}/${habitsTotal}`}
         />
       </div>

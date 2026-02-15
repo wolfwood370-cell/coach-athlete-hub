@@ -61,8 +61,8 @@ export function StrengthChart({ athleteId }: StrengthChartProps) {
               <TrendingUp className="h-4 w-4 text-chart-3" />
             </div>
             <div>
-              <CardTitle className="text-sm font-semibold">Strength Progression</CardTitle>
-              <p className="text-xs text-muted-foreground">Estimated 1RM over time</p>
+              <CardTitle className="text-sm font-semibold">Progressione Forza</CardTitle>
+              <p className="text-xs text-muted-foreground">1RM Stimato nel tempo</p>
             </div>
           </div>
           {trend !== 0 && (
@@ -75,7 +75,7 @@ export function StrengthChart({ athleteId }: StrengthChartProps) {
         </div>
         <Select value={selectedExercise} onValueChange={setSelectedExercise}>
           <SelectTrigger className="w-full mt-2 h-8 text-xs">
-            <SelectValue placeholder="Select exercise" />
+            <SelectValue placeholder="Seleziona esercizio" />
           </SelectTrigger>
           <SelectContent>
             {exercises?.map((exercise) => (
@@ -94,7 +94,7 @@ export function StrengthChart({ athleteId }: StrengthChartProps) {
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <Dumbbell className="h-8 w-8 text-muted-foreground mb-2" />
             <p className="text-xs text-muted-foreground">
-              No data for {selectedExercise}
+              Nessun dato per {selectedExercise}
             </p>
           </div>
         ) : (
@@ -120,7 +120,7 @@ export function StrengthChart({ athleteId }: StrengthChartProps) {
                   borderRadius: '8px',
                   fontSize: '11px',
                 }}
-                formatter={(value: number) => [`${value} kg`, 'Est. 1RM']}
+                formatter={(value: number) => [`${value} kg`, '1RM Stimato']}
               />
               <Line 
                 type="monotone" 

@@ -452,7 +452,7 @@ export default function CoachCalendar() {
   const selectedAthlete = athletes.find((a) => a.id === selectedAthleteId);
 
   return (
-    <CoachLayout title="Calendario" subtitle="Drag & Drop Scheduler">
+    <CoachLayout title="Calendario" subtitle="Programmazione Drag & Drop">
       <DndContext
         sensors={sensors}
         collisionDetection={pointerWithin}
