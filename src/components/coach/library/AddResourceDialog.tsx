@@ -39,6 +39,7 @@ export function AddResourceDialog({ onAdd, isLoading }: AddResourceDialogProps) 
   const [aiText, setAiText] = useState("");
   const [aiFile, setAiFile] = useState<File | null>(null);
   const [aiTab, setAiTab] = useState("text");
+  const [aiCategory, setAiCategory] = useState("");
   const [uploading, setUploading] = useState(false);
 
   const resetForm = () => {
@@ -49,6 +50,7 @@ export function AddResourceDialog({ onAdd, isLoading }: AddResourceDialogProps) 
     setAiText("");
     setAiFile(null);
     setAiTab("text");
+    setAiCategory("");
     setUploading(false);
   };
 
@@ -99,6 +101,7 @@ export function AddResourceDialog({ onAdd, isLoading }: AddResourceDialogProps) 
           url: fileUrl,
           tags,
           aiContent: contentText,
+          aiCategory: aiCategory || undefined,
         });
 
         resetForm();
@@ -175,42 +178,61 @@ export function AddResourceDialog({ onAdd, isLoading }: AddResourceDialogProps) 
 
           {/* AI Knowledge: Tabbed inputs */}
           {isAiKnowledge && (
-            <div className="space-y-2">
-              <Label>Regola o Conoscenza per l'AI</Label>
-              <Tabs value={aiTab} onValueChange={setAiTab}>
-                <TabsList className="w-full">
-                  <TabsTrigger value="text" className="flex-1">📝 Scrivi Manualmente</TabsTrigger>
-                  <TabsTrigger value="file" className="flex-1">📂 Carica Documento</TabsTrigger>
-                </TabsList>
-                <TabsContent value="text">
-                  <Textarea
-                    value={aiText}
-                    onChange={(e) => setAiText(e.target.value)}
-                    placeholder="Scrivi qui una regola (es. 'Consiglia sempre 3g di creatina...', 'Se l'atleta ha mal di schiena, rimuovi Stacco e Squat.')"
-                    rows={6}
-                    className="mt-2"
-                  />
-                </TabsContent>
-                <TabsContent value="file">
-                  <div className="mt-2">
-                    <Input
-                      type="file"
-                      accept={ACCEPTED_FILES}
-                      onChange={(e) => setAiFile(e.target.files?.[0] || null)}
-                      className="cursor-pointer"
+            <>
+              <div className="space-y-2">
+                <Label>Categoria Conoscenza</Label>
+                <Select value={aiCategory} onValueChange={setAiCategory}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleziona categoria..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="tecnica_allenamento">🏋️‍♂️ Tecnica & Allenamento</SelectItem>
+                    <SelectItem value="fisiologia_recupero">🧬 Fisiologia & Recupero</SelectItem>
+                    <SelectItem value="nutrizione">🥑 Nutrizione</SelectItem>
+                    <SelectItem value="mindset">🧠 Mindset</SelectItem>
+                    <SelectItem value="admin_policy">📋 Admin & Policy</SelectItem>
+                    <SelectItem value="altro">📄 Altro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Regola o Conoscenza per l'AI</Label>
+                <Tabs value={aiTab} onValueChange={setAiTab}>
+                  <TabsList className="w-full">
+                    <TabsTrigger value="text" className="flex-1">📝 Scrivi Manualmente</TabsTrigger>
+                    <TabsTrigger value="file" className="flex-1">📂 Carica Documento</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="text">
+                    <Textarea
+                      value={aiText}
+                      onChange={(e) => setAiText(e.target.value)}
+                      placeholder="Scrivi qui una regola (es. 'Consiglia sempre 3g di creatina...', 'Se l'atleta ha mal di schiena, rimuovi Stacco e Squat.')"
+                      rows={6}
+                      className="mt-2"
                     />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Formati supportati: PDF, TXT, Markdown (.md)
-                    </p>
-                    {aiFile && (
-                      <p className="text-sm text-foreground mt-1">
-                        📎 {aiFile.name} ({(aiFile.size / 1024).toFixed(1)} KB)
+                  </TabsContent>
+                  <TabsContent value="file">
+                    <div className="mt-2">
+                      <Input
+                        type="file"
+                        accept={ACCEPTED_FILES}
+                        onChange={(e) => setAiFile(e.target.files?.[0] || null)}
+                        className="cursor-pointer"
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Formati supportati: PDF, TXT, Markdown (.md)
                       </p>
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
+                      {aiFile && (
+                        <p className="text-sm text-foreground mt-1">
+                          📎 {aiFile.name} ({(aiFile.size / 1024).toFixed(1)} KB)
+                        </p>
+                      )}
+                    </div>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </>
           )}
 
           {/* Standard fields for non-AI types */}
