@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage_tracking: {
+        Row: {
+          daily_limit: number
+          last_reset_at: string
+          message_count: number
+          user_id: string
+        }
+        Insert: {
+          daily_limit?: number
+          last_reset_at?: string
+          message_count?: number
+          user_id: string
+        }
+        Update: {
+          daily_limit?: number
+          last_reset_at?: string
+          message_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       athlete_ai_insights: {
         Row: {
           action_items: string[]
