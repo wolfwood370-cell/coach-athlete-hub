@@ -7,27 +7,40 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-async function getEmbedding(text: string, apiKey: string): Promise<number[]> {
-  const response = await fetch("https://api.openai.com/v1/embeddings", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "text-embedding-3-small",
-      input: text,
-    }),
-  });
+async function getEmbedding(text: string, apiKey: string, retries = 3): Promise<number[]> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    const response = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "text-embedding-3-small",
+        input: text,
+      }),
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("Embedding error:", response.status, errorText);
-    throw new Error(`Embedding API error: ${response.status}`);
+    if (response.status === 429 && attempt < retries - 1) {
+      const waitMs = Math.pow(2, attempt + 1) * 1000;
+      console.warn(`Rate limited, retrying in ${waitMs}ms...`);
+      await new Promise((r) => setTimeout(r, waitMs));
+      continue;
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Embedding error:", response.status, errorText);
+      if (response.status === 429) {
+        throw new Error("Limite di richieste raggiunto. Riprova tra qualche minuto.");
+      }
+      throw new Error(`Embedding API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.data[0].embedding;
   }
-
-  const data = await response.json();
-  return data.data[0].embedding;
+  throw new Error("Embedding failed after retries");
 }
 
 serve(async (req) => {
