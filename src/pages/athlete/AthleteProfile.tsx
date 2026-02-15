@@ -684,6 +684,23 @@ export default function AthleteProfile() {
 // Subscription status section
 function SubscriptionSection() {
   const { data: subscription, isLoading } = useAthleteSubscription();
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  const handleManageSubscription = async () => {
+    setPortalLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-portal-session");
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Errore nell'apertura del portale");
+    } finally {
+      setPortalLoading(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -744,6 +761,22 @@ function SubscriptionSection() {
                 </p>
               )}
             </div>
+          )}
+
+          {isActive && (
+            <Button
+              variant="outline"
+              className="w-full mt-2"
+              onClick={handleManageSubscription}
+              disabled={portalLoading}
+            >
+              {portalLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <CreditCard className="h-4 w-4 mr-2" />
+              )}
+              ⚙️ Gestisci Abbonamento
+            </Button>
           )}
 
           {!isActive && (
