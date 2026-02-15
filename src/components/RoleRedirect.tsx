@@ -15,7 +15,11 @@ export function RoleRedirect({ fallback }: { fallback: React.ReactNode }) {
     if (!user || !profile) return;
 
     if (profile.role === "athlete") {
-      navigate("/athlete", { replace: true });
+      if (!profile.onboarding_completed) {
+        navigate("/onboarding", { replace: true });
+      } else {
+        navigate("/athlete", { replace: true });
+      }
     } else if (profile.role === "coach") {
       navigate("/coach", { replace: true });
     }

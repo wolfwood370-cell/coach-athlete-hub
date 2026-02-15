@@ -9,6 +9,7 @@ interface Profile {
   coach_id: string | null;
   avatar_url: string | null;
   one_rm_data: Record<string, number>;
+  onboarding_completed: boolean;
 }
 
 interface AuthState {

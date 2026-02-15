@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { triggerConfetti } from "@/utils/ux";
 import { StepIndicator } from "@/components/onboarding/StepIndicator";
 import { LegalStep } from "@/components/onboarding/steps/LegalStep";
 import { BiometricsStep } from "@/components/onboarding/steps/BiometricsStep";
@@ -98,7 +99,8 @@ export default function OnboardingWizard() {
 
       if (error) throw error;
 
-      toast({ title: "Onboarding completato!", description: "Benvenuto nel tuo programma personalizzato." });
+      triggerConfetti();
+      toast({ title: "Onboarding completato! 🎉", description: "Benvenuto nel tuo programma personalizzato." });
       navigate("/athlete");
     } catch (error) {
       toast({ title: "Errore", description: "Si è verificato un errore. Riprova.", variant: "destructive" });
