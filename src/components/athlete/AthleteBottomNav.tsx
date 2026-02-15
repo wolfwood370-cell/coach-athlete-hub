@@ -3,6 +3,7 @@ import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useNotifications } from "@/hooks/useNotifications";
 
 const navItems = [
   { title: "Home", url: "/athlete", icon: Home },
@@ -13,6 +14,8 @@ const navItems = [
 ];
 
 export function AthleteBottomNav() {
+  const { unreadCount } = useNotifications();
+
   // Fetch coach brand color for active state
   const { data: brandColor } = useQuery({
     queryKey: ['athlete-brand-color'],
@@ -77,6 +80,10 @@ export function AthleteBottomNav() {
                     )}
                     style={isActive ? { color: brandColor || undefined } : undefined}
                   />
+                  {/* Unread dot for Chat tab */}
+                  {item.title === "Chat" && unreadCount > 0 && (
+                    <span className="absolute top-1.5 right-1.5 h-2 w-2 bg-destructive rounded-full" />
+                  )}
                 </div>
                 
                 <span 
