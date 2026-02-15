@@ -18,7 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Camera, Loader2, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Camera, Loader2, CheckCircle2, XCircle, RotateCcw, Sparkles, Mic, MicOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -30,7 +31,7 @@ interface FoodCameraScannerProps {
   onMealLogged: () => void;
 }
 
-type ScanStep = "idle" | "analyzing" | "review";
+type ScanStep = "idle" | "describing" | "analyzing" | "review";
 
 interface AiResult {
   name: string;
@@ -59,6 +60,9 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
   const [result, setResult] = useState<AiResult | null>(null);
   const [laborIndex, setLaborIndex] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [description, setDescription] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   // Editable fields
   const [editName, setEditName] = useState("");
@@ -80,6 +84,12 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
     setEditCarbs("");
     setEditFat("");
     setMealTime("lunch");
+    setDescription("");
+    setIsListening(false);
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
   }, []);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,11 +98,11 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
 
     // Read as base64
     const reader = new FileReader();
-    reader.onload = async () => {
+    reader.onload = () => {
       const base64 = reader.result as string;
       setImagePreview(base64);
       setImageBase64(base64);
-      await analyzeImage(base64);
+      setStep("describing");
     };
     reader.readAsDataURL(file);
 
@@ -100,7 +110,39 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
     e.target.value = "";
   };
 
-  const analyzeImage = async (base64: string) => {
+  const toggleSpeechRecognition = useCallback(() => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      toast.error("Riconoscimento vocale non supportato dal browser");
+      return;
+    }
+
+    if (isListening && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "it-IT";
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setDescription((prev) => (prev ? prev + " " + transcript : transcript));
+      setIsListening(false);
+    };
+
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsListening(true);
+  }, [isListening]);
+
+  const analyzeImage = async (base64: string, desc?: string) => {
     setStep("analyzing");
     setLaborIndex(0);
 
@@ -111,7 +153,7 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
 
     try {
       const { data, error } = await supabase.functions.invoke("analyze-meal-photo", {
-        body: { image_base64: base64 },
+        body: { image_base64: base64, userDescription: desc || undefined },
       });
 
       clearInterval(interval);
@@ -250,6 +292,68 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
                   className="hidden"
                   onChange={handleFileSelect}
                 />
+              </div>
+            )}
+
+            {/* DESCRIBING STATE - photo taken, add context */}
+            {step === "describing" && (
+              <div className="flex flex-col items-center gap-4 py-4">
+                {imagePreview && (
+                  <div className="w-48 h-48 rounded-2xl overflow-hidden border-2 border-primary/20">
+                    <img src={imagePreview} alt="Pasto" className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <div className="w-full space-y-2">
+                  <Label className="text-xs text-muted-foreground">
+                    Descrivi il piatto (opzionale)
+                  </Label>
+                  <div className="relative">
+                    <Textarea
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Es: Pasta al sugo, 120g..."
+                      className="bg-secondary/60 border-border min-h-[80px] pr-12 resize-none"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className={cn(
+                        "absolute bottom-2 right-2 h-8 w-8 rounded-full",
+                        isListening && "bg-destructive/10 text-destructive animate-pulse"
+                      )}
+                      onClick={toggleSpeechRecognition}
+                    >
+                      {isListening ? (
+                        <MicOff className="h-4 w-4" />
+                      ) : (
+                        <Mic className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Aggiungi dettagli su ingredienti e quantità per una stima più precisa
+                  </p>
+                </div>
+                <Button
+                  onClick={() => imageBase64 && analyzeImage(imageBase64, description)}
+                  className="w-full h-12 text-base font-semibold rounded-2xl bg-primary hover:bg-primary/90"
+                >
+                  <Sparkles className="h-5 w-5 mr-2" />
+                  Analizza Piatto
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-muted-foreground"
+                  onClick={() => {
+                    reset();
+                    setTimeout(() => fileInputRef.current?.click(), 100);
+                  }}
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Cambia foto
+                </Button>
               </div>
             )}
 

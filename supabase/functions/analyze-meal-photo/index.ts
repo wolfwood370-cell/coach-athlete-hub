@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { image_base64 } = await req.json();
+    const { image_base64, userDescription } = await req.json();
 
     if (!image_base64) {
       return new Response(
@@ -56,10 +56,15 @@ Regole:
 - Considera le porzioni visibili nell'immagine
 - NON aggiungere testo, spiegazioni o markdown. Solo il JSON.`,
           },
-          {
+           {
             role: "user",
             content: [
-              { type: "text", text: "Analizza questo pasto e stima i macronutrienti." },
+              { 
+                type: "text", 
+                text: userDescription 
+                  ? `Analizza questo pasto e stima i macronutrienti. L'utente ha fornito questo contesto aggiuntivo: "${userDescription}". Usa queste informazioni per affinare le porzioni e gli ingredienti. Se l'utente specifica una quantità (es. "200g"), dai priorità a quella rispetto alla tua stima visiva.`
+                  : "Analizza questo pasto e stima i macronutrienti." 
+              },
               { type: "image_url", image_url: { url: imageUrl } },
             ],
           },
