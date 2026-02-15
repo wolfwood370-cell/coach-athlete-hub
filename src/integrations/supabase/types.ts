@@ -1031,6 +1031,7 @@ export type Database = {
           id: string
           meal_time: Database["public"]["Enums"]["meal_time"]
           name: string
+          notes: string | null
           photo_url: string | null
           protein: number
           user_id: string
@@ -1045,6 +1046,7 @@ export type Database = {
           id?: string
           meal_time?: Database["public"]["Enums"]["meal_time"]
           name: string
+          notes?: string | null
           photo_url?: string | null
           protein?: number
           user_id: string
@@ -1059,6 +1061,7 @@ export type Database = {
           id?: string
           meal_time?: Database["public"]["Enums"]["meal_time"]
           name?: string
+          notes?: string | null
           photo_url?: string | null
           protein?: number
           user_id?: string
