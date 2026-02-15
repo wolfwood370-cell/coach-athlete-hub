@@ -20,27 +20,40 @@ function chunkText(text: string, chunkSize = 2000, overlap = 200): string[] {
   return chunks.filter((c) => c.length > 20); // skip tiny fragments
 }
 
-async function getEmbedding(text: string, apiKey: string): Promise<number[]> {
-  const response = await fetch("https://api.openai.com/v1/embeddings", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "text-embedding-3-small",
-      input: text,
-    }),
-  });
+async function getEmbedding(text: string, apiKey: string, retries = 3): Promise<number[]> {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    const response = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "text-embedding-3-small",
+        input: text,
+      }),
+    });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("OpenAI embedding error:", response.status, errorText);
-    throw new Error(`Embedding API error: ${response.status}`);
+    if (response.status === 429 && attempt < retries - 1) {
+      const waitMs = Math.pow(2, attempt + 1) * 1000; // 2s, 4s, 8s
+      console.warn(`Rate limited (429), retrying in ${waitMs}ms (attempt ${attempt + 1}/${retries})`);
+      await new Promise((r) => setTimeout(r, waitMs));
+      continue;
+    }
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("OpenAI embedding error:", response.status, errorText);
+      if (response.status === 429) {
+        throw new Error("Limite di richieste OpenAI raggiunto. Riprova tra qualche minuto.");
+      }
+      throw new Error(`Embedding API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.data[0].embedding;
   }
-
-  const data = await response.json();
-  return data.data[0].embedding;
+  throw new Error("Embedding failed after retries");
 }
 
 serve(async (req) => {
@@ -99,16 +112,19 @@ serve(async (req) => {
     const chunks = chunkText(rawText);
     const baseMeta = metadata || {};
 
-    // Process chunks in batches of 5 to avoid rate limits
-    const batchSize = 5;
+    // Process chunks in batches of 2 to avoid rate limits
+    const batchSize = 2;
     let insertedCount = 0;
 
     for (let i = 0; i < chunks.length; i += batchSize) {
       const batch = chunks.slice(i, i + batchSize);
 
-      const embeddings = await Promise.all(
-        batch.map((chunk) => getEmbedding(chunk, openaiKey))
-      );
+      // Sequential embedding calls with small delay to avoid 429
+      const embeddings: number[][] = [];
+      for (const chunk of batch) {
+        embeddings.push(await getEmbedding(chunk, openaiKey));
+        if (batch.length > 1) await new Promise((r) => setTimeout(r, 500));
+      }
 
       const rows = batch.map((chunk, idx) => ({
         coach_id: user.id,
@@ -127,6 +143,11 @@ serve(async (req) => {
       }
 
       insertedCount += batch.length;
+
+      // Delay between batches
+      if (i + batchSize < chunks.length) {
+        await new Promise((r) => setTimeout(r, 1000));
+      }
     }
 
     return new Response(
