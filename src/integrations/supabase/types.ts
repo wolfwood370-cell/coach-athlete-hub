@@ -18,25 +18,31 @@ export type Database = {
         Row: {
           athlete_id: string
           auto_regulation_enabled: boolean
+          contraceptive_type: string | null
           created_at: string
           cycle_length_days: number
           id: string
+          last_period_start_date: string | null
           updated_at: string
         }
         Insert: {
           athlete_id: string
           auto_regulation_enabled?: boolean
+          contraceptive_type?: string | null
           created_at?: string
           cycle_length_days?: number
           id?: string
+          last_period_start_date?: string | null
           updated_at?: string
         }
         Update: {
           athlete_id?: string
           auto_regulation_enabled?: boolean
+          contraceptive_type?: string | null
           created_at?: string
           cycle_length_days?: number
           id?: string
+          last_period_start_date?: string | null
           updated_at?: string
         }
         Relationships: [
