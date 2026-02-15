@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useTheme } from "next-themes";
 import { AthleteLayout } from "@/components/athlete/AthleteLayout";
 import { ThemeCustomizationCard } from "@/components/athlete/ThemeCustomizationCard";
+import { BadgeGrid } from "@/components/athlete/gamification/BadgeGrid";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useGamification } from "@/hooks/useGamification";
@@ -547,11 +548,33 @@ export default function AthleteProfile() {
             </Drawer>
           </div>
 
+          {/* Bacheca Trofei */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-semibold">Bacheca Trofei</h2>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs gap-1"
+                onClick={() => navigate("/athlete/leaderboard")}
+              >
+                <Trophy className="h-3.5 w-3.5" />
+                Classifica
+              </Button>
+            </div>
+
+            {/* Badge Grid */}
+            <BadgeGrid userId={user?.id} />
+          </div>
+
           {/* Trophy Room Section */}
           <div className="space-y-4">
             <div className="flex items-center gap-2">
-              <Trophy className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold">Trophy Room</h2>
+              <TrendingUp className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold">Record Personali</h2>
             </div>
 
             {/* Weight Trend Chart */}

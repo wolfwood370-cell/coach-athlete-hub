@@ -428,6 +428,8 @@ export default function WorkoutPlayer() {
       onSuccess: () => {
         sessionStore.endSession();
         toast({ title: "Allenamento salvato!", description: `Carico sessione: ${sessionLoad} UA` });
+        // Trigger achievement check in background
+        supabase.functions.invoke("check-achievements").catch(console.warn);
         navigate(`/athlete/workout/summary/${id || "mock"}`);
       },
     });
