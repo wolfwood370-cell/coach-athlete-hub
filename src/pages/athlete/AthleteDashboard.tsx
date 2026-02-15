@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { triggerConfetti } from "@/utils/ux";
 import { toast } from "sonner";
 import { AthleteLayout } from "@/components/athlete/AthleteLayout";
+import { useActiveProgram } from "@/hooks/useActiveProgram";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -434,9 +435,38 @@ export default function AthleteDashboard() {
   // Calculate temp readiness for preview
   const tempReadinessResult = calculateReadiness(tempReadiness);
 
+  // Active program check for empty state
+  const { activeProgram, isLoading: programLoading } = useActiveProgram();
+  const hasNoProgram = !programLoading && !activeProgram && !workoutLoading && !todayWorkout;
+
   return (
     <AthleteLayout>
       <div className="space-y-4 p-4 pb-24">
+        {/* ===== EMPTY STATE: No Program ===== */}
+        {hasNoProgram && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="rounded-2xl border-2 border-dashed border-primary/20 bg-primary/5 p-8 text-center space-y-4"
+          >
+            <div className="mx-auto h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+              <Sparkles className="h-8 w-8 text-primary" />
+            </div>
+            <h2 className="text-xl font-bold">Benvenuto nel Hub!</h2>
+            <p className="text-muted-foreground max-w-sm mx-auto">
+              Il tuo Coach sta analizzando i tuoi dati per creare il programma perfetto. 
+              Riceverai una notifica appena sarà pronto.
+            </p>
+            <div className="flex items-center justify-center gap-3 pt-2">
+              <Button variant="outline" onClick={() => navigate('/athlete/profile')}>
+                Aggiorna Profilo
+              </Button>
+              <Button onClick={() => navigate('/athlete/messages')} className="btn-primary-glow text-primary-foreground">
+                Scrivi al Coach
+              </Button>
+            </div>
+          </motion.div>
+        )}
         {/* ===== GLASSMORPHIC STATUS HUB HEADER ===== */}
         <motion.div 
           className="relative overflow-hidden rounded-2xl"
