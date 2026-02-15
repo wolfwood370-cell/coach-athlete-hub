@@ -1,4 +1,4 @@
-import { Home, Dumbbell, Utensils, HeartPulse, User } from "lucide-react";
+import { Home, Dumbbell, Utensils, MessageSquare, User } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -7,8 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 const navItems = [
   { title: "Home", url: "/athlete", icon: Home },
   { title: "Esecuzione", url: "/athlete/workout", icon: Dumbbell },
+  { title: "Chat", url: "/athlete/messages", icon: MessageSquare },
   { title: "Nutrizione", url: "/athlete/nutrition", icon: Utensils },
-  { title: "Salute", url: "/athlete/health", icon: HeartPulse },
   { title: "Profilo", url: "/athlete/profile", icon: User },
 ];
 

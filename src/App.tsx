@@ -25,6 +25,7 @@ import AthleteProfile from "./pages/athlete/AthleteProfile";
 import WorkoutPlayer from "./pages/athlete/WorkoutPlayer";
 import WorkoutSummary from "./pages/athlete/WorkoutSummary";
 import AthleteDashboard from "./pages/athlete/AthleteDashboard";
+import AthleteMessages from "./pages/athlete/AthleteMessages";
 import OnboardingWizard from "./pages/onboarding/OnboardingWizard";
 import NotFound from "./pages/NotFound";
 import { RoleRedirect } from "./components/RoleRedirect";
@@ -61,6 +62,7 @@ const App = () => (
             <Route path="/athlete/workout" element={<AthleteTraining />} />
             <Route path="/athlete/workout/:id" element={<WorkoutPlayer />} />
             <Route path="/athlete/workout/summary/:sessionId" element={<WorkoutSummary />} />
+            <Route path="/athlete/messages" element={<AthleteMessages />} />
             <Route path="/athlete/nutrition" element={<AthleteNutrition />} />
             <Route path="/athlete/health" element={<AthleteHealth />} />
             <Route path="/athlete/profile" element={<AthleteProfile />} />
