@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { CoachLayout } from "@/components/coach/CoachLayout";
+import { MetaHead } from "@/components/MetaHead";
 import { useWeeklyCheckins, WeeklyCheckin } from "@/hooks/useWeeklyCheckins";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -210,6 +211,8 @@ export default function CoachCheckinInbox() {
   };
 
   return (
+    <>
+    <MetaHead title="Inbox Check-in" description="Revisione settimanale degli atleti." />
     <CoachLayout>
       <div className="space-y-6">
         {/* Header */}
@@ -338,5 +341,6 @@ export default function CoachCheckinInbox() {
         </Tabs>
       </div>
     </CoachLayout>
+    </>
   );
 }

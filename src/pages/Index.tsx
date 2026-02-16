@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { MetaHead } from "@/components/MetaHead";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -56,6 +57,8 @@ const fadeUp = {
 
 export default function Index() {
   return (
+    <>
+    <MetaHead title="Home" description="Piattaforma completa per coaching fitness ibrido." />
     <div className="min-h-screen bg-background text-foreground">
       {/* Header */}
       <header className="border-b border-border/50 backdrop-blur-sm bg-background/80 sticky top-0 z-50">
@@ -202,5 +205,6 @@ export default function Index() {
         </div>
       </footer>
     </div>
+    </>
   );
 }
