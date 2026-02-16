@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Dumbbell, Users } from "lucide-react";
 import { mapSupabaseError } from "@/lib/errorMapping";
 import { MetaHead } from "@/components/MetaHead";
+import { Footer } from "@/components/layout/Footer";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -64,7 +65,7 @@ export default function Auth() {
   return (
     <>
     <MetaHead title="Accedi" description="Accedi o registrati alla piattaforma CoachHub." />
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
       <Card className="w-full max-w-md border-0 shadow-lg">
         <CardHeader className="text-center space-y-2">
           <div className="mx-auto h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
@@ -191,6 +192,9 @@ export default function Auth() {
           </Tabs>
         </CardContent>
       </Card>
+      <div className="mt-auto w-full">
+        <Footer />
+      </div>
     </div>
     </>
   );

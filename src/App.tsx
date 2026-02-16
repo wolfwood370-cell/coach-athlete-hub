@@ -37,6 +37,8 @@ const AthleteDashboard = lazy(() => import("./pages/athlete/AthleteDashboard"));
 const AthleteMessages = lazy(() => import("./pages/athlete/AthleteMessages"));
 const OnboardingWizard = lazy(() => import("./pages/onboarding/OnboardingWizard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
+const TermsOfService = lazy(() => import("./pages/legal/TermsOfService"));
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
@@ -82,6 +84,10 @@ const App = () => (
               
               {/* Onboarding */}
               <Route path="/onboarding" element={<OnboardingWizard />} />
+              
+              {/* Legal */}
+              <Route path="/privacy" element={<PrivacyPolicy />} />
+              <Route path="/terms" element={<TermsOfService />} />
               
               <Route path="*" element={<NotFound />} />
             </Routes>
