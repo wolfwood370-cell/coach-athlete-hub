@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Dumbbell, Users } from "lucide-react";
 import { mapSupabaseError } from "@/lib/errorMapping";
+import { MetaHead } from "@/components/MetaHead";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -61,6 +62,8 @@ export default function Auth() {
   };
 
   return (
+    <>
+    <MetaHead title="Accedi" description="Accedi o registrati alla piattaforma CoachHub." />
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md border-0 shadow-lg">
         <CardHeader className="text-center space-y-2">
@@ -189,5 +192,6 @@ export default function Auth() {
         </CardContent>
       </Card>
     </div>
+    </>
   );
 }

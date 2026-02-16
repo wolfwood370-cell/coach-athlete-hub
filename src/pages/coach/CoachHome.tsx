@@ -1,4 +1,5 @@
 import { CoachLayout } from "@/components/coach/CoachLayout";
+import { MetaHead } from "@/components/MetaHead";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -173,6 +174,8 @@ export default function CoachHome() {
   const hasAthletes = businessMetrics.activeClients > 0;
 
   return (
+    <>
+    <MetaHead title="Dashboard" description="Centro di comando per il tuo coaching." />
     <CoachLayout title="Centro di Comando" subtitle="Triage Giornaliero">
       <div className="space-y-5 animate-fade-in">
         
@@ -605,6 +608,7 @@ export default function CoachHome() {
         )}
       </div>
     </CoachLayout>
+    </>
   );
 }
 

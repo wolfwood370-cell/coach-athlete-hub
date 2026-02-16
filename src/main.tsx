@@ -1,7 +1,9 @@
 import { createRoot } from "react-dom/client";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
+import { HelmetProvider } from "react-helmet-async";
 import { MaterialYouProvider } from "./providers/MaterialYouProvider";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { idbPersister } from "./lib/queryPersister";
 import App from "./App.tsx";
 import "./index.css";
@@ -11,10 +13,9 @@ const MS_24H = 24 * 60 * 60 * 1000;
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: Infinity,        // Data is fresh until explicitly invalidated
-      gcTime: MS_24H,             // Keep unused cache for 24 hours
+      staleTime: Infinity,
+      gcTime: MS_24H,
       retry: (failureCount, error) => {
-        // Don't retry on 4xx errors
         if (error && typeof error === 'object' && 'status' in error) {
           const status = (error as { status: number }).status;
           if (status >= 400 && status < 500) return false;
@@ -32,13 +33,17 @@ const queryClient = new QueryClient({
 const persistOptions = {
   persister: idbPersister,
   maxAge: MS_24H,
-  buster: "v1", // bump to invalidate cache across deploys
+  buster: "v1",
 };
 
 createRoot(document.getElementById("root")!).render(
-  <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
-    <MaterialYouProvider>
-      <App />
-    </MaterialYouProvider>
-  </PersistQueryClientProvider>
+  <ErrorBoundary>
+    <HelmetProvider>
+      <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+        <MaterialYouProvider>
+          <App />
+        </MaterialYouProvider>
+      </PersistQueryClientProvider>
+    </HelmetProvider>
+  </ErrorBoundary>
 );
