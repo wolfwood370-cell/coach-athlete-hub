@@ -1,45 +1,45 @@
-# v1.0.0-beta.1 (Release Candidate)
+# v1.0.0-rc.1 (Beta Release Candidate)
 
 > **Release Date:** 2026-02-16
 
 ---
 
-## Core Features
+## Core Features Implemented
 
 ### 🔐 Authentication & Authorization
-- Email/password sign-up and sign-in with role selection (Coach / Athlete).
+- Dual-role system (Coach vs Athlete) with secure email/password sign-up and role selection.
 - Role-based routing: coaches → `/coach`, athletes → `/athlete`.
 - Protected routes with automatic redirect to `/auth` for unauthenticated users.
-- RLS (Row Level Security) enforced across all database tables.
+- Row Level Security (RLS) enforced across all database tables.
 
-### 💳 Stripe Subscriptions & Billing
-- Coach-defined billing plans with Stripe integration.
+### 💳 Payments — Stripe Integration
+- Coach-defined billing plans with Stripe subscriptions.
 - Athlete subscription management via Stripe Customer Portal.
 - Webhook-driven subscription lifecycle (active, past_due, canceled).
-- In-app invoice tracking and payment request dialogs.
+- In-app invoice tracking and one-off payment request dialogs.
 
 ### 🏋️ Training Engine
-- Program Builder with multi-week periodization (macro cycles, phases).
-- Workout Player with live session tracking, rest timers, and RPE logging.
-- Velocity-Based Training (VBT) metrics: mean/peak velocity, power output.
-- ACWR (Acute:Chronic Workload Ratio) monitoring and risk alerts.
-- Exercise library with muscle tags, movement patterns, and video references.
+- **Program Builder:** Drag-and-drop periodization with multi-week macro cycles, RPE/RIR logic, and exercise library.
+- **Workout Player:** Live session tracking with rest timers, set logging, and RPE capture.
+- **VBT:** Velocity Based Training metrics — mean/peak velocity, power output, and auto-regulation.
+- **ACWR:** Acute:Chronic Workload Ratio monitoring with risk alerts for coaches.
 
-### 📱 Offline PWA
+### 📱 PWA — Offline-First Architecture
 - Service Worker with offline-first caching strategy.
-- IndexedDB queue for workout logs synced on reconnect.
-- Network status badge and sync indicator.
+- TanStack Query v5 persistence via IndexedDB (`idb-keyval`) — `staleTime: Infinity`, `gcTime: 24h`.
+- Wake Lock API to prevent screen sleep during active sessions.
+- Local workout queue (IndexedDB) that syncs automatically on reconnect.
 - Installable PWA with manifest and app icons.
 
-### 📝 Feedback & Support System
-- In-app `FeedbackDialog` with category selection and Zod validation.
-- Auto-captured metadata: URL, userAgent, screen resolution, PWA mode.
+### 📝 Support — Integrated Feedback Widget
+- In-app `FeedbackDialog` with category selection (bug, feature_request, billing, other) and Zod validation.
+- Auto-captured diagnostics: URL, userAgent, screen resolution, PWA mode.
 - `support_tickets` table with RLS (users manage own tickets, coaches view athlete tickets).
-- Integrated into Coach Sidebar ("Supporto") and Athlete Profile ("Segnala un Problema").
+- Coach: Sidebar → "Supporto" (LifeBuoy icon). Athlete: Profile → "Segnala un Problema".
 
 ### 🍎 Nutrition Tracking
 - Meal logging with macro breakdown (protein, carbs, fats, calories).
-- AI-powered meal photo analysis via backend function.
+- AI-powered meal photo analysis via `analyze-meal-photo` edge function.
 - Calorie banking and adaptive TDEE calculations.
 - Coach-defined nutrition plans with cycling targets.
 
@@ -52,6 +52,15 @@
 - Badge system with categories and thresholds.
 - Workout streak tracking.
 - Leaderboard with anonymous mode option.
+
+### 🧪 QA — End-to-End Testing
+- Playwright test suite (`e2e/core-auth.spec.ts`) covering:
+  1. Public landing page loads with title and login CTA.
+  2. Auth page renders email/password form fields.
+  3. Protected `/coach` route redirects unauthenticated users.
+  4. Protected `/coach/programs` route redirects unauthenticated users.
+  5. Protected `/athlete` route redirects unauthenticated users.
+  6. 404 page renders for unknown routes.
 
 ---
 
@@ -72,27 +81,14 @@
 | `badges` / `user_badges` | Gamification achievements |
 | `coach_alerts` | Risk and compliance alerts for coaches |
 | `exercises` | Coach exercise library |
-| `fms_tests` / `injuries` | Movement screening and injury tracking |
-
----
-
-## E2E Test Coverage
-
-Tests in `e2e/core-auth.spec.ts` verify:
-
-1. ✅ Public landing page loads with title and login CTA.
-2. ✅ Auth page renders email/password form fields.
-3. ✅ Protected `/coach` route redirects unauthenticated users.
-4. ✅ Protected `/coach/programs` route redirects unauthenticated users.
-5. ✅ Protected `/athlete` route redirects unauthenticated users.
-6. ✅ 404 page renders for unknown routes.
 
 ---
 
 ## Known Limitations
 
-- **Email verification:** Users must verify email before signing in (auto-confirm is disabled).
-- **Offline feedback:** Feedback dialog warns when offline but does not queue submissions for later sync.
-- **Admin dashboard:** Support ticket management is done via backend database views; no in-app admin panel yet.
-- **VBT camera analysis:** Bar path detection relies on device camera quality and lighting conditions.
-- **Leaderboard:** Currently scoped per-coach roster; cross-platform leaderboards not yet supported.
+- First load may be slower on low-end devices due to initial offline sync.
+- Email verification required before sign-in (auto-confirm is disabled).
+- Offline feedback dialog warns but does not queue submissions for later sync.
+- Admin dashboard for support tickets not yet available (managed via backend views).
+- VBT camera analysis depends on device camera quality and lighting conditions.
+- Leaderboard scoped per-coach roster; cross-platform leaderboards not yet supported.

@@ -1,68 +1,68 @@
-# 🏋️ Coach Athlete Hub (SaaS Platform)
+# 🏋️ Coach Athlete Hub — High Performance SaaS
 
-> The world's most advanced coaching ecosystem. "God-Mode" analytics for coaches, offline-first performance for athletes.
+> "God-Mode" analytics for coaches. Offline-first performance for athletes.
 
----
-
-## 🚀 Project Status
-
-| Field | Value |
-|---|---|
-| **Current Version** | `v1.0.0-rc.1` (Beta Ready) |
-| **Status** | Feature Complete / QA Phase |
-| **Release Date** | 2026-02-16 |
+![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-06B6D4?logo=tailwindcss&logoColor=white)
+![Stripe](https://img.shields.io/badge/Stripe-Integrated-635BFF?logo=stripe&logoColor=white)
+![Beta](https://img.shields.io/badge/Status-Beta_Active-orange)
 
 ---
 
-## 🏗 Architecture & Stack
+## 📖 Project Overview
+
+**Coach Athlete Hub** is a full-stack coaching platform for hybrid (online + in-person) strength & conditioning professionals.
+
+- 🧠 **Coach Dashboard** — A desktop-first command center with program building, real-time analytics (ACWR, volume load, readiness), business automation (Stripe subscriptions, invoicing), and AI-powered tools.
+- 📱 **Athlete App** — A mobile-first PWA with offline workout logging, VBT tracking, nutrition AI, gamification, and a Focus Dashboard that gates training behind daily readiness check-ins.
+
+---
+
+## 🏗 Tech Stack
 
 | Layer | Technology |
 |---|---|
 | **Frontend** | React 18 · Vite · TypeScript · Tailwind CSS · shadcn/ui · Framer Motion |
-| **State Management** | TanStack Query v5 with IndexedDB persistence (offline-first) · Zustand |
-| **Backend** | Lovable Cloud (PostgreSQL, Auth, Storage, Edge Functions) |
-| **Payments** | Stripe (Subscriptions, Customer Portal, Webhooks) |
+| **State** | TanStack Query v5 (IndexedDB persistence) · Zustand |
+| **Backend** | Lovable Cloud (PostgreSQL · Auth · Storage · Edge Functions) |
+| **Payments** | Stripe (Subscriptions · Customer Portal · Webhooks) |
 | **Testing** | Playwright (E2E) |
-| **PWA** | Service Worker · IndexedDB offline sync · Installable manifest |
+| **PWA** | Service Worker · IndexedDB offline sync · Wake Lock API |
 
 ---
 
-## ✨ Key Features
+## ✨ Features
 
-### 🧠 For Coaches (Web Dashboard)
+### 🏋️ Training Logic
+- Drag-and-drop Program Builder with multi-week periodization
+- Offline-first Workout Player with rest timers and RPE logging
+- Velocity Based Training (VBT) — mean/peak velocity, power output
+- ACWR monitoring and automated risk alerts
 
-- **Program Builder:** Drag-and-drop periodization with multi-week macro cycles, RPE/RIR logic, and exercise library.
-- **Analytics Suite:** Real-time dashboards for Readiness, Volume Load, ACWR monitoring, and risk alerts.
-- **Business Logic:** Automated subscription management, invoice tracking, and payouts via Stripe.
-- **AI Tools:** `generate-program` (LLM-powered program generation) and `analyze-meal-photo` (Vision-based food analysis).
-- **Messaging:** Real-time 1:1 and broadcast chat with AI-assisted coaching context.
-- **Content Library:** Centralized resource management with tagging and sharing.
+### 🍎 Nutrition AI
+- AI-powered meal photo analysis (`analyze-meal-photo`)
+- Calorie banking and adaptive TDEE calculations
+- Coach-defined nutrition plans with macro cycling
 
-### 📱 For Athletes (PWA Mobile)
+### 💼 Business Automation
+- Stripe subscription management and Customer Portal
+- Invoice tracking and one-off payment requests
+- Coach-defined billing plans with automated lifecycle
 
-- **Offline Mode:** Fully functional workout player without internet — syncs automatically on reconnect.
-- **VBT & Logging:** Velocity Based Training tracking with mean/peak velocity, power output, and auto-regulating sets.
-- **Nutrition:** AI-powered food logging, calorie banking, adaptive TDEE, and macro adherence visualization.
-- **Gamification:** Badge system, workout streaks, and leaderboard with anonymous mode.
-- **Feedback:** Integrated support widget for bug reporting with auto-captured diagnostics.
-- **Focus Dashboard:** Material You–themed home screen with readiness gating and dynamic intensity warnings.
+### 💬 Communication
+- Real-time 1:1 and broadcast messaging
+- AI-assisted coach chat with knowledge base context
+
+### 🏆 Gamification
+- Badge system, workout streaks, and leaderboard
+- Anonymous mode for privacy-conscious athletes
 
 ---
 
 ## 🛠 Getting Started
 
-### Prerequisites
-
-- Node.js 18+
-- npm or bun
-
-### Installation
-
 ```bash
-# Clone the repository
-git clone <YOUR_GIT_URL>
-cd <YOUR_PROJECT_NAME>
-
 # Install dependencies
 npm install
 
@@ -70,9 +70,11 @@ npm install
 npm run dev
 ```
 
+The app will be available at `http://localhost:8080`.
+
 ---
 
-## 🧪 Running Tests
+## 🧪 Testing
 
 ```bash
 # Install Playwright browsers (first time only)
@@ -85,49 +87,18 @@ npx playwright test
 npx playwright test --ui
 ```
 
-### Test Coverage
-
-Tests in `e2e/core-auth.spec.ts` verify:
-
-1. ✅ Public landing page loads with title and login CTA.
-2. ✅ Auth page renders email/password form fields.
-3. ✅ Protected `/coach` route redirects unauthenticated users.
-4. ✅ Protected `/coach/programs` route redirects unauthenticated users.
-5. ✅ Protected `/athlete` route redirects unauthenticated users.
-6. ✅ 404 page renders for unknown routes.
+Tests cover authentication flows, route protection, and 404 handling. See `e2e/core-auth.spec.ts`.
 
 ---
 
-## 💬 Feedback Loop
+## 💬 Support
 
 Users can report bugs and suggest features directly inside the app:
 
-| Role | Location | Trigger |
-|---|---|---|
-| **Coach** | Sidebar footer | Click **"Supporto"** (LifeBuoy icon) |
-| **Athlete** | Profile → Settings | Click **"Segnala un Problema"** |
+- **Coach view:** Click the **"Supporto"** (LifeBuoy icon) item in the sidebar.
+- **Athlete view:** Go to **Profile → "Segnala un Problema"** in the settings section.
 
-Reports are stored in the `support_tickets` table with auto-captured browser metadata (URL, userAgent, screen resolution, PWA mode) for faster debugging.
-
----
-
-## 🗄 Database Schema Summary
-
-| Table | Purpose |
-|---|---|
-| `profiles` | User identity, role, settings, onboarding data |
-| `workouts` / `workout_logs` | Workout definitions and completion logs |
-| `workout_exercises` | Per-exercise sets data with VBT metrics |
-| `program_plans` / `program_weeks` / `program_days` / `program_workouts` / `program_exercises` | Periodized program builder hierarchy |
-| `training_phases` | Macro-cycle periodization phases |
-| `daily_readiness` / `daily_metrics` | Athlete wellness and biometric tracking |
-| `nutrition_plans` / `nutrition_logs` / `meal_logs` | Nutrition programming and logging |
-| `support_tickets` | Bug reports and feedback (with metadata) |
-| `athlete_subscriptions` / `billing_plans` | Stripe-backed subscription management |
-| `chat_rooms` / `messages` / `chat_participants` | Real-time messaging system |
-| `badges` / `user_badges` | Gamification achievements |
-| `coach_alerts` | Risk and compliance alerts for coaches |
-| `exercises` | Coach exercise library |
+Reports are stored with auto-captured browser metadata for faster debugging.
 
 ---
 
@@ -136,22 +107,6 @@ Reports are stored in the `support_tickets` table with auto-captured browser met
 Open [Lovable](https://lovable.dev) and click **Share → Publish** to deploy the latest version.
 
 To connect a custom domain, go to **Project → Settings → Domains → Connect Domain**.
-
----
-
-## ⚠️ Known Limitations
-
-- **Email verification:** Users must verify email before signing in (auto-confirm is disabled).
-- **Offline feedback:** Feedback dialog warns when offline but does not queue submissions for later sync.
-- **Admin dashboard:** Support ticket management is done via backend database views; no in-app admin panel yet.
-- **VBT camera analysis:** Bar path detection relies on device camera quality and lighting conditions.
-- **Leaderboard:** Currently scoped per-coach roster; cross-platform leaderboards not yet supported.
-
----
-
-## 📄 License
-
-Proprietary — All rights reserved.
 
 ---
 
