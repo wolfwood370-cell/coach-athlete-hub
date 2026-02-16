@@ -46,8 +46,10 @@ import {
   Dumbbell,
   CheckCircle,
   XCircle,
+  MessageSquarePlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FeedbackDialog } from "@/components/common/FeedbackDialog";
 import {
   LineChart,
   Line,
@@ -687,6 +689,18 @@ export default function AthleteProfile() {
               toggle
               checked={notifications}
               onToggle={setNotifications}
+            />
+
+            <FeedbackDialog
+              trigger={
+                <button className="w-full">
+                  <SettingsRow
+                    icon={MessageSquarePlus}
+                    label="Segnala un Problema"
+                    value="Bug, suggerimenti, supporto"
+                  />
+                </button>
+              }
             />
 
             <div className="pt-4">
