@@ -54,6 +54,21 @@ serve(async (req) => {
           break;
         }
 
+        // Idempotency: check if already active with this stripe_subscription_id
+        if (subscriptionId) {
+          const { data: alreadyActive } = await adminClient
+            .from("athlete_subscriptions")
+            .select("id")
+            .eq("stripe_subscription_id", subscriptionId)
+            .eq("status", "active")
+            .maybeSingle();
+
+          if (alreadyActive) {
+            logStep("Idempotent skip: subscription already active", { subscriptionId });
+            break;
+          }
+        }
+
         let periodEnd: string | null = null;
         if (subscriptionId) {
           const sub = await stripe.subscriptions.retrieve(subscriptionId);
@@ -98,31 +113,49 @@ serve(async (req) => {
 
         if (!subscriptionId) break;
 
-        const sub = await stripe.subscriptions.retrieve(subscriptionId);
-        const periodEnd = new Date(sub.current_period_end * 1000).toISOString();
-
+        // Idempotency: check current status before updating
         const { data: subRecord } = await adminClient
           .from("athlete_subscriptions")
-          .select("id")
+          .select("id, status, current_period_end")
           .eq("stripe_subscription_id", subscriptionId)
           .maybeSingle();
 
-        if (subRecord) {
-          await adminClient
-            .from("athlete_subscriptions")
-            .update({
-              status: "active",
-              current_period_end: periodEnd,
-            })
-            .eq("id", subRecord.id);
-          logStep("Renewal updated", { subscriptionId, periodEnd });
+        if (!subRecord) break;
+
+        const sub = await stripe.subscriptions.retrieve(subscriptionId);
+        const periodEnd = new Date(sub.current_period_end * 1000).toISOString();
+
+        if (subRecord.status === "active" && subRecord.current_period_end === periodEnd) {
+          logStep("Idempotent skip: renewal already up to date", { subscriptionId });
+          break;
         }
+
+        await adminClient
+          .from("athlete_subscriptions")
+          .update({
+            status: "active",
+            current_period_end: periodEnd,
+          })
+          .eq("id", subRecord.id);
+        logStep("Renewal updated", { subscriptionId, periodEnd });
         break;
       }
 
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
         const subId = subscription.id;
+
+        // Idempotency: skip if already canceled
+        const { data: delRecord } = await adminClient
+          .from("athlete_subscriptions")
+          .select("id, status")
+          .eq("stripe_subscription_id", subId)
+          .maybeSingle();
+
+        if (!delRecord || delRecord.status === "canceled") {
+          logStep("Idempotent skip: already canceled or not found", { subId });
+          break;
+        }
 
         await adminClient
           .from("athlete_subscriptions")
@@ -140,7 +173,7 @@ serve(async (req) => {
         const cancelAtPeriodEnd = subscription.cancel_at_period_end;
         const periodEnd = new Date(subscription.current_period_end * 1000).toISOString();
 
-        // Determine mapped status — "canceling" if scheduled for end-of-period cancellation
+        // Determine mapped status
         let mappedStatus: string;
         if (cancelAtPeriodEnd && stripeStatus === "active") {
           mappedStatus = "canceling";
@@ -152,6 +185,18 @@ serve(async (req) => {
           mappedStatus = "canceled";
         } else {
           mappedStatus = "incomplete";
+        }
+
+        // Idempotency: skip if status and period_end unchanged
+        const { data: updRecord } = await adminClient
+          .from("athlete_subscriptions")
+          .select("id, status, current_period_end")
+          .eq("stripe_subscription_id", subId)
+          .maybeSingle();
+
+        if (updRecord && updRecord.status === mappedStatus && updRecord.current_period_end === periodEnd) {
+          logStep("Idempotent skip: subscription already up to date", { subId, mappedStatus });
+          break;
         }
 
         await adminClient
