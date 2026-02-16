@@ -2321,7 +2321,12 @@ export type Database = {
       }
     }
     Enums: {
-      billing_sub_status: "active" | "past_due" | "canceled" | "incomplete"
+      billing_sub_status:
+        | "active"
+        | "past_due"
+        | "canceled"
+        | "incomplete"
+        | "canceling"
       checkin_status: "pending" | "approved" | "sent" | "skipped"
       content_type: "video" | "pdf" | "link" | "text" | "ai_knowledge"
       cycle_phase: "menstrual" | "follicular" | "ovulatory" | "luteal"
@@ -2465,7 +2470,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      billing_sub_status: ["active", "past_due", "canceled", "incomplete"],
+      billing_sub_status: [
+        "active",
+        "past_due",
+        "canceled",
+        "incomplete",
+        "canceling",
+      ],
       checkin_status: ["pending", "approved", "sent", "skipped"],
       content_type: ["video", "pdf", "link", "text", "ai_knowledge"],
       cycle_phase: ["menstrual", "follicular", "ovulatory", "luteal"],
