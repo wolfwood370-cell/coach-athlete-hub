@@ -97,7 +97,7 @@ export default function AthleteLeaderboard() {
             "font-medium text-sm truncate",
             isMe && "text-primary"
           )}>
-            {entry.full_name}
+            {entry.is_anonymous && !isMe ? "Atleta Segreto" : entry.full_name}
             {isMe && " (Tu)"}
           </p>
         </div>
