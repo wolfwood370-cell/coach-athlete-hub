@@ -9,7 +9,7 @@ import { OfflineSyncProvider } from "@/providers/OfflineSyncProvider";
 import { InstallPrompt } from "@/components/mobile/InstallPrompt";
 import { NetworkBadge } from "@/components/ui/NetworkBadge";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { RoleRedirect } from "./components/RoleRedirect";
+
 
 // Lazy-loaded pages
 const Index = lazy(() => import("./pages/Index"));
@@ -53,7 +53,7 @@ const App = () => (
         <BrowserRouter>
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>
-              <Route path="/" element={<RoleRedirect fallback={<Index />} />} />
+              <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               
               {/* Coach Routes */}

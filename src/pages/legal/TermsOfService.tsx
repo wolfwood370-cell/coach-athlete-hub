@@ -7,7 +7,7 @@ import { Footer } from "@/components/layout/Footer";
 export default function TermsOfService() {
   return (
     <>
-      <MetaHead title="Termini di Servizio" description="Termini e condizioni d'uso di CoachHub." />
+      <MetaHead title="Termini di Servizio | CoachHub" description="Termini e condizioni d'uso di CoachHub." />
       <div className="min-h-screen bg-background text-foreground flex flex-col">
         <header className="border-b border-border/50 backdrop-blur-sm bg-background/80 sticky top-0 z-50">
           <div className="container mx-auto px-6 py-4">

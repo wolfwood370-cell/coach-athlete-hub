@@ -3,6 +3,7 @@ import { MetaHead } from "@/components/MetaHead";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Footer } from "@/components/layout/Footer";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Activity,
   Brain,
@@ -57,6 +58,10 @@ const fadeUp = {
 };
 
 export default function Index() {
+  const { user, profile } = useAuth();
+
+  const dashboardPath = profile?.role === "coach" ? "/coach" : profile?.role === "athlete" ? (profile.onboarding_completed ? "/athlete" : "/onboarding") : "/auth";
+
   return (
     <>
     <MetaHead title="Home" description="Piattaforma completa per coaching fitness ibrido." />
@@ -68,15 +73,23 @@ export default function Index() {
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
               <Zap className="h-5 w-5 text-primary-foreground" />
             </div>
-            <span className="text-lg font-bold tracking-tight">FitCoach</span>
+            <span className="text-lg font-bold tracking-tight">CoachHub</span>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" asChild>
-              <Link to="/auth">Accedi</Link>
-            </Button>
-            <Button asChild className="btn-primary-glow text-primary-foreground">
-              <Link to="/auth">Inizia Ora</Link>
-            </Button>
+            {user ? (
+              <Button asChild className="btn-primary-glow text-primary-foreground">
+                <Link to={dashboardPath}>Vai alla Dashboard <ArrowRight className="h-4 w-4 ml-2" /></Link>
+              </Button>
+            ) : (
+              <>
+                <Button variant="ghost" asChild>
+                  <Link to="/auth">Accedi</Link>
+                </Button>
+                <Button asChild className="btn-primary-glow text-primary-foreground">
+                  <Link to="/auth">Inizia Ora</Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
