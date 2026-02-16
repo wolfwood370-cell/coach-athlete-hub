@@ -13,7 +13,7 @@ import {
   CreditCard,
   BookOpen,
   Inbox,
-  MessageSquarePlus,
+  LifeBuoy,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
@@ -178,8 +178,8 @@ export function CoachSidebar() {
                               isCollapsed && "justify-center px-2"
                             )}
                           >
-                            <MessageSquarePlus className="h-[18px] w-[18px] flex-shrink-0" />
-                            {!isCollapsed && <span className="text-sm">Feedback</span>}
+                            <LifeBuoy className="h-[18px] w-[18px] flex-shrink-0" />
+                            {!isCollapsed && <span className="text-sm">Supporto</span>}
                           </button>
                         </SidebarMenuButton>
                       }
@@ -187,7 +187,7 @@ export function CoachSidebar() {
                   </TooltipTrigger>
                   {isCollapsed && (
                     <TooltipContent side="right" className="font-medium">
-                      Feedback
+                      Supporto
                     </TooltipContent>
                   )}
                 </Tooltip>
