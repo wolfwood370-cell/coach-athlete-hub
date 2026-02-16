@@ -101,7 +101,7 @@ export function ActiveSessionShell({
   const progressPercent = totalSets > 0 ? (completedSets / totalSets) * 100 : 0;
 
   const shellContent = (
-    <div className="h-[100dvh] lg:h-full flex flex-col bg-[hsl(var(--m3-surface,var(--background)))] text-foreground relative overflow-hidden">
+    <div className="h-[100dvh] lg:h-full flex flex-col bg-[hsl(var(--m3-surface,var(--background)))] text-foreground relative overflow-hidden" style={{ overscrollBehaviorY: "none" }}>
       {/* Status bar safe area */}
       <div className="safe-top flex-shrink-0" />
 
