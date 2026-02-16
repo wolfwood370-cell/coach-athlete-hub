@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 // =========================================
 // Active Workout Session Store
@@ -157,6 +157,7 @@ export const useActiveSessionStore = create<ActiveSessionState & ActiveSessionAc
     }),
     {
       name: "active-workout-storage",
+      storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         activeSessionId: state.activeSessionId,
         workoutId: state.workoutId,
