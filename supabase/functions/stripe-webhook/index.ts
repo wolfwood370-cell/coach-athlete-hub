@@ -54,14 +54,12 @@ serve(async (req) => {
           break;
         }
 
-        // Fetch subscription details from Stripe for period_end
         let periodEnd: string | null = null;
         if (subscriptionId) {
           const sub = await stripe.subscriptions.retrieve(subscriptionId);
           periodEnd = new Date(sub.current_period_end * 1000).toISOString();
         }
 
-        // Upsert athlete_subscriptions
         const { data: existing } = await adminClient
           .from("athlete_subscriptions")
           .select("id")
@@ -100,7 +98,6 @@ serve(async (req) => {
 
         if (!subscriptionId) break;
 
-        // Fetch updated period from Stripe
         const sub = await stripe.subscriptions.retrieve(subscriptionId);
         const periodEnd = new Date(sub.current_period_end * 1000).toISOString();
 
@@ -139,20 +136,30 @@ serve(async (req) => {
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
         const subId = subscription.id;
-        const status = subscription.status;
+        const stripeStatus = subscription.status;
+        const cancelAtPeriodEnd = subscription.cancel_at_period_end;
         const periodEnd = new Date(subscription.current_period_end * 1000).toISOString();
 
-        const mappedStatus = status === "active" ? "active"
-          : status === "past_due" ? "past_due"
-          : status === "canceled" ? "canceled"
-          : "incomplete";
+        // Determine mapped status — "canceling" if scheduled for end-of-period cancellation
+        let mappedStatus: string;
+        if (cancelAtPeriodEnd && stripeStatus === "active") {
+          mappedStatus = "canceling";
+        } else if (stripeStatus === "active") {
+          mappedStatus = "active";
+        } else if (stripeStatus === "past_due") {
+          mappedStatus = "past_due";
+        } else if (stripeStatus === "canceled") {
+          mappedStatus = "canceled";
+        } else {
+          mappedStatus = "incomplete";
+        }
 
         await adminClient
           .from("athlete_subscriptions")
           .update({ status: mappedStatus, current_period_end: periodEnd })
           .eq("stripe_subscription_id", subId);
 
-        logStep("Subscription updated", { subId, status: mappedStatus });
+        logStep("Subscription updated", { subId, status: mappedStatus, cancelAtPeriodEnd });
         break;
       }
 

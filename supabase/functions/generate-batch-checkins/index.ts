@@ -8,6 +8,54 @@ const corsHeaders = {
 
 const DAYS_IT = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
 
+/**
+ * Calculate week boundaries in Europe/Rome timezone to avoid UTC midnight edge cases.
+ * Returns Monday 00:00 → Sunday 23:59 in local time, formatted as YYYY-MM-DD.
+ */
+function getItalianWeekBounds() {
+  // Create a date string in Europe/Rome timezone
+  const now = new Date();
+  const romeFormatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Rome",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const romeDateStr = romeFormatter.format(now); // YYYY-MM-DD
+  const romeDate = new Date(romeDateStr + "T12:00:00"); // noon to avoid DST issues
+
+  const romeDay = romeDate.getDay(); // 0=Sun
+  const mondayOffset = romeDay === 0 ? -6 : 1 - romeDay;
+  const weekStart = new Date(romeDate);
+  weekStart.setDate(romeDate.getDate() + mondayOffset);
+
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+
+  const fmt = (d: Date) => d.toISOString().split("T")[0];
+
+  // Get localized day name and time
+  const timeFormatter = new Intl.DateTimeFormat("it-IT", {
+    timeZone: "Europe/Rome",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const dayFormatter = new Intl.DateTimeFormat("it-IT", {
+    timeZone: "Europe/Rome",
+    weekday: "long",
+  });
+
+  return {
+    weekStartStr: fmt(weekStart),
+    weekEndStr: fmt(weekEnd),
+    todayStr: romeDateStr,
+    dayName: dayFormatter.format(now),
+    timeStr: timeFormatter.format(now),
+    localDay: romeDay, // 0=Sun, 6=Sat
+  };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -52,7 +100,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch all active athletes
     const { data: athletes } = await supabase
       .from("profiles")
       .select("id, full_name")
@@ -66,27 +113,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Current week: Monday to Sunday
-    const now = new Date();
-    const currentDay = now.getDay(); // 0=Sun, 1=Mon...
-    const mondayOffset = currentDay === 0 ? -6 : 1 - currentDay;
-    const weekStart = new Date(now);
-    weekStart.setDate(now.getDate() + mondayOffset);
-    weekStart.setHours(0, 0, 0, 0);
-    const weekStartStr = weekStart.toISOString().split("T")[0];
-
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-    weekEnd.setHours(23, 59, 59, 999);
-    const weekEndStr = weekEnd.toISOString().split("T")[0];
-
-    const todayStr = now.toISOString().split("T")[0];
-    const dayName = DAYS_IT[now.getDay()];
-    const timeStr = `${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+    // Use Italian timezone for week boundaries
+    const { weekStartStr, weekEndStr, todayStr, dayName, timeStr, localDay } = getItalianWeekBounds();
 
     const athleteIds = athletes.map((a) => a.id);
 
-    // Fetch all workout_logs for this week (scheduled + completed + missed)
     const [logsRes, nutritionRes] = await Promise.all([
       supabase
         .from("workout_logs")
@@ -116,6 +147,9 @@ Deno.serve(async (req) => {
     const CONCURRENCY = 3;
     const results: { athlete_id: string; status: string }[] = [];
 
+    // Determine if we should summarize full week or ongoing
+    const isSundayOrMonday = localDay === 0 || localDay === 1;
+
     for (let i = 0; i < athletes.length; i += CONCURRENCY) {
       const batch = athletes.slice(i, i + CONCURRENCY);
 
@@ -125,7 +159,6 @@ Deno.serve(async (req) => {
             const athleteLogs = allLogs.filter((l) => l.athlete_id === athlete.id);
             const athleteNutrition = nutritionLogs.filter((n) => n.athlete_id === athlete.id);
 
-            // Categorize workouts by time
             const completed = athleteLogs.filter((l) => l.status === "completed");
             const missed = athleteLogs.filter(
               (l) => l.status === "missed" || (l.status === "scheduled" && l.scheduled_date && l.scheduled_date < todayStr)
@@ -162,14 +195,21 @@ Deno.serve(async (req) => {
               avg_daily_calories: avgCalories,
             };
 
-            // Build time-aware AI prompt
-            const weekDoneContext = remainingCount === 0
-              ? "La settimana di allenamento è conclusa. Fornisci un riepilogo completo."
-              : `Ci sono ancora ${remainingCount} allenament${remainingCount === 1 ? "o" : "i"} in programma. Motiva l'atleta a dare il massimo nelle sessioni rimanenti.`;
+            // Time-aware context for the AI
+            let weekDoneContext: string;
+            if (isSundayOrMonday && remainingCount === 0) {
+              weekDoneContext = "La settimana di allenamento è conclusa. Fornisci un riepilogo completo della settimana appena terminata.";
+            } else if (remainingCount === 0) {
+              weekDoneContext = "Tutti gli allenamenti programmati sono stati completati o saltati. Fornisci un riepilogo.";
+            } else {
+              weekDoneContext = `Ci sono ancora ${remainingCount} allenament${remainingCount === 1 ? "o" : "i"} in programma. Motiva l'atleta a dare il massimo nelle sessioni rimanenti.`;
+            }
 
             const prompt = `Sei un coach sportivo italiano esperto. Analizza la settimana corrente per ${athlete.full_name || "l'atleta"}.
 
-Contesto temporale: Oggi è ${dayName}, ore ${timeStr}. Settimana dal ${weekStartStr} al ${weekEndStr}.
+Contesto temporale: Oggi è ${dayName}, ore ${timeStr} (fuso orario: Europe/Rome). Settimana dal ${weekStartStr} al ${weekEndStr}.
+
+NOTA IMPORTANTE: I dati sono basati sul fuso orario italiano (Europe/Rome). Se l'ultimo allenamento è stato fatto oggi o nelle ultime 24 ore, considera la settimana ancora in corso per l'atleta. Se oggi è domenica o lunedì, fai un riepilogo della settimana COMPLETA appena trascorsa.
 
 Dati settimana:
 - Allenamenti completati: ${completedCount}
