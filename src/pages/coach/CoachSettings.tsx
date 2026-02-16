@@ -40,8 +40,10 @@ import {
   Globe,
   CheckCircle2,
   ImageIcon,
-  Sparkles
+  Sparkles,
+  MessageSquarePlus,
 } from "lucide-react";
+import { FeedbackDialog } from "@/components/common/FeedbackDialog";
 import { cn } from "@/lib/utils";
 
 // Type definitions
@@ -727,6 +729,22 @@ export default function CoachSettings() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        {/* Feedback / Support */}
+        <Card className="border-border/50 bg-card/50">
+          <CardContent className="p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                <MessageSquarePlus className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium text-sm">Supporto & Feedback</p>
+                <p className="text-xs text-muted-foreground">Segnala un bug o suggerisci una funzionalità</p>
+              </div>
+            </div>
+            <FeedbackDialog />
+          </CardContent>
+        </Card>
 
         {/* Save Button - Fixed at bottom */}
         <div className="sticky bottom-6 mt-8">

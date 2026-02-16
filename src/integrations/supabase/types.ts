@@ -1819,6 +1819,36 @@ export type Database = {
           },
         ]
       }
+      support_tickets: {
+        Row: {
+          category: Database["public"]["Enums"]["ticket_category"]
+          created_at: string
+          id: string
+          message: string
+          metadata: Json | null
+          status: Database["public"]["Enums"]["ticket_status"]
+          user_id: string | null
+        }
+        Insert: {
+          category?: Database["public"]["Enums"]["ticket_category"]
+          created_at?: string
+          id?: string
+          message: string
+          metadata?: Json | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          user_id?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["ticket_category"]
+          created_at?: string
+          id?: string
+          message?: string
+          metadata?: Json | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       training_phases: {
         Row: {
           athlete_id: string
@@ -2340,6 +2370,8 @@ export type Database = {
         | "peaking"
         | "transition"
       subscription_status: "active" | "past_due" | "canceled" | "trial" | "none"
+      ticket_category: "bug" | "feature_request" | "billing" | "other"
+      ticket_status: "new" | "in_progress" | "resolved" | "closed"
       user_role: "coach" | "athlete"
       workout_log_status: "scheduled" | "completed" | "missed"
       workout_status: "pending" | "in_progress" | "completed" | "skipped"
@@ -2491,6 +2523,8 @@ export const Constants = {
         "transition",
       ],
       subscription_status: ["active", "past_due", "canceled", "trial", "none"],
+      ticket_category: ["bug", "feature_request", "billing", "other"],
+      ticket_status: ["new", "in_progress", "resolved", "closed"],
       user_role: ["coach", "athlete"],
       workout_log_status: ["scheduled", "completed", "missed"],
       workout_status: ["pending", "in_progress", "completed", "skipped"],
