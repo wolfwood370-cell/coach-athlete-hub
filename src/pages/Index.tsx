@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { MetaHead } from "@/components/MetaHead";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { Footer } from "@/components/layout/Footer";
 import {
   Activity,
   Brain,
@@ -198,12 +199,7 @@ export default function Index() {
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-border/50 py-8">
-        <div className="container mx-auto px-6 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} FitCoach. Piattaforma di Coaching Scientifica.
-        </div>
-      </footer>
+      <Footer />
     </div>
     </>
   );
