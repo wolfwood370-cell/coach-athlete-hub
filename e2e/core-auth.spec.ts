@@ -1,34 +1,49 @@
 import { test, expect } from "../playwright-fixture";
 
 test.describe("Core Auth & Navigation", () => {
-  test("Public landing page loads with Accedi button", async ({ page }) => {
+  // 1. Public Landing Load
+  test("Public landing page loads with correct title and login button", async ({ page }) => {
     await page.goto("/");
-    await expect(page).toHaveTitle(/CoachHub/i);
-    const accediLink = page.getByRole("link", { name: /accedi/i });
-    await expect(accediLink).toBeVisible();
+    await expect(page).toHaveTitle(/FitCoach/i);
+    const loginLink = page.getByRole("link", { name: /accedi/i });
+    await expect(loginLink).toBeVisible();
   });
 
-  test("Auth page renders login form", async ({ page }) => {
+  // 2. Auth page renders login form
+  test("Auth page renders email and password fields", async ({ page }) => {
     await page.goto("/auth");
-    // Should show email and password fields
     const emailInput = page.getByPlaceholder(/email/i);
     const passwordInput = page.getByPlaceholder(/password/i);
     await expect(emailInput).toBeVisible();
     await expect(passwordInput).toBeVisible();
   });
 
+  // 3. Protected route /coach redirects unauthenticated users
   test("Protected route /coach redirects unauthenticated users", async ({ page }) => {
+    await page.context().clearCookies();
     await page.goto("/coach");
-    // Should redirect to /auth or show login
+    await page.waitForURL((url) => url.pathname.includes("/auth") || url.pathname === "/coach", { timeout: 5000 }).catch(() => {});
     await page.waitForTimeout(2000);
     const url = page.url();
-    // Either redirected to auth or shows auth content
     const isOnAuth = url.includes("/auth");
     const hasLoginForm = await page.getByPlaceholder(/email/i).isVisible().catch(() => false);
     expect(isOnAuth || hasLoginForm).toBeTruthy();
   });
 
+  // 4. Protected route /coach/programs redirects unauthenticated users
+  test("Protected route /coach/programs redirects unauthenticated users", async ({ page }) => {
+    await page.context().clearCookies();
+    await page.goto("/coach/programs");
+    await page.waitForTimeout(2000);
+    const url = page.url();
+    const isOnAuth = url.includes("/auth");
+    const hasLoginForm = await page.getByPlaceholder(/email/i).isVisible().catch(() => false);
+    expect(isOnAuth || hasLoginForm).toBeTruthy();
+  });
+
+  // 5. Protected route /athlete redirects unauthenticated users
   test("Protected route /athlete redirects unauthenticated users", async ({ page }) => {
+    await page.context().clearCookies();
     await page.goto("/athlete");
     await page.waitForTimeout(2000);
     const url = page.url();
@@ -37,6 +52,7 @@ test.describe("Core Auth & Navigation", () => {
     expect(isOnAuth || hasLoginForm).toBeTruthy();
   });
 
+  // 6. 404 page renders for unknown routes
   test("404 page renders for unknown routes", async ({ page }) => {
     await page.goto("/nonexistent-route-xyz");
     await page.waitForTimeout(1000);
