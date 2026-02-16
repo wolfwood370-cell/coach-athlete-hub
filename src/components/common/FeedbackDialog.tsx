@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -17,139 +16,176 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { MessageSquarePlus, Loader2, Bug, Lightbulb, CreditCard, HelpCircle } from "lucide-react";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { MessageSquarePlus, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { mapSupabaseError } from "@/lib/errorMapping";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 
-type TicketCategory = "bug" | "feature_request" | "billing" | "other";
+const CATEGORIES = [
+  { value: "bug", label: "🐛 Bug / Problema" },
+  { value: "feature_request", label: "💡 Suggerimento" },
+  { value: "billing", label: "💳 Fatturazione" },
+  { value: "other", label: "❓ Altro" },
+] as const;
 
-const CATEGORIES: { value: TicketCategory; label: string; icon: React.ElementType }[] = [
-  { value: "bug", label: "🐛 Bug / Problema", icon: Bug },
-  { value: "feature_request", label: "💡 Suggerimento", icon: Lightbulb },
-  { value: "billing", label: "💳 Fatturazione", icon: CreditCard },
-  { value: "other", label: "❓ Altro", icon: HelpCircle },
-];
+const feedbackSchema = z.object({
+  category: z.enum(["bug", "feature_request", "billing", "other"]),
+  message: z.string().trim().min(10, "Il messaggio deve contenere almeno 10 caratteri").max(2000, "Massimo 2000 caratteri"),
+});
+
+type FeedbackFormValues = z.infer<typeof feedbackSchema>;
 
 interface FeedbackDialogProps {
   trigger?: React.ReactNode;
 }
 
+function collectMetadata() {
+  const isPwa = window.matchMedia("(display-mode: standalone)").matches
+    || (navigator as any).standalone === true;
+  return {
+    url: window.location.pathname,
+    userAgent: navigator.userAgent,
+    screenSize: `${window.innerWidth}x${window.innerHeight}`,
+    pwaMode: isPwa,
+    timestamp: new Date().toISOString(),
+  };
+}
+
 export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
-  const [category, setCategory] = useState<TicketCategory>("bug");
-  const [message, setMessage] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async () => {
-    if (!message.trim()) {
-      toast.error("Inserisci un messaggio");
-      return;
-    }
+  const form = useForm<FeedbackFormValues>({
+    resolver: zodResolver(feedbackSchema),
+    defaultValues: { category: "bug", message: "" },
+  });
+
+  const isSubmitting = form.formState.isSubmitting;
+
+  const onSubmit = async (values: FeedbackFormValues) => {
     if (!user?.id) {
       toast.error("Devi essere loggato per inviare feedback");
       return;
     }
+    if (!navigator.onLine) {
+      toast.error("Sei offline. Riprova quando torni online.");
+      return;
+    }
 
-    setIsSubmitting(true);
     try {
-      const metadata = {
-        url: window.location.pathname,
-        userAgent: navigator.userAgent,
-        platform: navigator.platform,
-        screenWidth: window.innerWidth,
-        screenHeight: window.innerHeight,
-        timestamp: new Date().toISOString(),
-      };
-
       const { error } = await supabase.from("support_tickets").insert({
         user_id: user.id,
-        category,
-        message: message.trim(),
-        metadata,
+        category: values.category,
+        message: values.message,
+        metadata: collectMetadata(),
       } as any);
 
       if (error) throw error;
 
       toast.success("Feedback inviato! Grazie per il tuo contributo 🙏");
-      setMessage("");
-      setCategory("bug");
+      form.reset();
       setOpen(false);
-    } catch (err) {
-      toast.error(mapSupabaseError(err) || "Non siamo riusciti a inviare il feedback, riprova più tardi");
-    } finally {
-      setIsSubmitting(false);
+    } catch {
+      toast.error("Non siamo riusciti a inviare il feedback, riprova più tardi");
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) form.reset(); }}>
       <DialogTrigger asChild>
         {trigger || (
           <Button variant="outline" className="gap-2">
             <MessageSquarePlus className="h-4 w-4" />
-            Segnala un Problema
+            Help & Feedback
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md border-border bg-background">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <MessageSquarePlus className="h-5 w-5 text-primary" />
             Invia Feedback
           </DialogTitle>
           <DialogDescription>
-            Segnala un bug, suggerisci una funzionalità o contattaci per qualsiasi problema.
+            Segnala un bug, suggerisci una funzionalità o contattaci.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label>Categoria</Label>
-            <Select value={category} onValueChange={(v) => setCategory(v as TicketCategory)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map((cat) => (
-                  <SelectItem key={cat.value} value={cat.value}>
-                    {cat.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Messaggio</Label>
-            <Textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Descrivi il problema o il suggerimento..."
-              rows={4}
-              className="resize-none"
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-2">
+            <FormField
+              control={form.control}
+              name="category"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Categoria</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {CATEGORIES.map((cat) => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-            <p className="text-[10px] text-muted-foreground">
-              Le informazioni del browser e della pagina verranno incluse automaticamente.
-            </p>
-          </div>
-        </div>
 
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
-            Annulla
-          </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting || !message.trim()}>
-            {isSubmitting ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <MessageSquarePlus className="h-4 w-4 mr-2" />
-            )}
-            Invia
-          </Button>
-        </div>
+            <FormField
+              control={form.control}
+              name="message"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Messaggio</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      {...field}
+                      placeholder="Descrivi il problema o il suggerimento (min. 10 caratteri)..."
+                      rows={4}
+                      className="resize-none"
+                    />
+                  </FormControl>
+                  <FormMessage />
+                  <p className="text-[10px] text-muted-foreground">
+                    Informazioni del browser e della pagina verranno incluse automaticamente.
+                  </p>
+                </FormItem>
+              )}
+            />
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={isSubmitting}>
+                Annulla
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <MessageSquarePlus className="h-4 w-4 mr-2" />
+                )}
+                Invia
+              </Button>
+            </div>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
