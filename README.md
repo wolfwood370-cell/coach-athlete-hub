@@ -1,73 +1,74 @@
-# Welcome to your Lovable project
+# FitCoach — Hybrid Coaching Platform
 
-## Project info
+> **Project Status:** 🟡 Beta / Release Candidate
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+A full-stack coaching platform for hybrid (online + in-person) strength & conditioning coaches and their athletes. Built with React, TypeScript, Tailwind CSS, and Lovable Cloud.
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## Tech Stack
 
-**Use Lovable**
+- **Frontend:** React 18 · TypeScript · Vite · Tailwind CSS · shadcn/ui · Framer Motion
+- **Backend:** Lovable Cloud (Database, Auth, Edge Functions, Storage)
+- **Payments:** Stripe (Subscriptions, Customer Portal, Webhooks)
+- **State:** TanStack Query · Zustand
+- **Testing:** Playwright (E2E)
+- **PWA:** Service Worker · IndexedDB offline sync
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+---
 
-Changes made via Lovable will be committed automatically to this repo.
+## Getting Started
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
+```bash
+# Clone the repository
 git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
 cd <YOUR_PROJECT_NAME>
 
-# Step 3: Install the necessary dependencies.
+# Install dependencies
 npm i
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start the development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Running Tests
 
-**Use GitHub Codespaces**
+```bash
+# Install Playwright browsers (first time only)
+npx playwright install
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+# Run E2E tests
+npx playwright test
 
-## What technologies are used for this project?
+# Run tests with UI mode
+npx playwright test --ui
+```
 
-This project is built with:
+Tests cover authentication flows, route protection, and 404 handling. See `e2e/core-auth.spec.ts`.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+---
 
-## How can I deploy this project?
+## Feedback Loop
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+Users can report bugs and suggest features directly inside the app:
 
-## Can I connect a custom domain to my Lovable project?
+- **Coach view:** Click the **"Supporto"** (LifeBuoy icon) item in the sidebar.
+- **Athlete view:** Go to **Profile → "Segnala un Problema"** in the settings section.
 
-Yes, you can!
+Reports are stored in the `support_tickets` table with auto-captured browser metadata for faster debugging.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+---
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## Deployment
+
+Open [Lovable](https://lovable.dev) and click **Share → Publish** to deploy the latest version.
+
+To connect a custom domain, go to **Project → Settings → Domains → Connect Domain**.
+
+---
+
+## Release Notes
+
+See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the full changelog.
