@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { 
   LayoutDashboard, 
   Users, 
@@ -12,9 +13,11 @@ import {
   CreditCard,
   BookOpen,
   Inbox,
+  MessageSquarePlus,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Button } from "@/components/ui/button";
+import { FeedbackDialog } from "@/components/common/FeedbackDialog";
 import { cn } from "@/lib/utils";
 import {
   Sidebar,
@@ -163,6 +166,32 @@ export function CoachSidebar() {
                   </Tooltip>
                 </SidebarMenuItem>
               ))}
+              <SidebarMenuItem>
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <FeedbackDialog
+                      trigger={
+                        <SidebarMenuButton asChild>
+                          <button
+                            className={cn(
+                              "flex items-center gap-3 px-3 py-2 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors w-full",
+                              isCollapsed && "justify-center px-2"
+                            )}
+                          >
+                            <MessageSquarePlus className="h-[18px] w-[18px] flex-shrink-0" />
+                            {!isCollapsed && <span className="text-sm">Feedback</span>}
+                          </button>
+                        </SidebarMenuButton>
+                      }
+                    />
+                  </TooltipTrigger>
+                  {isCollapsed && (
+                    <TooltipContent side="right" className="font-medium">
+                      Feedback
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
