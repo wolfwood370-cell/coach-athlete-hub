@@ -360,7 +360,8 @@ export default function ProgramBuilder() {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8,
+        distance: 10,
+        tolerance: 5,
       },
     }),
     useSensor(KeyboardSensor, {
