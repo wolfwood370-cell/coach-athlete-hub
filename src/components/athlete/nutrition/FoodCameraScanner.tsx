@@ -168,8 +168,28 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
 
       clearInterval(interval);
 
-      if (error) throw error;
-      if (data.error) {
+      // Handle 429 rate limit specifically
+      if (error) {
+        const status = (error as any)?.status ?? (error as any)?.context?.status;
+        if (status === 429 || data?.code === "DAILY_LIMIT") {
+          clearInterval(interval);
+          toast.error("Limite giornaliero AI raggiunto. Passa a Pro per scansioni illimitate.", {
+            duration: 5000,
+          });
+          reset();
+          return;
+        }
+        throw error;
+      }
+      if (data?.error) {
+        if (data.code === "DAILY_LIMIT") {
+          clearInterval(interval);
+          toast.error("Limite giornaliero AI raggiunto. Passa a Pro per scansioni illimitate.", {
+            duration: 5000,
+          });
+          reset();
+          return;
+        }
         toast.error(data.error === "Non è cibo" ? "L'immagine non sembra contenere cibo" : data.error);
         reset();
         return;
