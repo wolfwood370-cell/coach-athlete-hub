@@ -7,17 +7,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-function getTierLimit(tier: string | null): number {
-  if (tier === "pro" || tier === "premium") return 20;
+function getVisionLimit(tier: string | null): number {
+  if (tier === "pro" || tier === "premium") return 50;
   return 5; // basic / null / free
-}
-
-function isSameUTCDay(a: Date, b: Date): boolean {
-  return (
-    a.getUTCFullYear() === b.getUTCFullYear() &&
-    a.getUTCMonth() === b.getUTCMonth() &&
-    a.getUTCDate() === b.getUTCDate()
-  );
 }
 
 serve(async (req) => {
@@ -55,29 +47,28 @@ serve(async (req) => {
       .eq("id", user.id)
       .single();
 
-    const dailyLimit = getTierLimit(profile?.subscription_tier ?? null);
+    const dailyLimit = getVisionLimit(profile?.subscription_tier ?? null);
 
-    // --- 3. Check / lazy-reset quota ---
-    const now = new Date();
+    // --- 3. Check quota from user_ai_usage (date-partitioned) ---
+    const todayStr = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+
     const { data: usage } = await adminClient
-      .from("ai_usage_tracking")
-      .select("message_count, daily_limit, last_reset_at")
+      .from("user_ai_usage")
+      .select("vision_count")
       .eq("user_id", user.id)
+      .eq("date", todayStr)
       .maybeSingle();
 
-    let currentCount = 0;
-
-    if (usage) {
-      const lastReset = new Date(usage.last_reset_at);
-      if (isSameUTCDay(lastReset, now)) {
-        currentCount = usage.message_count;
-      }
-      // else: new day → currentCount stays 0 (will be reset on increment)
-    }
+    const currentCount = usage?.vision_count ?? 0;
 
     if (currentCount >= dailyLimit) {
       return new Response(
-        JSON.stringify({ error: "Limite giornaliero AI raggiunto.", daily_limit: dailyLimit }),
+        JSON.stringify({
+          error: "Daily AI limit reached.",
+          code: "DAILY_LIMIT",
+          daily_limit: dailyLimit,
+          tier: profile?.subscription_tier ?? "basic",
+        }),
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -175,26 +166,37 @@ Regole:
 
     const result = JSON.parse(cleaned);
 
-    // --- 6. Increment quota ONLY after successful AI response ---
+    // --- 6. Increment vision_count atomically ONLY after successful AI response ---
     if (usage) {
-      const lastReset = new Date(usage.last_reset_at);
-      if (isSameUTCDay(lastReset, now)) {
-        await adminClient
-          .from("ai_usage_tracking")
-          .update({ message_count: currentCount + 1, daily_limit: dailyLimit })
-          .eq("user_id", user.id);
-      } else {
-        // New day → reset counter
-        await adminClient
-          .from("ai_usage_tracking")
-          .update({ message_count: 1, daily_limit: dailyLimit, last_reset_at: now.toISOString() })
-          .eq("user_id", user.id);
-      }
+      // Row exists for today → increment
+      await adminClient
+        .from("user_ai_usage")
+        .update({ vision_count: currentCount + 1, last_reset: new Date().toISOString() })
+        .eq("user_id", user.id)
+        .eq("date", todayStr);
     } else {
-      // First-time usage row
+      // No row for today → insert
+      await adminClient
+        .from("user_ai_usage")
+        .insert({ user_id: user.id, date: todayStr, vision_count: 1, last_reset: new Date().toISOString() });
+    }
+
+    // Also keep legacy ai_usage_tracking in sync
+    const { data: legacyUsage } = await adminClient
+      .from("ai_usage_tracking")
+      .select("message_count, daily_limit, last_reset_at")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (legacyUsage) {
       await adminClient
         .from("ai_usage_tracking")
-        .insert({ user_id: user.id, message_count: 1, daily_limit: dailyLimit, last_reset_at: now.toISOString() });
+        .update({ message_count: legacyUsage.message_count + 1, daily_limit: dailyLimit })
+        .eq("user_id", user.id);
+    } else {
+      await adminClient
+        .from("ai_usage_tracking")
+        .insert({ user_id: user.id, message_count: 1, daily_limit: dailyLimit });
     }
 
     return new Response(JSON.stringify(result), {
