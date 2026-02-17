@@ -9,6 +9,7 @@ import { OfflineSyncProvider } from "@/providers/OfflineSyncProvider";
 import { InstallPrompt } from "@/components/mobile/InstallPrompt";
 import { NetworkBadge } from "@/components/ui/NetworkBadge";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { SubscriptionGuard } from "@/components/auth/SubscriptionGuard";
 
 
 // Lazy-loaded pages
@@ -56,18 +57,18 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               
-              {/* Coach Routes */}
-              <Route path="/coach" element={<CoachHome />} />
-              <Route path="/coach/athletes" element={<CoachAthletes />} />
-              <Route path="/coach/athlete/:id" element={<AthleteDetail />} />
-              <Route path="/coach/programs" element={<ProgramBuilder />} />
-              <Route path="/coach/calendar" element={<CoachCalendar />} />
-              <Route path="/coach/messages" element={<CoachMessages />} />
-              <Route path="/coach/library" element={<CoachLibrary />} />
-              <Route path="/coach/analytics" element={<CoachAnalytics />} />
-              <Route path="/coach/business" element={<CoachBusiness />} />
-              <Route path="/coach/inbox" element={<CoachCheckinInbox />} />
-              <Route path="/coach/settings" element={<CoachSettings />} />
+              {/* Coach Routes — wrapped in SubscriptionGuard */}
+              <Route path="/coach" element={<SubscriptionGuard><CoachHome /></SubscriptionGuard>} />
+              <Route path="/coach/athletes" element={<SubscriptionGuard><CoachAthletes /></SubscriptionGuard>} />
+              <Route path="/coach/athlete/:id" element={<SubscriptionGuard><AthleteDetail /></SubscriptionGuard>} />
+              <Route path="/coach/programs" element={<SubscriptionGuard><ProgramBuilder /></SubscriptionGuard>} />
+              <Route path="/coach/calendar" element={<SubscriptionGuard><CoachCalendar /></SubscriptionGuard>} />
+              <Route path="/coach/messages" element={<SubscriptionGuard><CoachMessages /></SubscriptionGuard>} />
+              <Route path="/coach/library" element={<SubscriptionGuard><CoachLibrary /></SubscriptionGuard>} />
+              <Route path="/coach/analytics" element={<SubscriptionGuard><CoachAnalytics /></SubscriptionGuard>} />
+              <Route path="/coach/business" element={<SubscriptionGuard><CoachBusiness /></SubscriptionGuard>} />
+              <Route path="/coach/inbox" element={<SubscriptionGuard><CoachCheckinInbox /></SubscriptionGuard>} />
+              <Route path="/coach/settings" element={<SubscriptionGuard><CoachSettings /></SubscriptionGuard>} />
               
               {/* Athlete Routes */}
               <Route path="/athlete" element={<FocusDashboard />} />
