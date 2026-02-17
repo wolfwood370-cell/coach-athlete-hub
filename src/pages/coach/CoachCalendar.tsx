@@ -427,11 +427,11 @@ export default function CoachCalendar() {
 
       if (logDeleteError) throw logDeleteError;
 
-      // Delete the associated workout if exists
+      // Soft-delete the associated workout if exists
       if (log?.workout_id) {
         await supabase
           .from("workouts")
-          .delete()
+          .update({ deleted_at: new Date().toISOString() } as any)
           .eq("id", log.workout_id);
       }
     },

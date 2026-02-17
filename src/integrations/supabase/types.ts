@@ -1659,6 +1659,7 @@ export type Database = {
         Row: {
           coach_id: string
           created_at: string
+          deleted_at: string | null
           description: string | null
           id: string
           is_template: boolean
@@ -1668,6 +1669,7 @@ export type Database = {
         Insert: {
           coach_id: string
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           id?: string
           is_template?: boolean
@@ -1677,6 +1679,7 @@ export type Database = {
         Update: {
           coach_id?: string
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           id?: string
           is_template?: boolean
@@ -2225,6 +2228,7 @@ export type Database = {
           athlete_id: string
           coach_id: string | null
           created_at: string
+          deleted_at: string | null
           description: string | null
           estimated_duration: number | null
           id: string
@@ -2239,6 +2243,7 @@ export type Database = {
           athlete_id: string
           coach_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           estimated_duration?: number | null
           id?: string
@@ -2253,6 +2258,7 @@ export type Database = {
           athlete_id?: string
           coach_id?: string | null
           created_at?: string
+          deleted_at?: string | null
           description?: string | null
           estimated_duration?: number | null
           id?: string
