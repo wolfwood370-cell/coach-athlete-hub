@@ -438,12 +438,64 @@ export default function AthleteDashboard() {
   // Active program check for empty state
   const { activeProgram, isLoading: programLoading } = useActiveProgram();
   const hasNoProgram = !programLoading && !activeProgram && !workoutLoading && !todayWorkout;
+  const hasNoNutrition = !nutritionLoading && (!nutritionTargets || nutritionTargets.calories === 0);
+  const isDay1 = hasNoProgram && hasNoNutrition;
 
   return (
     <AthleteLayout>
       <div className="space-y-4 p-4 pb-24">
-        {/* ===== EMPTY STATE: No Program ===== */}
-        {hasNoProgram && (
+        {/* ===== DAY 1 EMPTY STATE: Welcome Card ===== */}
+        {isDay1 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            className="relative overflow-hidden rounded-2xl border border-border/50 bg-card p-8 text-center space-y-6"
+          >
+            {/* Ambient glow */}
+            <div className="absolute -top-20 left-1/2 -translate-x-1/2 h-40 w-80 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
+            
+            <div className="relative space-y-4">
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
+                className="mx-auto h-20 w-20 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 border border-primary/20 flex items-center justify-center backdrop-blur-sm"
+              >
+                <Sparkles className="h-10 w-10 text-primary" />
+              </motion.div>
+              
+              <h2 className="text-2xl font-bold tracking-tight">Calibriamo il tuo profilo</h2>
+              <p className="text-muted-foreground max-w-md mx-auto text-sm leading-relaxed">
+                Inizia registrando il tuo primo allenamento o il primo pasto. 
+                I dati che raccoglierai ci aiuteranno a personalizzare ogni aspetto del tuo percorso.
+              </p>
+            </div>
+            
+            <div className="relative flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <Button 
+                size="lg"
+                onClick={() => navigate('/athlete/training')} 
+                className="w-full sm:w-auto gap-2 gradient-primary text-primary-foreground"
+              >
+                <Dumbbell className="h-5 w-5" />
+                Primo Allenamento
+              </Button>
+              <Button 
+                size="lg"
+                variant="outline"
+                onClick={() => navigate('/athlete/nutrition')} 
+                className="w-full sm:w-auto gap-2"
+              >
+                <Flame className="h-5 w-5" />
+                Primo Pasto
+              </Button>
+            </div>
+          </motion.div>
+        )}
+        
+        {/* ===== NO PROGRAM (but has some data) ===== */}
+        {hasNoProgram && !isDay1 && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
