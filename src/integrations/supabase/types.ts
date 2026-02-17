@@ -2231,6 +2231,7 @@ export type Database = {
           scheduled_date: string | null
           status: Database["public"]["Enums"]["workout_status"]
           structure: Json
+          sync_version: number
           title: string
           updated_at: string
         }
@@ -2244,6 +2245,7 @@ export type Database = {
           scheduled_date?: string | null
           status?: Database["public"]["Enums"]["workout_status"]
           structure?: Json
+          sync_version?: number
           title: string
           updated_at?: string
         }
@@ -2257,6 +2259,7 @@ export type Database = {
           scheduled_date?: string | null
           status?: Database["public"]["Enums"]["workout_status"]
           structure?: Json
+          sync_version?: number
           title?: string
           updated_at?: string
         }

@@ -35,6 +35,8 @@ export interface WorkoutLogPayload {
   duration_minutes?: number;
   exercises: WorkoutExercise[];
   notes?: string;
+  /** sync_version captured when the athlete started the session */
+  device_sync_version?: number;
 }
 
 export interface DailyReadinessPayload {
@@ -110,6 +112,26 @@ function incrementRetry(id: string): void {
 // ============================================================================
 
 async function syncWorkoutLog(payload: WorkoutLogPayload): Promise<void> {
+  // --- Safe Append: detect if coach modified the workout while athlete was offline ---
+  let conflictDetected = false;
+
+  if (payload.device_sync_version != null) {
+    const { data: serverWorkout } = await supabase
+      .from('workouts')
+      .select('sync_version')
+      .eq('id', payload.workout_id)
+      .maybeSingle();
+
+    if (serverWorkout && (serverWorkout as any).sync_version > payload.device_sync_version) {
+      // Coach edited while athlete was offline — flag the log but STILL save athlete data
+      conflictDetected = true;
+      console.warn(
+        `[OfflineSync] Conflict: device v${payload.device_sync_version} < server v${(serverWorkout as any).sync_version}. Athlete data saved; coach edits preserved.`
+      );
+    }
+  }
+
+  // Always INSERT into workout_logs (never upsert workouts — preserves coach planning)
   const { data: workoutLog, error: logError } = await supabase
     .from('workout_logs')
     .insert({
@@ -119,7 +141,9 @@ async function syncWorkoutLog(payload: WorkoutLogPayload): Promise<void> {
       completed_at: payload.completed_at,
       srpe: payload.srpe,
       duration_minutes: payload.duration_minutes,
-      notes: payload.notes,
+      notes: conflictDetected
+        ? `[SYNC CONFLICT] ${payload.notes || ''} — Versione coach aggiornata durante sessione offline.`
+        : payload.notes,
       local_id: payload.local_id,
       sync_status: 'synced',
       exercises_data: payload.exercises as unknown as Json,
@@ -129,6 +153,7 @@ async function syncWorkoutLog(payload: WorkoutLogPayload): Promise<void> {
 
   if (logError) throw logError;
 
+  // Insert exercise details
   if (payload.exercises.length > 0) {
     const exercisesData = payload.exercises.map((ex, index) => ({
       workout_log_id: workoutLog.id,
@@ -144,6 +169,12 @@ async function syncWorkoutLog(payload: WorkoutLogPayload): Promise<void> {
 
     if (exercisesError) throw exercisesError;
   }
+
+  // Mark the workout as completed (status only — does NOT touch structure/title/description)
+  await supabase
+    .from('workouts')
+    .update({ status: 'completed' as any })
+    .eq('id', payload.workout_id);
 }
 
 async function syncDailyReadiness(payload: DailyReadinessPayload): Promise<void> {

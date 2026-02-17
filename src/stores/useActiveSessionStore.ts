@@ -28,10 +28,14 @@ interface ActiveSessionState {
   restTimer: RestTimer;
   startedAt: string | null;
   isActive: boolean;
+  /** The sync_version captured when the session started (for conflict detection) */
+  deviceSyncVersion: number | null;
+  /** Whether the session was completed locally but not yet synced */
+  pendingSync: boolean;
 }
 
 interface ActiveSessionActions {
-  startSession: (sessionId: string, workoutId: string) => void;
+  startSession: (sessionId: string, workoutId: string, syncVersion?: number) => void;
   endSession: () => void;
   nextExercise: (totalExercises: number) => void;
   prevExercise: () => void;
@@ -40,6 +44,7 @@ interface ActiveSessionActions {
   updateSetField: (exerciseId: string, setIndex: number, field: keyof SetLog, value: string | boolean) => void;
   startRest: (duration: number) => void;
   skipRest: () => void;
+  markDoneLocally: () => void;
 }
 
 const initialState: ActiveSessionState = {
@@ -50,6 +55,8 @@ const initialState: ActiveSessionState = {
   restTimer: { isRunning: false, endTime: null, duration: 90 },
   startedAt: null,
   isActive: false,
+  deviceSyncVersion: null,
+  pendingSync: false,
 };
 
 export const useActiveSessionStore = create<ActiveSessionState & ActiveSessionActions>()(
@@ -57,7 +64,7 @@ export const useActiveSessionStore = create<ActiveSessionState & ActiveSessionAc
     (set, get) => ({
       ...initialState,
 
-      startSession: (sessionId, workoutId) => {
+      startSession: (sessionId, workoutId, syncVersion) => {
         set({
           activeSessionId: sessionId,
           workoutId,
@@ -66,6 +73,8 @@ export const useActiveSessionStore = create<ActiveSessionState & ActiveSessionAc
           restTimer: { isRunning: false, endTime: null, duration: 90 },
           startedAt: new Date().toISOString(),
           isActive: true,
+          deviceSyncVersion: syncVersion ?? null,
+          pendingSync: false,
         });
       },
 
@@ -154,6 +163,10 @@ export const useActiveSessionStore = create<ActiveSessionState & ActiveSessionAc
           restTimer: { isRunning: false, endTime: null, duration: get().restTimer.duration },
         });
       },
+
+      markDoneLocally: () => {
+        set({ pendingSync: true, isActive: false });
+      },
     }),
     {
       name: "active-workout-storage",
@@ -165,6 +178,8 @@ export const useActiveSessionStore = create<ActiveSessionState & ActiveSessionAc
         sessionLogs: state.sessionLogs,
         restTimer: state.restTimer,
         startedAt: state.startedAt,
+        deviceSyncVersion: state.deviceSyncVersion,
+        pendingSync: state.pendingSync,
         isActive: state.isActive,
       }),
     }
