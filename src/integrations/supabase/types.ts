@@ -1920,6 +1920,45 @@ export type Database = {
           },
         ]
       }
+      user_ai_usage: {
+        Row: {
+          chat_count: number
+          date: string
+          last_reset: string
+          user_id: string
+          vision_count: number
+        }
+        Insert: {
+          chat_count?: number
+          date?: string
+          last_reset?: string
+          user_id: string
+          vision_count?: number
+        }
+        Update: {
+          chat_count?: number
+          date?: string
+          last_reset?: string
+          user_id?: string
+          vision_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_ai_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "analytics_athlete_summary"
+            referencedColumns: ["athlete_id"]
+          },
+          {
+            foreignKeyName: "user_ai_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_badges: {
         Row: {
           awarded_at: string
