@@ -10,6 +10,7 @@ interface Profile {
   avatar_url: string | null;
   one_rm_data: Record<string, number>;
   onboarding_completed: boolean;
+  subscription_status: string | null;
 }
 
 interface AuthState {
