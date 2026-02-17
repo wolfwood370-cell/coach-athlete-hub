@@ -22,7 +22,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Camera, Loader2, CheckCircle2, XCircle, RotateCcw, Sparkles, Mic, MicOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import imageCompression from "browser-image-compression";
+import { compressImage } from "@/lib/imageCompression";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
@@ -103,11 +103,7 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
     setStep("compressing");
 
     try {
-      const compressed = await imageCompression(file, {
-        maxWidthOrHeight: 1024,
-        maxSizeMB: 0.5,
-        useWebWorker: true,
-      });
+      const compressed = await compressImage(file, 1024, 0.7);
 
       const reader = new FileReader();
       reader.onload = () => {
