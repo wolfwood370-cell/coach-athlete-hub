@@ -7,6 +7,43 @@ const logStep = (step: string, details?: unknown) => {
   console.log(`[STRIPE-WEBHOOK] ${step}${d}`);
 };
 
+/** Map a Stripe subscription to a profile-level status update */
+async function syncProfileFromSubscription(
+  adminClient: ReturnType<typeof createClient>,
+  stripe: Stripe,
+  subscriptionId: string,
+  overrideStatus?: string
+) {
+  // Find the athlete_subscription row to get athlete_id
+  const { data: subRow } = await adminClient
+    .from("athlete_subscriptions")
+    .select("athlete_id, plan_id")
+    .eq("stripe_subscription_id", subscriptionId)
+    .maybeSingle();
+
+  if (!subRow) {
+    logStep("No athlete_subscription row found for profile sync", { subscriptionId });
+    return;
+  }
+
+  // Determine tier from the billing plan
+  const { data: plan } = await adminClient
+    .from("billing_plans")
+    .select("name, stripe_product_id")
+    .eq("id", subRow.plan_id)
+    .maybeSingle();
+
+  const tier = plan?.name?.toLowerCase() ?? "free";
+  const status = overrideStatus ?? "active";
+
+  await adminClient
+    .from("profiles")
+    .update({ subscription_tier: tier, subscription_status: status })
+    .eq("id", subRow.athlete_id);
+
+  logStep("Profile synced", { athleteId: subRow.athlete_id, tier, status });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204 });
@@ -40,6 +77,7 @@ serve(async (req) => {
     );
 
     switch (event.type) {
+      // ── Checkout completed ─────────────────────────────────────
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const athleteId = session.metadata?.athlete_id;
@@ -54,7 +92,7 @@ serve(async (req) => {
           break;
         }
 
-        // Idempotency: check if already active with this stripe_subscription_id
+        // Idempotency
         if (subscriptionId) {
           const { data: alreadyActive } = await adminClient
             .from("athlete_subscriptions")
@@ -62,7 +100,6 @@ serve(async (req) => {
             .eq("stripe_subscription_id", subscriptionId)
             .eq("status", "active")
             .maybeSingle();
-
           if (alreadyActive) {
             logStep("Idempotent skip: subscription already active", { subscriptionId });
             break;
@@ -103,23 +140,26 @@ serve(async (req) => {
           });
         }
 
+        // Sync profile
+        if (subscriptionId) {
+          await syncProfileFromSubscription(adminClient, stripe, subscriptionId, "active");
+        }
+
         logStep("Subscription activated", { athleteId, planId });
         break;
       }
 
+      // ── Invoice paid (renewal) ─────────────────────────────────
       case "invoice.payment_succeeded": {
         const invoice = event.data.object as Stripe.Invoice;
         const subscriptionId = typeof invoice.subscription === "string" ? invoice.subscription : null;
-
         if (!subscriptionId) break;
 
-        // Idempotency: check current status before updating
         const { data: subRecord } = await adminClient
           .from("athlete_subscriptions")
           .select("id, status, current_period_end")
           .eq("stripe_subscription_id", subscriptionId)
           .maybeSingle();
-
         if (!subRecord) break;
 
         const sub = await stripe.subscriptions.retrieve(subscriptionId);
@@ -132,40 +172,42 @@ serve(async (req) => {
 
         await adminClient
           .from("athlete_subscriptions")
-          .update({
-            status: "active",
-            current_period_end: periodEnd,
-          })
+          .update({ status: "active", current_period_end: periodEnd })
           .eq("id", subRecord.id);
+
+        await syncProfileFromSubscription(adminClient, stripe, subscriptionId, "active");
         logStep("Renewal updated", { subscriptionId, periodEnd });
         break;
       }
 
-      case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
-        const subId = subscription.id;
+      // ── Invoice payment failed (card declined) ────────────────
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        const subscriptionId = typeof invoice.subscription === "string" ? invoice.subscription : null;
+        if (!subscriptionId) break;
 
-        // Idempotency: skip if already canceled
-        const { data: delRecord } = await adminClient
+        const { data: subRecord } = await adminClient
           .from("athlete_subscriptions")
           .select("id, status")
-          .eq("stripe_subscription_id", subId)
+          .eq("stripe_subscription_id", subscriptionId)
           .maybeSingle();
 
-        if (!delRecord || delRecord.status === "canceled") {
-          logStep("Idempotent skip: already canceled or not found", { subId });
+        if (!subRecord || subRecord.status === "past_due") {
+          logStep("Idempotent skip: already past_due or not found", { subscriptionId });
           break;
         }
 
         await adminClient
           .from("athlete_subscriptions")
-          .update({ status: "canceled" })
-          .eq("stripe_subscription_id", subId);
+          .update({ status: "past_due" })
+          .eq("id", subRecord.id);
 
-        logStep("Subscription canceled", { subId });
+        await syncProfileFromSubscription(adminClient, stripe, subscriptionId, "past_due");
+        logStep("Payment failed → past_due", { subscriptionId });
         break;
       }
 
+      // ── Subscription updated (plan change, cancel_at_period_end) ──
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
         const subId = subscription.id;
@@ -173,7 +215,6 @@ serve(async (req) => {
         const cancelAtPeriodEnd = subscription.cancel_at_period_end;
         const periodEnd = new Date(subscription.current_period_end * 1000).toISOString();
 
-        // Determine mapped status
         let mappedStatus: string;
         if (cancelAtPeriodEnd && stripeStatus === "active") {
           mappedStatus = "canceling";
@@ -187,7 +228,6 @@ serve(async (req) => {
           mappedStatus = "incomplete";
         }
 
-        // Idempotency: skip if status and period_end unchanged
         const { data: updRecord } = await adminClient
           .from("athlete_subscriptions")
           .select("id, status, current_period_end")
@@ -204,7 +244,42 @@ serve(async (req) => {
           .update({ status: mappedStatus, current_period_end: periodEnd })
           .eq("stripe_subscription_id", subId);
 
+        // Sync profile — downgrade to free if canceled
+        const profileStatus = mappedStatus === "canceled" ? "past_due" : mappedStatus;
+        await syncProfileFromSubscription(adminClient, stripe, subId, profileStatus);
+
         logStep("Subscription updated", { subId, status: mappedStatus, cancelAtPeriodEnd });
+        break;
+      }
+
+      // ── Subscription deleted (final cancel) ───────────────────
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        const subId = subscription.id;
+
+        const { data: delRecord } = await adminClient
+          .from("athlete_subscriptions")
+          .select("id, status, athlete_id")
+          .eq("stripe_subscription_id", subId)
+          .maybeSingle();
+
+        if (!delRecord || delRecord.status === "canceled") {
+          logStep("Idempotent skip: already canceled or not found", { subId });
+          break;
+        }
+
+        await adminClient
+          .from("athlete_subscriptions")
+          .update({ status: "canceled" })
+          .eq("stripe_subscription_id", subId);
+
+        // Downgrade profile to free
+        await adminClient
+          .from("profiles")
+          .update({ subscription_tier: "free", subscription_status: "past_due" })
+          .eq("id", delRecord.athlete_id);
+
+        logStep("Subscription canceled → free tier", { subId, athleteId: delRecord.athlete_id });
         break;
       }
 
