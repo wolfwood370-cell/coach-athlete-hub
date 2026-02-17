@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,14 @@ import { TrainingStep } from "@/components/onboarding/steps/TrainingStep";
 import { NeurotypStep } from "@/components/onboarding/steps/NeurotypStep";
 import { NeurotypResult } from "@/components/onboarding/NeurotypResult";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   OnboardingData,
   defaultOnboardingData,
   NeurotypType,
@@ -23,6 +31,13 @@ import {
 } from "@/types/onboarding";
 
 const STEP_LABELS = ["Legale", "Biometria", "Lifestyle", "Training", "Neurotype"];
+const STORAGE_KEY = "onboarding_state_draft";
+
+interface SavedDraft {
+  currentStep: number;
+  data: OnboardingData;
+  savedAt: string;
+}
 
 export default function OnboardingWizard() {
   const navigate = useNavigate();
@@ -34,6 +49,51 @@ export default function OnboardingWizard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dominantType, setDominantType] = useState<NeurotypType | null>(null);
   const [scores, setScores] = useState<Record<NeurotypType, number>>({ '1A': 0, '1B': 0, '2A': 0, '2B': 0, '3': 0 });
+  const [showResumeDialog, setShowResumeDialog] = useState(false);
+  const [pendingDraft, setPendingDraft] = useState<SavedDraft | null>(null);
+  const [initialized, setInitialized] = useState(false);
+
+  // On mount: check for saved draft
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const draft: SavedDraft = JSON.parse(raw);
+        if (draft.currentStep > 1 || JSON.stringify(draft.data) !== JSON.stringify(defaultOnboardingData)) {
+          setPendingDraft(draft);
+          setShowResumeDialog(true);
+          return;
+        }
+      }
+    } catch {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+    setInitialized(true);
+  }, []);
+
+  // Persist to localStorage whenever data or step changes (after init)
+  useEffect(() => {
+    if (!initialized) return;
+    const draft: SavedDraft = { currentStep, data, savedAt: new Date().toISOString() };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+  }, [currentStep, data, initialized]);
+
+  const handleResume = () => {
+    if (pendingDraft) {
+      setCurrentStep(pendingDraft.currentStep);
+      setData(pendingDraft.data);
+    }
+    setShowResumeDialog(false);
+    setPendingDraft(null);
+    setInitialized(true);
+  };
+
+  const handleStartFresh = () => {
+    localStorage.removeItem(STORAGE_KEY);
+    setShowResumeDialog(false);
+    setPendingDraft(null);
+    setInitialized(true);
+  };
 
   const calculateNeurotype = (): { dominant: NeurotypType; scores: Record<NeurotypType, number> } => {
     const typeScores: Record<NeurotypType, number> = { '1A': 0, '1B': 0, '2A': 0, '2B': 0, '3': 0 };
@@ -99,6 +159,9 @@ export default function OnboardingWizard() {
 
       if (error) throw error;
 
+      // Clear draft on successful completion
+      localStorage.removeItem(STORAGE_KEY);
+
       triggerConfetti();
       toast({ title: "Onboarding completato! 🎉", description: "Benvenuto nel tuo programma personalizzato." });
       navigate("/athlete");
@@ -111,6 +174,22 @@ export default function OnboardingWizard() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      {/* Resume dialog */}
+      <Dialog open={showResumeDialog} onOpenChange={(open) => { if (!open) handleStartFresh(); }}>
+        <DialogContent className="bg-card">
+          <DialogHeader>
+            <DialogTitle>Riprendere da dove eri rimasto?</DialogTitle>
+            <DialogDescription>
+              Abbiamo trovato un onboarding in corso (Step {pendingDraft?.currentStep ?? 1}/5). Vuoi continuare?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={handleStartFresh}>Ricomincia</Button>
+            <Button onClick={handleResume} className="gradient-primary">Riprendi</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <header className="p-6 border-b border-border">
         <div className="max-w-4xl mx-auto">
           <h1 className="text-xl font-bold text-gradient-primary">Athlete Onboarding</h1>
