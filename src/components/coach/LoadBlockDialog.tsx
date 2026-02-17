@@ -95,7 +95,7 @@ export function LoadBlockDialog({
     mutationFn: async (templateId: string) => {
       const { error } = await supabase
         .from("program_plans")
-        .delete()
+        .update({ deleted_at: new Date().toISOString() } as any)
         .eq("id", templateId);
 
       if (error) throw error;
