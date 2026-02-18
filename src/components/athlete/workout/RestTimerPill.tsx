@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Timer, X, Plus, Minus, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,32 @@ interface RestTimerPillProps {
   onSkip: () => void;
   onAdd: (seconds: number) => void;
   onReset: () => void;
+}
+
+// ---------------------------------------------------------------------------
+// Notification helpers
+// ---------------------------------------------------------------------------
+
+/** Request permission once; safe to call multiple times */
+function requestNotificationPermission() {
+  if (typeof Notification !== "undefined" && Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+
+/** Fire a system notification if permitted */
+function fireTimerNotification() {
+  if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+    try {
+      new Notification("⏱ Recupero terminato!", {
+        body: "Il tempo di riposo è scaduto. Prossima serie!",
+        icon: "/pwa-192.png",
+        tag: "rest-timer-end", // collapse duplicates
+      });
+    } catch {
+      // Some environments (e.g. iOS Safari) may throw; silently ignore
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -50,6 +76,11 @@ export function RestTimerPill({
   const completedRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Request notification permission on mount (no-op if already granted/denied)
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
+
   // Derive remaining from timestamp every 100ms
   useEffect(() => {
     if (endTime == null) {
@@ -68,6 +99,7 @@ export function RestTimerPill({
       if (left <= 0 && !completedRef.current) {
         completedRef.current = true;
         onRestTimerEnd();
+        fireTimerNotification();
         onSkip();
       }
     };
