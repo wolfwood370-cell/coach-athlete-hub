@@ -23,8 +23,11 @@ interface RestTimerPillProps {
 // Notification helpers
 // ---------------------------------------------------------------------------
 
-/** Request permission once; safe to call multiple times */
-function requestNotificationPermission() {
+/**
+ * Request Notification permission. Must be called from a user-gesture handler
+ * (e.g. button click) to satisfy browser policies.
+ */
+export function enableNotifications() {
   if (typeof Notification !== "undefined" && Notification.permission === "default") {
     Notification.requestPermission().catch(() => {});
   }
@@ -76,10 +79,8 @@ export function RestTimerPill({
   const completedRef = useRef(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Request notification permission on mount (no-op if already granted/denied)
-  useEffect(() => {
-    requestNotificationPermission();
-  }, []);
+  // Notification permission is now requested via enableNotifications()
+  // called from a user gesture (e.g. unlockAudio in WorkoutPlayer).
 
   // Derive remaining from timestamp every 100ms
   useEffect(() => {

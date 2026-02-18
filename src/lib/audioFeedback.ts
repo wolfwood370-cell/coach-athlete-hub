@@ -34,6 +34,11 @@ export function unlockAudio(): void {
     c.resume().catch(() => {});
   }
 
+  // Request notification permission on user gesture (browser policy)
+  if (typeof Notification !== "undefined" && Notification.permission === "default") {
+    Notification.requestPermission().catch(() => {});
+  }
+
   // Silent warm-up oscillator — keeps iOS audio daemon engaged
   try {
     const osc = c.createOscillator();
