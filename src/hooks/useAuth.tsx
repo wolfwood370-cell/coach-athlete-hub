@@ -11,6 +11,7 @@ interface Profile {
   one_rm_data: Record<string, number>;
   onboarding_completed: boolean;
   subscription_status: string | null;
+  subscription_tier: string | null;
 }
 
 interface AuthState {
