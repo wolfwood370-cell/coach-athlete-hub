@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -53,11 +53,16 @@ export interface DailyReadinessPayload {
   notes?: string;
 }
 
+export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error';
+
 type QueueItem = {
   id: string;
   payload: WorkoutLogPayload | DailyReadinessPayload;
   timestamp: number;
   retryCount: number;
+  nextRetryAt?: number;
+  status?: 'pending' | 'failed';
+  lastErrorCode?: number;
 };
 
 // ============================================================================
@@ -66,6 +71,11 @@ type QueueItem = {
 
 const QUEUE_KEY = 'offline_workout_queue';
 const MAX_RETRIES = 3;
+const MAX_BACKOFF_MS = 30_000;
+
+function getBackoffMs(retryCount: number): number {
+  return Math.min(MAX_BACKOFF_MS, Math.pow(2, retryCount) * 1000);
+}
 
 export function getQueue(): QueueItem[] {
   try {
@@ -102,7 +112,20 @@ function removeFromQueue(id: string): void {
 
 function incrementRetry(id: string): void {
   const queue = getQueue().map(item =>
-    item.id === id ? { ...item, retryCount: item.retryCount + 1 } : item
+    item.id === id
+      ? {
+          ...item,
+          retryCount: item.retryCount + 1,
+          nextRetryAt: Date.now() + getBackoffMs(item.retryCount + 1),
+        }
+      : item
+  );
+  saveQueue(queue);
+}
+
+function markFailed(id: string, errorCode?: number): void {
+  const queue = getQueue().map(item =>
+    item.id === id ? { ...item, status: 'failed' as const, lastErrorCode: errorCode } : item
   );
   saveQueue(queue);
 }
@@ -197,17 +220,18 @@ async function syncDailyReadiness(payload: DailyReadinessPayload): Promise<void>
   if (error) throw error;
 }
 
-async function syncQueueItem(item: QueueItem): Promise<boolean> {
+async function syncQueueItem(item: QueueItem): Promise<{ ok: boolean; statusCode?: number }> {
   try {
     if (item.payload.type === 'workout_log') {
       await syncWorkoutLog(item.payload);
     } else if (item.payload.type === 'daily_readiness') {
       await syncDailyReadiness(item.payload);
     }
-    return true;
-  } catch (error) {
+    return { ok: true };
+  } catch (error: any) {
+    const statusCode = error?.code ? Number(error.code) : error?.status ?? undefined;
     console.error(`[OfflineSync] Failed to sync ${item.id}:`, error);
-    return false;
+    return { ok: false, statusCode };
   }
 }
 
@@ -219,40 +243,57 @@ export function useOfflineSync() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const syncingRef = useRef(false);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(() =>
+    typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'idle'
+  );
   const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
-  // Process queue one-by-one, only remove on success
+  const isServerError = (code?: number) => code != null && code >= 500;
+
+  // Process queue one-by-one with exponential backoff
   const processQueue = useCallback(async () => {
     if (syncingRef.current || !navigator.onLine) return;
 
     syncingRef.current = true;
     const queue = getQueue();
+    const pending = queue.filter(i => i.status !== 'failed');
 
-    if (queue.length === 0) {
+    if (pending.length === 0) {
       syncingRef.current = false;
+      setSyncStatus(queue.some(i => i.status === 'failed') ? 'error' : 'idle');
       return;
     }
 
+    setSyncStatus('syncing');
+
     let syncedCount = 0;
     let failedCount = 0;
+    let needsRetry = false;
 
-    for (const item of queue) {
-      const success = await syncQueueItem(item);
+    for (const item of pending) {
+      // Skip items whose backoff hasn't elapsed yet
+      if (item.nextRetryAt && Date.now() < item.nextRetryAt) {
+        needsRetry = true;
+        continue;
+      }
 
-      if (success) {
+      const result = await syncQueueItem(item);
+
+      if (result.ok) {
         removeFromQueue(item.id);
         syncedCount++;
       } else {
-        if (item.retryCount < MAX_RETRIES) {
-          incrementRetry(item.id);
-          toast({
-            title: "Sync fallita",
-            description: "Nuovo tentativo al prossimo online.",
-            variant: "destructive",
-          });
-        } else {
+        // 5xx errors after MAX_RETRIES → mark as permanently failed
+        if (item.retryCount + 1 >= MAX_RETRIES && isServerError(result.statusCode)) {
+          markFailed(item.id, result.statusCode);
+          failedCount++;
+        } else if (item.retryCount + 1 >= MAX_RETRIES) {
           removeFromQueue(item.id);
           failedCount++;
+        } else {
+          incrementRetry(item.id);
+          needsRetry = true;
         }
       }
     }
@@ -275,15 +316,31 @@ export function useOfflineSync() {
     }
 
     syncingRef.current = false;
+
+    // Schedule next retry pass if items remain with backoff
+    if (needsRetry && navigator.onLine) {
+      const remaining = getQueue().filter(i => i.status !== 'failed' && i.nextRetryAt);
+      const nextAt = remaining.reduce((min, i) => Math.min(min, i.nextRetryAt ?? Infinity), Infinity);
+      const delayMs = Math.max(500, nextAt - Date.now());
+      setSyncStatus('error');
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = setTimeout(() => processQueue(), delayMs);
+    } else {
+      const hasErrors = getQueue().some(i => i.status === 'failed');
+      setSyncStatus(hasErrors ? 'error' : 'idle');
+    }
   }, [queryClient, toast]);
 
-  // Listen for online event to trigger sync
+  // Listen for online/offline events
   useEffect(() => {
     const handleOnline = () => {
+      setSyncStatus('idle');
       processQueue();
     };
+    const handleOffline = () => setSyncStatus('offline');
 
     window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
 
     // Initial sync if online and queue has pending items
     if (navigator.onLine && getQueue().length > 0) {
@@ -292,6 +349,8 @@ export function useOfflineSync() {
 
     return () => {
       window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
     };
   }, [processQueue]);
 
@@ -364,6 +423,7 @@ export function useOfflineSync() {
   return {
     // Status
     isOnline,
+    syncStatus,
     pendingCount: getQueue().length,
     
     // Workout logging (athlete only)
