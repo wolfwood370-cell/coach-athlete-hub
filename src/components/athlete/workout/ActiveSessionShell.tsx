@@ -1,6 +1,16 @@
 import { ReactNode, useEffect, useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Timer, Flag, Wifi, WifiOff, Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResponsivePhoneWrapper } from "@/components/athlete/PhoneMockup";
@@ -27,8 +37,9 @@ function formatTime(seconds: number): string {
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
-// Hold-to-Finish Button (prevents accidental taps)
-function HoldToFinishButton({ onFinish }: { onFinish: () => void }) {
+// Hold-to-Finish Button that opens a confirmation dialog
+function HoldToFinishButton({ onFinish, completedSets, totalSets }: { onFinish: () => void; completedSets: number; totalSets: number }) {
+  const [showConfirm, setShowConfirm] = useState(false);
   const [progress, setProgress] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const HOLD_MS = 1200;
@@ -42,10 +53,10 @@ function HoldToFinishButton({ onFinish }: { onFinish: () => void }) {
       if (p >= 100) {
         if (timerRef.current) clearInterval(timerRef.current);
         timerRef.current = null;
-        onFinish();
+        setShowConfirm(true);
       }
     }, STEP);
-  }, [onFinish]);
+  }, []);
 
   const cancel = useCallback(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
@@ -54,23 +65,50 @@ function HoldToFinishButton({ onFinish }: { onFinish: () => void }) {
 
   useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current); }, []);
 
+  const noSetsLogged = completedSets === 0;
+
   return (
-    <button
-      onPointerDown={start}
-      onPointerUp={cancel}
-      onPointerLeave={cancel}
-      className="relative h-8 px-3 text-xs font-semibold rounded-md overflow-hidden bg-primary text-primary-foreground shrink-0 select-none touch-none"
-    >
-      {/* Fill overlay */}
-      <div
-        className="absolute inset-0 bg-destructive/80 transition-none"
-        style={{ width: `${progress}%` }}
-      />
-      <span className="relative flex items-center gap-1">
-        <Flag className="h-3.5 w-3.5" />
-        {progress > 0 ? "Tieni premuto…" : "Termina"}
-      </span>
-    </button>
+    <>
+      <button
+        onPointerDown={start}
+        onPointerUp={cancel}
+        onPointerLeave={cancel}
+        className="relative h-8 px-3 text-xs font-semibold rounded-md overflow-hidden bg-primary text-primary-foreground shrink-0 select-none touch-none"
+      >
+        <div
+          className="absolute inset-0 bg-destructive/80 transition-none"
+          style={{ width: `${progress}%` }}
+        />
+        <span className="relative flex items-center gap-1">
+          <Flag className="h-3.5 w-3.5" />
+          {progress > 0 ? "Tieni premuto…" : "Termina"}
+        </span>
+      </button>
+
+      <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {noSetsLogged ? "⚠️ Nessuna serie registrata" : "Terminare l'allenamento?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {noSetsLogged
+                ? "Non hai completato nessuna serie. Questo annullerà la sessione."
+                : `Hai completato ${completedSets} di ${totalSets} serie. Vuoi terminare?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continua</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={onFinish}
+              className={noSetsLogged ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : ""}
+            >
+              {noSetsLogged ? "Annulla sessione" : "Termina"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -144,7 +182,7 @@ export function ActiveSessionShell({
                 <BarPathCamera onClose={() => setVisionOpen(false)} />
               </DrawerContent>
             </Drawer>
-            <HoldToFinishButton onFinish={onFinish} />
+            <HoldToFinishButton onFinish={onFinish} completedSets={completedSets} totalSets={totalSets} />
           </div>
         </div>
 
