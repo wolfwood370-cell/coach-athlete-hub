@@ -195,6 +195,17 @@ export const useActiveSessionStore = create<ActiveSessionState & ActiveSessionAc
         pendingSync: state.pendingSync,
         isActive: state.isActive,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        const MAX_STALE_MS = 60 * 60 * 1000; // 60 minutes
+        if (
+          state.restEndTime != null &&
+          (Date.now() > state.restEndTime || Date.now() - state.restEndTime > MAX_STALE_MS)
+        ) {
+          state.restEndTime = null;
+          state.restDuration = 90;
+        }
+      },
     }
   )
 );
