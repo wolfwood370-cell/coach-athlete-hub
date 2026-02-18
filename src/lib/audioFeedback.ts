@@ -29,8 +29,22 @@ function getAudioContext(): AudioContext | null {
  */
 export function unlockAudio(): void {
   const c = getAudioContext();
-  if (c && c.state === "suspended") {
+  if (!c) return;
+  if (c.state === "suspended") {
     c.resume().catch(() => {});
+  }
+
+  // Silent warm-up oscillator — keeps iOS audio daemon engaged
+  try {
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    gain.gain.value = 0; // completely silent
+    osc.connect(gain);
+    gain.connect(c.destination);
+    osc.start();
+    osc.stop(c.currentTime + 0.1);
+  } catch {
+    // ignore
   }
 }
 
