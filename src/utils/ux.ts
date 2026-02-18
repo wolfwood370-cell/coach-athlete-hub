@@ -4,6 +4,7 @@
  */
 
 import confetti from 'canvas-confetti';
+import { alertRestTimerEnd } from '@/lib/audioFeedback';
 
 // ============================================
 // HAPTIC FEEDBACK
@@ -153,8 +154,8 @@ export function onSetComplete(): void {
 }
 
 /**
- * Trigger rest timer end feedback
+ * Trigger rest timer end feedback (audio beep + haptic vibration)
  */
 export function onRestTimerEnd(): void {
-  triggerHaptic('warning');
+  alertRestTimerEnd();
 }
