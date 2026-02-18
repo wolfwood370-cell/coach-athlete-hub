@@ -211,6 +211,7 @@ export default function WorkoutPlayer() {
 
   // Auto-regulation
   const applyAutoRegulation = useCallback(() => {
+    unlockAudio();
     setExercises((prev) =>
       prev.map((exercise) => {
         const originalSets = exercise.sets.length;
@@ -232,6 +233,7 @@ export default function WorkoutPlayer() {
   }, [toast]);
 
   const ignoreAutoReg = useCallback(() => {
+    unlockAudio();
     setShowAutoRegDialog(false);
     toast({ title: "Procedi con cautela", description: "Ascolta il tuo corpo.", variant: "destructive" });
   }, [toast]);
@@ -252,8 +254,6 @@ export default function WorkoutPlayer() {
   useEffect(() => {
     if (workoutData?.structure) {
       setExercises(parseWorkoutStructure(workoutData.structure as any[]));
-      // Unlock Web Audio API on session start (requires prior user gesture)
-      unlockAudio();
       // Start active session in store for crash recovery
       if (id && !sessionStore.isActive) {
         sessionStore.startSession(id, workoutData.id || id);
@@ -305,6 +305,8 @@ export default function WorkoutPlayer() {
 
   const handleSetComplete = useCallback(
     async (exerciseId: string, setId: string, completed: boolean) => {
+      // Unlock Web Audio on first user gesture (iOS autoplay policy)
+      unlockAudio();
       handleSetUpdate(exerciseId, setId, "completed", completed);
 
       if (completed) {
