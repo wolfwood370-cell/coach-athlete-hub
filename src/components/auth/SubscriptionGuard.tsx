@@ -73,7 +73,7 @@ export function SubscriptionGuard({ children }: Props) {
               className="w-full gap-2"
               asChild
             >
-              <a href="mailto:support@example.com">
+              <a href="mailto:support@coachathletehub.com">
                 <Mail className="h-4 w-4" />
                 Contatta il Supporto
               </a>
