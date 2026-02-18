@@ -113,3 +113,11 @@ To connect a custom domain, go to **Project → Settings → Domains → Connect
 ## 📝 Release Notes
 
 See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the full changelog.
+
+---
+
+## 🔒 Browser Policy Compliance
+
+- **Notification permissions** are requested only on user gesture (not on mount), per browser security requirements.
+- **Audio context** uses a silent warm-up oscillator for iOS compatibility.
+- **Wake Lock API** keeps the screen active during workout sessions.
