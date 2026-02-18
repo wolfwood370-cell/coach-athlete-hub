@@ -1,10 +1,33 @@
-# v1.0.0-rc.2
+# v1.0.0-rc.5
 
 > **Release Date:** 2026-02-18
 
 ---
 
-## Changes since rc.1
+## Highlights (rc.3 → rc.5)
+
+### 🗄️ Core — Soft Delete Cascades
+- PostgreSQL trigger `cascade_soft_delete_program` propagates `deleted_at` through the full chain: `program_plans` → `program_weeks` → `program_days` → `program_workouts` → `workout_logs` → `workouts`.
+- Athletes see workouts disappear instantly without orphaned data.
+
+### 🔒 Core — Feature Gating Hooks
+- `useFeatureAccess` hook gates premium features based on `subscription_tier` and `subscription_status`.
+- `SubscriptionGuard` wrapper component with `UpgradeModal` for upsell flow.
+
+### ⏱️ Performance — Timestamp-Based Timer (Drift Prevention)
+- Rest timers use fixed end-timestamps instead of decremental counters; accurate even when screen locks or tab is throttled.
+- `onRehydrateStorage` sanity check resets stale timers (> 60 min or past-dated) on app reload.
+
+### 📱 Performance — Wake Lock API
+- `useWakeLock` keeps the screen active during workout sessions for timer visibility.
+
+### 💳 Integrations — Stripe Connect Complete Flow
+- `stripe-webhook` Edge Function handles full lifecycle: `checkout.session.completed`, `customer.subscription.updated` (cancel-at-period-end → `canceling`), `customer.subscription.deleted`, `invoice.payment_failed`.
+- `syncProfileFromSubscription` mirrors tier/status to `profiles` table with idempotency guards.
+
+---
+
+## Changes since rc.1 (rc.2 notes)
 
 ### 🔊 Audio Feedback — iOS Warm-Up
 - `unlockAudio()` now plays a silent 0.1s oscillator on user gesture to prevent iOS AudioContext suspension.
