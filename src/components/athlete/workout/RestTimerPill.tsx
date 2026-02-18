@@ -1,16 +1,27 @@
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Timer, X, Plus, Minus, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { onRestTimerEnd } from "@/utils/ux";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 interface RestTimerPillProps {
-  active: boolean;
-  remaining: number;
-  total: number;
+  /** Timestamp (Date.now()) when the timer ends */
+  endTime: number | null;
+  /** Total duration in seconds (for progress calc) */
+  totalSeconds: number;
   onSkip: () => void;
   onAdd: (seconds: number) => void;
   onReset: () => void;
 }
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function formatTime(seconds: number): string {
   const mins = Math.floor(seconds / 60);
@@ -18,17 +29,62 @@ function formatTime(seconds: number): string {
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
+// SVG progress ring constants
+const RING_SIZE = 160;
+const RING_STROKE = 6;
+const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export function RestTimerPill({
-  active,
-  remaining,
-  total,
+  endTime,
+  totalSeconds,
   onSkip,
   onAdd,
   onReset,
 }: RestTimerPillProps) {
-  if (!active) return null;
+  const [remaining, setRemaining] = useState(0);
+  const completedRef = useRef(false);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const isUrgent = remaining <= 10;
+  // Derive remaining from timestamp every 100ms
+  useEffect(() => {
+    if (endTime == null) {
+      setRemaining(0);
+      completedRef.current = false;
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      return;
+    }
+
+    completedRef.current = false;
+
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+      setRemaining(left);
+
+      if (left <= 0 && !completedRef.current) {
+        completedRef.current = true;
+        onRestTimerEnd();
+        onSkip();
+      }
+    };
+
+    tick(); // immediate first tick
+    intervalRef.current = setInterval(tick, 100);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [endTime, onSkip]);
+
+  const active = endTime != null && remaining > 0;
+  if (!active && endTime == null) return null;
+
+  const isUrgent = remaining <= 10 && remaining > 0;
+  const progress = totalSeconds > 0 ? remaining / totalSeconds : 0;
+  const strokeDashoffset = RING_CIRCUMFERENCE * (1 - progress);
 
   return (
     <AnimatePresence>
@@ -51,27 +107,49 @@ export function RestTimerPill({
               </Button>
             </div>
 
-            {/* Timer Display */}
-            <div className="text-center mb-3">
-              <span
-                className={cn(
-                  "text-5xl font-bold tabular-nums transition-colors",
-                  isUrgent ? "text-destructive animate-pulse" : "text-foreground"
-                )}
-              >
-                {formatTime(remaining)}
-              </span>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="h-2 bg-secondary rounded-full overflow-hidden mb-4">
-              <div
-                className={cn(
-                  "h-full transition-all duration-1000 ease-linear rounded-full",
-                  isUrgent ? "bg-destructive" : "bg-primary"
-                )}
-                style={{ width: `${(remaining / total) * 100}%` }}
-              />
+            {/* Timer Display with SVG Progress Ring */}
+            <div className="flex justify-center mb-3">
+              <div className="relative" style={{ width: RING_SIZE, height: RING_SIZE }}>
+                <svg
+                  width={RING_SIZE}
+                  height={RING_SIZE}
+                  className="rotate-[-90deg]"
+                >
+                  {/* Background ring */}
+                  <circle
+                    cx={RING_SIZE / 2}
+                    cy={RING_SIZE / 2}
+                    r={RING_RADIUS}
+                    fill="none"
+                    stroke="hsl(var(--secondary))"
+                    strokeWidth={RING_STROKE}
+                  />
+                  {/* Progress ring */}
+                  <circle
+                    cx={RING_SIZE / 2}
+                    cy={RING_SIZE / 2}
+                    r={RING_RADIUS}
+                    fill="none"
+                    stroke={isUrgent ? "hsl(var(--destructive))" : "hsl(var(--primary))"}
+                    strokeWidth={RING_STROKE}
+                    strokeLinecap="round"
+                    strokeDasharray={RING_CIRCUMFERENCE}
+                    strokeDashoffset={strokeDashoffset}
+                    className="transition-[stroke-dashoffset] duration-200 ease-linear"
+                  />
+                </svg>
+                {/* Centered text */}
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span
+                    className={cn(
+                      "text-4xl font-bold tabular-nums transition-colors",
+                      isUrgent ? "text-destructive animate-pulse" : "text-foreground"
+                    )}
+                  >
+                    {formatTime(remaining)}
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* Controls */}
