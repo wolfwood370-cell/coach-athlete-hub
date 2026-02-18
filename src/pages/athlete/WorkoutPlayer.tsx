@@ -163,9 +163,8 @@ export default function WorkoutPlayer() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isWorkoutActive, setIsWorkoutActive] = useState(true);
 
-  // Rest timer
-  const [restTimerActive, setRestTimerActive] = useState(false);
-  const [restTimeRemaining, setRestTimeRemaining] = useState(90);
+  // Rest timer (timestamp-based)
+  const [restEndTime, setRestEndTime] = useState<number | null>(null);
   const [currentRestDuration, setCurrentRestDuration] = useState(90);
 
   // Recap
@@ -272,20 +271,8 @@ export default function WorkoutPlayer() {
     return () => clearInterval(interval);
   }, [isWorkoutActive, workoutStartTime]);
 
-  // Rest timer countdown
-  useEffect(() => {
-    if (!restTimerActive || restTimeRemaining <= 0) {
-      if (restTimeRemaining <= 0 && restTimerActive) {
-        haptic.warning();
-        setRestTimerActive(false);
-      }
-      return;
-    }
-    const interval = setInterval(() => {
-      setRestTimeRemaining((prev) => prev - 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [restTimerActive, restTimeRemaining, haptic]);
+  // Rest timer is now timestamp-based — no countdown interval needed.
+  // RestTimerPill reads endTime directly and auto-skips on completion.
 
   // Computed
   const getTotalSets = () => exercises.reduce((acc, ex) => acc + ex.sets.length, 0);
@@ -341,13 +328,13 @@ export default function WorkoutPlayer() {
           const supersetExercises = exercises.filter((ex) => ex.supersetGroup === exercise.supersetGroup);
           const currentIndex = supersetExercises.findIndex((ex) => ex.id === exerciseId);
           const isLast = currentIndex === supersetExercises.length - 1;
-          setCurrentRestDuration(isLast ? restTime : 30);
-          setRestTimeRemaining(isLast ? restTime : 30);
+          const dur = isLast ? restTime : 30;
+          setCurrentRestDuration(dur);
+          setRestEndTime(Date.now() + dur * 1000);
         } else {
           setCurrentRestDuration(restTime);
-          setRestTimeRemaining(restTime);
+          setRestEndTime(Date.now() + restTime * 1000);
         }
-        setRestTimerActive(true);
 
         // Auto-advance: check if ALL sets of this exercise are now done
         const updatedExercise = exercises.find((ex) => ex.id === exerciseId);
@@ -383,7 +370,7 @@ export default function WorkoutPlayer() {
 
   const handleFinishWorkout = () => {
     setIsWorkoutActive(false);
-    setRestTimerActive(false);
+    setRestEndTime(null);
     triggerConfetti();
     haptic.success();
     setTimeout(() => setShowRecapDialog(true), 500);
@@ -435,10 +422,10 @@ export default function WorkoutPlayer() {
     });
   };
 
-  // Rest timer controls
-  const skipRest = () => { setRestTimerActive(false); setRestTimeRemaining(currentRestDuration); };
-  const addRestTime = (seconds: number) => { setRestTimeRemaining((prev) => Math.max(0, prev + seconds)); };
-  const resetRestTimer = () => { setRestTimeRemaining(currentRestDuration); };
+  // Rest timer controls (timestamp-based)
+  const skipRest = () => { setRestEndTime(null); };
+  const addRestTime = (seconds: number) => { setRestEndTime((prev) => prev ? prev + seconds * 1000 : null); };
+  const resetRestTimer = () => { setRestEndTime(Date.now() + currentRestDuration * 1000); };
 
   // ============================================================
   // LOADING & GATEKEEPER
@@ -562,9 +549,8 @@ export default function WorkoutPlayer() {
         totalExercises={exercises.length}
         restTimerNode={
           <RestTimerPill
-            active={restTimerActive}
-            remaining={restTimeRemaining}
-            total={currentRestDuration}
+            endTime={restEndTime}
+            totalSeconds={currentRestDuration}
             onSkip={skipRest}
             onAdd={addRestTime}
             onReset={resetRestTimer}
