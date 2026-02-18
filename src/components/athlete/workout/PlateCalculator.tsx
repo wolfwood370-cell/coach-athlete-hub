@@ -46,8 +46,9 @@ export function PlateCalculator({
   weightKg,
   barWeightKg = 20,
 }: PlateCalculatorProps) {
-  const plates = calculatePlates(weightKg, barWeightKg);
-  const perSide = (weightKg - barWeightKg) / 2;
+  const belowBar = weightKg < barWeightKg;
+  const plates = belowBar ? [] : calculatePlates(weightKg, barWeightKg);
+  const perSide = belowBar ? 0 : (weightKg - barWeightKg) / 2;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -59,40 +60,46 @@ export function PlateCalculator({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Bar info */}
-          <div className="text-center text-sm text-muted-foreground">
-            Bilanciere {barWeightKg}kg + {perSide > 0 ? `${perSide}kg per lato` : "nessun disco"}
-          </div>
-
-          {/* Visual plate stack */}
-          {plates.length > 0 ? (
-            <div className="flex flex-col items-center gap-2">
-              {/* Bar representation */}
-              <div className="w-full h-3 bg-zinc-300 dark:bg-zinc-600 rounded-full" />
-
-              {/* Plates per side */}
-              <div className="flex flex-wrap justify-center gap-2">
-                {plates.map(({ plate, count }) => (
-                  <div key={plate} className="flex items-center gap-1.5">
-                    <div
-                      className={cn(
-                        "h-10 w-10 rounded-full flex items-center justify-center text-xs font-bold shadow-md",
-                        PLATE_COLORS[plate] || "bg-muted text-foreground"
-                      )}
-                    >
-                      {plate}
-                    </div>
-                    <span className="text-sm font-medium text-muted-foreground">×{count}</span>
-                  </div>
-                ))}
-              </div>
-
-              <p className="text-xs text-muted-foreground text-center mt-2">
-                Per ogni lato del bilanciere
+          {belowBar ? (
+            <div className="text-center py-4">
+              <p className="text-sm text-muted-foreground">
+                Il peso è inferiore al bilanciere ({barWeightKg}kg)
               </p>
             </div>
           ) : (
-            <p className="text-center text-muted-foreground text-sm">Solo bilanciere</p>
+            <>
+              {/* Bar info */}
+              <div className="text-center text-sm text-muted-foreground">
+                Bilanciere {barWeightKg}kg + {perSide > 0 ? `${perSide}kg per lato` : "nessun disco"}
+              </div>
+
+              {/* Visual plate stack */}
+              {plates.length > 0 ? (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="w-full h-3 bg-zinc-300 dark:bg-zinc-600 rounded-full" />
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {plates.map(({ plate, count }) => (
+                      <div key={plate} className="flex items-center gap-1.5">
+                        <div
+                          className={cn(
+                            "h-10 w-10 rounded-full flex items-center justify-center text-xs font-bold shadow-md",
+                            PLATE_COLORS[plate] || "bg-muted text-foreground"
+                          )}
+                        >
+                          {plate}
+                        </div>
+                        <span className="text-sm font-medium text-muted-foreground">×{count}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center mt-2">
+                    Per ogni lato del bilanciere
+                  </p>
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground text-sm">Solo bilanciere</p>
+              )}
+            </>
           )}
         </div>
       </DialogContent>
