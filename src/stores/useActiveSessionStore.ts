@@ -14,18 +14,15 @@ export interface SetLog {
   completedAt?: string;
 }
 
-interface RestTimer {
-  isRunning: boolean;
-  endTime: number | null;
-  duration: number;
-}
-
 interface ActiveSessionState {
   activeSessionId: string | null;
   workoutId: string | null;
   currentExerciseIndex: number;
   sessionLogs: Record<string, SetLog[]>;
-  restTimer: RestTimer;
+  /** Timestamp (ms) when the current rest period ends, or null if no rest is active */
+  restEndTime: number | null;
+  /** The total duration (seconds) of the current rest period (for progress ring calculation) */
+  restDuration: number;
   startedAt: string | null;
   isActive: boolean;
   /** The sync_version captured when the session started (for conflict detection) */
@@ -42,8 +39,14 @@ interface ActiveSessionActions {
   setExerciseIndex: (index: number) => void;
   completeSet: (exerciseId: string, setIndex: number, data: Partial<SetLog>) => void;
   updateSetField: (exerciseId: string, setIndex: number, field: keyof SetLog, value: string | boolean) => void;
-  startRest: (duration: number) => void;
-  skipRest: () => void;
+  /** Start a rest timer that ends durationSeconds from now */
+  startRestTimer: (durationSeconds: number) => void;
+  /** Cancel/skip the current rest timer */
+  cancelRestTimer: () => void;
+  /** Add (or subtract) seconds to the running rest timer */
+  addRestTime: (seconds: number) => void;
+  /** Reset rest timer to its original duration */
+  resetRestTimer: () => void;
   markDoneLocally: () => void;
 }
 
@@ -52,7 +55,8 @@ const initialState: ActiveSessionState = {
   workoutId: null,
   currentExerciseIndex: 0,
   sessionLogs: {},
-  restTimer: { isRunning: false, endTime: null, duration: 90 },
+  restEndTime: null,
+  restDuration: 90,
   startedAt: null,
   isActive: false,
   deviceSyncVersion: null,
@@ -70,7 +74,8 @@ export const useActiveSessionStore = create<ActiveSessionState & ActiveSessionAc
           workoutId,
           currentExerciseIndex: 0,
           sessionLogs: {},
-          restTimer: { isRunning: false, endTime: null, duration: 90 },
+          restEndTime: null,
+          restDuration: 90,
           startedAt: new Date().toISOString(),
           isActive: true,
           deviceSyncVersion: syncVersion ?? null,
@@ -148,20 +153,27 @@ export const useActiveSessionStore = create<ActiveSessionState & ActiveSessionAc
         });
       },
 
-      startRest: (duration) => {
+      startRestTimer: (durationSeconds) => {
         set({
-          restTimer: {
-            isRunning: true,
-            endTime: Date.now() + duration * 1000,
-            duration,
-          },
+          restEndTime: Date.now() + durationSeconds * 1000,
+          restDuration: durationSeconds,
         });
       },
 
-      skipRest: () => {
-        set({
-          restTimer: { isRunning: false, endTime: null, duration: get().restTimer.duration },
-        });
+      cancelRestTimer: () => {
+        set({ restEndTime: null });
+      },
+
+      addRestTime: (seconds) => {
+        const { restEndTime } = get();
+        if (restEndTime != null) {
+          set({ restEndTime: restEndTime + seconds * 1000 });
+        }
+      },
+
+      resetRestTimer: () => {
+        const { restDuration } = get();
+        set({ restEndTime: Date.now() + restDuration * 1000 });
       },
 
       markDoneLocally: () => {
@@ -176,7 +188,8 @@ export const useActiveSessionStore = create<ActiveSessionState & ActiveSessionAc
         workoutId: state.workoutId,
         currentExerciseIndex: state.currentExerciseIndex,
         sessionLogs: state.sessionLogs,
-        restTimer: state.restTimer,
+        restEndTime: state.restEndTime,
+        restDuration: state.restDuration,
         startedAt: state.startedAt,
         deviceSyncVersion: state.deviceSyncVersion,
         pendingSync: state.pendingSync,

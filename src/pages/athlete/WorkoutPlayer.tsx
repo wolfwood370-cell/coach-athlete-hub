@@ -164,9 +164,9 @@ export default function WorkoutPlayer() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isWorkoutActive, setIsWorkoutActive] = useState(true);
 
-  // Rest timer (timestamp-based)
-  const [restEndTime, setRestEndTime] = useState<number | null>(null);
-  const [currentRestDuration, setCurrentRestDuration] = useState(90);
+  // Rest timer — driven by the session store (timestamp-based, persisted)
+  const restEndTime = sessionStore.restEndTime;
+  const currentRestDuration = sessionStore.restDuration;
 
   // Recap
   const [showRecapDialog, setShowRecapDialog] = useState(false);
@@ -332,11 +332,9 @@ export default function WorkoutPlayer() {
           const currentIndex = supersetExercises.findIndex((ex) => ex.id === exerciseId);
           const isLast = currentIndex === supersetExercises.length - 1;
           const dur = isLast ? restTime : 30;
-          setCurrentRestDuration(dur);
-          setRestEndTime(Date.now() + dur * 1000);
+          sessionStore.startRestTimer(dur);
         } else {
-          setCurrentRestDuration(restTime);
-          setRestEndTime(Date.now() + restTime * 1000);
+          sessionStore.startRestTimer(restTime);
         }
 
         // Auto-advance: check if ALL sets of this exercise are now done
@@ -373,7 +371,7 @@ export default function WorkoutPlayer() {
 
   const handleFinishWorkout = () => {
     setIsWorkoutActive(false);
-    setRestEndTime(null);
+    sessionStore.cancelRestTimer();
     triggerConfetti();
     haptic.success();
     setTimeout(() => setShowRecapDialog(true), 500);
@@ -425,10 +423,10 @@ export default function WorkoutPlayer() {
     });
   };
 
-  // Rest timer controls (timestamp-based)
-  const skipRest = () => { setRestEndTime(null); };
-  const addRestTime = (seconds: number) => { setRestEndTime((prev) => prev ? prev + seconds * 1000 : null); };
-  const resetRestTimer = () => { setRestEndTime(Date.now() + currentRestDuration * 1000); };
+  // Rest timer controls — delegated to the store
+  const skipRest = () => sessionStore.cancelRestTimer();
+  const addRestTime = (seconds: number) => sessionStore.addRestTime(seconds);
+  const resetRestTimer = () => sessionStore.resetRestTimer();
 
   // ============================================================
   // LOADING & GATEKEEPER
