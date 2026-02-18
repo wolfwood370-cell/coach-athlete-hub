@@ -1,3 +1,29 @@
+# v1.0.0-rc.2
+
+> **Release Date:** 2026-02-18
+
+---
+
+## Changes since rc.1
+
+### 🔊 Audio Feedback — iOS Warm-Up
+- `unlockAudio()` now plays a silent 0.1s oscillator on user gesture to prevent iOS AudioContext suspension.
+
+### 🔔 Notification Permissions — Browser Policy Fix
+- Removed `Notification.requestPermission()` from `useEffect` mount (was silently blocked by browsers).
+- Permission is now requested inside `unlockAudio()` (triggered by user gesture), ensuring the prompt actually appears.
+- Exported `enableNotifications()` helper from `RestTimerPill.tsx` for explicit manual triggers.
+
+### 🛡️ Safe Finish Guard
+- "Finish Workout" (`HoldToFinishButton`) now opens an `AlertDialog` confirmation before ending the session.
+- Shows completed sets count (e.g., "Hai completato 3 di 10 serie").
+- If no sets are logged, warns the user and styles the action as destructive ("Annulla sessione").
+
+### 📱 Wake Lock
+- `WorkoutPlayer` activates the Wake Lock API during active sessions, keeping the screen on for timer visibility.
+
+---
+
 # v1.0.0-rc.1 (Beta Release Candidate)
 
 > **Release Date:** 2026-02-16
