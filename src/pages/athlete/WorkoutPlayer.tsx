@@ -35,6 +35,7 @@ import { useExerciseHistory } from "@/hooks/useExerciseHistory";
 import { triggerConfetti, triggerPRConfetti } from "@/utils/ux";
 import useEmblaCarousel from "embla-carousel-react";
 import { useWakeLock } from "@/hooks/useWakeLock";
+import { unlockAudio } from "@/lib/audioFeedback";
 
 // Components
 import { ActiveSessionShell } from "@/components/athlete/workout/ActiveSessionShell";
@@ -251,6 +252,8 @@ export default function WorkoutPlayer() {
   useEffect(() => {
     if (workoutData?.structure) {
       setExercises(parseWorkoutStructure(workoutData.structure as any[]));
+      // Unlock Web Audio API on session start (requires prior user gesture)
+      unlockAudio();
       // Start active session in store for crash recovery
       if (id && !sessionStore.isActive) {
         sessionStore.startSession(id, workoutData.id || id);
