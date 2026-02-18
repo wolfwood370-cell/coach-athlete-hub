@@ -103,7 +103,7 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
     setStep("compressing");
 
     try {
-      const compressed = await compressImage(file, 1024, 0.6);
+      const compressed = await compressImage(file, 1920, 0.8);
 
       const reader = new FileReader();
       reader.onload = () => {
