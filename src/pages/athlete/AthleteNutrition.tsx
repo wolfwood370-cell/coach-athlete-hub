@@ -932,7 +932,7 @@ export default function AthleteNutrition() {
             setScannerOpen(true);
             setShowSecondFab(false);
           }}
-          className="h-14 w-14 rounded-full shadow-xl bg-primary/90 hover:bg-primary"
+          className="h-14 w-14 rounded-full shadow-xl bg-rose-600 hover:bg-rose-700"
           size="icon"
         >
           <Camera className="h-6 w-6 text-white" />
