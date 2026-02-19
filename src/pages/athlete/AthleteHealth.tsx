@@ -277,7 +277,7 @@ export default function AthleteHealth() {
       if (fmsScores.rotary_stability_l !== undefined) payload.rotary_stability_l = fmsScores.rotary_stability_l;
       if (fmsScores.rotary_stability_r !== undefined) payload.rotary_stability_r = fmsScores.rotary_stability_r;
       
-      console.log("FMS Upsert payload:", payload);
+      
       
       // Upsert using the unique constraint on (athlete_id, test_date)
       const { error } = await supabase

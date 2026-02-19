@@ -344,7 +344,7 @@ export function TelestrationPlayer({ url, title, onClose, onSave }: Telestration
           className="gap-1.5 w-full"
           onClick={() => {
             const data = { strokes, timestamp: played * duration };
-            console.log("Telestration analysis saved:", JSON.stringify(data, null, 2));
+            
             if (onSave) onSave(data);
             toast.success("Analysis Saved", { description: `${strokes.length} annotation(s) at ${formatTime(played * duration)}` });
           }}

@@ -768,7 +768,7 @@ export default function ProgramBuilder() {
     }
     
     programActions.loadProgram(currentProgram, state.programId || '', state.programName || 'AI Generated');
-    console.log("AI Rationale:", rationale);
+    
   }, [programActions]);
 
   // Handle weeks generated from periodization - uses store action

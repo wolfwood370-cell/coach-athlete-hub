@@ -242,7 +242,9 @@ export default function WorkoutPlayer() {
   const { data: workoutData, isLoading } = useQuery({
     queryKey: ["workout", id],
     queryFn: async () => {
-      if (!id || id === "mock" || id.startsWith("mock-")) return mockWorkout;
+      if (!id || id === "mock" || id.startsWith("mock-") || id.startsWith("free-session-")) {
+        return { id: id || "free", title: "Allenamento Libero", structure: [], estimatedDuration: 60 };
+      }
       const { data, error } = await supabase.from("workouts").select("*").eq("id", id).single();
       if (error) throw error;
       return data;
