@@ -827,7 +827,7 @@ export default function AthleteTraining() {
         <FreeWorkoutSelector
           open={isExerciseSelectorOpen}
           onOpenChange={setIsExerciseSelectorOpen}
-          coachId={athleteProfile?.coach_id || null}
+          coachId={athleteProfile?.coach_id || user?.id || null}
           brandColor={brandColor}
           onConfirm={handleExercisesConfirmed}
         />
