@@ -916,7 +916,7 @@ export default function AthleteNutrition() {
           className="h-14 w-14 rounded-full shadow-xl bg-emerald-400 hover:bg-emerald-500"
           size="icon"
         >
-          <Search className="h-6 w-6 text-primary-foreground" />
+          <Search className="h-6 w-6 text-white dark:text-zinc-900" />
         </Button>
       </div>
       
@@ -954,7 +954,7 @@ export default function AthleteNutrition() {
           className="h-14 w-14 rounded-full shadow-xl bg-tertiary/80 hover:bg-tertiary"
           size="icon"
         >
-          <Copy className="h-6 w-6 text-primary-foreground" />
+          <Copy className="h-6 w-6 text-white dark:text-zinc-900" />
         </Button>
       </div>
       
