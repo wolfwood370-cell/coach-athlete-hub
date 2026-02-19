@@ -916,16 +916,20 @@ export default function AthleteDashboard() {
             >
               <Card className="border-0 bg-card/50 backdrop-blur-sm">
                 <CardContent className="p-4">
-                  <div className="flex items-center justify-between mb-3">
+                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-2">
                       <div className="h-6 w-6 rounded-md bg-violet-500/15 flex items-center justify-center">
                         <CheckCircle2 className="h-3.5 w-3.5 text-violet-500" />
                       </div>
                       <span className="text-sm font-semibold">Daily Habits</span>
                     </div>
-                    <Badge variant="secondary" className="text-[10px] bg-violet-500/10 text-violet-600 border-violet-500/20">
-                      {completedHabits}/{totalHabits}
-                    </Badge>
+                    <button 
+                      onClick={() => navigate('/athlete/habits')}
+                      className="flex items-center gap-1 text-xs text-primary font-medium hover:underline"
+                    >
+                      Tutte
+                      <ChevronRight className="h-3 w-3" />
+                    </button>
                   </div>
                   <div className="space-y-2">
                     {habits.map((habit, index) => (
