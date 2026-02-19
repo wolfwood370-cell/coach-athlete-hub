@@ -217,7 +217,7 @@ const BodyPartChip = ({
 
 export default function AthleteDashboard() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [subjectiveOverride, setSubjectiveOverride] = useState<number | null>(null);
   const [showOverrideSlider, setShowOverrideSlider] = useState(false);
@@ -240,9 +240,9 @@ export default function AthleteDashboard() {
   useEffect(() => {
     if (searchParams.get("openCheckin") === "true") {
       setDrawerOpen(true);
-      window.history.replaceState({}, "", window.location.pathname);
+      setSearchParams((prev) => { prev.delete("openCheckin"); return prev; }, { replace: true });
     }
-  }, [searchParams]);
+  }, [searchParams, setSearchParams]);
   
   // Fetch current user ID for gamification
   useEffect(() => {
