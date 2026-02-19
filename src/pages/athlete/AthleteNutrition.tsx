@@ -916,7 +916,7 @@ export default function AthleteNutrition() {
           className="h-14 w-14 rounded-full shadow-xl bg-emerald-400 hover:bg-emerald-500"
           size="icon"
         >
-          <Search className="h-6 w-6 text-violet-700" />
+          <Search className="h-6 w-6 text-primary-foreground" />
         </Button>
       </div>
       
@@ -935,7 +935,7 @@ export default function AthleteNutrition() {
           className="h-14 w-14 rounded-full shadow-xl bg-primary/90 hover:bg-primary"
           size="icon"
         >
-          <Camera className="h-6 w-6" />
+          <Camera className="h-6 w-6 text-primary-foreground" />
         </Button>
       </div>
       
@@ -954,7 +954,7 @@ export default function AthleteNutrition() {
           className="h-14 w-14 rounded-full shadow-xl bg-tertiary/80 hover:bg-tertiary"
           size="icon"
         >
-          <Copy className="h-6 w-6" />
+          <Copy className="h-6 w-6 text-primary-foreground" />
         </Button>
       </div>
       
@@ -972,9 +972,9 @@ export default function AthleteNutrition() {
         size="icon"
       >
         {showSecondFab ? (
-          <Zap className="h-6 w-6 transition-transform duration-200" />
+          <Zap className="h-6 w-6 text-primary-foreground transition-transform duration-200" />
         ) : (
-          <Plus className="h-6 w-6 transition-transform duration-200" />
+          <Plus className="h-6 w-6 text-primary-foreground transition-transform duration-200" />
         )}
       </Button>
       
