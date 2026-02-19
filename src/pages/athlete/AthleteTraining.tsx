@@ -361,8 +361,7 @@ export default function AthleteTraining() {
                 <AlertDialogAction
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   onClick={() => {
-                    const sessionId = crypto.randomUUID();
-                    useActiveSessionStore.getState().startSession(sessionId, "free-workout");
+                    const sessionId = useActiveSessionStore.getState().startFreeSession();
                     navigate("/athlete/workout/" + sessionId);
                   }}
                 >

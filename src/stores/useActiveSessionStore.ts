@@ -33,6 +33,8 @@ interface ActiveSessionState {
 
 interface ActiveSessionActions {
   startSession: (sessionId: string, workoutId: string, syncVersion?: number) => void;
+  /** Start a free workout session with safe fallback IDs */
+  startFreeSession: () => string;
   endSession: () => void;
   nextExercise: (totalExercises: number) => void;
   prevExercise: () => void;
@@ -81,6 +83,23 @@ export const useActiveSessionStore = create<ActiveSessionState & ActiveSessionAc
           deviceSyncVersion: syncVersion ?? null,
           pendingSync: false,
         });
+      },
+
+      startFreeSession: () => {
+        const sessionId = `free-session-${Date.now()}`;
+        set({
+          activeSessionId: sessionId,
+          workoutId: `free-workout-${Date.now()}`,
+          currentExerciseIndex: 0,
+          sessionLogs: {},
+          restEndTime: null,
+          restDuration: 90,
+          startedAt: new Date().toISOString(),
+          isActive: true,
+          deviceSyncVersion: null,
+          pendingSync: false,
+        });
+        return sessionId;
       },
 
       endSession: () => {
