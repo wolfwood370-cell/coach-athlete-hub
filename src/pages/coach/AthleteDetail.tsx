@@ -1008,7 +1008,7 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
 
   const handleAddMetric = () => {
     // In production, this would save to Supabase
-    console.log("Adding metric:", newMetric);
+    
     setIsAddDialogOpen(false);
     setNewMetric({ weight: "", waist: "", chest: "", thigh: "", arm: "" });
   };
