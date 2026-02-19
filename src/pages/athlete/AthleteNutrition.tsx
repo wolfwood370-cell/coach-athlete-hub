@@ -913,10 +913,10 @@ export default function AthleteNutrition() {
             setFoodDbOpen(true);
             setShowSecondFab(false);
           }}
-          className="h-14 w-14 rounded-full shadow-xl bg-emerald-400 hover:bg-emerald-500"
+          className="h-14 w-14 rounded-full shadow-xl bg-emerald-600 hover:bg-emerald-700"
           size="icon"
         >
-          <Search className="h-6 w-6 text-white dark:text-zinc-900" />
+          <Search className="h-6 w-6 text-white" />
         </Button>
       </div>
       
@@ -951,10 +951,10 @@ export default function AthleteNutrition() {
             setSmartCopyOpen(true);
             setShowSecondFab(false);
           }}
-          className="h-14 w-14 rounded-full shadow-xl bg-tertiary/80 hover:bg-tertiary"
+          className="h-14 w-14 rounded-full shadow-xl bg-violet-600 hover:bg-violet-700"
           size="icon"
         >
-          <Copy className="h-6 w-6 text-white dark:text-zinc-900" />
+          <Copy className="h-6 w-6 text-white" />
         </Button>
       </div>
       
