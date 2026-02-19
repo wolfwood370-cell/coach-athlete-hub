@@ -235,6 +235,14 @@ export default function AthleteDashboard() {
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, [searchParams]);
+
+  // Auto-open check-in drawer when redirected with ?openCheckin=true
+  useEffect(() => {
+    if (searchParams.get("openCheckin") === "true") {
+      setDrawerOpen(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [searchParams]);
   
   // Fetch current user ID for gamification
   useEffect(() => {
