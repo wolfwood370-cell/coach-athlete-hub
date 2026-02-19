@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -19,6 +22,15 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { 
   format, 
   startOfWeek, 
@@ -30,6 +42,8 @@ import {
 } from "date-fns";
 import { it } from "date-fns/locale";
 import { 
+  Activity,
+  Brain,
   ChevronLeft, 
   ChevronRight, 
   Check, 
@@ -37,18 +51,40 @@ import {
   Clock, 
   Dumbbell,
   Calendar,
+  Heart,
+  HeartPulse,
   Lock,
   Flame,
+  Moon,
   Plus,
+  Scale,
+  Smile,
   Zap,
   Coffee,
   BatteryCharging,
   AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useReadiness } from "@/hooks/useReadiness";
+import { useReadiness, initialReadiness, type ReadinessData } from "@/hooks/useReadiness";
 import { SessionBuilderDialog } from "@/components/athlete/SessionBuilderDialog";
 import { useActiveSessionStore } from "@/stores/useActiveSessionStore";
+import { toast } from "sonner";
+
+// Body parts for DOMS map (shared with FocusDashboard)
+const bodyParts = [
+  "Petto", "Tricipiti", "Bicipiti", "Spalle", "Trapezi", "Dorsali",
+  "Bassa Schiena", "Glutei", "Femorali", "Quadricipiti", "Polpacci"
+] as const;
+
+type BodyPart = typeof bodyParts[number];
+type SorenessLevel = 0 | 1 | 2 | 3;
+
+const sorenessConfig: Record<SorenessLevel, { bg: string; label: string }> = {
+  0: { bg: "bg-secondary", label: "Nessuno" },
+  1: { bg: "bg-warning/80", label: "Leggero" },
+  2: { bg: "bg-orange-500", label: "Moderato" },
+  3: { bg: "bg-destructive", label: "Acuto" },
+};
 
 interface WorkoutLog {
   id: string;
@@ -68,24 +104,80 @@ export default function AthleteTraining() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [weekOffset, setWeekOffset] = useState(0);
   const [showSessionBuilder, setShowSessionBuilder] = useState(false);
-  const [showReadinessPrompt, setShowReadinessPrompt] = useState(false);
+  const [isCheckinOpen, setIsCheckinOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'idle' | 'create_session'>('idle');
+  const [forceDialogOpen, setForceDialogOpen] = useState(false);
   
-  const { readiness } = useReadiness();
+  const {
+    readiness,
+    tempReadiness,
+    setTempReadiness,
+    isSaving,
+    calculateReadiness,
+    saveReadiness,
+    baseline,
+  } = useReadiness();
   const canTrain = readiness.isCompleted;
+
+  // Sync tempReadiness when drawer opens
+  useEffect(() => {
+    if (isCheckinOpen) {
+      setTempReadiness(readiness.isCompleted ? { ...readiness } : { ...initialReadiness });
+    }
+  }, [isCheckinOpen, readiness, setTempReadiness]);
 
   // Seamless "Daisy-Chain" flow: auto-open SessionBuilder after check-in completes
   useEffect(() => {
     if (canTrain && pendingAction === 'create_session') {
-      setShowReadinessPrompt(false); // Ensure prompt is closed
-      // Slight delay for smooth transition
+      setIsCheckinOpen(false);
       const timer = setTimeout(() => {
         setShowSessionBuilder(true);
-        setPendingAction('idle'); // Reset intent
+        setPendingAction('idle');
       }, 100);
       return () => clearTimeout(timer);
     }
   }, [canTrain, pendingAction]);
+
+  const handleSubmitReadiness = async () => {
+    await saveReadiness(tempReadiness);
+    setIsCheckinOpen(false);
+  };
+
+  const handleSorenessToggle = (part: BodyPart) => {
+    setTempReadiness(prev => {
+      const sorenessMap = prev.sorenessMap || {};
+      const currentLevel = (sorenessMap[part] ?? 0) as SorenessLevel;
+      const nextLevel = ((currentLevel + 1) % 4) as SorenessLevel;
+      const newMap = { ...sorenessMap };
+      if (nextLevel === 0) {
+        delete newMap[part];
+      } else {
+        newMap[part] = nextLevel;
+      }
+      return { ...prev, sorenessMap: newMap };
+    });
+  };
+
+  const handleSleepHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    if (!isNaN(value) && value >= 0 && value <= 24) {
+      setTempReadiness(prev => ({ ...prev, sleepHours: value }));
+    }
+  };
+
+  const tempReadinessResult = calculateReadiness(tempReadiness);
+
+  const getScoreColor = (score: number) => {
+    if (score >= 75) return "text-success";
+    if (score >= 50) return "text-warning";
+    return "text-destructive";
+  };
+
+  const getScoreLabel = (score: number) => {
+    if (score >= 75) return "Ottimo";
+    if (score >= 50) return "Moderato";
+    return "Basso";
+  };
 
   // Get current user
   const { data: user } = useQuery({
@@ -193,12 +285,10 @@ export default function AthleteTraining() {
   // Handle Hero button click - check readiness first, with seamless daisy-chain flow
   const handleFreeSessionClick = () => {
     if (!canTrain) {
-      // Set pending action so we auto-open builder after check-in
       setPendingAction('create_session');
-      setShowReadinessPrompt(true);
+      setIsCheckinOpen(true);
       return;
     }
-    // Readiness already done - open builder directly
     setShowSessionBuilder(true);
   };
 
@@ -339,7 +429,7 @@ export default function AthleteTraining() {
           </Button>
 
           {/* Secondary: Force Start (always visible, with safety dialog) */}
-          <AlertDialog>
+          <AlertDialog open={forceDialogOpen} onOpenChange={setForceDialogOpen}>
             <AlertDialogTrigger asChild>
               <Button
                 variant="outline"
@@ -361,6 +451,12 @@ export default function AthleteTraining() {
                 <AlertDialogAction
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   onClick={() => {
+                    if (!canTrain) {
+                      setForceDialogOpen(false);
+                      setIsCheckinOpen(true);
+                      toast.warning("Devi completare il check-in prima di poterti allenare.");
+                      return;
+                    }
                     const sessionId = useActiveSessionStore.getState().startFreeSession();
                     navigate("/athlete/workout/" + sessionId);
                   }}
@@ -392,7 +488,6 @@ export default function AthleteTraining() {
                 <Skeleton className="h-24 w-full rounded-2xl" />
               </div>
             ) : selectedWorkouts.length === 0 ? (
-              /* Empty state - just the illustration, no button here */
               <RestDayIllustration />
             ) : (
               <>
@@ -416,55 +511,236 @@ export default function AthleteTraining() {
           </div>
         </ScrollArea>
 
-
-
-        {/* Readiness Required Prompt */}
-        {showReadinessPrompt && (
-          <div 
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-            onClick={() => setShowReadinessPrompt(false)}
-          >
-            <Card 
-              className="p-6 max-w-sm w-full space-y-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="text-center space-y-2">
-                <div 
-                  className="h-14 w-14 rounded-full mx-auto flex items-center justify-center"
-                  style={{ backgroundColor: brandColor ? `${brandColor}20` : "hsl(var(--primary) / 0.1)" }}
-                >
-                  <Zap 
-                    className="h-7 w-7" 
-                    style={{ color: brandColor || "hsl(var(--primary))" }}
-                  />
+        {/* Inline Readiness Check-in Drawer */}
+        <Drawer open={isCheckinOpen} onOpenChange={setIsCheckinOpen}>
+          <DrawerContent className="max-h-[90vh] bg-background">
+            <div className="mx-auto w-full max-w-md overflow-y-auto">
+              <DrawerHeader className="text-center pb-2">
+                <DrawerTitle className="text-lg">Morning Check-in</DrawerTitle>
+                <DrawerDescription className="text-xs">
+                  Registra i tuoi dati biometrici del mattino
+                </DrawerDescription>
+              </DrawerHeader>
+              
+              <div className="px-4 pb-4 space-y-6 overflow-y-auto">
+                {/* WEARABLE METRICS */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
+                    <HeartPulse className="h-4 w-4 text-primary" />
+                    METRICHE WEARABLE
+                  </Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-3 rounded-xl bg-secondary/50 space-y-2">
+                      <span className="text-[10px] text-foreground/60 uppercase tracking-wide">HRV (RMSSD)</span>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={tempReadiness.hrvRmssd ?? ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setTempReadiness(prev => ({ ...prev, hrvRmssd: value === "" ? null : parseInt(value) }));
+                          }}
+                          min={10}
+                          max={200}
+                          placeholder="—"
+                          className="w-full h-12 text-center text-xl font-bold bg-card text-foreground border-0"
+                        />
+                        <span className="text-sm font-medium text-foreground/60">ms</span>
+                      </div>
+                      {baseline.hrvBaseline && (
+                        <p className="text-[10px] text-muted-foreground">
+                          Baseline: {Math.round(baseline.hrvBaseline)}ms
+                        </p>
+                      )}
+                    </div>
+                    
+                    <div className="p-3 rounded-xl bg-secondary/50 space-y-2">
+                      <span className="text-[10px] text-foreground/60 uppercase tracking-wide">FC a Riposo</span>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={tempReadiness.restingHr ?? ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setTempReadiness(prev => ({ ...prev, restingHr: value === "" ? null : parseInt(value) }));
+                          }}
+                          min={30}
+                          max={120}
+                          placeholder="—"
+                          className="w-full h-12 text-center text-xl font-bold bg-card text-foreground border-0"
+                        />
+                        <span className="text-sm font-medium text-foreground/60">bpm</span>
+                      </div>
+                      {baseline.restingHrBaseline && (
+                        <p className="text-[10px] text-muted-foreground">
+                          Baseline: {Math.round(baseline.restingHrBaseline)}bpm
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground text-center">
+                    💡 Inserisci i dati dal tuo wearable o lascia vuoto se non disponibile
+                  </p>
                 </div>
-                <h3 className="font-semibold text-lg">Check-in Richiesto</h3>
-                <p className="text-sm text-muted-foreground">
-                  Completa il check-in mattutino per iniziare una sessione libera.
-                </p>
+                
+                {/* SLEEP */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
+                    <Moon className="h-4 w-4 text-primary" />
+                    SONNO
+                  </Label>
+                  <div className="flex flex-row items-center justify-between gap-4 p-3 rounded-xl bg-secondary/50">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[10px] text-foreground/60 uppercase tracking-wide">Ore</span>
+                      <Input
+                        type="number"
+                        value={tempReadiness.sleepHours}
+                        onChange={handleSleepHoursChange}
+                        step={0.5}
+                        min={0}
+                        max={24}
+                        className="w-16 h-12 text-center text-xl font-bold bg-card text-foreground border-0"
+                      />
+                    </div>
+                    
+                    <div className="flex-1 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-foreground/60 uppercase tracking-wide">Qualità</span>
+                        <span className="text-sm font-semibold tabular-nums text-foreground">{tempReadiness.sleepQuality}/10</span>
+                      </div>
+                      <Slider
+                        value={[tempReadiness.sleepQuality]}
+                        onValueChange={([value]) => setTempReadiness(prev => ({ ...prev, sleepQuality: value }))}
+                        min={1}
+                        max={10}
+                        step={1}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-[10px] text-foreground/60">
+                        <span>Scarso</span>
+                        <span>Ottimo</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* BODY WEIGHT */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
+                    <Scale className="h-4 w-4 text-primary" />
+                    PESO CORPOREO
+                  </Label>
+                  <div className="flex flex-row items-center gap-4 p-3 rounded-xl bg-secondary/50">
+                    <div className="flex flex-col items-center gap-1 flex-1">
+                      <span className="text-[10px] text-foreground/60 uppercase tracking-wide">Peso odierno</span>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          value={tempReadiness.bodyWeight ?? ""}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setTempReadiness(prev => ({ ...prev, bodyWeight: value === "" ? null : parseFloat(value) }));
+                          }}
+                          step={0.1}
+                          min={30}
+                          max={300}
+                          placeholder="—"
+                          className="w-24 h-12 text-center text-xl font-bold bg-card text-foreground border-0"
+                        />
+                        <span className="text-sm font-medium text-foreground/60">kg</span>
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground text-center max-w-[140px]">
+                      <p>Pesati la mattina, a digiuno, per un dato più accurato</p>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* SUBJECTIVE READINESS */}
+                <div className="space-y-3">
+                  <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
+                    <Activity className="h-4 w-4 text-primary" />
+                    COME TI SENTI? (40% del punteggio)
+                  </Label>
+                  
+                  <ParamSliderCard label="Energia" value={tempReadiness.energy} onChange={(v) => setTempReadiness(prev => ({ ...prev, energy: v }))} lowLabel="Bassa" highLabel="Alta" icon={Zap} />
+                  <ParamSliderCard label="Stress" value={tempReadiness.stress} onChange={(v) => setTempReadiness(prev => ({ ...prev, stress: v }))} lowLabel="Basso" highLabel="Alto" inverted icon={Brain} />
+                  <ParamSliderCard label="Umore" value={tempReadiness.mood} onChange={(v) => setTempReadiness(prev => ({ ...prev, mood: v }))} lowLabel="Basso" highLabel="Alto" icon={Smile} />
+                  <ParamSliderCard label="Digestione" value={tempReadiness.digestion} onChange={(v) => setTempReadiness(prev => ({ ...prev, digestion: v }))} lowLabel="Scarsa" highLabel="Ottima" icon={HeartPulse} />
+                </div>
+
+                {/* DOMS MAP */}
+                <div className="space-y-3">
+                  <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
+                    <HeartPulse className="h-4 w-4 text-primary" />
+                    SORENESS MAP
+                  </Label>
+                  <p className="text-[10px] text-foreground/60">
+                    Tocca per ciclare: Nessuno → Leggero → Moderato → Acuto
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {bodyParts.map((part) => (
+                      <button
+                        key={part}
+                        onClick={() => handleSorenessToggle(part)}
+                        className={cn(
+                          "px-3 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95",
+                          sorenessConfig[(tempReadiness.sorenessMap?.[part] ?? 0) as SorenessLevel].bg,
+                          (tempReadiness.sorenessMap?.[part] ?? 0) === 0 ? "text-muted-foreground" : "text-white"
+                        )}
+                      >
+                        {part}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 pt-2">
+                    {([0, 1, 2, 3] as SorenessLevel[]).map((level) => (
+                      <div key={level} className="flex items-center gap-1.5">
+                        <div className={cn("h-3 w-3 rounded-full", sorenessConfig[level].bg)} />
+                        <span className="text-[10px] text-foreground/60">{sorenessConfig[level].label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Preview Score */}
+                <div className="flex items-center justify-center gap-4 py-4 rounded-xl bg-secondary/30">
+                  <div className="relative h-20 w-20">
+                    <Zap className={cn("h-8 w-8 absolute inset-0 m-auto", getScoreColor(tempReadinessResult.score))} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-foreground/60 mb-1">Score previsto</p>
+                    <p className={cn("text-2xl font-bold tabular-nums", getScoreColor(tempReadinessResult.score))}>
+                      {tempReadinessResult.score}%
+                    </p>
+                    <p className={cn("text-xs font-medium", getScoreColor(tempReadinessResult.score))}>
+                      {getScoreLabel(tempReadinessResult.score)}
+                    </p>
+                    {tempReadinessResult.isNewUser && (
+                      <p className="text-[10px] text-amber-600 mt-1">Baseline in costruzione</p>
+                    )}
+                  </div>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  onClick={() => setShowReadinessPrompt(false)}
+
+              <DrawerFooter className="pt-2">
+                <Button 
+                  onClick={handleSubmitReadiness}
+                  className="w-full h-12 font-semibold"
+                  disabled={isSaving}
                 >
-                  Annulla
+                  <Check className="h-4 w-4 mr-2" />
+                  {isSaving ? "Salvataggio..." : "Conferma Check-in"}
                 </Button>
-                <Button
-                  className="flex-1"
-                  style={{ backgroundColor: brandColor || undefined }}
-                  onClick={() => {
-                    setShowReadinessPrompt(false);
-                    navigate("/athlete/dashboard?openCheckin=true");
-                  }}
-                >
-                  Vai al Check-in
-                </Button>
-              </div>
-            </Card>
-          </div>
-        )}
+                <DrawerClose asChild>
+                  <Button variant="ghost" className="w-full text-primary hover:text-primary/80 hover:bg-primary/10">
+                    Annulla
+                  </Button>
+                </DrawerClose>
+              </DrawerFooter>
+            </div>
+          </DrawerContent>
+        </Drawer>
 
         {/* Session Builder Dialog */}
         <SessionBuilderDialog
@@ -705,5 +981,64 @@ function RestDayIllustration() {
         </div>
       </div>
     </Card>
+  );
+}
+
+// Psychophysical Slider Card (shared pattern with FocusDashboard)
+function ParamSliderCard({ 
+  label, 
+  value, 
+  onChange,
+  lowLabel,
+  highLabel,
+  inverted = false,
+  icon: Icon
+}: {
+  label: string;
+  value: number;
+  onChange: (value: number) => void;
+  lowLabel: string;
+  highLabel: string;
+  inverted?: boolean;
+  icon: React.ElementType;
+}) {
+  const getSliderColor = () => {
+    if (inverted) {
+      if (value <= 3) return "bg-success";
+      if (value <= 6) return "bg-warning";
+      return "bg-destructive";
+    }
+    if (value >= 7) return "bg-success";
+    if (value >= 4) return "bg-warning";
+    return "bg-destructive";
+  };
+
+  return (
+    <div className="p-3 rounded-xl bg-secondary/50 space-y-3">
+      <div className="flex items-center justify-between">
+        <Label className="flex items-center gap-2 text-sm font-medium text-foreground">
+          <Icon className="h-4 w-4 text-primary" />
+          {label}
+        </Label>
+        <span className={cn(
+          "text-sm font-semibold tabular-nums px-2 py-0.5 rounded-md text-white",
+          getSliderColor(),
+        )}>
+          {value}
+        </span>
+      </div>
+      <Slider
+        value={[value]}
+        onValueChange={([v]) => onChange(v)}
+        min={1}
+        max={10}
+        step={1}
+        className="w-full"
+      />
+      <div className="flex justify-between text-[10px] text-foreground/60">
+        <span>{lowLabel}</span>
+        <span>{highLabel}</span>
+      </div>
+    </div>
   );
 }
