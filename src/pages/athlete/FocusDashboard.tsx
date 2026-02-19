@@ -482,9 +482,7 @@ export default function FocusDashboard() {
                     exit={{ opacity: 0, y: 20, scale: 0.8 }}
                     onClick={() => {
                       setFabOpen(false);
-                      if (todayWorkout) {
-                        navigate(`/athlete/workout/${todayWorkout.id}`);
-                      }
+                      navigate("/athlete/workout");
                     }}
                   >
                     <Dumbbell className="h-5 w-5 text-[hsl(var(--m3-on-secondary-container,var(--foreground)))]" />
