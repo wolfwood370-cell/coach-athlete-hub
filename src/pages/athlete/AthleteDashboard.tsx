@@ -731,42 +731,66 @@ export default function AthleteDashboard() {
                 </Card>
               </motion.div>
             ) : (
-              /* Collapsed Readiness Status Pill (when completed) */
+              /* ===== READINESS SCORE CARD (after check-in) ===== */
               <motion.div
                 key="readiness-complete"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 0.4 }}
               >
-                <div 
+                <Card 
                   className={cn(
-                    "flex items-center justify-between px-4 py-2.5 rounded-full cursor-pointer transition-all",
-                    "bg-secondary/50 hover:bg-secondary/70 backdrop-blur-sm border border-border/50"
+                    "relative overflow-hidden cursor-pointer transition-all border",
+                    displayLevel === "high" 
+                      ? "border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-background" 
+                      : displayLevel === "moderate"
+                        ? "border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-background"
+                        : "border-rose-500/30 bg-gradient-to-br from-rose-500/10 via-rose-500/5 to-background"
                   )}
                   onClick={handleOpenDrawer}
                 >
-                  <div className="flex items-center gap-2.5">
-                    <div className={cn(
-                      "h-6 w-6 rounded-full flex items-center justify-center",
-                      displayLevel === "high" ? "bg-success/20" : displayLevel === "moderate" ? "bg-warning/20" : "bg-destructive/20"
-                    )}>
-                      <Zap className={cn(
-                        "h-3.5 w-3.5",
-                        displayLevel === "high" ? "text-success" : displayLevel === "moderate" ? "text-warning" : "text-destructive"
-                      )} />
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-4">
+                      {/* Score Ring */}
+                      <ReadinessRing score={displayScore} />
+                      
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <span className={cn(
+                            "text-2xl font-bold tabular-nums",
+                            displayLevel === "high" ? "text-emerald-500" : displayLevel === "moderate" ? "text-amber-500" : "text-rose-500"
+                          )}>
+                            {displayScore}
+                          </span>
+                          <span className="text-xs text-muted-foreground">/100</span>
+                          {isOverridden && (
+                            <Badge variant="secondary" className="text-[9px] py-0">Override</Badge>
+                          )}
+                        </div>
+                        <p className={cn(
+                          "text-sm font-medium",
+                          displayLevel === "high" ? "text-emerald-600 dark:text-emerald-400" 
+                            : displayLevel === "moderate" ? "text-amber-600 dark:text-amber-400" 
+                            : "text-rose-600 dark:text-rose-400"
+                        )}>
+                          {displayLevel === "high" 
+                            ? "Ottimo stato di forma, spingi oggi!" 
+                            : displayLevel === "moderate" 
+                              ? "Recupero moderato, mantieni il piano." 
+                              : "Fatica elevata, valuta di ridurre i carichi."}
+                        </p>
+                        {readinessResult.reason && (
+                          <p className="text-[11px] text-muted-foreground mt-1 truncate">
+                            {readinessResult.reason}
+                          </p>
+                        )}
+                      </div>
+                      
+                      <ChevronRight className="h-5 w-5 text-muted-foreground flex-shrink-0" />
                     </div>
-                    <span className={cn(
-                      "text-sm font-medium",
-                      displayLevel === "high" ? "text-success" : displayLevel === "moderate" ? "text-warning" : "text-destructive"
-                    )}>
-                      Pronto ad Allenarti · {displayScore}%
-                    </span>
-                    {isOverridden && (
-                      <Badge variant="secondary" className="text-[9px] py-0">Override</Badge>
-                    )}
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                </div>
+                  </CardContent>
+                </Card>
               </motion.div>
             )}
           </AnimatePresence>
