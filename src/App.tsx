@@ -35,6 +35,7 @@ const AthleteProfile = lazy(() => import("./pages/athlete/AthleteProfile"));
 const WorkoutPlayer = lazy(() => import("./pages/athlete/WorkoutPlayer"));
 const WorkoutSummary = lazy(() => import("./pages/athlete/WorkoutSummary"));
 const AthleteDashboard = lazy(() => import("./pages/athlete/AthleteDashboard"));
+const AthleteHabits = lazy(() => import("./pages/athlete/AthleteHabits"));
 const AthleteMessages = lazy(() => import("./pages/athlete/AthleteMessages"));
 const OnboardingWizard = lazy(() => import("./pages/onboarding/OnboardingWizard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -81,6 +82,7 @@ const App = () => (
               <Route path="/athlete/nutrition" element={<AthleteNutrition />} />
               <Route path="/athlete/health" element={<AthleteHealth />} />
               <Route path="/athlete/leaderboard" element={<AthleteLeaderboard />} />
+              <Route path="/athlete/habits" element={<AthleteHabits />} />
               <Route path="/athlete/profile" element={<AthleteProfile />} />
               
               {/* Onboarding */}
