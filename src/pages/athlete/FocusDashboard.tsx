@@ -369,7 +369,7 @@ export default function FocusDashboard() {
                 >
                   <Button
                     className="w-full rounded-xl h-12 font-medium"
-                    onClick={() => navigate("/athlete")}
+                    onClick={() => navigate("/athlete/dashboard?openCheckin=true")}
                   >
                     <Sparkles className="mr-2 h-4 w-4" />
                     Completa il Check-in
@@ -433,7 +433,7 @@ export default function FocusDashboard() {
                 icon={Activity}
                 title="Le mie Abitudini"
                 subtitle={`${habits.completed}/${habits.total} oggi`}
-                onClick={() => navigate("/athlete/training")}
+                onClick={() => navigate("/athlete/habits")}
                 accent
               />
             </div>
