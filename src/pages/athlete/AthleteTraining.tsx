@@ -67,6 +67,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useReadiness, initialReadiness, type ReadinessData } from "@/hooks/useReadiness";
 import { SessionBuilderDialog } from "@/components/athlete/SessionBuilderDialog";
+import { FreeWorkoutSelector, type SelectedExercise } from "@/components/athlete/workout/FreeWorkoutSelector";
 import { useActiveSessionStore } from "@/stores/useActiveSessionStore";
 import { toast } from "sonner";
 
@@ -107,6 +108,7 @@ export default function AthleteTraining() {
   const [isCheckinOpen, setIsCheckinOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<'idle' | 'create_session'>('idle');
   const [forceDialogOpen, setForceDialogOpen] = useState(false);
+  const [isExerciseSelectorOpen, setIsExerciseSelectorOpen] = useState(false);
   
   const {
     readiness,
@@ -126,12 +128,12 @@ export default function AthleteTraining() {
     }
   }, [isCheckinOpen, readiness, setTempReadiness]);
 
-  // Seamless "Daisy-Chain" flow: auto-open SessionBuilder after check-in completes
+  // Seamless "Daisy-Chain" flow: auto-open exercise selector after check-in completes
   useEffect(() => {
     if (canTrain && pendingAction === 'create_session') {
       setIsCheckinOpen(false);
       const timer = setTimeout(() => {
-        setShowSessionBuilder(true);
+        setIsExerciseSelectorOpen(true);
         setPendingAction('idle');
       }, 100);
       return () => clearTimeout(timer);
@@ -282,14 +284,78 @@ export default function AthleteTraining() {
     setSelectedDate(new Date());
   };
 
-  // Handle Hero button click - check readiness first, with seamless daisy-chain flow
+  // Handle Hero button click - check readiness first, then open exercise selector
   const handleFreeSessionClick = () => {
     if (!canTrain) {
       setPendingAction('create_session');
       setIsCheckinOpen(true);
       return;
     }
-    setShowSessionBuilder(true);
+    setIsExerciseSelectorOpen(true);
+  };
+
+  // Callback from FreeWorkoutSelector: format exercises and start session
+  const handleExercisesConfirmed = (exercises: SelectedExercise[]) => {
+    setIsExerciseSelectorOpen(false);
+
+    const structure = exercises.map((ex, index) => ({
+      id: `ex-${index}`,
+      exercise_id: ex.id,
+      exercise_name: ex.name,
+      name: ex.name,
+      sets: 3,
+      reps: "10",
+      load: "",
+      rpe: "",
+      notes: "",
+      restSeconds: 90,
+    }));
+
+    // Create workout + log in DB, then navigate
+    const createAndNavigate = async () => {
+      try {
+        const now = new Date();
+        const { format: fmtDate } = await import("date-fns");
+
+        const { data: workout, error: workoutError } = await supabase
+          .from("workouts")
+          .insert({
+            athlete_id: user!.id,
+            coach_id: athleteProfile?.coach_id || null,
+            title: `Sessione Libera`,
+            description: "Allenamento libero",
+            scheduled_date: fmtDate(now, "yyyy-MM-dd"),
+            status: "pending" as const,
+            structure,
+          })
+          .select("id")
+          .single();
+
+        if (workoutError) throw workoutError;
+
+        const { error: logError } = await supabase
+          .from("workout_logs")
+          .insert({
+            workout_id: workout.id,
+            athlete_id: user!.id,
+            started_at: now.toISOString(),
+            scheduled_date: fmtDate(now, "yyyy-MM-dd"),
+            status: "scheduled" as const,
+            exercises_data: structure,
+            sync_status: "synced",
+          });
+
+        if (logError) throw logError;
+
+        useActiveSessionStore.getState().startSession(workout.id, workout.id);
+        navigate(`/athlete/workout/${workout.id}`);
+      } catch (err) {
+        console.error("Free session creation error:", err);
+        toast.error("Impossibile creare la sessione. Riprova.");
+      }
+    };
+
+    createAndNavigate();
   };
 
   const getWorkoutStatus = (log: WorkoutLog) => {
@@ -457,8 +523,8 @@ export default function AthleteTraining() {
                       toast.warning("Devi completare il check-in prima di poterti allenare.");
                       return;
                     }
-                    const sessionId = useActiveSessionStore.getState().startFreeSession();
-                    navigate("/athlete/workout/" + sessionId);
+                    setForceDialogOpen(false);
+                    setIsExerciseSelectorOpen(true);
                   }}
                 >
                   Inizia comunque
@@ -749,6 +815,15 @@ export default function AthleteTraining() {
           coachId={athleteProfile?.coach_id || null}
           athleteId={user?.id || ""}
           brandColor={brandColor}
+        />
+
+        {/* Free Workout Exercise Selector */}
+        <FreeWorkoutSelector
+          open={isExerciseSelectorOpen}
+          onOpenChange={setIsExerciseSelectorOpen}
+          coachId={athleteProfile?.coach_id || null}
+          brandColor={brandColor}
+          onConfirm={handleExercisesConfirmed}
         />
       </div>
     </AthleteLayout>
