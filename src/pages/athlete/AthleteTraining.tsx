@@ -106,7 +106,7 @@ export default function AthleteTraining() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [showSessionBuilder, setShowSessionBuilder] = useState(false);
   const [isCheckinOpen, setIsCheckinOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState<'idle' | 'create_session'>('idle');
+  const [pendingAction, setPendingAction] = useState<'free-workout' | null>(null);
   const [forceDialogOpen, setForceDialogOpen] = useState(false);
   const [isExerciseSelectorOpen, setIsExerciseSelectorOpen] = useState(false);
   
@@ -130,24 +130,19 @@ export default function AthleteTraining() {
 
   // Seamless "Daisy-Chain" flow: auto-open exercise selector after check-in completes
   useEffect(() => {
-    if (canTrain && pendingAction === 'create_session') {
+    if (readiness.isCompleted && pendingAction === 'free-workout') {
+      setPendingAction(null);
       setIsCheckinOpen(false);
-      const timer = setTimeout(() => {
-        setIsExerciseSelectorOpen(true);
-        setPendingAction('idle');
-      }, 100);
-      return () => clearTimeout(timer);
+      setTimeout(() => setIsExerciseSelectorOpen(true), 200);
     }
-  }, [canTrain, pendingAction]);
+  }, [readiness.isCompleted, pendingAction]);
 
   const handleSubmitReadiness = async () => {
     await saveReadiness(tempReadiness);
-    setIsCheckinOpen(false);
-    // If there's a pending action, open exercise selector directly
-    // since canTrain won't update until query refetches
-    if (pendingAction === 'create_session') {
-      setPendingAction('idle');
-      setTimeout(() => setIsExerciseSelectorOpen(true), 200);
+    // The useEffect watching readiness.isCompleted + pendingAction
+    // will auto-close check-in and open exercise selector if pending
+    if (pendingAction !== 'free-workout') {
+      setIsCheckinOpen(false);
     }
   };
 
@@ -293,7 +288,7 @@ export default function AthleteTraining() {
   // Handle Hero button click - check readiness first, then open exercise selector
   const handleFreeSessionClick = () => {
     if (!canTrain) {
-      setPendingAction('create_session');
+      setPendingAction('free-workout');
       setIsCheckinOpen(true);
       return;
     }
@@ -523,13 +518,13 @@ export default function AthleteTraining() {
                 <AlertDialogAction
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   onClick={() => {
+                    setForceDialogOpen(false);
                     if (!canTrain) {
-                      setForceDialogOpen(false);
+                      setPendingAction('free-workout');
                       setIsCheckinOpen(true);
                       toast.warning("Devi completare il check-in prima di poterti allenare.");
                       return;
                     }
-                    setForceDialogOpen(false);
                     setIsExerciseSelectorOpen(true);
                   }}
                 >
