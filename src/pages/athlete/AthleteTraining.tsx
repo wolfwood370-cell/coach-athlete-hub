@@ -143,6 +143,12 @@ export default function AthleteTraining() {
   const handleSubmitReadiness = async () => {
     await saveReadiness(tempReadiness);
     setIsCheckinOpen(false);
+    // If there's a pending action, open exercise selector directly
+    // since canTrain won't update until query refetches
+    if (pendingAction === 'create_session') {
+      setPendingAction('idle');
+      setTimeout(() => setIsExerciseSelectorOpen(true), 200);
+    }
   };
 
   const handleSorenessToggle = (part: BodyPart) => {
