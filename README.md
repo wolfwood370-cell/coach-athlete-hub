@@ -1,123 +1,135 @@
-# 🏋️ Coach Athlete Hub — High Performance SaaS
+# 🏋️ Coach Athlete Hub
 
-> "God-Mode" analytics for coaches. Offline-first performance for athletes.
+> High-Ticket Coaching Platform — Release Candidate 5
 
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-06B6D4?logo=tailwindcss&logoColor=white)
 ![Stripe](https://img.shields.io/badge/Stripe-Integrated-635BFF?logo=stripe&logoColor=white)
-![Beta](https://img.shields.io/badge/Status-Beta_Active-orange)
+![Status](https://img.shields.io/badge/Status-RC5-orange)
 
 ---
 
-## 📖 Project Overview
+## Architecture Overview
 
-**Coach Athlete Hub** is a full-stack coaching platform for hybrid (online + in-person) strength & conditioning professionals.
+Coach Athlete Hub is a **dual-interface** SaaS platform for hybrid (online + in-person) strength & conditioning professionals.
 
-- 🧠 **Coach Dashboard** — A desktop-first command center with program building, real-time analytics (ACWR, volume load, readiness), business automation (Stripe subscriptions, invoicing), and AI-powered tools.
-- 📱 **Athlete App** — A mobile-first PWA with offline workout logging, VBT tracking, nutrition AI, gamification, and a Focus Dashboard that gates training behind daily readiness check-ins.
+| Interface | Target | Optimized For |
+|---|---|---|
+| **Coach Dashboard** | Desktop web | Program design, analytics, business ops |
+| **Athlete App** | Mobile PWA | Workout execution, nutrition, daily check-ins |
 
----
-
-## 🏗 Tech Stack
+### Tech Stack
 
 | Layer | Technology |
 |---|---|
-| **Frontend** | React 18 · Vite · TypeScript · Tailwind CSS · shadcn/ui · Framer Motion |
+| **UI** | React 18 · Vite · TypeScript · Tailwind CSS · shadcn/ui · Framer Motion |
 | **State** | TanStack Query v5 (IndexedDB persistence) · Zustand |
-| **Backend** | Lovable Cloud (PostgreSQL · Auth · Storage · Edge Functions) |
+| **Backend** | Supabase (PostgreSQL · Auth · Realtime · Storage · Edge Functions) |
 | **Payments** | Stripe (Subscriptions · Customer Portal · Webhooks) |
+| **PWA** | Service Worker · IndexedDB offline sync · Wake Lock API · Web Audio API |
 | **Testing** | Playwright (E2E) |
-| **PWA** | Service Worker · IndexedDB offline sync · Wake Lock API |
 
 ---
 
-## ✨ Features
+## Core Features — Coach Dashboard
 
-### 🏋️ Training Logic
-- Drag-and-drop Program Builder with multi-week periodization
-- Offline-first Workout Player with rest timers and RPE logging
-- Velocity Based Training (VBT) — mean/peak velocity, power output
-- ACWR monitoring and automated risk alerts
-
-### 🍎 Nutrition AI
-- AI-powered meal photo analysis (`analyze-meal-photo`)
-- Calorie banking and adaptive TDEE calculations
-- Coach-defined nutrition plans with macro cycling
-
-### 💼 Business Automation
-- Stripe subscription management and Customer Portal
-- Invoice tracking and one-off payment requests
-- Coach-defined billing plans with automated lifecycle
-
-### 💬 Communication
-- Real-time 1:1 and broadcast messaging
-- AI-assisted coach chat with knowledge base context
-
-### 🏆 Gamification
-- Badge system, workout streaks, and leaderboard
-- Anonymous mode for privacy-conscious athletes
+- **Macro/Micro Periodization Planner** — Drag-and-drop program builder with multi-week macro cycles, RPE/RIR logic, block templates, and a full exercise library.
+- **Real-Time Client Analytics** — ACWR monitoring, volume/intensity trends, velocity-based training charts, and automated risk alerts.
+- **Readiness Tracking** — Daily readiness scores, sleep/HRV/stress dashboards, and FMS screening history per athlete.
+- **Real-Time Chat** — 1:1 and broadcast messaging via Supabase WebSockets with AI-assisted coach responses and knowledge base context.
+- **Business Automation** — Stripe subscription management, invoice tracking, one-off payment requests, and coach-defined billing plans.
 
 ---
 
-## 🛠 Getting Started
+## Core Features — Athlete PWA
+
+- **Offline-First Workout Execution** — TanStack Query v5 with IndexedDB persistence (`staleTime: Infinity`, `gcTime: 24h`). Local workout queue syncs automatically on reconnect.
+- **High-Precision Timers** — Timestamp-based rest timers (drift-proof even under screen lock). Stale timer rehydration on app reload.
+- **Web Audio API** — iOS-compatible audio feedback with silent oscillator warm-up on user gesture.
+- **Dynamic Onboarding** — Multi-step wizard (biometrics, lifestyle, neurotype profiling) gating the Focus Dashboard behind daily readiness check-ins.
+- **Nutrition AI** — Meal photo analysis, calorie banking, adaptive TDEE, and coach-defined macro cycling.
+- **Gamification** — Badge system, workout streaks, leaderboard with anonymous mode.
+
+---
+
+## Local Development Setup
+
+### Prerequisites
+
+- Node.js 18+ or Bun 1.x
+- A Supabase project (or Lovable Cloud)
+
+### Install & Run
 
 ```bash
 # Install dependencies
 npm install
+# or
+bun install
 
-# Start the development server
+# Start the dev server
 npm run dev
 ```
 
 The app will be available at `http://localhost:8080`.
 
+### Environment Variables
+
+Create a `.env` file in the project root:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
+VITE_SUPABASE_PROJECT_ID=your-project-id
+```
+
+These are auto-configured when using Lovable Cloud.
+
 ---
 
-## 🧪 Testing
+## Testing
 
 ```bash
-# Install Playwright browsers (first time only)
+# Install Playwright browsers (first time)
 npx playwright install
 
-# Run E2E tests
+# Run E2E suite
 npx playwright test
 
-# Run tests with UI mode
+# Interactive UI mode
 npx playwright test --ui
 ```
 
-Tests cover authentication flows, route protection, and 404 handling. See `e2e/core-auth.spec.ts`.
+Tests cover auth flows, route protection, and 404 handling. See `e2e/core-auth.spec.ts`.
 
 ---
 
-## 💬 Support
+## Deployment
 
-Users can report bugs and suggest features directly inside the app:
+The app is a static SPA built with Vite. Deploy to any static hosting provider:
 
-- **Coach view:** Click the **"Supporto"** (LifeBuoy icon) item in the sidebar.
-- **Athlete view:** Go to **Profile → "Segnala un Problema"** in the settings section.
+| Provider | Command |
+|---|---|
+| **Lovable** | Share → Publish |
+| **Vercel** | `vercel --prod` (auto-detects Vite) |
+| **Netlify** | Build command: `npm run build` · Publish dir: `dist` |
 
-Reports are stored with auto-captured browser metadata for faster debugging.
-
----
-
-## 🚢 Deployment
-
-Open [Lovable](https://lovable.dev) and click **Share → Publish** to deploy the latest version.
-
-To connect a custom domain, go to **Project → Settings → Domains → Connect Domain**.
+For custom domains, configure DNS and update the hosting provider settings.
 
 ---
 
-## 📝 Release Notes
+## Support
 
-See [RELEASE_NOTES.md](./RELEASE_NOTES.md) for the full changelog.
+In-app feedback is available for both roles:
+
+- **Coach:** Sidebar → "Supporto" (LifeBuoy icon)
+- **Athlete:** Profile → "Segnala un Problema"
+
+Reports include auto-captured browser diagnostics (URL, userAgent, screen size, PWA mode).
 
 ---
 
-## 🔒 Browser Policy Compliance
+## License
 
-- **Notification permissions** are requested only on user gesture (not on mount), per browser security requirements.
-- **Audio context** uses a silent warm-up oscillator for iOS compatibility.
-- **Wake Lock API** keeps the screen active during workout sessions.
+Private — All rights reserved.
