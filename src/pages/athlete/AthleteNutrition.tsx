@@ -935,7 +935,7 @@ export default function AthleteNutrition() {
           className="h-14 w-14 rounded-full shadow-xl bg-primary/90 hover:bg-primary"
           size="icon"
         >
-          <Camera className="h-6 w-6 text-primary-foreground" />
+          <Camera className="h-6 w-6 text-white" />
         </Button>
       </div>
       
