@@ -346,7 +346,7 @@ export default function AthleteTraining() {
                 className="w-full h-11 gap-2 text-sm font-medium"
               >
                 <AlertTriangle className="h-4 w-4" />
-                Inizia allenamento
+                Inizia allenamento libero
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -457,7 +457,7 @@ export default function AthleteTraining() {
                   style={{ backgroundColor: brandColor || undefined }}
                   onClick={() => {
                     setShowReadinessPrompt(false);
-                    navigate("/athlete/dashboard");
+                    navigate("/athlete/dashboard?openCheckin=true");
                   }}
                 >
                   Vai al Check-in
