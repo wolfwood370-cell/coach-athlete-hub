@@ -8,6 +8,17 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { 
   format, 
   startOfWeek, 
@@ -31,11 +42,13 @@ import {
   Plus,
   Zap,
   Coffee,
-  BatteryCharging
+  BatteryCharging,
+  AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReadiness } from "@/hooks/useReadiness";
 import { SessionBuilderDialog } from "@/components/athlete/SessionBuilderDialog";
+import { useActiveSessionStore } from "@/stores/useActiveSessionStore";
 
 interface WorkoutLog {
   id: string;
@@ -297,8 +310,9 @@ export default function AthleteTraining() {
           </div>
         </div>
 
-        {/* Hero Action Button: Create Free Session - Prominent & Always Visible */}
-        <div className="px-4 mb-6">
+        {/* Hero Action Buttons */}
+        <div className="px-4 mb-6 space-y-2">
+          {/* Primary: Sessione Libera (requires check-in) */}
           <Button
             variant="default"
             className={cn(
@@ -323,6 +337,40 @@ export default function AthleteTraining() {
               </>
             )}
           </Button>
+
+          {/* Secondary: Force Start (always visible, with safety dialog) */}
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="outline"
+                className="w-full h-11 gap-2 text-sm font-medium"
+              >
+                <AlertTriangle className="h-4 w-4" />
+                Inizia allenamento
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Allenamento fuori programma?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Allenarsi al di fuori del programma assegnato potrebbe rallentare il recupero ed esporre ad infortuni. Sei sicuro di voler procedere?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annulla</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={() => {
+                    const sessionId = crypto.randomUUID();
+                    useActiveSessionStore.getState().startSession(sessionId, "free-workout");
+                    navigate("/athlete/workout/" + sessionId);
+                  }}
+                >
+                  Inizia comunque
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
 
         {/* Selected Day Content */}
@@ -409,7 +457,7 @@ export default function AthleteTraining() {
                   style={{ backgroundColor: brandColor || undefined }}
                   onClick={() => {
                     setShowReadinessPrompt(false);
-                    navigate("/athlete");
+                    navigate("/athlete/dashboard");
                   }}
                 >
                   Vai al Check-in

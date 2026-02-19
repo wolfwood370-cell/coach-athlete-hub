@@ -7,7 +7,7 @@ import { useNotifications } from "@/hooks/useNotifications";
 
 const navItems = [
   { title: "Home", url: "/athlete", icon: Home },
-  { title: "Esecuzione", url: "/athlete/workout", icon: Dumbbell },
+  { title: "Workout", url: "/athlete/workout", icon: Dumbbell },
   { title: "Chat", url: "/athlete/messages", icon: MessageSquare },
   { title: "Nutrizione", url: "/athlete/nutrition", icon: Utensils },
   { title: "Profilo", url: "/athlete/profile", icon: User },
