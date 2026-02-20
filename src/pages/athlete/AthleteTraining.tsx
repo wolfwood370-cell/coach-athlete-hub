@@ -162,7 +162,12 @@ export default function AthleteTraining() {
   };
 
   const handleSleepHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
+    const raw = e.target.value;
+    if (raw === "") {
+      setTempReadiness(prev => ({ ...prev, sleepHours: 0 }));
+      return;
+    }
+    const value = parseFloat(raw);
     if (!isNaN(value) && value >= 0 && value <= 24) {
       setTempReadiness(prev => ({ ...prev, sleepHours: value }));
     }
@@ -727,7 +732,7 @@ export default function AthleteTraining() {
                 <div className="space-y-3">
                   <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
                     <Activity className="h-4 w-4 text-primary" />
-                    COME TI SENTI? (40% del punteggio)
+                    COME TI SENTI?
                   </Label>
                   
                   <ParamSliderCard label="Energia" value={tempReadiness.energy} onChange={(v) => setTempReadiness(prev => ({ ...prev, energy: v }))} lowLabel="Bassa" highLabel="Alta" icon={Zap} />

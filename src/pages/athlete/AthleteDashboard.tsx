@@ -381,7 +381,7 @@ export default function AthleteDashboard() {
   
   const displayScore = subjectiveOverride !== null ? subjectiveOverride : readinessResult.score;
   const isOverridden = subjectiveOverride !== null;
-  const displayLevel = displayScore >= 75 ? "high" : displayScore >= 50 ? "moderate" : "low";
+  const displayLevel = displayScore >= 80 ? "high" : displayScore >= 60 ? "moderate" : "low";
 
   // GATEKEEPER: Training is only unlocked after readiness check-in is completed
   const canTrain = readiness.isCompleted;
@@ -455,7 +455,12 @@ export default function AthleteDashboard() {
   };
 
   const handleSleepHoursChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
+    const raw = e.target.value;
+    if (raw === "") {
+      setTempReadiness(prev => ({ ...prev, sleepHours: 0 }));
+      return;
+    }
+    const value = parseFloat(raw);
     if (!isNaN(value) && value >= 0 && value <= 24) {
       setTempReadiness(prev => ({ ...prev, sleepHours: value }));
     }
@@ -784,11 +789,14 @@ export default function AthleteDashboard() {
                           )}>
                             {displayScore}
                           </span>
-                          <span className="text-xs text-muted-foreground">/100</span>
+                          <span className="text-xs text-muted-foreground">/ 100</span>
                           {isOverridden && (
                             <Badge variant="secondary" className="text-[9px] py-0">Override</Badge>
                           )}
                         </div>
+                        <p className="text-xs font-semibold text-muted-foreground tracking-wide uppercase mb-0.5">
+                          Punteggio Recupero
+                        </p>
                         <p className={cn(
                           "text-sm font-medium",
                           displayLevel === "high" ? "text-emerald-600 dark:text-emerald-400" 
@@ -1252,7 +1260,7 @@ export default function AthleteDashboard() {
               <div className="space-y-3">
                 <Label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
                   <Activity className="h-4 w-4 text-primary" />
-                  COME TI SENTI? (40% del punteggio)
+                  COME TI SENTI?
                 </Label>
                 
                 <ParamSliderCard
