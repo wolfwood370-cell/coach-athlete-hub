@@ -14,18 +14,18 @@ import {
 import { toast } from "@/hooks/use-toast";
 
 const SYMPTOM_OPTIONS = [
-  { id: "cramps", label: "Cramps", emoji: "🔥" },
-  { id: "headache", label: "Headache", emoji: "🤕" },
-  { id: "bloating", label: "Bloating", emoji: "💨" },
-  { id: "fatigue", label: "Fatigue", emoji: "😴" },
-  { id: "high_energy", label: "High Energy", emoji: "⚡" },
-  { id: "mood_swings", label: "Mood Swings", emoji: "🎭" },
-  { id: "breast_tenderness", label: "Breast Tenderness", emoji: "💜" },
-  { id: "back_pain", label: "Back Pain", emoji: "🔙" },
+  { id: "cramps", label: "Crampi", emoji: "🔥" },
+  { id: "headache", label: "Mal di Testa", emoji: "🤕" },
+  { id: "bloating", label: "Gonfiore", emoji: "💨" },
+  { id: "fatigue", label: "Stanchezza", emoji: "😴" },
+  { id: "high_energy", label: "Alta Energia", emoji: "⚡" },
+  { id: "mood_swings", label: "Sbalzi d'Umore", emoji: "🎭" },
+  { id: "breast_tenderness", label: "Tensione Mammaria", emoji: "💜" },
+  { id: "back_pain", label: "Mal di Schiena", emoji: "🔙" },
   { id: "acne", label: "Acne", emoji: "🫧" },
-  { id: "cravings", label: "Cravings", emoji: "🍫" },
-  { id: "insomnia", label: "Insomnia", emoji: "🌙" },
-  { id: "no_symptoms", label: "None", emoji: "✨" },
+  { id: "cravings", label: "Voglie", emoji: "🍫" },
+  { id: "insomnia", label: "Insonnia", emoji: "🌙" },
+  { id: "no_symptoms", label: "Nessuno", emoji: "✨" },
 ];
 
 interface CycleSymptomDrawerProps {
@@ -59,11 +59,11 @@ export function CycleSymptomDrawer({
   const handleSave = async () => {
     try {
       await onSave(selected);
-      toast({ title: "Symptoms logged ✓" });
+      toast({ title: "Sintomi registrati ✓" });
       setSelected([]);
       onOpenChange(false);
     } catch {
-      toast({ title: "Failed to log symptoms", variant: "destructive" });
+      toast({ title: "Errore nella registrazione dei sintomi", variant: "destructive" });
     }
   };
 
@@ -71,9 +71,9 @@ export function CycleSymptomDrawer({
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent>
         <DrawerHeader>
-          <DrawerTitle>Log Today's Symptoms</DrawerTitle>
+          <DrawerTitle>Registra i Sintomi di Oggi</DrawerTitle>
           <DrawerDescription>
-            Track how you feel to refine cycle predictions.
+            Tieni traccia di come ti senti per affinare le previsioni del ciclo.
           </DrawerDescription>
         </DrawerHeader>
 
@@ -107,10 +107,10 @@ export function CycleSymptomDrawer({
             onClick={handleSave}
             disabled={isSaving || selected.length === 0}
           >
-            {isSaving ? "Saving..." : "Save Symptoms"}
+            {isSaving ? "Salvataggio..." : "Salva Sintomi"}
           </Button>
           <DrawerClose asChild>
-            <Button variant="outline">Cancel</Button>
+            <Button variant="outline">Annulla</Button>
           </DrawerClose>
         </DrawerFooter>
       </DrawerContent>
