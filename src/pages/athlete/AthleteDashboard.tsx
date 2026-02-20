@@ -47,7 +47,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReadiness, initialReadiness, ReadinessResult } from "@/hooks/useReadiness";
-import { calculateReadinessScore } from "@/lib/math/readinessMath";
+import { calculateReadinessScore, generateReadinessInsight } from "@/lib/math/readinessMath";
 import { AcwrCard } from "@/components/athlete/AcwrCard";
 import { Badge } from "@/components/ui/badge";
 import { useGamification } from "@/hooks/useGamification";
@@ -803,11 +803,12 @@ export default function AthleteDashboard() {
                             : displayLevel === "moderate" ? "text-amber-600 dark:text-amber-400" 
                             : "text-rose-600 dark:text-rose-400"
                         )}>
-                          {displayLevel === "high" 
-                            ? "Ottimo stato di forma, spingi oggi!" 
-                            : displayLevel === "moderate" 
-                              ? "Recupero moderato, mantieni il piano." 
-                              : "Fatica elevata, valuta di ridurre i carichi."}
+                          {generateReadinessInsight(displayScore, {
+                            sleepHours: readiness.sleepHours,
+                            stress: readiness.stress,
+                            soreness: Math.max(0, ...Object.values(readiness.sorenessMap || {}).map(Number)),
+                            mood: readiness.mood,
+                          })}
                         </p>
                         {readinessResult.reason && (
                           <p className="text-[11px] text-muted-foreground mt-1 truncate">
