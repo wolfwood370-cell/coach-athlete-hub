@@ -1,5 +1,7 @@
-// Readiness Math — Statistical normalization utilities v1
+// Readiness Math — Statistical normalization utilities v2
 // Pure TypeScript, zero dependencies.
+
+import { READINESS_BASELINE_DAYS } from "./constants";
 
 /**
  * Calculate the arithmetic mean of a numeric array.
@@ -211,3 +213,83 @@ export function computeReadiness(params: {
     rhrStatus: metricStatusFromZ(-rhrZ), // invert for RHR semantics
   };
 }
+
+// ── Dynamic Readiness Score (standalone) ──────────────────────────────
+
+export interface ReadinessInputs {
+  sleepHours: number;   // 0-24
+  stress: number;       // 1-10 (10 = highest stress)
+  soreness: number;     // 1-10 (10 = highest soreness)
+  mood: number;         // 1-10 (10 = best mood)
+  hrv?: number | null;
+  rhr?: number | null;
+  hrvBaseline?: number | null;
+  rhrBaseline?: number | null;
+  hrvSd?: number | null;
+  rhrSd?: number | null;
+}
+
+/**
+ * Standalone readiness score with graceful fallback.
+ *
+ * Subjective-only when no wearable data is present.
+ * Blends 50/50 with an objective Z-Score component when HRV/RHR exist.
+ *
+ * Weights (subjective mode):
+ *   40 %  Sleep
+ *   20 %  Stress (inverted)
+ *   20 %  Soreness (inverted)
+ *   20 %  Mood
+ */
+export function calculateReadinessScore(inputs: ReadinessInputs): number {
+  // Sleep (40 %): target 8 h
+  const sleepScore = Math.min(100, (inputs.sleepHours / 8) * 100) * 0.40;
+  // Stress (20 %): 1 = best, 10 = worst → invert
+  const stressScore = ((11 - inputs.stress) * 10) * 0.20;
+  // Soreness (20 %): 1 = best, 10 = worst → invert
+  const sorenessScore = ((11 - inputs.soreness) * 10) * 0.20;
+  // Mood (20 %): 10 = best
+  const moodScore = (inputs.mood * 10) * 0.20;
+
+  const subjectiveScore = sleepScore + stressScore + sorenessScore + moodScore;
+
+  // Fallback: subjective-only
+  const hasObjective =
+    (inputs.hrv != null && inputs.hrvBaseline != null && inputs.hrvSd != null && inputs.hrvSd > 0) ||
+    (inputs.rhr != null && inputs.rhrBaseline != null && inputs.rhrSd != null && inputs.rhrSd > 0);
+
+  if (!hasObjective) {
+    return Math.round(Math.max(0, Math.min(100, subjectiveScore)));
+  }
+
+  // Objective component via Z-Score mapping (reuse existing helpers)
+  let objectiveScore = 50; // neutral default
+  let objectiveComponents = 0;
+
+  if (inputs.hrv != null && inputs.hrvBaseline != null && inputs.hrvSd != null && inputs.hrvSd > 0) {
+    const z = calculateZScore(inputs.hrv, inputs.hrvBaseline, inputs.hrvSd);
+    // Map z ∈ [-2, +2] → [0, 100]
+    const clamped = Math.max(-2, Math.min(2, z));
+    objectiveScore = ((clamped + 2) / 4) * 100;
+    objectiveComponents++;
+  }
+
+  if (inputs.rhr != null && inputs.rhrBaseline != null && inputs.rhrSd != null && inputs.rhrSd > 0) {
+    const z = calculateZScore(inputs.rhr, inputs.rhrBaseline, inputs.rhrSd);
+    // For RHR, lower is better → invert
+    const inverted = -z;
+    const clamped = Math.max(-2, Math.min(2, inverted));
+    const rhrScore = ((clamped + 2) / 4) * 100;
+    objectiveScore = objectiveComponents > 0
+      ? (objectiveScore + rhrScore) / 2
+      : rhrScore;
+    objectiveComponents++;
+  }
+
+  // Blend 50 / 50
+  const blended = subjectiveScore * 0.5 + objectiveScore * 0.5;
+  return Math.round(Math.max(0, Math.min(100, blended)));
+}
+
+/** Re-export baseline constant for convenience */
+export { READINESS_BASELINE_DAYS } from "./constants";
