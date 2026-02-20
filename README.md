@@ -1,12 +1,12 @@
 # 🏋️ Coach Athlete Hub
 
-> High-Ticket Coaching Platform — Release Candidate 5
+> High-Ticket Coaching Platform — Release Candidate 6
 
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-06B6D4?logo=tailwindcss&logoColor=white)
 ![Stripe](https://img.shields.io/badge/Stripe-Integrated-635BFF?logo=stripe&logoColor=white)
-![Status](https://img.shields.io/badge/Status-RC5-orange)
+![Status](https://img.shields.io/badge/Status-RC6-orange)
 
 ---
 
