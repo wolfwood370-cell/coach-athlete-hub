@@ -64,12 +64,12 @@ export function CycleConfigDialog({
 
   const handleSubmit = async () => {
     if (!date) {
-      toast({ title: "Select your last period start date", variant: "destructive" });
+      toast({ title: "Seleziona la data di inizio dell'ultimo ciclo", variant: "destructive" });
       return;
     }
     const len = parseInt(cycleLength);
     if (isNaN(len) || len < 20 || len > 45) {
-      toast({ title: "Cycle length must be between 20-45 days", variant: "destructive" });
+      toast({ title: "La durata del ciclo deve essere tra 20 e 45 giorni", variant: "destructive" });
       return;
     }
     try {
@@ -78,10 +78,10 @@ export function CycleConfigDialog({
         cycleLength: len,
         contraceptiveType: contraceptive,
       });
-      toast({ title: "Cycle settings saved ✓" });
+      toast({ title: "Impostazioni ciclo salvate ✓" });
       onOpenChange(false);
     } catch {
-      toast({ title: "Failed to save", variant: "destructive" });
+      toast({ title: "Errore nel salvataggio", variant: "destructive" });
     }
   };
 
@@ -91,17 +91,17 @@ export function CycleConfigDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Droplets className="h-5 w-5 text-primary" />
-            Cycle-Sync Setup
+            Configurazione Ciclo
           </DialogTitle>
           <DialogDescription>
-            Configure your menstrual cycle to unlock phase-based training adjustments.
+            Configura il tuo ciclo mestruale per sbloccare gli aggiustamenti di allenamento basati sulla fase.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5 pt-2">
           {/* Last Period Start */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Last Period Start Date</Label>
+            <Label className="text-sm font-medium">Data Inizio Ultimo Ciclo</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
@@ -112,7 +112,7 @@ export function CycleConfigDialog({
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date ? format(date, "PPP") : "Select date"}
+                  {date ? format(date, "PPP") : "Seleziona data"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -130,7 +130,7 @@ export function CycleConfigDialog({
 
           {/* Cycle Length */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Average Cycle Length (days)</Label>
+            <Label className="text-sm font-medium">Durata Media del Ciclo (giorni)</Label>
             <Input
               type="number"
               value={cycleLength}
@@ -139,24 +139,24 @@ export function CycleConfigDialog({
               max={45}
               className="tabular-nums"
             />
-            <p className="text-xs text-muted-foreground">Typical range: 24–35 days</p>
+            <p className="text-xs text-muted-foreground">Intervallo tipico: 24–35 giorni</p>
           </div>
 
           {/* Contraceptive Type */}
           <div className="space-y-2">
             <Label className="text-sm font-medium flex items-center gap-1.5">
               <Settings2 className="h-3.5 w-3.5" />
-              Contraceptive Type
+              Tipo di Contraccettivo
             </Label>
             <Select value={contraceptive} onValueChange={setContraceptive}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                <SelectItem value="pill">Hormonal Pill</SelectItem>
-                <SelectItem value="iud_hormonal">IUD (Hormonal)</SelectItem>
-                <SelectItem value="iud_copper">IUD (Copper)</SelectItem>
+                <SelectItem value="none">Nessuno</SelectItem>
+                <SelectItem value="pill">Pillola Ormonale</SelectItem>
+                <SelectItem value="iud_hormonal">IUD (Ormonale)</SelectItem>
+                <SelectItem value="iud_copper">IUD (Rame)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -166,7 +166,7 @@ export function CycleConfigDialog({
             disabled={isSaving}
             className="w-full"
           >
-            {isSaving ? "Saving..." : "Enable Cycle-Sync"}
+            {isSaving ? "Salvataggio..." : "Attiva Sincronizzazione Ciclo"}
           </Button>
         </div>
       </DialogContent>

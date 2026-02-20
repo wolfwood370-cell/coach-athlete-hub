@@ -378,7 +378,7 @@ export function ChatInterface({
               </div>
               <div>
                 <h3 className="text-sm font-semibold bg-gradient-to-r from-violet-600 to-cyan-600 bg-clip-text text-transparent">
-                  Coach AI Assistant
+                  Assistente AI Coach
                 </h3>
                 <p className="text-[10px] text-muted-foreground">
                   Risponde dalla knowledge base del coach
