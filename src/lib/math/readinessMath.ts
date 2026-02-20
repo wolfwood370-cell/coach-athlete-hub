@@ -291,5 +291,39 @@ export function calculateReadinessScore(inputs: ReadinessInputs): number {
   return Math.round(Math.max(0, Math.min(100, blended)));
 }
 
+// ── Smart Readiness Insights ─────────────────────────────────────────
+
+/**
+ * Generate a deterministic 1-2 sentence coaching insight based on
+ * the athlete's daily check-in metrics. Zero-latency, offline-first.
+ */
+export function generateReadinessInsight(
+  score: number,
+  inputs: { sleepHours?: number; stress?: number; soreness?: number; mood?: number },
+): string {
+  // High Risk / Specific Flags
+  if (inputs.sleepHours !== undefined && inputs.sleepHours < 6) {
+    return "Hai dormito poco. Valuta di ridurre il volume del 10-20% e fai un riscaldamento più lungo per prevenire infortuni.";
+  }
+  if (inputs.stress !== undefined && inputs.stress > 7) {
+    return "Lo stress percepito è alto. Non forzare i massimali oggi: concentrati sull'esecuzione tecnica e sul respiro.";
+  }
+  if (inputs.soreness !== undefined && inputs.soreness > 7) {
+    return "I tuoi muscoli sono ancora molto affaticati. Lavora in 'buffer' (lontano dal cedimento) per favorire il recupero attivo.";
+  }
+  if (inputs.mood !== undefined && inputs.mood < 4) {
+    return "L'umore è basso oggi. Inizia l'allenamento senza troppe aspettative, il movimento ti aiuterà a sentirti meglio.";
+  }
+
+  // General Score-based feedback
+  if (score >= 80) {
+    return "Il tuo recupero è ottimale. Hai il semaforo verde per spingere sull'intensità e puntare a nuovi record.";
+  } else if (score >= 60) {
+    return "Stato di forma moderato. Mantieni il piano previsto, ma ascolta il tuo corpo se ti senti affaticato a metà sessione.";
+  } else {
+    return "Fatica accumulata evidente. Oggi l'obiettivo è muoversi: taglia le serie extra e tieni i carichi conservativi.";
+  }
+}
+
 /** Re-export baseline constant for convenience */
 export { READINESS_BASELINE_DAYS } from "./constants";
