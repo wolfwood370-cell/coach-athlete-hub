@@ -1,10 +1,28 @@
-# v1.0.0-rc.5
+# v1.0.0-rc.6
 
-> **Release Date:** 2026-02-18
+> **Release Date:** 2026-02-20
 
 ---
 
-## Highlights (rc.3 → rc.5)
+## Highlights (rc.5 → rc.6)
+
+### 🧠 Smart Readiness Insights
+- New `generateReadinessInsight()` deterministic heuristics engine in `readinessMath.ts`.
+- Generates contextual 1-2 sentence Italian coaching feedback based on sleep, stress, soreness, and mood metrics.
+- Displayed dynamically on the Athlete Dashboard readiness score card — zero-latency, offline-first.
+
+### 🌍 Italian Localization Hardening (QA RC5)
+- Full Italian translation of Cycle-Sync Engine (`CycleConfigDialog`, `CycleSymptomDrawer`): all 12 symptom labels, button states, and configuration UI.
+- Translated remaining English fragments in Coach views (`CoachAthletes`, `ChatInterface`).
+
+### 🔧 QA Audit Fixes (RC5)
+- State safety audit on Zustand stores (`useActiveSessionStore`, `useProgramBuilderStore`) — verified null-safe.
+- Form double-submit guards verified across all mutation-based flows.
+- Routing audit — zero dead links confirmed in both apps.
+
+---
+
+## Previous: rc.3 → rc.5
 
 ### 🗄️ Core — Soft Delete Cascades
 - PostgreSQL trigger `cascade_soft_delete_program` propagates `deleted_at` through the full chain: `program_plans` → `program_weeks` → `program_days` → `program_workouts` → `workout_logs` → `workouts`.

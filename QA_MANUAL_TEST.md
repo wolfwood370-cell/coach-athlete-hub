@@ -1,8 +1,18 @@
-# QA Manual Test Checklist — v1.0.0-rc.5
+# QA Manual Test Checklist — v1.0.0-rc.6
 
-> Last updated: 2026-02-18
+> Last updated: 2026-02-20
 
 ---
+
+## 🧠 Smart Readiness Insights
+
+- [ ] Complete the morning check-in with **sleep < 6h** → verify the insight says "Hai dormito poco…".
+- [ ] Complete the check-in with **stress > 7** → verify the insight mentions stress and technical focus.
+- [ ] Complete the check-in with **soreness > 7** → verify the insight mentions "buffer" and active recovery.
+- [ ] Complete the check-in with **mood < 4** → verify the insight mentions low mood encouragement.
+- [ ] Complete the check-in with all metrics normal and **score ≥ 80** → verify "semaforo verde" message.
+- [ ] Complete the check-in with **score 60-79** → verify "moderato" message.
+- [ ] Complete the check-in with **score < 60** → verify "fatica accumulata" message.
 
 ## ⏱️ Timer Drift
 
