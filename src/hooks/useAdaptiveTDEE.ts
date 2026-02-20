@@ -69,9 +69,11 @@ export interface TDEEResult {
   trendDirection: "up" | "down" | "stable";
 }
 
+import { NUTRITION_BASELINE_DAYS } from "@/lib/math/constants";
+
 // ── Constants ──────────────────────────────────────────────────────────
 
-const LOOKBACK_DAYS = 30;
+const LOOKBACK_DAYS = NUTRITION_BASELINE_DAYS;
 
 // ── Raw types ──────────────────────────────────────────────────────────
 

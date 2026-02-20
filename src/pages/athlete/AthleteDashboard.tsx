@@ -47,6 +47,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReadiness, initialReadiness, ReadinessResult } from "@/hooks/useReadiness";
+import { calculateReadinessScore } from "@/lib/math/readinessMath";
 import { AcwrCard } from "@/components/athlete/AcwrCard";
 import { Badge } from "@/components/ui/badge";
 import { useGamification } from "@/hooks/useGamification";
@@ -400,7 +401,27 @@ export default function AthleteDashboard() {
   };
 
   const handleSubmitReadiness = async () => {
-    await saveReadiness(tempReadiness);
+    // Derive max soreness from the body-part map (0 if empty)
+    const sorenessValues = Object.values(tempReadiness.sorenessMap || {}) as number[];
+    const maxSoreness = sorenessValues.length > 0 ? Math.max(...sorenessValues) : 0;
+    // Scale 0-3 DOMS level → 1-10 for the algorithm
+    const sorenessScale = Math.round(1 + (maxSoreness / 3) * 9);
+
+    const dynamicScore = calculateReadinessScore({
+      sleepHours: tempReadiness.sleepHours,
+      stress: tempReadiness.stress,
+      soreness: sorenessScale,
+      mood: tempReadiness.mood,
+      hrv: tempReadiness.hrvRmssd,
+      rhr: tempReadiness.restingHr,
+      hrvBaseline: baseline.hrvBaseline,
+      rhrBaseline: baseline.restingHrBaseline,
+      hrvSd: baseline.hrvSd,
+      rhrSd: baseline.restingHrSd,
+    });
+
+    // Attach the dynamic score before saving
+    await saveReadiness({ ...tempReadiness, score: dynamicScore });
     setDrawerOpen(false);
   };
 

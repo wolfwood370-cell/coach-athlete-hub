@@ -9,8 +9,9 @@ import {
   type DailyLoad,
   type AcwrResult,
 } from "@/lib/math/trainingMetrics";
+import { ACWR_LOOKBACK_DAYS } from "@/lib/math/constants";
 
-const LOOKBACK_DAYS = 42; // 6 weeks for robust chronic window
+const LOOKBACK_DAYS = ACWR_LOOKBACK_DAYS;
 
 // Re-export the result type for consumers
 export type { AcwrResult };
