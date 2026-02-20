@@ -62,7 +62,8 @@ import {
   Zap,
   Coffee,
   BatteryCharging,
-  AlertTriangle
+  AlertTriangle,
+  AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useReadiness, initialReadiness, type ReadinessData } from "@/hooks/useReadiness";
@@ -80,11 +81,11 @@ const bodyParts = [
 type BodyPart = typeof bodyParts[number];
 type SorenessLevel = 0 | 1 | 2 | 3;
 
-const sorenessConfig: Record<SorenessLevel, { bg: string; label: string }> = {
-  0: { bg: "bg-secondary", label: "Nessuno" },
-  1: { bg: "bg-warning/80", label: "Leggero" },
-  2: { bg: "bg-orange-500", label: "Moderato" },
-  3: { bg: "bg-destructive", label: "Acuto" },
+const sorenessConfig: Record<SorenessLevel, { bg: string; text: string; label: string }> = {
+  0: { bg: "bg-emerald-100 dark:bg-emerald-900/40", text: "text-emerald-700 dark:text-emerald-300", label: "Nessuno" },
+  1: { bg: "bg-yellow-100 dark:bg-yellow-900/40", text: "text-yellow-700 dark:text-yellow-300", label: "Leggero" },
+  2: { bg: "bg-orange-100 dark:bg-orange-900/40", text: "text-orange-700 dark:text-orange-300", label: "Moderato" },
+  3: { bg: "bg-rose-100 dark:bg-rose-900/40", text: "text-rose-700 dark:text-rose-300", label: "Acuto" },
 };
 
 interface WorkoutLog {
@@ -758,7 +759,7 @@ export default function AthleteTraining() {
                         className={cn(
                           "px-3 py-1.5 rounded-full text-xs font-medium transition-all active:scale-95",
                           sorenessConfig[(tempReadiness.sorenessMap?.[part] ?? 0) as SorenessLevel].bg,
-                          (tempReadiness.sorenessMap?.[part] ?? 0) === 0 ? "text-muted-foreground" : "text-white"
+                          sorenessConfig[(tempReadiness.sorenessMap?.[part] ?? 0) as SorenessLevel].text
                         )}
                       >
                         {part}
@@ -775,24 +776,15 @@ export default function AthleteTraining() {
                   </div>
                 </div>
 
-                {/* Preview Score */}
-                <div className="flex items-center justify-center gap-4 py-4 rounded-xl bg-secondary/30">
-                  <div className="relative h-20 w-20">
-                    <Zap className={cn("h-8 w-8 absolute inset-0 m-auto", getScoreColor(tempReadinessResult.score))} />
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-foreground/60 mb-1">Score previsto</p>
-                    <p className={cn("text-2xl font-bold tabular-nums", getScoreColor(tempReadinessResult.score))}>
-                      {tempReadinessResult.score}%
+                {/* Baseline status note */}
+                {tempReadinessResult.isNewUser && (
+                  <div className="flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500/10">
+                    <AlertCircle className="h-4 w-4 text-amber-500" />
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      Baseline in costruzione ({baseline.dataPoints}/3 giorni)
                     </p>
-                    <p className={cn("text-xs font-medium", getScoreColor(tempReadinessResult.score))}>
-                      {getScoreLabel(tempReadinessResult.score)}
-                    </p>
-                    {tempReadinessResult.isNewUser && (
-                      <p className="text-[10px] text-amber-600 mt-1">Baseline in costruzione</p>
-                    )}
                   </div>
-                </div>
+                )}
               </div>
 
               <DrawerFooter className="pt-2">

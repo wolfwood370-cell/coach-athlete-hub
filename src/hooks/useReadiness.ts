@@ -368,7 +368,9 @@ export function useReadiness() {
 
       return { ...data, isCompleted: true, score };
     },
-    onSuccess: () => {
+    onSuccess: (savedData) => {
+      // Optimistically update the query cache so UI reflects immediately
+      queryClient.setQueryData(["daily-readiness", user?.id, today], savedData);
       queryClient.invalidateQueries({ queryKey: ["daily-readiness"] });
       queryClient.invalidateQueries({ queryKey: ["daily-metrics-history"] });
       toast.success("Check-in salvato!");
