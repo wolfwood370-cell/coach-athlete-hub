@@ -10,6 +10,7 @@ import { InstallPrompt } from "@/components/mobile/InstallPrompt";
 import { NetworkBadge } from "@/components/ui/NetworkBadge";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { SubscriptionGuard } from "@/components/auth/SubscriptionGuard";
+import { SwUpdatePrompt } from "@/components/pwa/SwUpdatePrompt";
 
 
 // Lazy-loaded pages
@@ -51,6 +52,7 @@ const App = () => (
         <SunThemeSync />
         <NetworkBadge />
         <InstallPrompt />
+        <SwUpdatePrompt />
         
         <BrowserRouter>
           <Suspense fallback={<LoadingSpinner />}>

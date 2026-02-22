@@ -4,6 +4,7 @@ import { Timer, X, Plus, Minus, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { onRestTimerEnd } from "@/utils/ux";
+import { startMediaSession, updateMediaSessionTime, stopMediaSession } from "@/lib/mediaSession";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -90,18 +91,22 @@ export function RestTimerPill({
     if (endTime == null) {
       setRemaining(0);
       completedRef.current = false;
+      stopMediaSession();
       if (intervalRef.current) clearInterval(intervalRef.current);
       return;
     }
 
     completedRef.current = false;
+    startMediaSession();
 
     const tick = () => {
       const left = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
       setRemaining(left);
+      updateMediaSessionTime(left);
 
       if (left <= 0 && !completedRef.current) {
         completedRef.current = true;
+        stopMediaSession();
         onRestTimerEnd();
         fireTimerNotification();
         onSkip();
