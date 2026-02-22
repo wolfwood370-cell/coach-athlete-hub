@@ -35,12 +35,15 @@ export function enableNotifications() {
 
 /** Fire a system notification if permitted */
 function fireTimerNotification() {
+  // Only fire system notification when app is in background / screen off
+  if (!document.hidden) return;
+
   if (typeof Notification !== "undefined" && Notification.permission === "granted") {
     try {
       new Notification("⏱ Recupero terminato!", {
         body: "Il tempo di riposo è scaduto. Prossima serie!",
         icon: "/pwa-192.png",
-        tag: "rest-timer-end", // collapse duplicates
+        tag: "rest-timer-end",
       });
     } catch {
       // Some environments (e.g. iOS Safari) may throw; silently ignore
