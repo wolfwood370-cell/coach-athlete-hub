@@ -86,10 +86,10 @@ export const useActiveSessionStore = create<ActiveSessionState & ActiveSessionAc
       },
 
       startFreeSession: () => {
-        const sessionId = `free-session-${Date.now()}`;
+        const sessionId = crypto.randomUUID();
         set({
           activeSessionId: sessionId,
-          workoutId: `free-workout-${Date.now()}`,
+          workoutId: crypto.randomUUID(),
           currentExerciseIndex: 0,
           sessionLogs: {},
           restEndTime: null,
