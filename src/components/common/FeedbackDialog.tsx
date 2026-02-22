@@ -73,6 +73,9 @@ export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
 
   const isSubmitting = form.formState.isSubmitting;
 
+  const COOLDOWN_MS = 60_000;
+  const LS_KEY = "last_feedback_timestamp";
+
   const onSubmit = async (values: FeedbackFormValues) => {
     if (!user?.id) {
       toast.error("Devi essere loggato per inviare feedback");
@@ -80,6 +83,14 @@ export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
     }
     if (!navigator.onLine) {
       toast.error("Sei offline. Riprova quando torni online.");
+      return;
+    }
+
+    const lastTs = Number(localStorage.getItem(LS_KEY) || 0);
+    const elapsed = Date.now() - lastTs;
+    if (elapsed < COOLDOWN_MS) {
+      const secsLeft = Math.ceil((COOLDOWN_MS - elapsed) / 1000);
+      toast.error(`Attendi ancora ${secsLeft} secondi prima di inviare un altro feedback.`);
       return;
     }
 
@@ -92,6 +103,8 @@ export function FeedbackDialog({ trigger }: FeedbackDialogProps) {
       } as any);
 
       if (error) throw error;
+
+      localStorage.setItem(LS_KEY, String(Date.now()));
 
       toast.success("Feedback inviato! Grazie per il tuo contributo 🙏");
       form.reset();
