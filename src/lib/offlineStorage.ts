@@ -166,25 +166,25 @@ class OfflineStorage {
     await this.init();
     if (!this.db) throw new Error('Database not initialized');
 
-    const all = await this.getAll<any>(storeName);
-    const transaction = this.db!.transaction(storeName, 'readonly');
-    const store = transaction.objectStore(storeName);
-    const request = store.getAll();
-
     return new Promise((resolve, reject) => {
-      request.onsuccess = async () => {
-        const items = request.result as StoredItem<any>[];
-        const now = Date.now();
-        let deletedCount = 0;
+      const tx = this.db!.transaction(storeName, 'readwrite');
+      const store = tx.objectStore(storeName);
+      const request = store.openCursor();
+      const now = Date.now();
+      let deletedCount = 0;
 
-        for (const item of items) {
-          if (item.expiresAt && item.expiresAt < now) {
-            await this.delete(storeName, item.key);
-            deletedCount++;
-          }
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) {
+          resolve(deletedCount);
+          return;
         }
-
-        resolve(deletedCount);
+        const item = cursor.value as StoredItem<any>;
+        if (item.expiresAt && item.expiresAt < now) {
+          cursor.delete();
+          deletedCount++;
+        }
+        cursor.continue();
       };
 
       request.onerror = () => reject(request.error);
