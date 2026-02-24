@@ -899,7 +899,7 @@ export default function ProgramBuilder() {
           <ExerciseLibrarySidebar className="min-w-[320px] w-[320px] shrink-0" />
 
           {/* Main Content */}
-          <div className="flex-1 flex flex-col min-w-[700px] overflow-hidden">
+          <div className="flex-1 flex flex-col min-w-0 overflow-x-auto p-4">
             {/* TOP ROW: Periodization Timeline Header */}
             <PeriodizationHeader
               athleteId={selectedAthlete?.id || null}
