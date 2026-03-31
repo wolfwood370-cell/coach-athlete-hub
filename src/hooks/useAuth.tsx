@@ -28,22 +28,28 @@ export function useAuth() {
     profile: null,
     loading: true,
   });
+  const mountedRef = useRef(true);
 
   useEffect(() => {
+    mountedRef.current = true;
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        if (!mountedRef.current) return;
         setState(prev => ({ ...prev, session, user: session?.user ?? null }));
         
         if (session?.user) {
           // Fetch profile - use setTimeout to avoid race condition
           setTimeout(async () => {
+            if (!mountedRef.current) return;
             const { data: profile } = await supabase
               .from("profiles")
               .select("*")
               .eq("id", session.user.id)
               .maybeSingle();
             
+            if (!mountedRef.current) return;
             setState(prev => ({ 
               ...prev, 
               profile: profile as Profile | null,
@@ -58,12 +64,14 @@ export function useAuth() {
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mountedRef.current) return;
       if (!session) {
         setState(prev => ({ ...prev, loading: false }));
       }
     });
 
     return () => {
+      mountedRef.current = false;
       subscription.unsubscribe();
     };
   }, []);
