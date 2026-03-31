@@ -247,7 +247,9 @@ export function useOfflineSync() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(() =>
     typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'idle'
   );
-  const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+  const [isOnline, setIsOnline] = useState(() =>
+    typeof navigator !== 'undefined' ? navigator.onLine : true
+  );
 
   const isServerError = (code?: number) => code != null && code >= 500;
   const isPermanentError = (code?: number) => code != null && code >= 400 && code < 500;
@@ -344,10 +346,14 @@ export function useOfflineSync() {
   // Listen for online/offline events
   useEffect(() => {
     const handleOnline = () => {
+      setIsOnline(true);
       setSyncStatus('idle');
       processQueue();
     };
-    const handleOffline = () => setSyncStatus('offline');
+    const handleOffline = () => {
+      setIsOnline(false);
+      setSyncStatus('offline');
+    };
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
