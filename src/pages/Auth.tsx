@@ -110,6 +110,14 @@ export default function Auth() {
                 <Button type="submit" className="w-full gradient-primary" disabled={loading}>
                   {loading ? "Accesso in corso..." : "Accedi"}
                 </Button>
+                <button
+                  type="button"
+                  className="w-full text-sm text-muted-foreground hover:text-primary transition-colors"
+                  onClick={handleForgotPassword}
+                  disabled={loading}
+                >
+                  Password dimenticata?
+                </button>
               </form>
             </TabsContent>
             
