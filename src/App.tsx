@@ -16,6 +16,7 @@ import { SwUpdatePrompt } from "@/components/pwa/SwUpdatePrompt";
 // Lazy-loaded pages
 const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const CoachHome = lazy(() => import("./pages/coach/CoachHome"));
 const CoachAthletes = lazy(() => import("./pages/coach/CoachAthletes"));
 const AthleteDetail = lazy(() => import("./pages/coach/AthleteDetail"));
@@ -59,6 +60,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               
               {/* Coach Routes — wrapped in SubscriptionGuard */}
               <Route path="/coach" element={<SubscriptionGuard><CoachHome /></SubscriptionGuard>} />

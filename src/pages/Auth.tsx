@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { Dumbbell, Users } from "lucide-react";
 import { mapSupabaseError } from "@/lib/errorMapping";
+import { supabase } from "@/integrations/supabase/client";
 import { MetaHead } from "@/components/MetaHead";
 import { Footer } from "@/components/layout/Footer";
 
@@ -27,6 +28,25 @@ export default function Auth() {
   const [signupPassword, setSignupPassword] = useState("");
   const [signupName, setSignupName] = useState("");
   const [signupRole, setSignupRole] = useState<"coach" | "athlete">("athlete");
+
+  const handleForgotPassword = async () => {
+    if (!loginEmail) {
+      toast.error("Inserisci la tua email prima di procedere");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(loginEmail, {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      toast.success("Email di recupero inviata! Controlla la tua casella di posta.");
+    } catch (error: any) {
+      toast.error(mapSupabaseError(error));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,6 +130,14 @@ export default function Auth() {
                 <Button type="submit" className="w-full gradient-primary" disabled={loading}>
                   {loading ? "Accesso in corso..." : "Accedi"}
                 </Button>
+                <button
+                  type="button"
+                  className="w-full text-sm text-muted-foreground hover:text-primary transition-colors"
+                  onClick={handleForgotPassword}
+                  disabled={loading}
+                >
+                  Password dimenticata?
+                </button>
               </form>
             </TabsContent>
             
