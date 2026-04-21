@@ -392,7 +392,8 @@ export default function AthleteProfile() {
 
   const avatarUrl = avatarPreview || profile?.avatar_url;
   const initials = profile?.full_name
-    ?.split("")
+    ?.split(/\s+/)
+    .filter(Boolean)
     .map((n) => n[0])
     .join("")
     .toUpperCase() ||"?";
