@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
-import { AthleteLayout } from "@/components/athlete/AthleteLayout";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useState, useEffect, useCallback } from"react";
+import { AthleteLayout } from"@/components/athlete/AthleteLayout";
+import { Card, CardContent } from"@/components/ui/card";
+import { Button } from"@/components/ui/button";
+import { Input } from"@/components/ui/input";
+import { Label } from"@/components/ui/label";
+import { Badge } from"@/components/ui/badge";
+import { Skeleton } from"@/components/ui/skeleton";
 import {
   Drawer,
   DrawerClose,
@@ -13,7 +13,7 @@ import {
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
-} from "@/components/ui/drawer";
+} from"@/components/ui/drawer";
 import { 
   Plus,
   Zap,
@@ -33,18 +33,18 @@ import {
   Sparkles,
   Dumbbell,
   Camera,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
-import { useAdaptiveTDEE, GoalType, StallDetection, GoalCompliance, CoachingAction } from "@/hooks/useAdaptiveTDEE";
-import { useNutritionTargets } from "@/hooks/useNutritionTargets";
-import { useHapticFeedback } from "@/hooks/useHapticFeedback";
-import { toast } from "sonner";
-import { FoodDatabase } from "@/components/nutrition/FoodDatabase";
-import { CalorieBankCard } from "@/components/nutrition/CalorieBankCard";
-import { SmartCopyDrawer } from "@/components/nutrition/SmartCopyDrawer";
-import { FoodCameraScanner } from "@/components/athlete/nutrition/FoodCameraScanner";
+} from"lucide-react";
+import { cn } from"@/lib/utils";
+import { supabase } from"@/integrations/supabase/client";
+import { useAuth } from"@/hooks/useAuth";
+import { useAdaptiveTDEE, GoalType, StallDetection, GoalCompliance, CoachingAction } from"@/hooks/useAdaptiveTDEE";
+import { useNutritionTargets } from"@/hooks/useNutritionTargets";
+import { useHapticFeedback } from"@/hooks/useHapticFeedback";
+import { toast } from"sonner";
+import { FoodDatabase } from"@/components/nutrition/FoodDatabase";
+import { CalorieBankCard } from"@/components/nutrition/CalorieBankCard";
+import { SmartCopyDrawer } from"@/components/nutrition/SmartCopyDrawer";
+import { FoodCameraScanner } from"@/components/athlete/nutrition/FoodCameraScanner";
 import {
   Line,
   Scatter,
@@ -53,7 +53,7 @@ import {
   ResponsiveContainer,
   ComposedChart,
   Tooltip,
-} from "recharts";
+} from"recharts";
 
 // Macro Ring Component with center text and soft alert for excess
 function MacroRing({ 
@@ -79,8 +79,8 @@ function MacroRing({
   const strokeDashoffset = circumference - (percentage / 100) * circumference;
   
   // Amber color for excess
-  const amberColor = "hsl(38 92% 50%)";
-  const amberBgColor = "hsl(38 92% 50% / 0.2)";
+  const amberColor ="hsl(38 92% 50%)";
+  const amberBgColor ="hsl(38 92% 50% / 0.2)";
   
   const activeColor = isOver ? amberColor : color;
   const activeBgColor = isOver ? amberBgColor : bgColor;
@@ -91,13 +91,11 @@ function MacroRing({
         <svg
           height={radius * 2}
           width={radius * 2}
-          className="transform -rotate-90"
-        >
+          className="transform -rotate-90"        >
           {/* Background ring */}
           <circle
             stroke={activeBgColor}
-            fill="transparent"
-            strokeWidth={strokeWidth}
+            fill="transparent"            strokeWidth={strokeWidth}
             r={normalizedRadius}
             cx={radius}
             cy={radius}
@@ -105,15 +103,12 @@ function MacroRing({
           {/* Progress ring */}
           <circle
             stroke={activeColor}
-            fill="transparent"
-            strokeWidth={strokeWidth}
+            fill="transparent"            strokeWidth={strokeWidth}
             strokeDasharray={`${circumference} ${circumference}`}
             style={{ 
               strokeDashoffset: isOver ? 0 : strokeDashoffset,
-              transition: "stroke-dashoffset 0.5s ease-out"
-            }}
-            strokeLinecap="round"
-            r={normalizedRadius}
+              transition:"stroke-dashoffset 0.5s ease-out"            }}
+            strokeLinecap="round"            r={normalizedRadius}
             cx={radius}
             cy={radius}
           />
@@ -122,15 +117,13 @@ function MacroRing({
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span className={cn(
             "text-sm font-bold tabular-nums",
-            isOver ? "text-amber-600 dark:text-amber-400" : "text-foreground"
-          )}>
+            isOver ?"text-amber-600 dark:text-amber-400":"text-foreground"          )}>
             {Math.abs(delta)}g
           </span>
           <span className={cn(
             "text-[9px]",
-            isOver ? "text-amber-600 dark:text-amber-400" : "text-foreground/60"
-          )}>
-            {isOver ? "in eccesso" : "rimasti"}
+            isOver ?"text-amber-600 dark:text-amber-400":"text-foreground/60"          )}>
+            {isOver ?"in eccesso":"rimasti"}
           </span>
         </div>
       </div>
@@ -151,8 +144,7 @@ interface QuickAddFormState {
   caloriesOverride: string;
 }
 
-// Metabolic Status Card Component - Enhanced "Coaching Card"
-function MetabolicStatusCard({ 
+// Metabolic Status Card Component - Enhanced"Coaching Card"function MetabolicStatusCard({ 
   tdee, 
   confidence,
   weightChange,
@@ -168,7 +160,7 @@ function MetabolicStatusCard({
   onAdjustmentClick,
 }: {
   tdee: number | null;
-  confidence: "high" | "medium" | "low" | "insufficient";
+  confidence:"high"|"medium"|"low"|"insufficient";
   weightChange: number | null;
   averageIntake: number | null;
   recommendation: {
@@ -180,7 +172,7 @@ function MetabolicStatusCard({
   stallDetection: StallDetection;
   goalCompliance: GoalCompliance | null;
   coachingAction: CoachingAction | null;
-  trendDirection: "up" | "down" | "stable";
+  trendDirection:"up"|"down"|"stable";
   isLoading: boolean;
   daysWithData: number;
   totalDays: number;
@@ -189,10 +181,10 @@ function MetabolicStatusCard({
   const [expanded, setExpanded] = useState(false);
   
   const confidenceConfig = {
-    high: { label: "Alta", color: "bg-success/10 text-success", icon: "🎯" },
-    medium: { label: "Media", color: "bg-warning/10 text-warning", icon: "📊" },
-    low: { label: "Bassa", color: "bg-muted text-muted-foreground", icon: "📉" },
-    insufficient: { label: "Dati insufficienti", color: "bg-muted text-muted-foreground", icon: "❓" },
+    high: { label:"Alta", color:"bg-success/10 text-success", icon:""},
+    medium: { label:"Media", color:"bg-warning/10 text-warning", icon:""},
+    low: { label:"Bassa", color:"bg-muted text-muted-foreground", icon:""},
+    insufficient: { label:"Dati insufficienti", color:"bg-muted text-muted-foreground", icon:""},
   };
   
   if (isLoading) {
@@ -200,13 +192,13 @@ function MetabolicStatusCard({
       <Card className="border-0 bg-gradient-to-br from-primary/5 to-primary/10">
         <CardContent className="p-5">
           <div className="flex items-center gap-3 mb-4">
-            <Skeleton className="h-10 w-10 rounded-lg" />
+            <Skeleton className="h-10 w-10 rounded-lg"/>
             <div className="space-y-2">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-4 w-32"/>
+              <Skeleton className="h-3 w-24"/>
             </div>
           </div>
-          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-20 w-full"/>
         </CardContent>
       </Card>
     );
@@ -219,14 +211,13 @@ function MetabolicStatusCard({
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-              <Flame className="h-5 w-5 text-primary" />
+              <Flame className="h-5 w-5 text-primary"/>
             </div>
             <div>
               <h3 className="text-sm font-semibold text-foreground">AI Nutrition Coach</h3>
               <div className="flex items-center gap-2 mt-0.5">
                 <Badge 
-                  variant="secondary" 
-                  className={cn("text-[10px] px-1.5 py-0", confidenceConfig[confidence].color)}
+                  variant="secondary"                  className={cn("text-[10px] px-1.5 py-0", confidenceConfig[confidence].color)}
                 >
                   {confidenceConfig[confidence].icon} {confidenceConfig[confidence].label}
                 </Badge>
@@ -238,15 +229,12 @@ function MetabolicStatusCard({
           </div>
           
           <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 -mr-2"
-            onClick={() => setExpanded(!expanded)}
+            variant="ghost"            size="icon"            className="h-8 w-8 -mr-2"            onClick={() => setExpanded(!expanded)}
           >
             {expanded ? (
-              <ChevronUp className="h-4 w-4" />
+              <ChevronUp className="h-4 w-4"/>
             ) : (
-              <ChevronDown className="h-4 w-4" />
+              <ChevronDown className="h-4 w-4"/>
             )}
           </Button>
         </div>
@@ -259,13 +247,13 @@ function MetabolicStatusCard({
             </p>
             <div className="flex items-center justify-center gap-2">
               <span className="text-3xl font-bold tabular-nums text-foreground">
-                {tdee !== null ? tdee.toLocaleString() : "—"}
+                {tdee !== null ? tdee.toLocaleString() :"—"}
               </span>
-              {trendDirection !== "stable" && (
-                trendDirection === "down" ? (
-                  <TrendingDown className="h-5 w-5 text-success" />
+              {trendDirection !=="stable"&& (
+                trendDirection ==="down"? (
+                  <TrendingDown className="h-5 w-5 text-success"/>
                 ) : (
-                  <TrendingUp className="h-5 w-5 text-warning" />
+                  <TrendingUp className="h-5 w-5 text-warning"/>
                 )
               )}
             </div>
@@ -278,7 +266,7 @@ function MetabolicStatusCard({
             </p>
             <div className="flex items-baseline justify-center gap-1">
               <span className="text-3xl font-bold tabular-nums text-foreground">
-                {averageIntake !== null ? averageIntake.toLocaleString() : "—"}
+                {averageIntake !== null ? averageIntake.toLocaleString() :"—"}
               </span>
             </div>
             <span className="text-xs text-muted-foreground">kcal/giorno</span>
@@ -289,25 +277,23 @@ function MetabolicStatusCard({
         {coachingAction && (
           <div className={cn(
             "p-3 rounded-lg mb-4 border",
-            coachingAction.type === "warning" && "bg-amber-500/10 border-amber-500/20",
-            coachingAction.type === "suggestion" && "bg-primary/10 border-primary/20",
-            coachingAction.type === "info" && "bg-muted border-muted"
-          )}>
+            coachingAction.type ==="warning"&&"bg-amber-500/10 border-amber-500/20",
+            coachingAction.type ==="suggestion"&&"bg-primary/10 border-primary/20",
+            coachingAction.type ==="info"&&"bg-muted border-muted"          )}>
             <div className="flex items-start gap-2 mb-2">
-              {coachingAction.type === "warning" ? (
-                <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
-              ) : coachingAction.type === "suggestion" ? (
-                <Sparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              {coachingAction.type ==="warning"? (
+                <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0"/>
+              ) : coachingAction.type ==="suggestion"? (
+                <Sparkles className="h-4 w-4 text-primary mt-0.5 flex-shrink-0"/>
               ) : (
-                <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <Info className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0"/>
               )}
               <div>
                 <p className={cn(
                   "text-sm font-semibold",
-                  coachingAction.type === "warning" && "text-amber-700 dark:text-amber-400",
-                  coachingAction.type === "suggestion" && "text-primary",
-                  coachingAction.type === "info" && "text-foreground"
-                )}>
+                  coachingAction.type ==="warning"&&"text-amber-700 dark:text-amber-400",
+                  coachingAction.type ==="suggestion"&&"text-primary",
+                  coachingAction.type ==="info"&&"text-foreground"                )}>
                   {coachingAction.title}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -317,16 +303,13 @@ function MetabolicStatusCard({
             </div>
             {coachingAction.actionLabel && coachingAction.actionValue !== undefined && (
               <Button
-                variant="outline"
-                size="sm"
-                className={cn(
+                variant="outline"                size="sm"                className={cn(
                   "w-full",
-                  coachingAction.type === "warning" && "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20",
-                  coachingAction.type === "suggestion" && "bg-primary/10 border-primary/30 text-primary hover:bg-primary/20"
-                )}
+                  coachingAction.type ==="warning"&&"bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20",
+                  coachingAction.type ==="suggestion"&&"bg-primary/10 border-primary/30 text-primary hover:bg-primary/20"                )}
                 onClick={() => onAdjustmentClick?.(coachingAction.actionValue!)}
               >
-                <Sparkles className="h-4 w-4 mr-2" />
+                <Sparkles className="h-4 w-4 mr-2"/>
                 {coachingAction.actionLabel}
               </Button>
             )}
@@ -338,28 +321,23 @@ function MetabolicStatusCard({
           <div className={cn(
             "flex items-center justify-center gap-2 p-2 rounded-lg mb-4",
             goalCompliance.isCompliant 
-              ? "bg-success/10 border border-success/20" 
-              : "bg-warning/10 border border-warning/20"
-          )}>
+              ?"bg-success/10 border border-success/20"              :"bg-warning/10 border border-warning/20"          )}>
             {goalCompliance.isCompliant ? (
-              <CheckCircle2 className="h-4 w-4 text-success" />
+              <CheckCircle2 className="h-4 w-4 text-success"/>
             ) : (
-              <AlertTriangle className="h-4 w-4 text-warning" />
+              <AlertTriangle className="h-4 w-4 text-warning"/>
             )}
             <span className={cn(
               "text-sm font-medium",
-              goalCompliance.isCompliant ? "text-success" : "text-warning"
-            )}>
+              goalCompliance.isCompliant ?"text-success":"text-warning"            )}>
               {goalCompliance.message}
             </span>
             <Badge 
-              variant="secondary" 
-              className={cn(
+              variant="secondary"              className={cn(
                 "text-[10px]",
-                goalCompliance.isCompliant ? "bg-success/20 text-success" : "bg-warning/20 text-warning"
-              )}
+                goalCompliance.isCompliant ?"bg-success/20 text-success":"bg-warning/20 text-warning"              )}
             >
-              {goalCompliance.variance > 0 ? "+" : ""}{goalCompliance.variance}%
+              {goalCompliance.variance > 0 ?"+":""}{goalCompliance.variance}%
             </Badge>
           </div>
         )}
@@ -368,17 +346,16 @@ function MetabolicStatusCard({
         {weightChange !== null && (
           <div className="flex items-center justify-center gap-2 mb-4">
             {weightChange < 0 ? (
-              <TrendingDown className="h-4 w-4 text-success" />
+              <TrendingDown className="h-4 w-4 text-success"/>
             ) : weightChange > 0 ? (
-              <TrendingUp className="h-4 w-4 text-warning" />
+              <TrendingUp className="h-4 w-4 text-warning"/>
             ) : (
-              <Minus className="h-4 w-4 text-muted-foreground" />
+              <Minus className="h-4 w-4 text-muted-foreground"/>
             )}
             <span className={cn(
               "text-sm font-medium tabular-nums",
-              weightChange < 0 ? "text-success" : weightChange > 0 ? "text-warning" : "text-muted-foreground"
-            )}>
-              {weightChange > 0 ? "+" : ""}{weightChange.toFixed(2)} kg in {totalDays} giorni
+              weightChange < 0 ?"text-success": weightChange > 0 ?"text-warning":"text-muted-foreground"            )}>
+              {weightChange > 0 ?"+":""}{weightChange.toFixed(2)} kg in {totalDays} giorni
             </span>
           </div>
         )}
@@ -387,7 +364,7 @@ function MetabolicStatusCard({
         {stallDetection.isStalling && stallDetection.suggestedAdjustment && (
           <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-4">
             <div className="flex items-start gap-2 mb-3">
-              <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+              <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0"/>
               <div>
                 <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
                   Plateau rilevato
@@ -398,13 +375,10 @@ function MetabolicStatusCard({
               </div>
             </div>
             <Button
-              variant="outline"
-              size="sm"
-              className="w-full bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
-              onClick={() => onAdjustmentClick?.(stallDetection.suggestedAdjustment!)}
+              variant="outline"              size="sm"              className="w-full bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"              onClick={() => onAdjustmentClick?.(stallDetection.suggestedAdjustment!)}
             >
-              <Sparkles className="h-4 w-4 mr-2" />
-              Applica aggiustamento ({stallDetection.suggestedAdjustment > 0 ? "+" : ""}{stallDetection.suggestedAdjustment} kcal)
+              <Sparkles className="h-4 w-4 mr-2"/>
+              Applica aggiustamento ({stallDetection.suggestedAdjustment > 0 ?"+":""}{stallDetection.suggestedAdjustment} kcal)
             </Button>
           </div>
         )}
@@ -413,7 +387,7 @@ function MetabolicStatusCard({
         {recommendation && recommendation.targetCalories && !stallDetection.isStalling && (
           <div className="p-3 rounded-lg bg-primary/10 border border-primary/20">
             <div className="flex items-start gap-2">
-              <Target className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+              <Target className="h-4 w-4 text-primary mt-0.5 flex-shrink-0"/>
               <div>
                 <p className="text-sm font-medium text-foreground">
                   Obiettivo Settimanale
@@ -430,7 +404,7 @@ function MetabolicStatusCard({
         {expanded && (
           <div className="mt-4 pt-4 border-t border-border/50 space-y-3">
             <div className="flex items-start gap-2 text-xs text-muted-foreground">
-              <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+              <Info className="h-3.5 w-3.5 mt-0.5 flex-shrink-0"/>
               <p>
                 Il TDEE è calcolato usando il trend del peso (EMA α=0.1) e l'intake calorico degli ultimi {totalDays} giorni.
                 Formula: TDEE = Media Intake + ((Trend Iniziale − Trend Finale) × 7700 ÷ Giorni)
@@ -440,13 +414,13 @@ function MetabolicStatusCard({
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="p-2 rounded bg-muted/50">
                 <p className="text-lg font-bold tabular-nums">
-                  {tdee && averageIntake ? (tdee - averageIntake > 0 ? "+" : "") + (tdee - averageIntake) : "—"}
+                  {tdee && averageIntake ? (tdee - averageIntake > 0 ?"+":"") + (tdee - averageIntake) :"—"}
                 </p>
                 <p className="text-[9px] text-muted-foreground">Δ Giornaliero</p>
               </div>
               <div className="p-2 rounded bg-muted/50">
                 <p className="text-lg font-bold tabular-nums">
-                  {weightChange !== null ? (weightChange * 7 / 14).toFixed(2) : "—"}
+                  {weightChange !== null ? (weightChange * 7 / 14).toFixed(2) :"—"}
                 </p>
                 <p className="text-[9px] text-muted-foreground">kg/settimana</p>
               </div>
@@ -470,7 +444,7 @@ function WeightTrendChart({ data }: { data: { dayIndex: number; date: string; ra
     return (
       <div className="h-32 flex flex-col items-center justify-center text-center p-4 rounded-xl bg-gradient-to-br from-muted/40 to-muted/20 border border-dashed border-border">
         <div className="h-10 w-10 rounded-full bg-muted/50 flex items-center justify-center mb-3">
-          <Scale className="h-5 w-5 text-muted-foreground/40" />
+          <Scale className="h-5 w-5 text-muted-foreground/40"/>
         </div>
         <p className="text-sm font-medium text-muted-foreground">Dati insufficienti</p>
         <p className="text-xs text-muted-foreground/70 mt-1">
@@ -493,51 +467,43 @@ function WeightTrendChart({ data }: { data: { dayIndex: number; date: string; ra
   }));
 
   return (
-    <ResponsiveContainer width="100%" height={140}>
+    <ResponsiveContainer width="100%"height={140}>
       <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
         <XAxis 
-          dataKey="day" 
-          tick={{ fontSize: 10, fill: 'hsl(var(--foreground) / 0.4)' }}
+          dataKey="day"          tick={{ fontSize: 10, fill:'hsl(var(--foreground) / 0.4)'}}
           axisLine={false}
           tickLine={false}
         />
         <YAxis 
           domain={[minWeight, maxWeight]}
-          tick={{ fontSize: 10, fill: 'hsl(var(--foreground) / 0.4)' }}
+          tick={{ fontSize: 10, fill:'hsl(var(--foreground) / 0.4)'}}
           axisLine={false}
           tickLine={false}
           tickFormatter={(value) => value.toFixed(1)}
         />
         <Tooltip
           contentStyle={{
-            backgroundColor: 'hsl(var(--card))',
-            border: '1px solid hsl(var(--border))',
-            borderRadius: '8px',
-            fontSize: '12px',
+            backgroundColor:'hsl(var(--card))',
+            border:'1px solid hsl(var(--border))',
+            borderRadius:'8px',
+            fontSize:'12px',
           }}
-          labelStyle={{ color: 'hsl(var(--muted-foreground))' }}
+          labelStyle={{ color:'hsl(var(--muted-foreground))'}}
           formatter={(value: number | null, name: string) => {
             if (value === null) return ['-', name];
             return [
               `${value.toFixed(1)} kg`,
-              name === 'scale' ? 'Scale' : 'Trend (EMA)'
-            ];
+              name ==='scale'?'Scale':'Trend (EMA)'            ];
           }}
         />
         {/* Scale weight as scattered dots (noise) */}
         <Scatter 
-          dataKey="scale" 
-          fill="hsl(var(--foreground) / 0.25)" 
-          shape="circle"
-        />
+          dataKey="scale"          fill="hsl(var(--foreground) / 0.25)"          shape="circle"        />
         {/* Trend line (signal) */}
         <Line 
-          type="monotone" 
-          dataKey="trend" 
-          stroke="hsl(var(--primary))" 
-          strokeWidth={3}
+          type="monotone"          dataKey="trend"          stroke="hsl(var(--primary))"          strokeWidth={3}
           dot={false}
-          activeDot={{ r: 4, fill: 'hsl(var(--primary))' }}
+          activeDot={{ r: 4, fill:'hsl(var(--primary))'}}
           connectNulls
         />
       </ComposedChart>
@@ -559,18 +525,18 @@ export default function AthleteNutrition() {
   const { targets: nutritionTargets, isTrainingDay, hasPlan, isLoading: targetsLoading } = useNutritionTargets();
   
   // Adaptive TDEE hook
-  const tdeeData = useAdaptiveTDEE(undefined, "cut");
+  const tdeeData = useAdaptiveTDEE(undefined,"cut");
   
   // Quick Add form state
   const [formData, setFormData] = useState<QuickAddFormState>({
-    name: "",
-    protein: "",
-    fat: "",
-    carbs: "",
-    fiber: "",
-    salt: "",
-    water: "",
-    caloriesOverride: "",
+    name:"",
+    protein:"",
+    fat:"",
+    carbs:"",
+    fiber:"",
+    salt:"",
+    water:"",
+    caloriesOverride:"",
   });
   
   // Nutrition state
@@ -636,14 +602,14 @@ export default function AthleteNutrition() {
   // Reset form
   const resetForm = () => {
     setFormData({
-      name: "",
-      protein: "",
-      fat: "",
-      carbs: "",
-      fiber: "",
-      salt: "",
-      water: "",
-      caloriesOverride: "",
+      name:"",
+      protein:"",
+      fat:"",
+      carbs:"",
+      fiber:"",
+      salt:"",
+      water:"",
+      caloriesOverride:"",
     });
   };
 
@@ -710,23 +676,19 @@ export default function AthleteNutrition() {
       <div className="space-y-4 p-4 pb-24 animate-fade-in">
         
         {/* ===== TRAINING DAY INDICATOR ===== */}
-        {hasPlan && nutritionTargets.strategyMode === "cycling_on_off" && (
+        {hasPlan && nutritionTargets.strategyMode ==="cycling_on_off"&& (
           <div className={cn(
             "flex items-center justify-center gap-2 py-2 px-4 rounded-lg",
             isTrainingDay 
-              ? "bg-primary/10 border border-primary/20" 
-              : "bg-secondary border border-border"
-          )}>
+              ?"bg-primary/10 border border-primary/20"              :"bg-secondary border border-border"          )}>
             <Dumbbell className={cn(
               "h-4 w-4",
-              isTrainingDay ? "text-primary" : "text-muted-foreground"
-            )} />
+              isTrainingDay ?"text-primary":"text-muted-foreground"            )} />
             <span className={cn(
               "text-sm font-medium",
-              isTrainingDay ? "text-primary" : "text-muted-foreground"
-            )}>
-              {isTrainingDay ? "Giorno di Allenamento" : "Giorno di Riposo"} • 
-              Macro {isTrainingDay ? "ON" : "OFF"}
+              isTrainingDay ?"text-primary":"text-muted-foreground"            )}>
+              {isTrainingDay ?"Giorno di Allenamento":"Giorno di Riposo"} • 
+              Macro {isTrainingDay ?"ON":"OFF"}
             </span>
           </div>
         )}
@@ -749,7 +711,7 @@ export default function AthleteNutrition() {
           daysWithData={Math.max(tdeeData.daysWithCalories, tdeeData.daysWithWeight)}
           totalDays={tdeeData.totalDays}
           onAdjustmentClick={(adjustment) => {
-            toast.success(`Suggerimento: ${adjustment > 0 ? "+" : ""}${adjustment} kcal/giorno applicato!`);
+            toast.success(`Suggerimento: ${adjustment > 0 ?"+":""}${adjustment} kcal/giorno applicato!`);
           }}
         />
         
@@ -760,15 +722,13 @@ export default function AthleteNutrition() {
             <div className="text-center mb-5">
               <p className={cn(
                 "text-5xl font-bold tabular-nums tracking-tight",
-                isOver ? "text-amber-600 dark:text-amber-400" : "text-foreground"
-              )}>
+                isOver ?"text-amber-600 dark:text-amber-400":"text-foreground"              )}>
                 {Math.abs(remaining).toLocaleString()}
               </p>
               <p className={cn(
                 "text-sm font-medium mt-1",
-                isOver ? "text-amber-600 dark:text-amber-400" : "text-primary"
-              )}>
-                kcal {isOver ? "in eccesso" : "rimanenti"}
+                isOver ?"text-amber-600 dark:text-amber-400":"text-primary"              )}>
+                kcal {isOver ?"in eccesso":"rimanenti"}
               </p>
             </div>
 
@@ -779,16 +739,13 @@ export default function AthleteNutrition() {
                   className={cn(
                     "absolute inset-y-0 left-0 rounded-full transition-all duration-500",
                     isOver 
-                      ? "bg-gradient-to-r from-amber-500 to-amber-400" 
-                      : "bg-gradient-to-r from-primary to-primary/70"
-                  )}
-                  style={{ width: `${Math.min(consumedPercent, 100)}%` }}
+                      ?"bg-gradient-to-r from-amber-500 to-amber-400"                      :"bg-gradient-to-r from-primary to-primary/70"                  )}
+                  style={{ width:`${Math.min(consumedPercent, 100)}%`}}
                 />
                 {/* Overflow indicator - amber for excess */}
                 {consumedPercent > 100 && (
                   <div 
-                    className="absolute inset-y-0 right-0 bg-amber-400/50 rounded-r-full"
-                    style={{ width: `${Math.min(consumedPercent - 100, 100)}%` }}
+                    className="absolute inset-y-0 right-0 bg-amber-400/50 rounded-r-full"                    style={{ width:`${Math.min(consumedPercent - 100, 100)}%`}}
                   />
                 )}
               </div>
@@ -805,26 +762,17 @@ export default function AthleteNutrition() {
           <CardContent className="p-5">
             <div className="flex justify-around items-center">
               <MacroRing 
-                label="Protein" 
-                consumed={consumed.protein}
+                label="Protein"                consumed={consumed.protein}
                 target={nutritionTargets.protein}
-                color="hsl(0 84% 60%)"
-                bgColor="hsl(0 84% 60% / 0.2)"
-              />
+                color="hsl(0 84% 60%)"                bgColor="hsl(0 84% 60% / 0.2)"              />
               <MacroRing 
-                label="Carbs" 
-                consumed={consumed.carbs}
+                label="Carbs"                consumed={consumed.carbs}
                 target={nutritionTargets.carbs}
-                color="hsl(142 71% 45%)"
-                bgColor="hsl(142 71% 45% / 0.2)"
-              />
+                color="hsl(142 71% 45%)"                bgColor="hsl(142 71% 45% / 0.2)"              />
               <MacroRing 
-                label="Fats" 
-                consumed={consumed.fats}
+                label="Fats"                consumed={consumed.fats}
                 target={nutritionTargets.fats}
-                color="hsl(45 93% 47%)"
-                bgColor="hsl(45 93% 47% / 0.2)"
-              />
+                color="hsl(45 93% 47%)"                bgColor="hsl(45 93% 47% / 0.2)"              />
             </div>
             
             {/* Water Progress Bar */}
@@ -834,18 +782,14 @@ export default function AthleteNutrition() {
                 <span className={cn(
                   "text-xs",
                   (consumed.water || 0) >= nutritionTargets.water 
-                    ? "text-cyan-600 dark:text-cyan-400 font-medium" 
-                    : "text-foreground/50"
-                )}>
+                    ?"text-cyan-600 dark:text-cyan-400 font-medium"                    :"text-foreground/50"                )}>
                   {(consumed.water || 0) >= nutritionTargets.water 
-                    ? "✓ Goal reached!" 
-                    : `${consumed.water || 0} / ${nutritionTargets.water} ml`}
+                    ?"Goal reached!"                    :`${consumed.water || 0} / ${nutritionTargets.water} ml`}
                 </span>
               </div>
               <div className="relative h-2.5 bg-muted rounded-full overflow-hidden">
                 <div 
-                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 bg-gradient-to-r from-sky-500 to-cyan-400"
-                  style={{ width: `${Math.min(((consumed.water || 0) / nutritionTargets.water) * 100, 100)}%` }}
+                  className="absolute inset-y-0 left-0 rounded-full transition-all duration-500 bg-gradient-to-r from-sky-500 to-cyan-400"                  style={{ width:`${Math.min(((consumed.water || 0) / nutritionTargets.water) * 100, 100)}%`}}
                 />
               </div>
             </div>
@@ -857,7 +801,7 @@ export default function AthleteNutrition() {
           <CardContent className="p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
-                <Scale className="h-4 w-4 text-muted-foreground" />
+                <Scale className="h-4 w-4 text-muted-foreground"/>
                 <span className="text-sm font-semibold text-foreground">Weight Trend</span>
               </div>
               {tdeeData.endTrend && (
@@ -867,14 +811,13 @@ export default function AthleteNutrition() {
                   {tdeeData.weightChange !== null && (
                     <div className={cn(
                       "flex items-center gap-0.5 text-xs font-medium ml-1",
-                      tdeeData.weightChange < 0 ? "text-success" : tdeeData.weightChange > 0 ? "text-warning" : "text-muted-foreground"
-                    )}>
+                      tdeeData.weightChange < 0 ?"text-success": tdeeData.weightChange > 0 ?"text-warning":"text-muted-foreground"                    )}>
                       {tdeeData.weightChange < 0 ? (
-                        <TrendingDown className="h-3 w-3" />
+                        <TrendingDown className="h-3 w-3"/>
                       ) : tdeeData.weightChange > 0 ? (
-                        <TrendingUp className="h-3 w-3" />
+                        <TrendingUp className="h-3 w-3"/>
                       ) : (
-                        <Minus className="h-3 w-3" />
+                        <Minus className="h-3 w-3"/>
                       )}
                       <span className="tabular-nums">{Math.abs(tdeeData.weightChange).toFixed(2)}</span>
                     </div>
@@ -888,11 +831,11 @@ export default function AthleteNutrition() {
             {/* Legend */}
             <div className="flex justify-center gap-4 mt-2">
               <div className="flex items-center gap-1.5">
-                <div className="h-0.5 w-4 rounded bg-primary" />
+                <div className="h-0.5 w-4 rounded bg-primary"/>
                 <span className="text-[10px] text-muted-foreground">Trend (EMA)</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <div className="h-2 w-2 rounded-full bg-foreground/25" />
+                <div className="h-2 w-2 rounded-full bg-foreground/25"/>
                 <span className="text-[10px] text-muted-foreground">Scale</span>
               </div>
             </div>
@@ -905,18 +848,15 @@ export default function AthleteNutrition() {
       <div
         className={cn(
           "fixed bottom-20 right-4 z-40 transition-all duration-300 ease-out",
-          showSecondFab ? "translate-y-[-72px] opacity-100" : "translate-y-0 opacity-0 pointer-events-none"
-        )}
+          showSecondFab ?"translate-y-[-72px] opacity-100":"translate-y-0 opacity-0 pointer-events-none"        )}
       >
         <Button
           onClick={() => {
             setFoodDbOpen(true);
             setShowSecondFab(false);
           }}
-          className="h-14 w-14 rounded-full shadow-xl bg-emerald-600 hover:bg-emerald-700"
-          size="icon"
-        >
-          <Search className="h-6 w-6 text-white" />
+          className="h-14 w-14 rounded-full shadow-xl bg-emerald-600 hover:bg-emerald-700"          size="icon"        >
+          <Search className="h-6 w-6 text-white"/>
         </Button>
       </div>
       
@@ -924,18 +864,15 @@ export default function AthleteNutrition() {
       <div
         className={cn(
           "fixed bottom-20 right-4 z-40 transition-all duration-300 ease-out",
-          showSecondFab ? "translate-y-[-144px] opacity-100" : "translate-y-0 opacity-0 pointer-events-none"
-        )}
+          showSecondFab ?"translate-y-[-144px] opacity-100":"translate-y-0 opacity-0 pointer-events-none"        )}
       >
         <Button
           onClick={() => {
             setScannerOpen(true);
             setShowSecondFab(false);
           }}
-          className="h-14 w-14 rounded-full shadow-xl bg-rose-600 hover:bg-rose-700"
-          size="icon"
-        >
-          <Camera className="h-6 w-6 text-white" />
+          className="h-14 w-14 rounded-full shadow-xl bg-rose-600 hover:bg-rose-700"          size="icon"        >
+          <Camera className="h-6 w-6 text-white"/>
         </Button>
       </div>
       
@@ -943,18 +880,15 @@ export default function AthleteNutrition() {
       <div
         className={cn(
           "fixed bottom-20 right-4 z-40 transition-all duration-300 ease-out",
-          showSecondFab ? "translate-x-[-72px] opacity-100" : "translate-x-0 opacity-0 pointer-events-none"
-        )}
+          showSecondFab ?"translate-x-[-72px] opacity-100":"translate-x-0 opacity-0 pointer-events-none"        )}
       >
         <Button
           onClick={() => {
             setSmartCopyOpen(true);
             setShowSecondFab(false);
           }}
-          className="h-14 w-14 rounded-full shadow-xl bg-violet-600 hover:bg-violet-700"
-          size="icon"
-        >
-          <Copy className="h-6 w-6 text-white" />
+          className="h-14 w-14 rounded-full shadow-xl bg-violet-600 hover:bg-violet-700"          size="icon"        >
+          <Copy className="h-6 w-6 text-white"/>
         </Button>
       </div>
       
@@ -968,21 +902,18 @@ export default function AthleteNutrition() {
             setShowSecondFab(true);
           }
         }}
-        className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-xl z-40 transition-all duration-200 bg-primary hover:bg-primary/90"
-        size="icon"
-      >
+        className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-xl z-40 transition-all duration-200 bg-primary hover:bg-primary/90"        size="icon"      >
         {showSecondFab ? (
-          <Zap className="h-6 w-6 text-primary-foreground transition-transform duration-200" />
+          <Zap className="h-6 w-6 text-primary-foreground transition-transform duration-200"/>
         ) : (
-          <Plus className="h-6 w-6 text-primary-foreground transition-transform duration-200" />
+          <Plus className="h-6 w-6 text-primary-foreground transition-transform duration-200"/>
         )}
       </Button>
       
       {/* Backdrop when FAB menu is open */}
       {showSecondFab && (
         <div 
-          className="fixed inset-0 z-30" 
-          onClick={() => setShowSecondFab(false)}
+          className="fixed inset-0 z-30"          onClick={() => setShowSecondFab(false)}
         />
       )}
 
@@ -1021,13 +952,10 @@ export default function AthleteNutrition() {
                 <Label className="text-xs text-muted-foreground">Energy</Label>
                 <div className="flex gap-2">
                   <Input
-                    type="number"
-                    inputMode="numeric"
-                    placeholder={calculatedKcal > 0 ? `${calculatedKcal} (auto)` : "0"}
+                    type="number"                    inputMode="numeric"                    placeholder={calculatedKcal > 0 ?`${calculatedKcal} (auto)`:"0"}
                     value={formData.caloriesOverride}
                     onChange={(e) => handleFieldChange("caloriesOverride", e.target.value)}
-                    className="flex-1 bg-secondary/60 border-border h-12 text-base"
-                  />
+                    className="flex-1 bg-secondary/60 border-border h-12 text-base"                  />
                   <div className="flex items-center justify-center px-4 bg-secondary/60 border border-border rounded-md text-sm text-muted-foreground">
                     kcal
                   </div>
@@ -1043,13 +971,9 @@ export default function AthleteNutrition() {
                   <Label className="text-xs text-muted-foreground">Protein</Label>
                   <div className="relative">
                     <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0"
-                      value={formData.protein}
+                      type="number"                      inputMode="decimal"                      placeholder="0"                      value={formData.protein}
                       onChange={(e) => handleFieldChange("protein", e.target.value)}
-                      className="bg-secondary/60 border-border h-11 text-base pr-8"
-                    />
+                      className="bg-secondary/60 border-border h-11 text-base pr-8"                    />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60">g</span>
                   </div>
                 </div>
@@ -1057,13 +981,9 @@ export default function AthleteNutrition() {
                   <Label className="text-xs text-muted-foreground">Fats</Label>
                   <div className="relative">
                     <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0"
-                      value={formData.fat}
+                      type="number"                      inputMode="decimal"                      placeholder="0"                      value={formData.fat}
                       onChange={(e) => handleFieldChange("fat", e.target.value)}
-                      className="bg-secondary/60 border-border h-11 text-base pr-8"
-                    />
+                      className="bg-secondary/60 border-border h-11 text-base pr-8"                    />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60">g</span>
                   </div>
                 </div>
@@ -1071,13 +991,9 @@ export default function AthleteNutrition() {
                   <Label className="text-xs text-muted-foreground">Carbs</Label>
                   <div className="relative">
                     <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0"
-                      value={formData.carbs}
+                      type="number"                      inputMode="decimal"                      placeholder="0"                      value={formData.carbs}
                       onChange={(e) => handleFieldChange("carbs", e.target.value)}
-                      className="bg-secondary/60 border-border h-11 text-base pr-8"
-                    />
+                      className="bg-secondary/60 border-border h-11 text-base pr-8"                    />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60">g</span>
                   </div>
                 </div>
@@ -1089,13 +1005,9 @@ export default function AthleteNutrition() {
                   <Label className="text-xs text-muted-foreground">Fiber</Label>
                   <div className="relative">
                     <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0"
-                      value={formData.fiber}
+                      type="number"                      inputMode="decimal"                      placeholder="0"                      value={formData.fiber}
                       onChange={(e) => handleFieldChange("fiber", e.target.value)}
-                      className="bg-secondary/60 border-border h-11 text-base pr-8"
-                    />
+                      className="bg-secondary/60 border-border h-11 text-base pr-8"                    />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60">g</span>
                   </div>
                 </div>
@@ -1103,13 +1015,9 @@ export default function AthleteNutrition() {
                   <Label className="text-xs text-muted-foreground">Salt</Label>
                   <div className="relative">
                     <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0"
-                      value={formData.salt}
+                      type="number"                      inputMode="decimal"                      placeholder="0"                      value={formData.salt}
                       onChange={(e) => handleFieldChange("salt", e.target.value)}
-                      className="bg-secondary/60 border-border h-11 text-base pr-8"
-                    />
+                      className="bg-secondary/60 border-border h-11 text-base pr-8"                    />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60">g</span>
                   </div>
                 </div>
@@ -1117,13 +1025,9 @@ export default function AthleteNutrition() {
                   <Label className="text-xs text-muted-foreground">Water</Label>
                   <div className="relative">
                     <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0"
-                      value={formData.water}
+                      type="number"                      inputMode="decimal"                      placeholder="0"                      value={formData.water}
                       onChange={(e) => handleFieldChange("water", e.target.value)}
-                      className="bg-secondary/60 border-border h-11 text-base pr-8"
-                    />
+                      className="bg-secondary/60 border-border h-11 text-base pr-8"                    />
                     <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground/60">ml</span>
                   </div>
                 </div>
@@ -1134,13 +1038,12 @@ export default function AthleteNutrition() {
             <DrawerFooter className="pt-2 shrink-0 border-t border-border/50">
               <Button 
                 onClick={handleSubmit}
-                className="w-full h-12 font-semibold bg-primary hover:bg-primary/90"
-                disabled={isSubmitting}
+                className="w-full h-12 font-semibold bg-primary hover:bg-primary/90"                disabled={isSubmitting}
               >
                 Add
               </Button>
               <DrawerClose asChild>
-                <Button variant="ghost" className="w-full text-primary hover:text-primary/80 hover:bg-primary/10 text-sm">
+                <Button variant="ghost"className="w-full text-primary hover:text-primary/80 hover:bg-primary/10 text-sm">
                   Cancel
                 </Button>
               </DrawerClose>

@@ -1,8 +1,8 @@
-import { useState, useRef, useCallback } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { useState, useRef, useCallback } from"react";
+import { Button } from"@/components/ui/button";
+import { Input } from"@/components/ui/input";
+import { Label } from"@/components/ui/label";
+import { Badge } from"@/components/ui/badge";
 import {
   Drawer,
   DrawerClose,
@@ -10,21 +10,21 @@ import {
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
-} from "@/components/ui/drawer";
+} from"@/components/ui/drawer";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Camera, Loader2, CheckCircle2, XCircle, RotateCcw, Sparkles, Mic, MicOff } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { compressImage } from "@/lib/imageCompression";
-import { useAuth } from "@/hooks/useAuth";
-import { toast } from "sonner";
+} from"@/components/ui/select";
+import { Textarea } from"@/components/ui/textarea";
+import { Camera, Loader2, CheckCircle2, XCircle, RotateCcw, Sparkles, Mic, MicOff } from"lucide-react";
+import { cn } from"@/lib/utils";
+import { supabase } from"@/integrations/supabase/client";
+import { compressImage } from"@/lib/imageCompression";
+import { useAuth } from"@/hooks/useAuth";
+import { toast } from"sonner";
 
 interface FoodCameraScannerProps {
   open: boolean;
@@ -32,7 +32,7 @@ interface FoodCameraScannerProps {
   onMealLogged: () => void;
 }
 
-type ScanStep = "idle" | "compressing" | "describing" | "analyzing" | "review";
+type ScanStep ="idle"|"compressing"|"describing"|"analyzing"|"review";
 
 interface AiResult {
   name: string;
@@ -50,7 +50,7 @@ const LABOR_MESSAGES = [
   "Ottimizzazione risultati...",
 ];
 
-type MealTimeType = "breakfast" | "lunch" | "dinner" | "snack";
+type MealTimeType ="breakfast"|"lunch"|"dinner"|"snack";
 
 export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCameraScannerProps) {
   const { user } = useAuth();
@@ -98,7 +98,7 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
     if (!file) return;
 
     // Reset input so same file can be selected again
-    e.target.value = "";
+    e.target.value ="";
 
     setStep("compressing");
 
@@ -134,13 +134,13 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
     }
 
     const recognition = new SpeechRecognition();
-    recognition.lang = "it-IT";
+    recognition.lang ="it-IT";
     recognition.continuous = false;
     recognition.interimResults = false;
 
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
-      setDescription((prev) => (prev ? prev + " " + transcript : transcript));
+      setDescription((prev) => (prev ? prev +""+ transcript : transcript));
       setIsListening(false);
     };
 
@@ -171,7 +171,7 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
       // Handle 429 rate limit specifically
       if (error) {
         const status = (error as any)?.status ?? (error as any)?.context?.status;
-        if (status === 429 || data?.code === "DAILY_LIMIT") {
+        if (status === 429 || data?.code ==="DAILY_LIMIT") {
           clearInterval(interval);
           toast.error("Limite giornaliero AI raggiunto. Passa a Pro per scansioni illimitate.", {
             duration: 5000,
@@ -182,7 +182,7 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
         throw error;
       }
       if (data?.error) {
-        if (data.code === "DAILY_LIMIT") {
+        if (data.code ==="DAILY_LIMIT") {
           clearInterval(interval);
           toast.error("Limite giornaliero AI raggiunto. Passa a Pro per scansioni illimitate.", {
             duration: 5000,
@@ -190,7 +190,7 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
           reset();
           return;
         }
-        toast.error(data.error === "Non è cibo" ? "L'immagine non sembra contenere cibo" : data.error);
+        toast.error(data.error ==="Non è cibo"?"L'immagine non sembra contenere cibo": data.error);
         reset();
         return;
       }
@@ -223,10 +223,10 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
       let photoUrl: string | null = null;
       if (imageBase64) {
         const blob = await fetch(imageBase64).then((r) => r.blob());
-        const fileName = `${user.id}/${Date.now()}.jpg`;
+        const fileName =`${user.id}/${Date.now()}.jpg`;
         const { error: uploadError } = await supabase.storage
           .from("food-photos")
-          .upload(fileName, blob, { contentType: "image/jpeg" });
+          .upload(fileName, blob, { contentType:"image/jpeg"});
 
         if (!uploadError) {
           const { data: urlData } = supabase.storage.from("food-photos").getPublicUrl(fileName);
@@ -242,7 +242,7 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
       // Insert into meal_logs
       const { error: mealError } = await supabase.from("meal_logs").insert({
         user_id: user.id,
-        name: editName || "Pasto",
+        name: editName ||"Pasto",
         meal_time: mealTime,
         calories,
         protein,
@@ -258,7 +258,7 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
       // Also insert into nutrition_logs for total tracking
       const { error: nutritionError } = await supabase.from("nutrition_logs").insert({
         athlete_id: user.id,
-        meal_name: editName || "Pasto (AI)",
+        meal_name: editName ||"Pasto (AI)",
         calories,
         protein,
         carbs,
@@ -267,7 +267,7 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
 
       if (nutritionError) console.error("nutrition_logs sync error:", nutritionError);
 
-      toast.success("Pasto salvato! 🎉");
+      toast.success("Pasto salvato!");
       onMealLogged();
       reset();
       onOpenChange(false);
@@ -280,9 +280,9 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
   };
 
   const confidenceLabel = (score: number) => {
-    if (score >= 0.8) return { text: "Alta", color: "bg-success/15 text-success border-success/20" };
-    if (score >= 0.5) return { text: "Media", color: "bg-warning/15 text-warning border-warning/20" };
-    return { text: "Bassa", color: "bg-destructive/15 text-destructive border-destructive/20" };
+    if (score >= 0.8) return { text:"Alta", color:"bg-success/15 text-success border-success/20"};
+    if (score >= 0.5) return { text:"Media", color:"bg-warning/15 text-warning border-warning/20"};
+    return { text:"Bassa", color:"bg-destructive/15 text-destructive border-destructive/20"};
   };
 
   return (
@@ -291,17 +291,17 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
         <div className="mx-auto w-full max-w-md flex flex-col overflow-hidden">
           <DrawerHeader className="text-center pb-2 shrink-0">
             <DrawerTitle className="text-lg flex items-center justify-center gap-2">
-              <Camera className="h-5 w-5 text-primary" />
+              <Camera className="h-5 w-5 text-primary"/>
               Snap-to-Macro
             </DrawerTitle>
           </DrawerHeader>
 
           <div className="flex-1 px-4 overflow-y-auto space-y-4 pb-4">
             {/* IDLE STATE */}
-            {step === "idle" && (
+            {step ==="idle"&& (
               <div className="flex flex-col items-center gap-6 py-8">
                 <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Camera className="h-12 w-12 text-primary" />
+                  <Camera className="h-12 w-12 text-primary"/>
                 </div>
                 <div className="text-center space-y-2">
                   <p className="text-base font-semibold text-foreground">Scatta una foto del pasto</p>
@@ -311,25 +311,20 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
                 </div>
                 <Button
                   onClick={() => fileInputRef.current?.click()}
-                  className="h-14 px-8 text-base font-semibold rounded-2xl bg-primary hover:bg-primary/90"
-                >
-                  📸 Scatta Foto
+                  className="h-14 px-8 text-base font-semibold rounded-2xl bg-primary hover:bg-primary/90"                >
+                   Scatta Foto
                 </Button>
                 <input
                   ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={handleFileSelect}
+                  type="file"                  accept="image/*"                  capture="environment"                  className="hidden"                  onChange={handleFileSelect}
                 />
               </div>
             )}
 
             {/* COMPRESSING STATE */}
-            {step === "compressing" && (
+            {step ==="compressing"&& (
               <div className="flex flex-col items-center gap-6 py-8">
-                <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                <Loader2 className="h-8 w-8 text-primary animate-spin"/>
                 <p className="text-sm font-medium text-primary animate-pulse">
                   Compressione foto...
                 </p>
@@ -337,11 +332,11 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
             )}
 
             {/* DESCRIBING STATE - photo taken, add context */}
-            {step === "describing" && (
+            {step ==="describing"&& (
               <div className="flex flex-col items-center gap-4 py-4">
                 {imagePreview && (
                   <div className="w-48 h-48 rounded-2xl overflow-hidden border-2 border-primary/20">
-                    <img src={imagePreview} alt="Pasto" className="w-full h-full object-cover" />
+                    <img src={imagePreview} alt="Pasto"className="w-full h-full object-cover"/>
                   </div>
                 )}
                 <div className="w-full space-y-2">
@@ -352,23 +347,17 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
                     <Textarea
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Es: Pasta al sugo, 120g..."
-                      className="bg-secondary/60 border-border min-h-[80px] pr-12 resize-none"
-                    />
+                      placeholder="Es: Pasta al sugo, 120g..."                      className="bg-secondary/60 border-border min-h-[80px] pr-12 resize-none"                    />
                     <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className={cn(
+                      type="button"                      variant="ghost"                      size="icon"                      className={cn(
                         "absolute bottom-2 right-2 h-8 w-8 rounded-full",
-                        isListening && "bg-destructive/10 text-destructive animate-pulse"
-                      )}
+                        isListening &&"bg-destructive/10 text-destructive animate-pulse"                      )}
                       onClick={toggleSpeechRecognition}
                     >
                       {isListening ? (
-                        <MicOff className="h-4 w-4" />
+                        <MicOff className="h-4 w-4"/>
                       ) : (
-                        <Mic className="h-4 w-4 text-muted-foreground" />
+                        <Mic className="h-4 w-4 text-muted-foreground"/>
                       )}
                     </Button>
                   </div>
@@ -378,36 +367,32 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
                 </div>
                 <Button
                   onClick={() => imageBase64 && analyzeImage(imageBase64, description)}
-                  className="w-full h-12 text-base font-semibold rounded-2xl bg-primary hover:bg-primary/90"
-                >
-                  <Sparkles className="h-5 w-5 mr-2" />
+                  className="w-full h-12 text-base font-semibold rounded-2xl bg-primary hover:bg-primary/90"                >
+                  <Sparkles className="h-5 w-5 mr-2"/>
                   Analizza Piatto
                 </Button>
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-muted-foreground"
-                  onClick={() => {
+                  variant="ghost"                  size="sm"                  className="text-muted-foreground"                  onClick={() => {
                     reset();
                     setTimeout(() => fileInputRef.current?.click(), 100);
                   }}
                 >
-                  <RotateCcw className="h-4 w-4 mr-2" />
+                  <RotateCcw className="h-4 w-4 mr-2"/>
                   Cambia foto
                 </Button>
               </div>
             )}
 
             {/* ANALYZING STATE */}
-            {step === "analyzing" && (
+            {step ==="analyzing"&& (
               <div className="flex flex-col items-center gap-6 py-8">
                 {imagePreview && (
                   <div className="w-48 h-48 rounded-2xl overflow-hidden border-2 border-primary/20">
-                    <img src={imagePreview} alt="Pasto" className="w-full h-full object-cover" />
+                    <img src={imagePreview} alt="Pasto"className="w-full h-full object-cover"/>
                   </div>
                 )}
                 <div className="flex flex-col items-center gap-3">
-                  <Loader2 className="h-8 w-8 text-primary animate-spin" />
+                  <Loader2 className="h-8 w-8 text-primary animate-spin"/>
                   <p className="text-sm font-medium text-primary animate-pulse">
                     {LABOR_MESSAGES[laborIndex]}
                   </p>
@@ -416,22 +401,22 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
             )}
 
             {/* REVIEW STATE */}
-            {step === "review" && (
+            {step ==="review"&& (
               <div className="space-y-4">
                 {/* Photo + Confidence */}
                 <div className="flex gap-3 items-start">
                   {imagePreview && (
                     <div className="w-20 h-20 rounded-xl overflow-hidden border border-border flex-shrink-0">
-                      <img src={imagePreview} alt="Pasto" className="w-full h-full object-cover" />
+                      <img src={imagePreview} alt="Pasto"className="w-full h-full object-cover"/>
                     </div>
                   )}
                   <div className="flex-1 space-y-1.5">
                     <p className="text-sm font-medium text-success flex items-center gap-1.5">
-                      <CheckCircle2 className="h-4 w-4" />
+                      <CheckCircle2 className="h-4 w-4"/>
                       Sembra buono! Ecco i valori stimati:
                     </p>
                     {result && (
-                      <Badge variant="outline" className={cn("text-[10px]", confidenceLabel(result.confidence_score).color)}>
+                      <Badge variant="outline"className={cn("text-[10px]", confidenceLabel(result.confidence_score).color)}>
                         Accuratezza: {confidenceLabel(result.confidence_score).text} ({Math.round(result.confidence_score * 100)}%)
                       </Badge>
                     )}
@@ -446,10 +431,10 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="breakfast">🌅 Colazione</SelectItem>
-                      <SelectItem value="lunch">☀️ Pranzo</SelectItem>
-                      <SelectItem value="dinner">🌙 Cena</SelectItem>
-                      <SelectItem value="snack">🍎 Spuntino</SelectItem>
+                      <SelectItem value="breakfast"> Colazione</SelectItem>
+                      <SelectItem value="lunch"> Pranzo</SelectItem>
+                      <SelectItem value="dinner"> Cena</SelectItem>
+                      <SelectItem value="snack"> Spuntino</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -460,8 +445,7 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
                   <Input
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
-                    className="bg-secondary/60 border-border h-11"
-                  />
+                    className="bg-secondary/60 border-border h-11"                  />
                 </div>
 
                 {/* Editable Macros Grid */}
@@ -469,56 +453,41 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">Calorie (kcal)</Label>
                     <Input
-                      type="number"
-                      inputMode="numeric"
-                      value={editCalories}
+                      type="number"                      inputMode="numeric"                      value={editCalories}
                       onChange={(e) => setEditCalories(e.target.value)}
-                      className="bg-secondary/60 border-border h-11 text-base font-semibold"
-                    />
+                      className="bg-secondary/60 border-border h-11 text-base font-semibold"                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">Proteine (g)</Label>
                     <Input
-                      type="number"
-                      inputMode="numeric"
-                      value={editProtein}
+                      type="number"                      inputMode="numeric"                      value={editProtein}
                       onChange={(e) => setEditProtein(e.target.value)}
-                      className="bg-secondary/60 border-border h-11 text-base"
-                    />
+                      className="bg-secondary/60 border-border h-11 text-base"                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">Carboidrati (g)</Label>
                     <Input
-                      type="number"
-                      inputMode="numeric"
-                      value={editCarbs}
+                      type="number"                      inputMode="numeric"                      value={editCarbs}
                       onChange={(e) => setEditCarbs(e.target.value)}
-                      className="bg-secondary/60 border-border h-11 text-base"
-                    />
+                      className="bg-secondary/60 border-border h-11 text-base"                    />
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">Grassi (g)</Label>
                     <Input
-                      type="number"
-                      inputMode="numeric"
-                      value={editFat}
+                      type="number"                      inputMode="numeric"                      value={editFat}
                       onChange={(e) => setEditFat(e.target.value)}
-                      className="bg-secondary/60 border-border h-11 text-base"
-                    />
+                      className="bg-secondary/60 border-border h-11 text-base"                    />
                   </div>
                 </div>
 
                 {/* Retry button */}
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full text-muted-foreground"
-                  onClick={() => {
+                  variant="ghost"                  size="sm"                  className="w-full text-muted-foreground"                  onClick={() => {
                     reset();
                     setTimeout(() => fileInputRef.current?.click(), 100);
                   }}
                 >
-                  <RotateCcw className="h-4 w-4 mr-2" />
+                  <RotateCcw className="h-4 w-4 mr-2"/>
                   Scatta un'altra foto
                 </Button>
               </div>
@@ -526,24 +495,22 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
           </div>
 
           {/* Footer - only show in review */}
-          {step === "review" && (
+          {step ==="review"&& (
             <DrawerFooter className="pt-2 shrink-0 border-t border-border/50">
               <Button
                 onClick={handleSave}
-                className="w-full h-12 font-semibold bg-primary hover:bg-primary/90"
-                disabled={isSaving}
+                className="w-full h-12 font-semibold bg-primary hover:bg-primary/90"                disabled={isSaving}
               >
                 {isSaving ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
                     Salvataggio...
                   </>
                 ) : (
-                  "Salva Pasto"
-                )}
+                  "Salva Pasto"                )}
               </Button>
               <DrawerClose asChild>
-                <Button variant="ghost" className="w-full text-muted-foreground text-sm">
+                <Button variant="ghost"className="w-full text-muted-foreground text-sm">
                   Annulla
                 </Button>
               </DrawerClose>
@@ -551,10 +518,10 @@ export function FoodCameraScanner({ open, onOpenChange, onMealLogged }: FoodCame
           )}
 
           {/* Footer - idle/analyzing close */}
-          {step !== "review" && (
+          {step !=="review"&& (
             <DrawerFooter className="pt-2 shrink-0">
               <DrawerClose asChild>
-                <Button variant="ghost" className="w-full text-muted-foreground text-sm">
+                <Button variant="ghost"className="w-full text-muted-foreground text-sm">
                   Chiudi
                 </Button>
               </DrawerClose>

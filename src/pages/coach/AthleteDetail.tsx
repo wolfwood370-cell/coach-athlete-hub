@@ -1,21 +1,21 @@
-import { useState, useMemo } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { CoachLayout } from "@/components/coach/CoachLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useState, useMemo } from"react";
+import { useParams, useNavigate } from"react-router-dom";
+import { useQuery, useMutation, useQueryClient } from"@tanstack/react-query";
+import { supabase } from"@/integrations/supabase/client";
+import { CoachLayout } from"@/components/coach/CoachLayout";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from"@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from"@/components/ui/tabs";
+import { Button } from"@/components/ui/button";
+import { Skeleton } from"@/components/ui/skeleton";
+import { Badge } from"@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from"@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from"@/components/ui/dropdown-menu";
 import {
   Command,
   CommandEmpty,
@@ -23,12 +23,12 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/ui/command";
+} from"@/components/ui/command";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover";
+} from"@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -36,14 +36,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from"@/components/ui/table";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from"@/components/ui/select";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,8 +54,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Textarea } from "@/components/ui/textarea";
+} from"@/components/ui/alert-dialog";
+import { Textarea } from"@/components/ui/textarea";
 import { 
   ArrowLeft, 
   MoreHorizontal,
@@ -107,8 +107,8 @@ import {
   Shield,
   GraduationCap,
   Smartphone,
-} from "lucide-react";
-import { Switch } from "@/components/ui/switch";
+} from"lucide-react";
+import { Switch } from"@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -117,30 +117,30 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
-import { format, formatDistanceToNow, startOfWeek, endOfWeek, addDays, subDays, isAfter, isBefore, isSameDay, differenceInDays, differenceInWeeks, subMonths } from "date-fns";
-import { it } from "date-fns/locale";
-import { useAthleteAcwrData } from "@/hooks/useAthleteAcwrData";
+} from"@/components/ui/dialog";
+import { Input } from"@/components/ui/input";
+import { Label } from"@/components/ui/label";
+import { cn } from"@/lib/utils";
+import { format, formatDistanceToNow, startOfWeek, endOfWeek, addDays, subDays, isAfter, isBefore, isSameDay, differenceInDays, differenceInWeeks, subMonths } from"date-fns";
+import { it } from"date-fns/locale";
+import { useAthleteAcwrData } from"@/hooks/useAthleteAcwrData";
 import { 
   ChartContainer, 
   ChartTooltip, 
   ChartTooltipContent 
-} from "@/components/ui/chart";
-import { AreaChart, Area, XAxis, YAxis, LineChart, Line, ResponsiveContainer, BarChart, Bar, ReferenceLine, ComposedChart } from "recharts";
-import { Tooltip } from "@/components/ui/tooltip";
-import { TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Info, ShieldAlert, ShieldCheck, Gauge } from "lucide-react";
-import { toast } from "sonner";
-import { StrategyContent } from "@/components/coach/athlete/StrategyContent";
-import { useAthleteExerciseList, useAthleteStrengthProgression, useAthleteVolumeIntensity } from "@/hooks/useAthleteAnalytics";
-import { useRealtimeAnalytics } from "@/hooks/useRealtimeAnalytics";
-import { VelocityTrendChart } from "@/components/coach/analytics/VelocityTrendChart";
-import { BarPathGallery } from "@/components/coach/video/BarPathGallery";
-import { AiInsightCard } from "@/components/coach/analytics/AiInsightCard";
-import { AthleteViewerDialog } from "@/components/coach/AthleteViewerDialog";
+} from"@/components/ui/chart";
+import { AreaChart, Area, XAxis, YAxis, LineChart, Line, ResponsiveContainer, BarChart, Bar, ReferenceLine, ComposedChart } from"recharts";
+import { Tooltip } from"@/components/ui/tooltip";
+import { TooltipContent, TooltipProvider, TooltipTrigger } from"@/components/ui/tooltip";
+import { Info, ShieldAlert, ShieldCheck, Gauge } from"lucide-react";
+import { toast } from"sonner";
+import { StrategyContent } from"@/components/coach/athlete/StrategyContent";
+import { useAthleteExerciseList, useAthleteStrengthProgression, useAthleteVolumeIntensity } from"@/hooks/useAthleteAnalytics";
+import { useRealtimeAnalytics } from"@/hooks/useRealtimeAnalytics";
+import { VelocityTrendChart } from"@/components/coach/analytics/VelocityTrendChart";
+import { BarPathGallery } from"@/components/coach/video/BarPathGallery";
+import { AiInsightCard } from"@/components/coach/analytics/AiInsightCard";
+import { AthleteViewerDialog } from"@/components/coach/AthleteViewerDialog";
 
 
 // Exercise Stats Content Component - uses REAL data from workout_exercises
@@ -148,7 +148,7 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
   const { data: exerciseNames = [], isLoading: namesLoading } = useAthleteExerciseList(athleteId);
   const [selectedExercise, setSelectedExercise] = useState("");
   const [comboboxOpen, setComboboxOpen] = useState(false);
-  const [chartView, setChartView] = useState<"1rm" | "weight" | "volume">("1rm");
+  const [chartView, setChartView] = useState<"1rm"|"weight"|"volume">("1rm");
 
   // Live realtime updates
   useRealtimeAnalytics(athleteId);
@@ -175,7 +175,7 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
         estimated1RM: d.estimated1RM,
         totalVolume: 0,
         isPR: d.estimated1RM > prevMax && prevMax > 0,
-        scheme: "",
+        scheme:"",
       };
     });
   }, [strengthData]);
@@ -190,12 +190,12 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
 
   // Chart data
   const chartData = useMemo(() => {
-    if (chartView === "volume") {
+    if (chartView ==="volume") {
       return volumeData.map(d => ({ date: d.dateFormatted, value: d.totalTonnage, isPR: false }));
     }
     return exerciseData.map(d => ({
       date: d.dateFormatted,
-      value: chartView === "1rm" ? d.estimated1RM : d.bestWeight,
+      value: chartView ==="1rm"? d.estimated1RM : d.bestWeight,
       isPR: d.isPR,
     }));
   }, [exerciseData, volumeData, chartView]);
@@ -205,11 +205,11 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-20 w-full" />
+        <Skeleton className="h-20 w-full"/>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Skeleton className="h-28" /><Skeleton className="h-28" /><Skeleton className="h-28" />
+          <Skeleton className="h-28"/><Skeleton className="h-28"/><Skeleton className="h-28"/>
         </div>
-        <Skeleton className="h-[300px] w-full" />
+        <Skeleton className="h-[300px] w-full"/>
       </div>
     );
   }
@@ -217,7 +217,7 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
   if (exerciseNames.length === 0) {
     return (
       <Card className="p-12 text-center">
-        <Dumbbell className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+        <Dumbbell className="h-10 w-10 text-muted-foreground mx-auto mb-3"/>
         <h3 className="text-lg font-semibold mb-1">Nessun Dato Esercizi</h3>
         <p className="text-sm text-muted-foreground">Questo atleta non ha ancora completato allenamenti.</p>
       </Card>
@@ -232,7 +232,7 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <BarChart3 className="h-6 w-6 text-primary" />
+                <BarChart3 className="h-6 w-6 text-primary"/>
               </div>
               <div>
                 <CardTitle className="text-lg">Prestazioni Esercizio</CardTitle>
@@ -244,19 +244,16 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
             <Popover open={comboboxOpen} onOpenChange={setComboboxOpen}>
               <PopoverTrigger asChild>
                 <Button
-                  variant="outline"
-                  role="combobox"
-                  aria-expanded={comboboxOpen}
-                  className="w-full sm:w-[240px] justify-between"
-                >
-                  <Dumbbell className="h-4 w-4 mr-2 shrink-0" />
-                  <span className="truncate">{selectedExercise || "Seleziona esercizio"}</span>
-                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  variant="outline"                  role="combobox"                  aria-expanded={comboboxOpen}
+                  className="w-full sm:w-[240px] justify-between"                >
+                  <Dumbbell className="h-4 w-4 mr-2 shrink-0"/>
+                  <span className="truncate">{selectedExercise ||"Seleziona esercizio"}</span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[240px] p-0">
                 <Command>
-                  <CommandInput placeholder="Cerca esercizio..." />
+                  <CommandInput placeholder="Cerca esercizio..."/>
                   <CommandList>
                     <CommandEmpty>Nessun esercizio trovato.</CommandEmpty>
                     <CommandGroup>
@@ -272,8 +269,7 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
                           <Check
                             className={cn(
                               "mr-2 h-4 w-4",
-                              selectedExercise === name ? "opacity-100" : "opacity-0"
-                            )}
+                              selectedExercise === name ?"opacity-100":"opacity-0"                            )}
                           />
                           {name}
                         </CommandItem>
@@ -298,7 +294,7 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
                 <p className="text-xs text-muted-foreground mt-1">Calcolato dalla serie migliore</p>
               </div>
               <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Trophy className="h-7 w-7 text-primary" />
+                <Trophy className="h-7 w-7 text-primary"/>
               </div>
             </div>
           </CardContent>
@@ -312,7 +308,7 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
                 <p className="text-xs text-muted-foreground mt-1">Sessione singola più alta</p>
               </div>
               <div className="h-14 w-14 rounded-xl bg-chart-2/10 flex items-center justify-center">
-                <Weight className="h-7 w-7 text-chart-2" />
+                <Weight className="h-7 w-7 text-chart-2"/>
               </div>
             </div>
           </CardContent>
@@ -326,7 +322,7 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
                 <p className="text-xs text-muted-foreground mt-1">Sessioni con questo esercizio</p>
               </div>
               <div className="h-14 w-14 rounded-xl bg-chart-3/10 flex items-center justify-center">
-                <Repeat className="h-7 w-7 text-chart-3" />
+                <Repeat className="h-7 w-7 text-chart-3"/>
               </div>
             </div>
           </CardContent>
@@ -339,25 +335,25 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <CardTitle className="text-base">Progressione nel Tempo</CardTitle>
             <div className="flex items-center gap-2">
-              <Button variant={chartView === "1rm" ? "default" : "outline"} size="sm" onClick={() => setChartView("1rm")} className="text-xs">1RM Stimato</Button>
-              <Button variant={chartView === "weight" ? "default" : "outline"} size="sm" onClick={() => setChartView("weight")} className="text-xs">Carico Max</Button>
-              <Button variant={chartView === "volume" ? "default" : "outline"} size="sm" onClick={() => setChartView("volume")} className="text-xs">Volume</Button>
+              <Button variant={chartView ==="1rm"?"default":"outline"} size="sm"onClick={() => setChartView("1rm")} className="text-xs">1RM Stimato</Button>
+              <Button variant={chartView ==="weight"?"default":"outline"} size="sm"onClick={() => setChartView("weight")} className="text-xs">Carico Max</Button>
+              <Button variant={chartView ==="volume"?"default":"outline"} size="sm"onClick={() => setChartView("volume")} className="text-xs">Volume</Button>
             </div>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
           {chartData.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Activity className="h-8 w-8 text-muted-foreground mb-2" />
+              <Activity className="h-8 w-8 text-muted-foreground mb-2"/>
               <p className="text-sm text-muted-foreground">Nessun dato per questo esercizio</p>
             </div>
           ) : (
             <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%"height="100%">
                 <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
-                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false} />
-                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickLine={false} axisLine={false}
-                    tickFormatter={(value) => chartView === "volume" ? `${(value / 1000).toFixed(1)}k` : `${value}`}
+                  <XAxis dataKey="date"stroke="hsl(var(--muted-foreground))"fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="hsl(var(--muted-foreground))"fontSize={12} tickLine={false} axisLine={false}
+                    tickFormatter={(value) => chartView ==="volume"?`${(value / 1000).toFixed(1)}k`:`${value}`}
                   />
                   <ChartTooltip 
                     content={({ active, payload }) => {
@@ -367,34 +363,34 @@ function ExerciseStatsContent({ athleteId }: { athleteId: string | undefined }) 
                         <div className="bg-popover border border-border rounded-lg p-3 shadow-lg">
                           <p className="text-sm font-medium text-foreground">{data.date}</p>
                           <p className="text-sm text-muted-foreground">
-                            {chartView === "1rm" ? "1RM Stimato" : chartView === "weight" ? "Carico Max" : "Volume"}: 
+                            {chartView ==="1rm"?"1RM Stimato": chartView ==="weight"?"Carico Max":"Volume"}: 
                             <span className="font-semibold text-foreground ml-1">
-                              {chartView === "volume" ? `${data.value.toLocaleString()} kg` : `${data.value} kg`}
+                              {chartView ==="volume"?`${data.value.toLocaleString()} kg`:`${data.value} kg`}
                             </span>
                           </p>
                           {data.isPR && (
-                            <Badge variant="default" className="mt-1 text-xs bg-amber-500/20 text-amber-500 border-amber-500/30">
-                              <Trophy className="h-3 w-3 mr-1" /> PR!
+                            <Badge variant="default"className="mt-1 text-xs bg-amber-500/20 text-amber-500 border-amber-500/30">
+                              <Trophy className="h-3 w-3 mr-1"/> PR!
                             </Badge>
                           )}
                         </div>
                       );
                     }}
                   />
-                  <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2}
+                  <Line type="monotone"dataKey="value"stroke="hsl(var(--primary))"strokeWidth={2}
                     dot={(props) => {
                       const { cx, cy, payload } = props;
                       if (payload.isPR) {
                         return (
                           <g key={`dot-${cx}-${cy}`}>
-                            <circle cx={cx} cy={cy} r={6} fill="hsl(var(--primary))" />
-                            <circle cx={cx} cy={cy} r={3} fill="hsl(var(--primary-foreground))" />
+                            <circle cx={cx} cy={cy} r={6} fill="hsl(var(--primary))"/>
+                            <circle cx={cx} cy={cy} r={3} fill="hsl(var(--primary-foreground))"/>
                           </g>
                         );
                       }
-                      return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={4} fill="hsl(var(--primary))" />;
+                      return <circle key={`dot-${cx}-${cy}`} cx={cx} cy={cy} r={4} fill="hsl(var(--primary))"/>;
                     }}
-                    activeDot={{ r: 6, fill: "hsl(var(--primary))" }}
+                    activeDot={{ r: 6, fill:"hsl(var(--primary))"}}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -427,7 +423,7 @@ const generateMockDailyLoads = () => {
     if (isRestDay) {
       loads.push({
         date,
-        dayLabel: format(date, "EEE d", { locale: it }),
+        dayLabel: format(date,"EEE d", { locale: it }),
         load: 0,
         rpe: 0,
         duration: 0,
@@ -437,7 +433,7 @@ const generateMockDailyLoads = () => {
       const duration = Math.floor(Math.random() * 40) + 40; // 40-80 min
       loads.push({
         date,
-        dayLabel: format(date, "EEE d", { locale: it }),
+        dayLabel: format(date,"EEE d", { locale: it }),
         load: rpe * duration,
         rpe,
         duration,
@@ -495,7 +491,7 @@ const generateAcwrTrendData = () => {
     const ratio = chronic > 0 ? Math.round((acute / chronic) * 100) / 100 : 0;
     
     data.push({
-      week: format(weekStart, "MMM d"),
+      week: format(weekStart,"MMM d"),
       acute,
       chronic,
       ratio,
@@ -516,17 +512,17 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
 
   // Get load zone color
   const getLoadZoneColor = (load: number) => {
-    if (load === 0) return "hsl(var(--muted))";
-    if (load < 300) return "hsl(var(--chart-3))"; // Recovery - green
-    if (load <= 600) return "hsl(var(--chart-2))"; // Maintenance - yellow
-    return "hsl(var(--destructive))"; // Overreaching - red
+    if (load === 0) return"hsl(var(--muted))";
+    if (load < 300) return"hsl(var(--chart-3))"; // Recovery - green
+    if (load <= 600) return"hsl(var(--chart-2))"; // Maintenance - yellow
+    return"hsl(var(--destructive))"; // Overreaching - red
   };
 
   // ACWR status helpers
   const getAcwrStatus = (ratio: number) => {
-    if (ratio >= 0.8 && ratio <= 1.3) return { status: "optimal", color: "text-green-500", bgColor: "bg-green-500/10" };
-    if (ratio > 1.5) return { status: "high-risk", color: "text-destructive", bgColor: "bg-destructive/10" };
-    return { status: "warning", color: "text-amber-500", bgColor: "bg-amber-500/10" };
+    if (ratio >= 0.8 && ratio <= 1.3) return { status:"optimal", color:"text-green-500", bgColor:"bg-green-500/10"};
+    if (ratio > 1.5) return { status:"high-risk", color:"text-destructive", bgColor:"bg-destructive/10"};
+    return { status:"warning", color:"text-amber-500", bgColor:"bg-amber-500/10"};
   };
 
   const currentAcwr = acwrData?.ratio ?? acwrTrend[acwrTrend.length - 1]?.ratio ?? 0;
@@ -539,7 +535,7 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
         <CardHeader className="pb-4">
           <div className="flex items-center gap-3">
             <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-              <ShieldCheck className="h-6 w-6 text-primary" />
+              <ShieldCheck className="h-6 w-6 text-primary"/>
             </div>
             <div>
               <CardTitle className="text-lg">Monitor Sicurezza Allenamento</CardTitle>
@@ -554,17 +550,17 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2">
-              <Gauge className="h-5 w-5 text-primary" />
+              <Gauge className="h-5 w-5 text-primary"/>
               Carico RPE Sessione (Ultimi 14 Giorni)
             </CardTitle>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Info className="h-4 w-4 text-muted-foreground" />
+                  <Button variant="ghost"size="icon"className="h-8 w-8">
+                    <Info className="h-4 w-4 text-muted-foreground"/>
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-[280px]">
+                <TooltipContent side="left"className="max-w-[280px]">
                   <p className="text-sm">
                     <strong>Foster's Session RPE</strong><br />
                     Load = RPE × Duration (min)<br /><br />
@@ -579,25 +575,22 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
         </CardHeader>
         <CardContent className="pt-0">
           <div className="h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%"height="100%">
               <ComposedChart data={dailyLoads} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
                 <XAxis 
-                  dataKey="dayLabel" 
-                  stroke="hsl(var(--muted-foreground))" 
-                  fontSize={10}
+                  dataKey="dayLabel"                  stroke="hsl(var(--muted-foreground))"                  fontSize={10}
                   tickLine={false}
                   axisLine={false}
                 />
                 <YAxis 
-                  stroke="hsl(var(--muted-foreground))" 
-                  fontSize={12}
+                  stroke="hsl(var(--muted-foreground))"                  fontSize={12}
                   tickLine={false}
                   axisLine={false}
                   domain={[0, 800]}
                 />
                 {/* Reference zones */}
-                <ReferenceLine y={300} stroke="hsl(var(--chart-3))" strokeDasharray="3 3" strokeOpacity={0.5} />
-                <ReferenceLine y={600} stroke="hsl(var(--destructive))" strokeDasharray="3 3" strokeOpacity={0.5} />
+                <ReferenceLine y={300} stroke="hsl(var(--chart-3))"strokeDasharray="3 3"strokeOpacity={0.5} />
+                <ReferenceLine y={600} stroke="hsl(var(--destructive))"strokeDasharray="3 3"strokeOpacity={0.5} />
                 <ChartTooltip 
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null;
@@ -622,10 +615,8 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
                   }}
                 />
                 <Bar 
-                  dataKey="load" 
-                  radius={[4, 4, 0, 0]}
-                  fill="hsl(var(--primary))"
-                />
+                  dataKey="load"                  radius={[4, 4, 0, 0]}
+                  fill="hsl(var(--primary))"                />
               </ComposedChart>
             </ResponsiveContainer>
           </div>
@@ -633,15 +624,15 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
           {/* Zone Legend */}
           <div className="flex items-center justify-center gap-6 pt-4 border-t border-border/50">
             <div className="flex items-center gap-2">
-              <div className="h-3 w-3 rounded-full bg-chart-3" />
+              <div className="h-3 w-3 rounded-full bg-chart-3"/>
               <span className="text-xs text-muted-foreground">Recupero (&lt;300)</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="h-3 w-3 rounded-full bg-chart-2" />
+              <div className="h-3 w-3 rounded-full bg-chart-2"/>
               <span className="text-xs text-muted-foreground">Mantenimento (300-600)</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="h-3 w-3 rounded-full bg-destructive" />
+              <div className="h-3 w-3 rounded-full bg-destructive"/>
               <span className="text-xs text-muted-foreground">Sovraccarico (&gt;600)</span>
             </div>
           </div>
@@ -653,8 +644,7 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
         {/* Monotony */}
         <Card className={cn(
           "overflow-hidden transition-colors",
-          riskMetrics.monotony > 2.0 && "border-destructive/50 bg-destructive/5"
-        )}>
+          riskMetrics.monotony > 2.0 &&"border-destructive/50 bg-destructive/5"        )}>
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -663,9 +653,9 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger>
-                        <Info className="h-3.5 w-3.5 text-muted-foreground/50" />
+                        <Info className="h-3.5 w-3.5 text-muted-foreground/50"/>
                       </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-[220px]">
+                      <TooltipContent side="top"className="max-w-[220px]">
                          <p className="text-xs">
                           <strong>Monotonia dell'Allenamento</strong><br />
                           Carico Medio ÷ Deviazione Standard<br /><br />
@@ -677,24 +667,21 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
                 </div>
                 <p className={cn(
                   "text-3xl font-bold",
-                  riskMetrics.monotony > 2.0 ? "text-destructive" : 
-                  riskMetrics.monotony > 1.5 ? "text-amber-500" : "text-foreground"
-                )}>
+                  riskMetrics.monotony > 2.0 ?"text-destructive": 
+                  riskMetrics.monotony > 1.5 ?"text-amber-500":"text-foreground"                )}>
                   {riskMetrics.monotony.toFixed(2)}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {riskMetrics.monotony > 2.0 ? "Alto Rischio" : 
-                   riskMetrics.monotony > 1.5 ? "Moderato" : "Sicuro"}
+                  {riskMetrics.monotony > 2.0 ?"Alto Rischio": 
+                   riskMetrics.monotony > 1.5 ?"Moderato":"Sicuro"}
                 </p>
               </div>
               <div className={cn(
                 "h-14 w-14 rounded-xl flex items-center justify-center",
-                riskMetrics.monotony > 2.0 ? "bg-destructive/10" : "bg-primary/10"
-              )}>
+                riskMetrics.monotony > 2.0 ?"bg-destructive/10":"bg-primary/10"              )}>
                 <Target className={cn(
                   "h-7 w-7",
-                  riskMetrics.monotony > 2.0 ? "text-destructive" : "text-primary"
-                )} />
+                  riskMetrics.monotony > 2.0 ?"text-destructive":"text-primary"                )} />
               </div>
             </div>
           </CardContent>
@@ -710,9 +697,9 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger>
-                        <Info className="h-3.5 w-3.5 text-muted-foreground/50" />
+                        <Info className="h-3.5 w-3.5 text-muted-foreground/50"/>
                       </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-[220px]">
+                      <TooltipContent side="top"className="max-w-[220px]">
                          <p className="text-xs">
                           <strong>Strain di Allenamento</strong><br />
                           Carico Settimanale × Monotonia<br /><br />
@@ -730,7 +717,7 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
                 </p>
               </div>
               <div className="h-14 w-14 rounded-xl bg-chart-2/10 flex items-center justify-center">
-                <Flame className="h-7 w-7 text-chart-2" />
+                <Flame className="h-7 w-7 text-chart-2"/>
               </div>
             </div>
           </CardContent>
@@ -750,7 +737,7 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
                 </p>
               </div>
               <div className="h-14 w-14 rounded-xl bg-chart-3/10 flex items-center justify-center">
-                <Zap className="h-7 w-7 text-chart-3" />
+                <Zap className="h-7 w-7 text-chart-3"/>
               </div>
             </div>
           </CardContent>
@@ -762,7 +749,7 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
         <CardHeader className="pb-2">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <CardTitle className="text-base flex items-center gap-2">
-              <Activity className="h-5 w-5 text-primary" />
+              <Activity className="h-5 w-5 text-primary"/>
               Analisi Trend ACWR
             </CardTitle>
             
@@ -777,7 +764,7 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
                   {currentAcwr.toFixed(2)}
                 </p>
               </div>
-              {acwrStatus.status === "optimal" ? (
+              {acwrStatus.status ==="optimal"? (
                 <ShieldCheck className={cn("h-8 w-8", acwrStatus.color)} />
               ) : (
                 <ShieldAlert className={cn("h-8 w-8", acwrStatus.color)} />
@@ -787,25 +774,22 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
         </CardHeader>
         <CardContent className="pt-0">
           <div className="h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%"height="100%">
               <LineChart data={acwrTrend} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
                 <XAxis 
-                  dataKey="week" 
-                  stroke="hsl(var(--muted-foreground))" 
-                  fontSize={12}
+                  dataKey="week"                  stroke="hsl(var(--muted-foreground))"                  fontSize={12}
                   tickLine={false}
                   axisLine={false}
                 />
                 <YAxis 
-                  stroke="hsl(var(--muted-foreground))" 
-                  fontSize={12}
+                  stroke="hsl(var(--muted-foreground))"                  fontSize={12}
                   tickLine={false}
                   axisLine={false}
                 />
                 {/* Optimal zone reference lines */}
-                <ReferenceLine y={0.8} stroke="hsl(var(--chart-3))" strokeDasharray="3 3" strokeOpacity={0.5} label={{ value: '0.8', position: 'right', fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
-                <ReferenceLine y={1.3} stroke="hsl(var(--chart-3))" strokeDasharray="3 3" strokeOpacity={0.5} label={{ value: '1.3', position: 'right', fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
-                <ReferenceLine y={1.5} stroke="hsl(var(--destructive))" strokeDasharray="3 3" strokeOpacity={0.5} label={{ value: '1.5', position: 'right', fill: 'hsl(var(--muted-foreground))', fontSize: 10 }} />
+                <ReferenceLine y={0.8} stroke="hsl(var(--chart-3))"strokeDasharray="3 3"strokeOpacity={0.5} label={{ value:'0.8', position:'right', fill:'hsl(var(--muted-foreground))', fontSize: 10 }} />
+                <ReferenceLine y={1.3} stroke="hsl(var(--chart-3))"strokeDasharray="3 3"strokeOpacity={0.5} label={{ value:'1.3', position:'right', fill:'hsl(var(--muted-foreground))', fontSize: 10 }} />
+                <ReferenceLine y={1.5} stroke="hsl(var(--destructive))"strokeDasharray="3 3"strokeOpacity={0.5} label={{ value:'1.5', position:'right', fill:'hsl(var(--muted-foreground))', fontSize: 10 }} />
                 <ChartTooltip 
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null;
@@ -830,12 +814,9 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
                   }}
                 />
                 <Line
-                  type="monotone"
-                  dataKey="ratio"
-                  stroke="hsl(var(--primary))"
-                  strokeWidth={3}
-                  dot={{ fill: "hsl(var(--primary))", r: 5 }}
-                  activeDot={{ r: 7, fill: "hsl(var(--primary))" }}
+                  type="monotone"                  dataKey="ratio"                  stroke="hsl(var(--primary))"                  strokeWidth={3}
+                  dot={{ fill:"hsl(var(--primary))", r: 5 }}
+                  activeDot={{ r: 7, fill:"hsl(var(--primary))"}}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -844,15 +825,15 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
           {/* ACWR Zone Legend */}
           <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 pt-4 border-t border-border/50">
             <div className="flex items-center gap-2">
-              <div className="h-3 w-3 rounded-full bg-green-500" />
+              <div className="h-3 w-3 rounded-full bg-green-500"/>
               <span className="text-xs text-muted-foreground">Ottimale (0.8-1.3)</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="h-3 w-3 rounded-full bg-amber-500" />
+              <div className="h-3 w-3 rounded-full bg-amber-500"/>
               <span className="text-xs text-muted-foreground">Attenzione (&lt;0.8 o 1.3-1.5)</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="h-3 w-3 rounded-full bg-destructive" />
+              <div className="h-3 w-3 rounded-full bg-destructive"/>
               <span className="text-xs text-muted-foreground">Alto Rischio (&gt;1.5)</span>
             </div>
           </div>
@@ -885,7 +866,7 @@ const generateMockWeightData = () => {
     
     data.push({
       date,
-      dateLabel: format(date, "MMM d"),
+      dateLabel: format(date,"MMM d"),
       weight,
       trend: null,
     });
@@ -905,10 +886,10 @@ const generateMockWeightData = () => {
 const generateMockMeasurements = () => {
   const today = new Date();
   const measurementTypes = [
-    { key: "waist", label: "Vita", unit: "cm", baseValue: 84, change: -0.3 },
-    { key: "chest", label: "Petto", unit: "cm", baseValue: 104, change: 0.1 },
-    { key: "thigh", label: "Coscia", unit: "cm", baseValue: 58, change: 0.2 },
-    { key: "arm", label: "Braccio", unit: "cm", baseValue: 38, change: 0.15 },
+    { key:"waist", label:"Vita", unit:"cm", baseValue: 84, change: -0.3 },
+    { key:"chest", label:"Petto", unit:"cm", baseValue: 104, change: 0.1 },
+    { key:"thigh", label:"Coscia", unit:"cm", baseValue: 58, change: 0.2 },
+    { key:"arm", label:"Braccio", unit:"cm", baseValue: 38, change: 0.15 },
   ];
   
   return measurementTypes.map(type => {
@@ -938,7 +919,7 @@ const generateMockMeasurements = () => {
 };
 
 // Mini sparkline component for measurements
-function MiniSparkline({ data, color = "hsl(var(--primary))" }: { data: Array<{ value: number }>; color?: string }) {
+function MiniSparkline({ data, color ="hsl(var(--primary))"}: { data: Array<{ value: number }>; color?: string }) {
   if (!data.length) return null;
   
   const values = data.map(d => d.value);
@@ -949,24 +930,19 @@ function MiniSparkline({ data, color = "hsl(var(--primary))" }: { data: Array<{ 
   const points = values.map((value, i) => {
     const x = (i / (values.length - 1)) * 100;
     const y = 100 - ((value - min) / range) * 80 - 10; // 10-90% range
-    return `${x},${y}`;
-  }).join(" ");
+    return`${x},${y}`;
+  }).join("");
   
   return (
-    <svg viewBox="0 0 100 40" className="w-full h-10 overflow-visible">
+    <svg viewBox="0 0 100 40"className="w-full h-10 overflow-visible">
       <polyline
         points={points}
-        fill="none"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+        fill="none"        stroke={color}
+        strokeWidth="2"        strokeLinecap="round"        strokeLinejoin="round"      />
       <circle
         cx={100}
         cy={100 - ((values[values.length - 1] - min) / range) * 80 - 10}
-        r="3"
-        fill={color}
+        r="3"        fill={color}
       />
     </svg>
   );
@@ -976,11 +952,11 @@ function MiniSparkline({ data, color = "hsl(var(--primary))" }: { data: Array<{ 
 function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newMetric, setNewMetric] = useState({
-    weight: "",
-    waist: "",
-    chest: "",
-    thigh: "",
-    arm: "",
+    weight:"",
+    waist:"",
+    chest:"",
+    thigh:"",
+    arm:"",
   });
   
   // Mock data (in production, fetch from daily_metrics)
@@ -1012,7 +988,7 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
     // In production, this would save to Supabase
     
     setIsAddDialogOpen(false);
-    setNewMetric({ weight: "", waist: "", chest: "", thigh: "", arm: "" });
+    setNewMetric({ weight:"", waist:"", chest:"", thigh:"", arm:""});
   };
 
   return (
@@ -1023,7 +999,7 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Scale className="h-6 w-6 text-primary" />
+                <Scale className="h-6 w-6 text-primary"/>
               </div>
               <div>
                 <CardTitle className="text-lg">Composizione Corporea</CardTitle>
@@ -1034,7 +1010,7 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="gap-2">
-                  <Plus className="h-4 w-4" />
+                  <Plus className="h-4 w-4"/>
                   Registra Misurazione
                 </Button>
               </DialogTrigger>
@@ -1050,22 +1026,14 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
                     <div className="space-y-2">
                       <Label htmlFor="weight">Peso (kg)</Label>
                       <Input
-                        id="weight"
-                        type="number"
-                        step="0.1"
-                        placeholder="82.5"
-                        value={newMetric.weight}
+                        id="weight"                        type="number"                        step="0.1"                        placeholder="82.5"                        value={newMetric.weight}
                         onChange={(e) => setNewMetric(prev => ({ ...prev, weight: e.target.value }))}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="waist">Vita (cm)</Label>
                       <Input
-                        id="waist"
-                        type="number"
-                        step="0.1"
-                        placeholder="84.0"
-                        value={newMetric.waist}
+                        id="waist"                        type="number"                        step="0.1"                        placeholder="84.0"                        value={newMetric.waist}
                         onChange={(e) => setNewMetric(prev => ({ ...prev, waist: e.target.value }))}
                       />
                     </div>
@@ -1074,22 +1042,14 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
                     <div className="space-y-2">
                       <Label htmlFor="chest">Petto (cm)</Label>
                       <Input
-                        id="chest"
-                        type="number"
-                        step="0.1"
-                        placeholder="104.0"
-                        value={newMetric.chest}
+                        id="chest"                        type="number"                        step="0.1"                        placeholder="104.0"                        value={newMetric.chest}
                         onChange={(e) => setNewMetric(prev => ({ ...prev, chest: e.target.value }))}
                       />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="thigh">Coscia (cm)</Label>
                       <Input
-                        id="thigh"
-                        type="number"
-                        step="0.1"
-                        placeholder="58.0"
-                        value={newMetric.thigh}
+                        id="thigh"                        type="number"                        step="0.1"                        placeholder="58.0"                        value={newMetric.thigh}
                         onChange={(e) => setNewMetric(prev => ({ ...prev, thigh: e.target.value }))}
                       />
                     </div>
@@ -1098,18 +1058,14 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
                     <div className="space-y-2">
                       <Label htmlFor="arm">Braccio (cm)</Label>
                       <Input
-                        id="arm"
-                        type="number"
-                        step="0.1"
-                        placeholder="38.0"
-                        value={newMetric.arm}
+                        id="arm"                        type="number"                        step="0.1"                        placeholder="38.0"                        value={newMetric.arm}
                         onChange={(e) => setNewMetric(prev => ({ ...prev, arm: e.target.value }))}
                       />
                     </div>
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                  <Button variant="outline"onClick={() => setIsAddDialogOpen(false)}>
                     Annulla
                   </Button>
                   <Button onClick={handleAddMetric}>
@@ -1129,17 +1085,17 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
+                <TrendingUp className="h-5 w-5 text-primary"/>
                 Analisi Trend Peso
               </CardTitle>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <Info className="h-4 w-4 text-muted-foreground" />
+                    <Button variant="ghost"size="icon"className="h-8 w-8">
+                      <Info className="h-4 w-4 text-muted-foreground"/>
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent side="left" className="max-w-[280px]">
+                  <TooltipContent side="left"className="max-w-[280px]">
                     <p className="text-sm">
                       <strong>Media Mobile 7 Giorni</strong><br />
                       La linea continua mostra il trend reale del peso, eliminando le fluttuazioni giornaliere da ritenzione idrica, timing dei pasti, ecc.
@@ -1158,38 +1114,34 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
                   {weightStats.currentTrend.toFixed(1)} kg
                 </p>
               </div>
-              <div className="h-10 w-px bg-border" />
+              <div className="h-10 w-px bg-border"/>
               <div>
                 <p className="text-sm text-muted-foreground">Variazione Settimanale</p>
                 <p className={cn(
                   "text-2xl font-bold",
-                  weightStats.weeklyChange < 0 ? "text-green-500" : 
-                  weightStats.weeklyChange > 0 ? "text-amber-500" : "text-muted-foreground"
-                )}>
-                  {weightStats.weeklyChange > 0 ? "+" : ""}{weightStats.weeklyChange.toFixed(1)} kg
+                  weightStats.weeklyChange < 0 ?"text-green-500": 
+                  weightStats.weeklyChange > 0 ?"text-amber-500":"text-muted-foreground"                )}>
+                  {weightStats.weeklyChange > 0 ?"+":""}{weightStats.weeklyChange.toFixed(1)} kg
                 </p>
               </div>
             </div>
 
             {/* Chart */}
             <div className="h-[280px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%"height="100%">
                 <ComposedChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
                   <XAxis 
-                    dataKey="date" 
-                    stroke="hsl(var(--muted-foreground))" 
-                    fontSize={10}
+                    dataKey="date"                    stroke="hsl(var(--muted-foreground))"                    fontSize={10}
                     tickLine={false}
                     axisLine={false}
                     interval={4}
                   />
                   <YAxis 
-                    stroke="hsl(var(--muted-foreground))" 
-                    fontSize={12}
+                    stroke="hsl(var(--muted-foreground))"                    fontSize={12}
                     tickLine={false}
                     axisLine={false}
-                    domain={['dataMin - 1', 'dataMax + 1']}
-                    tickFormatter={(value) => `${value}kg`}
+                    domain={['dataMin - 1','dataMax + 1']}
+                    tickFormatter={(value) =>`${value}kg`}
                   />
                   <ChartTooltip 
                     content={({ active, payload }) => {
@@ -1200,12 +1152,12 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
                           <p className="text-sm font-medium text-foreground">{data.date}</p>
                           <div className="space-y-1 mt-1">
                             <p className="text-sm text-muted-foreground flex items-center gap-2">
-                              <CircleDot className="h-3 w-3 text-muted-foreground/50" />
+                              <CircleDot className="h-3 w-3 text-muted-foreground/50"/>
                               Effettivo: <span className="font-semibold text-foreground">{data.weight} kg</span>
                             </p>
                             {data.trend && (
                               <p className="text-sm text-muted-foreground flex items-center gap-2">
-                                <div className="w-3 h-0.5 bg-primary rounded" />
+                                <div className="w-3 h-0.5 bg-primary rounded"/>
                                 Trend: <span className="font-semibold text-primary">{data.trend} kg</span>
                               </p>
                             )}
@@ -1216,21 +1168,15 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
                   />
                   {/* Raw weight as dots */}
                   <Line
-                    type="monotone"
-                    dataKey="weight"
-                    stroke="hsl(var(--muted-foreground))"
-                    strokeWidth={0}
-                    dot={{ fill: "hsl(var(--muted-foreground))", r: 2, opacity: 0.4 }}
-                    activeDot={{ r: 4, fill: "hsl(var(--foreground))" }}
+                    type="monotone"                    dataKey="weight"                    stroke="hsl(var(--muted-foreground))"                    strokeWidth={0}
+                    dot={{ fill:"hsl(var(--muted-foreground))", r: 2, opacity: 0.4 }}
+                    activeDot={{ r: 4, fill:"hsl(var(--foreground))"}}
                   />
                   {/* Trend line (7-day MA) */}
                   <Line
-                    type="monotone"
-                    dataKey="trend"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={3}
+                    type="monotone"                    dataKey="trend"                    stroke="hsl(var(--primary))"                    strokeWidth={3}
                     dot={false}
-                    activeDot={{ r: 5, fill: "hsl(var(--primary))" }}
+                    activeDot={{ r: 5, fill:"hsl(var(--primary))"}}
                     connectNulls
                   />
                 </ComposedChart>
@@ -1240,11 +1186,11 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
             {/* Legend */}
             <div className="flex items-center justify-center gap-6 pt-4 border-t border-border/50">
               <div className="flex items-center gap-2">
-                <CircleDot className="h-3 w-3 text-muted-foreground/50" />
+                <CircleDot className="h-3 w-3 text-muted-foreground/50"/>
                 <span className="text-xs text-muted-foreground">Peso Giornaliero</span>
               </div>
               <div className="flex items-center gap-2">
-                <div className="w-4 h-0.5 bg-primary rounded" />
+                <div className="w-4 h-0.5 bg-primary rounded"/>
                 <span className="text-xs text-muted-foreground">Trend 7 Giorni</span>
               </div>
             </div>
@@ -1254,7 +1200,7 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
         {/* Body Measurements Grid (Right - 1 column) */}
         <div className="space-y-4">
           <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-            <Ruler className="h-4 w-4" />
+            <Ruler className="h-4 w-4"/>
             Misurazioni Corporee
           </h3>
           
@@ -1266,16 +1212,14 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
                     {measurement.label}
                   </span>
                   <Badge 
-                    variant="outline" 
-                    className={cn(
+                    variant="outline"                    className={cn(
                       "text-xs",
-                      measurement.weeklyChange < 0 && measurement.key === "waist" ? "text-green-500 border-green-500/30" :
-                      measurement.weeklyChange > 0 && measurement.key !== "waist" ? "text-green-500 border-green-500/30" :
-                      measurement.weeklyChange !== 0 ? "text-amber-500 border-amber-500/30" :
-                      ""
-                    )}
+                      measurement.weeklyChange < 0 && measurement.key ==="waist"?"text-green-500 border-green-500/30":
+                      measurement.weeklyChange > 0 && measurement.key !=="waist"?"text-green-500 border-green-500/30":
+                      measurement.weeklyChange !== 0 ?"text-amber-500 border-amber-500/30":
+                      ""                    )}
                   >
-                    {measurement.weeklyChange > 0 ? "+" : ""}{measurement.weeklyChange} {measurement.unit}
+                    {measurement.weeklyChange > 0 ?"+":""}{measurement.weeklyChange} {measurement.unit}
                   </Badge>
                 </div>
                 
@@ -1291,10 +1235,7 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
                     <MiniSparkline 
                       data={measurement.history} 
                       color={
-                        measurement.key === "waist" 
-                          ? "hsl(var(--success))" 
-                          : "hsl(var(--primary))"
-                      }
+                        measurement.key ==="waist"                          ?"hsl(var(--success))"                          :"hsl(var(--primary))"                      }
                     />
                   </div>
                 </div>
@@ -1306,15 +1247,14 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
           <Card className="bg-muted/50">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Target className="h-4 w-4 text-primary" />
+                <Target className="h-4 w-4 text-primary"/>
                 <span className="text-sm font-medium">Riepilogo Settimanale</span>
               </div>
               <p className="text-xs text-muted-foreground">
-                Peso in {weightStats.weeklyChange < 0 ? "calo" : "mantenimento"}, 
-                vita {(measurements.find(m => m.key === "waist")?.weeklyChange ?? 0) < 0 ? "in diminuzione" : "stabile"}. 
-                {weightStats.weeklyChange < 0 && (measurements.find(m => m.key === "waist")?.weeklyChange ?? 0) < 0 
-                  ? " Buoni progressi nella fase di taglio!" 
-                  : " Composizione in mantenimento."}
+                Peso in {weightStats.weeklyChange < 0 ?"calo":"mantenimento"}, 
+                vita {(measurements.find(m => m.key ==="waist")?.weeklyChange ?? 0) < 0 ?"in diminuzione":"stabile"}. 
+                {weightStats.weeklyChange < 0 && (measurements.find(m => m.key ==="waist")?.weeklyChange ?? 0) < 0 
+                  ?"Buoni progressi nella fase di taglio!"                  :"Composizione in mantenimento."}
               </p>
             </CardContent>
           </Card>
@@ -1326,10 +1266,10 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
 
 // Mock progress photos data
 const generateMockProgressPhotos = () => {
-  const poses = ["front", "side", "back"] as const;
+  const poses = ["front","side","back"] as const;
   const dates = [
     new Date(2025, 0, 12), // Jan 12
-    new Date(2025, 0, 5),  // Jan 5
+    new Date(2025, 0, 5), // Jan 5
     new Date(2024, 11, 29), // Dec 29
     new Date(2024, 11, 22), // Dec 22
     new Date(2024, 11, 15), // Dec 15
@@ -1337,12 +1277,12 @@ const generateMockProgressPhotos = () => {
   
   return dates.map((date) => ({
     date,
-    dateLabel: format(date, "MMM d, yyyy"),
+    dateLabel: format(date,"MMM d, yyyy"),
     photos: poses.map((pose) => ({
-      id: `${format(date, "yyyy-MM-dd")}-${pose}`,
+      id:`${format(date,"yyyy-MM-dd")}-${pose}`,
       pose,
       // Using placeholder.svg as mock image
-      url: "/placeholder.svg",
+      url:"/placeholder.svg",
     })),
   }));
 };
@@ -1351,7 +1291,7 @@ const generateMockProgressPhotos = () => {
 function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
   const [compareMode, setCompareMode] = useState(false);
   const [selectedDates, setSelectedDates] = useState<string[]>([]);
-  const [selectedPose, setSelectedPose] = useState<"front" | "side" | "back">("front");
+  const [selectedPose, setSelectedPose] = useState<"front"|"side"|"back">("front");
   
   // Mock data
   const progressData = useMemo(() => generateMockProgressPhotos(), []);
@@ -1394,9 +1334,9 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
   }, [selectedDates, selectedPose, progressData]);
 
   const poseLabels = {
-    front: "Front",
-    side: "Side",
-    back: "Back",
+    front:"Front",
+    side:"Side",
+    back:"Back",
   };
 
   return (
@@ -1407,7 +1347,7 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                <Camera className="h-6 w-6 text-primary" />
+                <Camera className="h-6 w-6 text-primary"/>
               </div>
               <div>
                 <CardTitle className="text-lg">Foto Progresso</CardTitle>
@@ -1418,7 +1358,7 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
             <div className="flex items-center gap-4">
               {/* Compare Mode Toggle */}
               <div className="flex items-center gap-2">
-                <Columns2 className="h-4 w-4 text-muted-foreground" />
+                <Columns2 className="h-4 w-4 text-muted-foreground"/>
                 <span className="text-sm text-muted-foreground">Confronta</span>
                 <Switch
                   checked={compareMode}
@@ -1431,7 +1371,7 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
               
               {/* Upload Button */}
               <Button className="gap-2">
-                <Upload className="h-4 w-4" />
+                <Upload className="h-4 w-4"/>
                 Carica Foto Check-in
               </Button>
             </div>
@@ -1442,8 +1382,8 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
             <div className="mt-4 p-3 bg-primary/5 rounded-lg border border-primary/20">
               <p className="text-sm text-foreground">
                 <strong>Modalità Confronto Attiva:</strong> Seleziona due date sotto per confrontare i progressi affiancati.
-                {selectedDates.length === 1 && " (1/2 selezionata)"}
-                {selectedDates.length === 2 && " (2/2 selezionate - visualizzazione confronto)"}
+                {selectedDates.length === 1 &&"(1/2 selezionata)"}
+                {selectedDates.length === 2 &&"(2/2 selezionate - visualizzazione confronto)"}
               </p>
             </div>
           )}
@@ -1456,19 +1396,17 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2">
-                <Columns2 className="h-5 w-5 text-primary" />
+                <Columns2 className="h-5 w-5 text-primary"/>
                 Confronto Affiancato
               </CardTitle>
               
               {/* Pose Selector */}
               <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
-                {(["front", "side", "back"] as const).map((pose) => (
+                {(["front","side","back"] as const).map((pose) => (
                   <Button
                     key={pose}
-                    variant={selectedPose === pose ? "default" : "ghost"}
-                    size="sm"
-                    className="text-xs px-3"
-                    onClick={() => setSelectedPose(pose)}
+                    variant={selectedPose === pose ?"default":"ghost"}
+                    size="sm"                    className="text-xs px-3"                    onClick={() => setSelectedPose(pose)}
                   >
                     {poseLabels[pose]}
                   </Button>
@@ -1481,17 +1419,17 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
               {/* Before */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Badge variant="secondary" className="text-xs">Prima</Badge>
+                  <Badge variant="secondary"className="text-xs">Prima</Badge>
                   <span className="text-sm text-muted-foreground">{comparisonPhotos.before.date}</span>
                 </div>
                 <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden relative">
                   {comparisonPhotos.before.photo ? (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
-                      <User className="h-24 w-24 text-muted-foreground/30" />
+                      <User className="h-24 w-24 text-muted-foreground/30"/>
                     </div>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Image className="h-12 w-12 text-muted-foreground/30" />
+                      <Image className="h-12 w-12 text-muted-foreground/30"/>
                     </div>
                   )}
                   <Badge className="absolute bottom-2 left-2 capitalize">{selectedPose}</Badge>
@@ -1501,17 +1439,17 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
               {/* After */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Badge variant="default" className="text-xs bg-green-500 hover:bg-green-600">Dopo</Badge>
+                  <Badge variant="default"className="text-xs bg-green-500 hover:bg-green-600">Dopo</Badge>
                   <span className="text-sm text-muted-foreground">{comparisonPhotos.after.date}</span>
                 </div>
                 <div className="aspect-[3/4] bg-muted rounded-lg overflow-hidden relative">
                   {comparisonPhotos.after.photo ? (
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
-                      <User className="h-24 w-24 text-muted-foreground/30" />
+                      <User className="h-24 w-24 text-muted-foreground/30"/>
                     </div>
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <Image className="h-12 w-12 text-muted-foreground/30" />
+                      <Image className="h-12 w-12 text-muted-foreground/30"/>
                     </div>
                   )}
                   <Badge className="absolute bottom-2 left-2 capitalize">{selectedPose}</Badge>
@@ -1522,12 +1460,9 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
             {/* Clear Selection */}
             <div className="flex justify-center mt-4">
               <Button 
-                variant="outline" 
-                size="sm" 
-                className="gap-2"
-                onClick={() => setSelectedDates([])}
+                variant="outline"                size="sm"                className="gap-2"                onClick={() => setSelectedDates([])}
               >
-                <XIcon className="h-4 w-4" />
+                <XIcon className="h-4 w-4"/>
                 Cancella Selezione
               </Button>
             </div>
@@ -1542,16 +1477,15 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
             key={session.dateLabel}
             className={cn(
               "overflow-hidden transition-all cursor-pointer",
-              compareMode && "hover:ring-2 hover:ring-primary/50",
-              compareMode && selectedDates.includes(session.dateLabel) && "ring-2 ring-primary"
-            )}
+              compareMode &&"hover:ring-2 hover:ring-primary/50",
+              compareMode && selectedDates.includes(session.dateLabel) &&"ring-2 ring-primary"            )}
             onClick={() => handleDateSelect(session.dateLabel)}
           >
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="h-10 w-10 rounded-lg bg-secondary flex items-center justify-center">
-                    <Calendar className="h-5 w-5 text-muted-foreground" />
+                    <Calendar className="h-5 w-5 text-muted-foreground"/>
                   </div>
                   <div>
                     <CardTitle className="text-base">{session.dateLabel}</CardTitle>
@@ -1565,11 +1499,9 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
                   <div className={cn(
                     "h-6 w-6 rounded-full border-2 flex items-center justify-center transition-colors",
                     selectedDates.includes(session.dateLabel) 
-                      ? "bg-primary border-primary" 
-                      : "border-muted-foreground/30"
-                  )}>
+                      ?"bg-primary border-primary"                      :"border-muted-foreground/30"                  )}>
                     {selectedDates.includes(session.dateLabel) && (
-                      <Check className="h-4 w-4 text-primary-foreground" />
+                      <Check className="h-4 w-4 text-primary-foreground"/>
                     )}
                   </div>
                 )}
@@ -1580,26 +1512,23 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
                 {session.photos.map((photo) => (
                   <div 
                     key={photo.id}
-                    className="relative aspect-[3/4] bg-muted rounded-lg overflow-hidden group"
-                  >
+                    className="relative aspect-[3/4] bg-muted rounded-lg overflow-hidden group"                  >
                     {/* Placeholder Photo */}
                     <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-muted to-muted-foreground/10">
-                      <User className="h-12 w-12 text-muted-foreground/30" />
+                      <User className="h-12 w-12 text-muted-foreground/30"/>
                     </div>
                     
                     {/* Pose Badge */}
                     <Badge 
-                      variant="secondary" 
-                      className="absolute bottom-2 left-2 text-xs capitalize"
-                    >
+                      variant="secondary"                      className="absolute bottom-2 left-2 text-xs capitalize"                    >
                       {photo.pose}
                     </Badge>
                     
                     {/* Hover Overlay */}
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                       <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="secondary" size="sm" className="gap-1">
-                          <Grid3X3 className="h-3 w-3" />
+                        <Button variant="secondary"size="sm"className="gap-1">
+                          <Grid3X3 className="h-3 w-3"/>
                           View
                         </Button>
                       </div>
@@ -1615,13 +1544,13 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
       {/* Empty State (if no photos) */}
       {progressData.length === 0 && (
         <Card className="p-12 text-center">
-          <Camera className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4" />
+          <Camera className="h-16 w-16 mx-auto text-muted-foreground/30 mb-4"/>
           <h3 className="text-lg font-semibold mb-2">Nessuna Foto Progresso</h3>
           <p className="text-muted-foreground mb-4">
             Carica foto check-in per monitorare il progresso visivo nel tempo.
           </p>
           <Button className="gap-2">
-            <Upload className="h-4 w-4" />
+            <Upload className="h-4 w-4"/>
             Carica Prime Foto
           </Button>
         </Card>
@@ -1632,26 +1561,26 @@ function ProgressPicsContent({ athleteId }: { athleteId: string | undefined }) {
 
 // Training status options
 const TRAINING_STATUS_OPTIONS = [
-  { value: "active", label: "Attivo", color: "bg-success text-success-foreground" },
-  { value: "injured", label: "Infortunato", color: "bg-destructive text-destructive-foreground" },
-  { value: "on_hold", label: "In Pausa", color: "bg-warning text-warning-foreground" },
+  { value:"active", label:"Attivo", color:"bg-success text-success-foreground"},
+  { value:"injured", label:"Infortunato", color:"bg-destructive text-destructive-foreground"},
+  { value:"on_hold", label:"In Pausa", color:"bg-warning text-warning-foreground"},
 ];
 
 // Experience level options
 const EXPERIENCE_LEVELS = [
-  { value: "beginner", label: "Principiante" },
-  { value: "intermediate", label: "Intermedio" },
-  { value: "advanced", label: "Avanzato" },
-  { value: "elite", label: "Elite" },
+  { value:"beginner", label:"Principiante"},
+  { value:"intermediate", label:"Intermedio"},
+  { value:"advanced", label:"Avanzato"},
+  { value:"elite", label:"Elite"},
 ];
 
 // Neurotype options
 const NEUROTYPE_OPTIONS = [
-  { value: "1A", label: "Tipo 1A", description: "Dominante dopamina - Cercatore di novità" },
-  { value: "1B", label: "Tipo 1B", description: "Dominante dopamina - Cercatore di emozioni" },
-  { value: "2A", label: "Tipo 2A", description: "Dominante adrenalina - Flessibile" },
-  { value: "2B", label: "Tipo 2B", description: "Dominante adrenalina - Orientato alla ricompensa" },
-  { value: "3", label: "Tipo 3", description: "Dominante serotonina - Focalizzato sulla costanza" },
+  { value:"1A", label:"Tipo 1A", description:"Dominante dopamina - Cercatore di novità"},
+  { value:"1B", label:"Tipo 1B", description:"Dominante dopamina - Cercatore di emozioni"},
+  { value:"2A", label:"Tipo 2A", description:"Dominante adrenalina - Flessibile"},
+  { value:"2B", label:"Tipo 2B", description:"Dominante adrenalina - Orientato alla ricompensa"},
+  { value:"3", label:"Tipo 3", description:"Dominante serotonina - Focalizzato sulla costanza"},
 ];
 
 // Settings Content Component
@@ -1668,17 +1597,14 @@ function SettingsContent({
   const queryClient = useQueryClient();
   
   // Form state
-  const [neurotype, setNeurotype] = useState(profile?.neurotype || "");
+  const [neurotype, setNeurotype] = useState(profile?.neurotype ||"");
   const [trainingStatus, setTrainingStatus] = useState(
-    (profile?.settings as any)?.training_status || "active"
-  );
+    (profile?.settings as any)?.training_status ||"active"  );
   const [experienceLevel, setExperienceLevel] = useState(
-    (profile?.settings as any)?.experience_level || "intermediate"
-  );
-  const [fullName, setFullName] = useState(profile?.full_name || "");
+    (profile?.settings as any)?.experience_level ||"intermediate"  );
+  const [fullName, setFullName] = useState(profile?.full_name ||"");
   const [coachNotes, setCoachNotes] = useState(
-    (profile?.settings as any)?.coach_notes || ""
-  );
+    (profile?.settings as any)?.coach_notes ||""  );
   const [isSaving, setIsSaving] = useState(false);
 
   // Get status badge config
@@ -1761,7 +1687,7 @@ function SettingsContent({
         <CardHeader>
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Brain className="h-5 w-5 text-primary" />
+              <Brain className="h-5 w-5 text-primary"/>
             </div>
             <div>
               <CardTitle className="text-lg">Parametri Prestazione</CardTitle>
@@ -1772,13 +1698,13 @@ function SettingsContent({
         <CardContent className="space-y-6">
           {/* Neurotype */}
           <div className="grid gap-2">
-            <Label htmlFor="neurotype" className="flex items-center gap-2">
-              <Brain className="h-4 w-4 text-muted-foreground" />
+            <Label htmlFor="neurotype"className="flex items-center gap-2">
+              <Brain className="h-4 w-4 text-muted-foreground"/>
               Neurotype
             </Label>
             <Select value={neurotype} onValueChange={setNeurotype}>
-              <SelectTrigger id="neurotype" className="w-full">
-                <SelectValue placeholder="Seleziona neurotipo" />
+              <SelectTrigger id="neurotype"className="w-full">
+                <SelectValue placeholder="Seleziona neurotipo"/>
               </SelectTrigger>
               <SelectContent>
                 {NEUROTYPE_OPTIONS.map((option) => (
@@ -1798,14 +1724,14 @@ function SettingsContent({
 
           {/* Training Status */}
           <div className="grid gap-2">
-            <Label htmlFor="training-status" className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-muted-foreground" />
+            <Label htmlFor="training-status"className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-muted-foreground"/>
               Stato Allenamento
             </Label>
             <div className="flex items-center gap-3">
               <Select value={trainingStatus} onValueChange={setTrainingStatus}>
-                <SelectTrigger id="training-status" className="w-full">
-                  <SelectValue placeholder="Seleziona stato" />
+                <SelectTrigger id="training-status"className="w-full">
+                  <SelectValue placeholder="Seleziona stato"/>
                 </SelectTrigger>
                 <SelectContent>
                   {TRAINING_STATUS_OPTIONS.map((option) => (
@@ -1823,13 +1749,13 @@ function SettingsContent({
 
           {/* Experience Level */}
           <div className="grid gap-2">
-            <Label htmlFor="experience" className="flex items-center gap-2">
-              <GraduationCap className="h-4 w-4 text-muted-foreground" />
+            <Label htmlFor="experience"className="flex items-center gap-2">
+              <GraduationCap className="h-4 w-4 text-muted-foreground"/>
               Livello Esperienza
             </Label>
             <Select value={experienceLevel} onValueChange={setExperienceLevel}>
-              <SelectTrigger id="experience" className="w-full">
-                <SelectValue placeholder="Seleziona livello" />
+              <SelectTrigger id="experience"className="w-full">
+                <SelectValue placeholder="Seleziona livello"/>
               </SelectTrigger>
               <SelectContent>
                 {EXPERIENCE_LEVELS.map((option) => (
@@ -1848,7 +1774,7 @@ function SettingsContent({
         <CardHeader>
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-chart-2/10 flex items-center justify-center">
-              <User className="h-5 w-5 text-chart-2" />
+              <User className="h-5 w-5 text-chart-2"/>
             </div>
             <div>
               <CardTitle className="text-lg">Informazioni Profilo</CardTitle>
@@ -1860,14 +1786,14 @@ function SettingsContent({
           {/* Avatar */}
           <div className="flex items-center gap-4">
             <Avatar className="h-20 w-20 border-2 border-border">
-              <AvatarImage src={profile?.avatar_url || ""} />
+              <AvatarImage src={profile?.avatar_url ||""} />
               <AvatarFallback className="text-xl bg-muted">
-                {profile?.full_name?.split(" ").map((n: string) => n[0]).join("").toUpperCase() || "?"}
+                {profile?.full_name?.split("").map((n: string) => n[0]).join("").toUpperCase() ||"?"}
               </AvatarFallback>
             </Avatar>
             <div className="space-y-2">
-              <Button variant="outline" size="sm" disabled>
-                <Camera className="h-4 w-4 mr-2" />
+              <Button variant="outline"size="sm"disabled>
+                <Camera className="h-4 w-4 mr-2"/>
                 Cambia Foto
               </Button>
               <p className="text-xs text-muted-foreground">Caricamento foto in arrivo</p>
@@ -1876,30 +1802,26 @@ function SettingsContent({
 
           {/* Full Name */}
           <div className="grid gap-2">
-            <Label htmlFor="full-name" className="flex items-center gap-2">
-              <User className="h-4 w-4 text-muted-foreground" />
+            <Label htmlFor="full-name"className="flex items-center gap-2">
+              <User className="h-4 w-4 text-muted-foreground"/>
               Nome Completo
             </Label>
             <Input 
-              id="full-name" 
-              value={fullName} 
+              id="full-name"              value={fullName} 
               onChange={(e) => setFullName(e.target.value)}
-              placeholder="Inserisci nome completo"
-            />
+              placeholder="Inserisci nome completo"            />
           </div>
 
           {/* Email (read-only) */}
           <div className="grid gap-2">
-            <Label htmlFor="email" className="flex items-center gap-2">
-              <Mail className="h-4 w-4 text-muted-foreground" />
+            <Label htmlFor="email"className="flex items-center gap-2">
+              <Mail className="h-4 w-4 text-muted-foreground"/>
               Email
             </Label>
             <Input 
-              id="email" 
-              value={athleteId || ""}
+              id="email"              value={athleteId ||""}
               disabled
-              className="bg-muted/50 text-muted-foreground cursor-not-allowed"
-            />
+              className="bg-muted/50 text-muted-foreground cursor-not-allowed"            />
             <p className="text-xs text-muted-foreground">
               L'email di accesso non può essere modificata dal coach
             </p>
@@ -1907,18 +1829,15 @@ function SettingsContent({
 
           {/* Coach Notes */}
           <div className="grid gap-2">
-            <Label htmlFor="coach-notes" className="flex items-center gap-2">
-              <Phone className="h-4 w-4 text-muted-foreground" />
+            <Label htmlFor="coach-notes"className="flex items-center gap-2">
+              <Phone className="h-4 w-4 text-muted-foreground"/>
               Note Private del Coach
             </Label>
             <Textarea 
-              id="coach-notes" 
-              value={coachNotes}
+              id="coach-notes"              value={coachNotes}
               onChange={(e) => setCoachNotes(e.target.value)}
-              placeholder="Telefono, contatto di emergenza, preferenze di allenamento, ecc."
-              rows={4}
-              className="resize-none"
-            />
+              placeholder="Telefono, contatto di emergenza, preferenze di allenamento, ecc."              rows={4}
+              className="resize-none"            />
             <p className="text-xs text-muted-foreground">
               Visibili solo a te. Usa per note personali e informazioni di contatto.
             </p>
@@ -1931,16 +1850,15 @@ function SettingsContent({
         <Button 
           onClick={handleSave} 
           disabled={saveProfileMutation.isPending}
-          className="min-w-[140px]"
-        >
+          className="min-w-[140px]"        >
           {saveProfileMutation.isPending ? (
             <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
               Salvataggio...
             </>
           ) : (
             <>
-              <Save className="h-4 w-4 mr-2" />
+              <Save className="h-4 w-4 mr-2"/>
               Salva Modifiche
             </>
           )}
@@ -1952,7 +1870,7 @@ function SettingsContent({
         <CardHeader>
           <div className="flex items-center gap-3">
             <div className="h-10 w-10 rounded-lg bg-destructive/10 flex items-center justify-center">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
+              <AlertTriangle className="h-5 w-5 text-destructive"/>
             </div>
             <div>
               <CardTitle className="text-lg text-destructive">Zona Pericolosa</CardTitle>
@@ -1971,8 +1889,8 @@ function SettingsContent({
             </div>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="secondary" className="shrink-0">
-                  <Archive className="h-4 w-4 mr-2" />
+                <Button variant="secondary"className="shrink-0">
+                  <Archive className="h-4 w-4 mr-2"/>
                   Archivia
                 </Button>
               </AlertDialogTrigger>
@@ -1980,7 +1898,7 @@ function SettingsContent({
                 <AlertDialogHeader>
                   <AlertDialogTitle>Archiviare questo atleta?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Questo nasconderà {profile?.full_name || "questo atleta"} dal roster attivo. 
+                    Questo nasconderà {profile?.full_name ||"questo atleta"} dal roster attivo. 
                     Tutti i dati di allenamento saranno conservati e potranno essere ripristinati.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -1990,7 +1908,7 @@ function SettingsContent({
                     onClick={() => archiveAthleteMutation.mutate()}
                     disabled={archiveAthleteMutation.isPending}
                   >
-                    {archiveAthleteMutation.isPending ? "Archiviazione..." : "Archivia Atleta"}
+                    {archiveAthleteMutation.isPending ?"Archiviazione...":"Archivia Atleta"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -2007,8 +1925,8 @@ function SettingsContent({
             </div>
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="shrink-0">
-                  <Trash2 className="h-4 w-4 mr-2" />
+                <Button variant="destructive"className="shrink-0">
+                  <Trash2 className="h-4 w-4 mr-2"/>
                   Elimina
                 </Button>
               </AlertDialogTrigger>
@@ -2017,15 +1935,14 @@ function SettingsContent({
                   <AlertDialogTitle className="text-destructive">Eliminare definitivamente questo atleta?</AlertDialogTitle>
                   <AlertDialogDescription>
                     Questa azione non può essere annullata. Eliminerà permanentemente 
-                    {profile?.full_name ? ` il profilo di ${profile.full_name}` : " il profilo dell'atleta"}, 
+                    {profile?.full_name ?`il profilo di ${profile.full_name}`:"il profilo dell'atleta"}, 
                     tutti i log di allenamento, metriche e storico.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Annulla</AlertDialogCancel>
                   <AlertDialogAction 
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    disabled
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"                    disabled
                   >
                     Elimina Definitivamente
                   </AlertDialogAction>
@@ -2034,7 +1951,7 @@ function SettingsContent({
             </AlertDialog>
           </div>
           <p className="text-xs text-muted-foreground text-center">
-            ⚠️ L'eliminazione definitiva è attualmente disabilitata per sicurezza
+             L'eliminazione definitiva è attualmente disabilitata per sicurezza
           </p>
         </CardContent>
       </Card>
@@ -2073,7 +1990,7 @@ export default function AthleteDetail() {
         .from("injuries")
         .select("*")
         .eq("athlete_id", id)
-        .neq("status", "healed")
+        .neq("status","healed")
         .order("injury_date", { ascending: false });
       if (error) throw error;
       return data || [];
@@ -2102,8 +2019,7 @@ export default function AthleteDetail() {
     enabled: !!id,
   });
 
-  // Fetch latest workout for "Last Active"
-  const { data: latestWorkout } = useQuery({
+  // Fetch latest workout for"Last Active"  const { data: latestWorkout } = useQuery({
     queryKey: ["athlete-latest-workout", id],
     queryFn: async () => {
       if (!id) return null;
@@ -2111,7 +2027,7 @@ export default function AthleteDetail() {
         .from("workout_logs")
         .select("completed_at")
         .eq("athlete_id", id)
-        .not("completed_at", "is", null)
+        .not("completed_at","is", null)
         .order("completed_at", { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -2172,7 +2088,7 @@ export default function AthleteDetail() {
         .from("workout_logs")
         .select("completed_at, workout_id")
         .eq("athlete_id", id)
-        .not("completed_at", "is", null)
+        .not("completed_at","is", null)
         .gte("completed_at", weekStart.toISOString())
         .lte("completed_at", addDays(weekEnd, 1).toISOString());
       
@@ -2194,8 +2110,8 @@ export default function AthleteDetail() {
         .from("workouts")
         .select("*")
         .eq("athlete_id", id)
-        .gte("scheduled_date", format(weekStart, "yyyy-MM-dd"))
-        .lte("scheduled_date", format(weekEnd, "yyyy-MM-dd"))
+        .gte("scheduled_date", format(weekStart,"yyyy-MM-dd"))
+        .lte("scheduled_date", format(weekEnd,"yyyy-MM-dd"))
         .order("scheduled_date", { ascending: true });
       
       if (error) throw error;
@@ -2230,12 +2146,12 @@ export default function AthleteDetail() {
 
   // Determine status
   const hasActiveInjuries = injuries && injuries.length > 0;
-  const athleteStatus = hasActiveInjuries ? "injured" : "active";
+  const athleteStatus = hasActiveInjuries ?"injured":"active";
 
   // Get initials
   const getInitials = (name: string) => {
     return name
-      .split(" ")
+      .split("")
       .map((n) => n[0])
       .join("")
       .toUpperCase()
@@ -2245,11 +2161,11 @@ export default function AthleteDetail() {
   // Get neurotype label
   const getNeurotypeLabel = (neurotype: string | null) => {
     const types: Record<string, string> = {
-      "1A": "1A - Dominant",
-      "1B": "1B - Seeker",
-      "2A": "2A - Balanced",
-      "2B": "2B - Perfectionist",
-      "3": "3 - Serotonin",
+      "1A":"1A - Dominant",
+      "1B":"1B - Seeker",
+      "2A":"2A - Balanced",
+      "2B":"2B - Perfectionist",
+      "3":"3 - Serotonin",
     };
     return neurotype ? types[neurotype] || neurotype : null;
   };
@@ -2310,7 +2226,7 @@ export default function AthleteDetail() {
     
     for (let i = 0; i < 7; i++) {
       const day = addDays(weekStart, i);
-      const dayName = format(day, "EEE", { locale: it });
+      const dayName = format(day,"EEE", { locale: it });
       const isFuture = isAfter(day, today);
       const isToday = isSameDay(day, today);
       
@@ -2320,16 +2236,16 @@ export default function AthleteDetail() {
         return isSameDay(new Date(w.completed_at), day);
       });
       
-      let status: "completed" | "rest" | "missed" | "future" = "future";
+      let status:"completed"|"rest"|"missed"|"future"="future";
       if (!isFuture) {
-        status = hasWorkout ? "completed" : (isToday ? "rest" : "missed");
+        status = hasWorkout ?"completed": (isToday ?"rest":"missed");
       }
       
       days.push({ day: dayName, date: day, status, isToday });
     }
     
-    const completedDays = days.filter(d => d.status === "completed").length;
-    const pastDays = days.filter(d => d.status !== "future").length;
+    const completedDays = days.filter(d => d.status ==="completed").length;
+    const pastDays = days.filter(d => d.status !=="future").length;
     const adherence = pastDays > 0 ? Math.round((completedDays / Math.max(pastDays, 1)) * 100) : 0;
     
     return { days, adherence, completedDays };
@@ -2341,14 +2257,13 @@ export default function AthleteDetail() {
       const primaryInjury = injuries[0];
       // Map status to severity display
       const severityMap: Record<string, string> = {
-        "active": "moderate",
-        "recovering": "mild",
-        "healed": "none"
-      };
+        "active":"moderate",
+        "recovering":"mild",
+        "healed":"none"      };
       return {
         hasPain: true,
-        location: primaryInjury.body_zone || "Unknown",
-        severity: severityMap[primaryInjury.status] || "moderate",
+        location: primaryInjury.body_zone ||"Unknown",
+        severity: severityMap[primaryInjury.status] ||"moderate",
         description: primaryInjury.description,
         count: injuries.length
       };
@@ -2364,10 +2279,10 @@ export default function AthleteDetail() {
 
   // Readiness color based on score
   const getReadinessColor = (score: number | null) => {
-    if (score === null) return { text: "text-muted-foreground", bg: "bg-muted", stroke: "stroke-muted-foreground" };
-    if (score < 40) return { text: "text-destructive", bg: "bg-destructive/10", stroke: "stroke-destructive" };
-    if (score < 70) return { text: "text-warning", bg: "bg-warning/10", stroke: "stroke-warning" };
-    return { text: "text-success", bg: "bg-success/10", stroke: "stroke-success" };
+    if (score === null) return { text:"text-muted-foreground", bg:"bg-muted", stroke:"stroke-muted-foreground"};
+    if (score < 40) return { text:"text-destructive", bg:"bg-destructive/10", stroke:"stroke-destructive"};
+    if (score < 70) return { text:"text-warning", bg:"bg-warning/10", stroke:"stroke-warning"};
+    return { text:"text-success", bg:"bg-success/10", stroke:"stroke-success"};
   };
 
   const readinessColors = getReadinessColor(readinessScore);
@@ -2380,7 +2295,7 @@ export default function AthleteDetail() {
 
     for (let i = 0; i < 7; i++) {
       const day = addDays(weekStart, i);
-      const dateStr = format(day, "yyyy-MM-dd");
+      const dateStr = format(day,"yyyy-MM-dd");
       const isFuture = isAfter(day, today);
       const isToday = isSameDay(day, today);
       const isPast = isBefore(day, today) && !isToday;
@@ -2395,22 +2310,22 @@ export default function AthleteDetail() {
         ? workoutLogs?.find(log => log.workout_id === scheduledWorkout.id && log.completed_at)
         : null;
 
-      let status: "completed" | "scheduled" | "missed" | "rest" = "rest";
+      let status:"completed"|"scheduled"|"missed"|"rest"="rest";
       if (scheduledWorkout) {
         if (completedLog) {
-          status = "completed";
+          status ="completed";
         } else if (isPast) {
-          status = "missed";
+          status ="missed";
         } else {
-          status = "scheduled";
+          status ="scheduled";
         }
       }
 
       days.push({
         date: day,
         dateStr,
-        dayName: format(day, "EEE", { locale: it }),
-        dayNumber: format(day, "d"),
+        dayName: format(day,"EEE", { locale: it }),
+        dayNumber: format(day,"d"),
         isToday,
         isFuture,
         isPast,
@@ -2468,7 +2383,7 @@ export default function AthleteDetail() {
     });
 
     const workoutsPlanned = schedule.filter(d => d.workout).length;
-    const workoutsCompleted = schedule.filter(d => d.status === "completed").length;
+    const workoutsCompleted = schedule.filter(d => d.status ==="completed").length;
 
     return {
       totalSets,
@@ -2483,11 +2398,11 @@ export default function AthleteDetail() {
   const weeklyStats = getWeeklyStats();
   if (profileLoading) {
     return (
-      <CoachLayout title="Caricamento..." subtitle="">
+      <CoachLayout title="Caricamento..."subtitle="">
         <div className="space-y-6">
-          <Skeleton className="h-48 w-full rounded-xl" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-96 w-full" />
+          <Skeleton className="h-48 w-full rounded-xl"/>
+          <Skeleton className="h-12 w-full"/>
+          <Skeleton className="h-96 w-full"/>
         </div>
       </CoachLayout>
     );
@@ -2496,11 +2411,11 @@ export default function AthleteDetail() {
   // Not found state
   if (!profile) {
     return (
-      <CoachLayout title="Atleta non trovato" subtitle="">
+      <CoachLayout title="Atleta non trovato"subtitle="">
         <Card className="p-8 text-center">
           <p className="text-muted-foreground mb-4">Questo atleta non esiste o non hai accesso.</p>
           <Button onClick={() => navigate("/coach/athletes")}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
+            <ArrowLeft className="h-4 w-4 mr-2"/>
             Torna agli Atleti
           </Button>
         </Card>
@@ -2509,16 +2424,13 @@ export default function AthleteDetail() {
   }
 
   return (
-    <CoachLayout title="" subtitle="">
+    <CoachLayout title=""subtitle="">
       <div className="space-y-6 animate-fade-in">
         {/* Back Button */}
         <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={() => navigate("/coach/athletes")}
-          className="-ml-2"
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
+          variant="ghost"          size="sm"          onClick={() => navigate("/coach/athletes")}
+          className="-ml-2"        >
+          <ArrowLeft className="h-4 w-4 mr-2"/>
           Torna al Roster
         </Button>
 
@@ -2528,9 +2440,9 @@ export default function AthleteDetail() {
             <div className="flex flex-col md:flex-row md:items-start gap-6">
               {/* Large Avatar */}
               <Avatar className="h-24 w-24 md:h-28 md:w-28 border-4 border-background shadow-xl ring-2 ring-primary/20">
-                <AvatarImage src={profile.avatar_url || undefined} alt={profile.full_name || ""} />
+                <AvatarImage src={profile.avatar_url || undefined} alt={profile.full_name ||""} />
                 <AvatarFallback className="bg-primary text-primary-foreground text-2xl md:text-3xl font-bold">
-                  {getInitials(profile.full_name || "A")}
+                  {getInitials(profile.full_name ||"A")}
                 </AvatarFallback>
               </Avatar>
 
@@ -2539,23 +2451,22 @@ export default function AthleteDetail() {
                 {/* Name and Status */}
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <h1 className="text-2xl md:text-3xl font-bold text-foreground">
-                    {profile.full_name || "Nome non disponibile"}
+                    {profile.full_name ||"Nome non disponibile"}
                   </h1>
                   <Badge 
-                    variant={athleteStatus === "injured" ? "destructive" : "secondary"}
+                    variant={athleteStatus ==="injured"?"destructive":"secondary"}
                     className={cn(
                       "text-xs font-semibold px-3 py-1 w-fit",
-                      athleteStatus === "active" && "bg-success/15 text-success border-success/30 hover:bg-success/20"
-                    )}
+                      athleteStatus ==="active"&&"bg-success/15 text-success border-success/30 hover:bg-success/20"                    )}
                   >
-                    {athleteStatus === "injured" ? (
+                    {athleteStatus ==="injured"? (
                       <>
-                        <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                        <XCircle className="h-3.5 w-3.5 mr-1.5"/>
                         Infortunato
                       </>
                     ) : (
                       <>
-                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5"/>
                         Attivo
                       </>
                     )}
@@ -2566,28 +2477,27 @@ export default function AthleteDetail() {
                 <div className="flex flex-wrap items-center gap-2 md:gap-3">
                   {profile.neurotype && (
                     <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-sm">
-                      <Brain className="h-3.5 w-3.5 text-primary" />
+                      <Brain className="h-3.5 w-3.5 text-primary"/>
                       <span className="text-muted-foreground">Neurotype:</span>
                       <span className="font-medium text-foreground">{getNeurotypeLabel(profile.neurotype)}</span>
                     </div>
                   )}
 
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-sm">
-                    <Calendar className="h-3.5 w-3.5 text-primary" />
+                    <Calendar className="h-3.5 w-3.5 text-primary"/>
                     <span className="text-muted-foreground">Program:</span>
                     <span className="font-medium text-foreground">
-                      {currentPhase?.name || "Nessun programma"}
+                      {currentPhase?.name ||"Nessun programma"}
                     </span>
                   </div>
 
                   <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-sm">
-                    <Clock className="h-3.5 w-3.5 text-primary" />
+                    <Clock className="h-3.5 w-3.5 text-primary"/>
                     <span className="text-muted-foreground">Last Active:</span>
                     <span className="font-medium text-foreground">
                       {latestWorkout?.completed_at 
                         ? formatDistanceToNow(new Date(latestWorkout.completed_at), { addSuffix: true, locale: it })
-                        : "Mai"
-                      }
+                        :"Mai"                      }
                     </span>
                   </div>
                 </div>
@@ -2599,11 +2509,9 @@ export default function AthleteDetail() {
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => setGodModeOpen(true)}
+                        variant="outline"                        size="icon"                        onClick={() => setGodModeOpen(true)}
                       >
-                        <Smartphone className="h-5 w-5" />
+                        <Smartphone className="h-5 w-5"/>
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>Visualizza come Atleta</TooltipContent>
@@ -2612,22 +2520,22 @@ export default function AthleteDetail() {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon">
-                      <MoreHorizontal className="h-5 w-5" />
+                    <Button variant="outline"size="icon">
+                      <MoreHorizontal className="h-5 w-5"/>
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48 bg-popover">
+                  <DropdownMenuContent align="end"className="w-48 bg-popover">
                     <DropdownMenuItem className="cursor-pointer">
-                      <Pencil className="h-4 w-4 mr-2" />
+                      <Pencil className="h-4 w-4 mr-2"/>
                       Edit Profile
                     </DropdownMenuItem>
                     <DropdownMenuItem className="cursor-pointer">
-                      <MessageSquare className="h-4 w-4 mr-2" />
+                      <MessageSquare className="h-4 w-4 mr-2"/>
                       Message
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive">
-                      <Archive className="h-4 w-4 mr-2" />
+                      <Archive className="h-4 w-4 mr-2"/>
                       Archive
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -2641,48 +2549,48 @@ export default function AthleteDetail() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
             <TabsList className="bg-muted/50 p-1 h-auto flex-wrap md:flex-nowrap w-max md:w-full">
-              <TabsTrigger value="overview" className="gap-2 text-xs md:text-sm px-3 py-2">
-                <Activity className="h-4 w-4" />
+              <TabsTrigger value="overview"className="gap-2 text-xs md:text-sm px-3 py-2">
+                <Activity className="h-4 w-4"/>
                 <span className="hidden sm:inline">Panoramica</span>
                 <span className="sm:hidden">Panoramica</span>
               </TabsTrigger>
-              <TabsTrigger value="program" className="gap-2 text-xs md:text-sm px-3 py-2">
-                <Dumbbell className="h-4 w-4" />
+              <TabsTrigger value="program"className="gap-2 text-xs md:text-sm px-3 py-2">
+                <Dumbbell className="h-4 w-4"/>
                 <span className="hidden sm:inline">Programma</span>
                 <span className="sm:hidden">Programma</span>
               </TabsTrigger>
-              <TabsTrigger value="exercise-stats" className="gap-2 text-xs md:text-sm px-3 py-2">
-                <BarChart3 className="h-4 w-4" />
+              <TabsTrigger value="exercise-stats"className="gap-2 text-xs md:text-sm px-3 py-2">
+                <BarChart3 className="h-4 w-4"/>
                 <span className="hidden sm:inline">Statistiche Esercizi</span>
                 <span className="sm:hidden">Stat.</span>
               </TabsTrigger>
-              <TabsTrigger value="vbt-analytics" className="gap-2 text-xs md:text-sm px-3 py-2">
-                <Zap className="h-4 w-4" />
+              <TabsTrigger value="vbt-analytics"className="gap-2 text-xs md:text-sm px-3 py-2">
+                <Zap className="h-4 w-4"/>
                 <span className="hidden sm:inline">Analisi VBT</span>
                 <span className="sm:hidden">VBT</span>
               </TabsTrigger>
-              <TabsTrigger value="advanced-stats" className="gap-2 text-xs md:text-sm px-3 py-2">
-                <TrendingUp className="h-4 w-4" />
+              <TabsTrigger value="advanced-stats"className="gap-2 text-xs md:text-sm px-3 py-2">
+                <TrendingUp className="h-4 w-4"/>
                 <span className="hidden sm:inline">Statistiche Avanzate</span>
                 <span className="sm:hidden">Avanzate</span>
               </TabsTrigger>
-              <TabsTrigger value="body-metrics" className="gap-2 text-xs md:text-sm px-3 py-2">
-                <Scale className="h-4 w-4" />
+              <TabsTrigger value="body-metrics"className="gap-2 text-xs md:text-sm px-3 py-2">
+                <Scale className="h-4 w-4"/>
                 <span className="hidden sm:inline">Misure Corporee</span>
                 <span className="sm:hidden">Misure</span>
               </TabsTrigger>
-              <TabsTrigger value="progress-pics" className="gap-2 text-xs md:text-sm px-3 py-2">
-                <Camera className="h-4 w-4" />
+              <TabsTrigger value="progress-pics"className="gap-2 text-xs md:text-sm px-3 py-2">
+                <Camera className="h-4 w-4"/>
                 <span className="hidden sm:inline">Foto Progresso</span>
                 <span className="sm:hidden">Foto</span>
               </TabsTrigger>
-              <TabsTrigger value="strategy" className="gap-2 text-xs md:text-sm px-3 py-2">
-                <Utensils className="h-4 w-4" />
+              <TabsTrigger value="strategy"className="gap-2 text-xs md:text-sm px-3 py-2">
+                <Utensils className="h-4 w-4"/>
                 <span className="hidden sm:inline">Strategia</span>
                 <span className="sm:hidden">Strategia</span>
               </TabsTrigger>
-              <TabsTrigger value="settings" className="gap-2 text-xs md:text-sm px-3 py-2">
-                <Settings className="h-4 w-4" />
+              <TabsTrigger value="settings"className="gap-2 text-xs md:text-sm px-3 py-2">
+                <Settings className="h-4 w-4"/>
                 <span className="hidden sm:inline">Impostazioni</span>
                 <span className="sm:hidden">Impostazioni</span>
               </TabsTrigger>
@@ -2690,14 +2598,14 @@ export default function AthleteDetail() {
           </div>
 
           {/* Overview Tab - Bento Grid */}
-          <TabsContent value="overview" className="space-y-6">
+          <TabsContent value="overview"className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               
               {/* Card 1: Readiness & Load */}
               <Card className="md:col-span-1 lg:col-span-2 overflow-hidden">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Zap className="h-4 w-4 text-primary" />
+                    <Zap className="h-4 w-4 text-primary"/>
                     Readiness & Carico
                   </CardTitle>
                 </CardHeader>
@@ -2705,32 +2613,19 @@ export default function AthleteDetail() {
                   <div className="flex items-center gap-6">
                     {/* Circular Gauge for Readiness */}
                     <div className="relative flex-shrink-0">
-                      <svg className="w-28 h-28 -rotate-90" viewBox="0 0 100 100">
+                      <svg className="w-28 h-28 -rotate-90"viewBox="0 0 100 100">
                         {/* Background circle */}
                         <circle
-                          cx="50"
-                          cy="50"
-                          r="42"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="8"
-                          className="text-muted/30"
-                        />
+                          cx="50"                          cy="50"                          r="42"                          fill="none"                          stroke="currentColor"                          strokeWidth="8"                          className="text-muted/30"                        />
                         {/* Progress circle */}
                         <circle
-                          cx="50"
-                          cy="50"
-                          r="42"
-                          fill="none"
-                          strokeWidth="8"
-                          strokeLinecap="round"
-                          strokeDasharray={`${(readinessScore || 0) * 2.64} 264`}
+                          cx="50"                          cy="50"                          r="42"                          fill="none"                          strokeWidth="8"                          strokeLinecap="round"                          strokeDasharray={`${(readinessScore || 0) * 2.64} 264`}
                           className={readinessColors.stroke}
                         />
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
                         <span className={cn("text-2xl font-bold tabular-nums", readinessColors.text)}>
-                          {readinessScore ?? "—"}
+                          {readinessScore ??"—"}
                         </span>
                         <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
                           Readiness
@@ -2743,32 +2638,30 @@ export default function AthleteDetail() {
                       <div>
                         <p className="text-xs text-muted-foreground mb-1">ACWR (Acuto:Cronico)</p>
                         {acwrLoading ? (
-                          <Skeleton className="h-10 w-20" />
-                        ) : acwrData?.status === "insufficient-data" ? (
+                          <Skeleton className="h-10 w-20"/>
+                        ) : acwrData?.status ==="insufficient-data"? (
                           <p className="text-2xl font-bold text-muted-foreground">—</p>
                         ) : (
                           <div className="flex items-baseline gap-2">
                             <span className={cn(
                               "text-3xl font-bold tabular-nums",
-                              acwrData?.status === "optimal" && "text-success",
-                              acwrData?.status === "warning" && "text-warning",
-                              acwrData?.status === "high-risk" && "text-destructive"
-                            )}>
-                              {acwrData?.ratio?.toFixed(2) || "—"}
+                              acwrData?.status ==="optimal"&&"text-success",
+                              acwrData?.status ==="warning"&&"text-warning",
+                              acwrData?.status ==="high-risk"&&"text-destructive"                            )}>
+                              {acwrData?.ratio?.toFixed(2) ||"—"}
                             </span>
-                            <Badge variant="secondary" className={cn(
+                            <Badge variant="secondary"className={cn(
                               "text-[10px]",
-                              acwrData?.status === "optimal" && "bg-success/10 text-success",
-                              acwrData?.status === "warning" && "bg-warning/10 text-warning",
-                              acwrData?.status === "high-risk" && "bg-destructive/10 text-destructive"
-                            )}>
-                              {acwrData?.label || "N/A"}
+                              acwrData?.status ==="optimal"&&"bg-success/10 text-success",
+                              acwrData?.status ==="warning"&&"bg-warning/10 text-warning",
+                              acwrData?.status ==="high-risk"&&"bg-destructive/10 text-destructive"                            )}>
+                              {acwrData?.label ||"N/A"}
                             </Badge>
                           </div>
                         )}
                       </div>
                       
-                      {acwrData && acwrData.status !== "insufficient-data" && (
+                      {acwrData && acwrData.status !=="insufficient-data"&& (
                         <div className="flex gap-4 text-xs text-muted-foreground">
                           <span>Acuto: <strong className="text-foreground">{acwrData.acuteLoad}</strong></span>
                           <span>Cronico: <strong className="text-foreground">{acwrData.chronicLoad}</strong></span>
@@ -2783,7 +2676,7 @@ export default function AthleteDetail() {
               <Card className="md:col-span-1 lg:col-span-2 overflow-hidden">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Flame className="h-4 w-4 text-orange-500" />
+                    <Flame className="h-4 w-4 text-orange-500"/>
                     Metabolism (TDEE Tracker)
                   </CardTitle>
                 </CardHeader>
@@ -2793,7 +2686,7 @@ export default function AthleteDetail() {
                     <div className="flex-shrink-0 text-center">
                       <p className="text-xs text-muted-foreground mb-1">Est. TDEE</p>
                       <p className="text-3xl font-bold text-foreground tabular-nums">
-                        {tdeeValue ? tdeeValue.toLocaleString() : "—"}
+                        {tdeeValue ? tdeeValue.toLocaleString() :"—"}
                       </p>
                       <p className="text-xs text-muted-foreground">kcal/day</p>
                     </div>
@@ -2807,26 +2700,21 @@ export default function AthleteDetail() {
                       ) : (
                         <ChartContainer
                           config={{
-                            weight: { label: "Peso", color: "hsl(var(--primary))" },
+                            weight: { label:"Peso", color:"hsl(var(--primary))"},
                           }}
-                          className="h-full w-full"
-                        >
+                          className="h-full w-full"                        >
                           <AreaChart data={weightTrend}>
                             <defs>
-                              <linearGradient id="weightGradientOverview" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
-                                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                              <linearGradient id="weightGradientOverview"x1="0"y1="0"x2="0"y2="1">
+                                <stop offset="0%"stopColor="hsl(var(--primary))"stopOpacity={0.4} />
+                                <stop offset="100%"stopColor="hsl(var(--primary))"stopOpacity={0} />
                               </linearGradient>
                             </defs>
-                            <XAxis dataKey="date" hide />
-                            <YAxis hide domain={["dataMin - 1", "dataMax + 1"]} />
+                            <XAxis dataKey="date"hide />
+                            <YAxis hide domain={["dataMin - 1","dataMax + 1"]} />
                             <ChartTooltip content={<ChartTooltipContent />} />
                             <Area
-                              type="monotone"
-                              dataKey="weight_kg"
-                              stroke="hsl(var(--primary))"
-                              fill="url(#weightGradientOverview)"
-                              strokeWidth={2}
+                              type="monotone"                              dataKey="weight_kg"                              stroke="hsl(var(--primary))"                              fill="url(#weightGradientOverview)"                              strokeWidth={2}
                             />
                           </AreaChart>
                         </ChartContainer>
@@ -2848,7 +2736,7 @@ export default function AthleteDetail() {
               <Card className="md:col-span-1 lg:col-span-2 overflow-hidden">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Target className="h-4 w-4 text-primary" />
+                    <Target className="h-4 w-4 text-primary"/>
                     Compliance Settimanale
                   </CardTitle>
                 </CardHeader>
@@ -2862,16 +2750,15 @@ export default function AthleteDetail() {
                         </span>
                         <div className={cn(
                           "w-8 h-8 rounded-full flex items-center justify-center transition-all",
-                          day.status === "completed" && "bg-success text-success-foreground",
-                          day.status === "rest" && "bg-muted text-muted-foreground",
-                          day.status === "missed" && "bg-destructive/20 text-destructive border-2 border-destructive/50",
-                          day.status === "future" && "bg-muted/30 text-muted-foreground/50 border border-dashed border-muted-foreground/30",
-                          day.isToday && "ring-2 ring-primary ring-offset-2 ring-offset-background"
-                        )}>
-                          {day.status === "completed" && <CheckCircle2 className="h-4 w-4" />}
-                          {day.status === "missed" && <XCircle className="h-4 w-4" />}
-                          {day.status === "rest" && <span className="text-xs">—</span>}
-                          {day.status === "future" && <span className="text-xs">•</span>}
+                          day.status ==="completed"&&"bg-success text-success-foreground",
+                          day.status ==="rest"&&"bg-muted text-muted-foreground",
+                          day.status ==="missed"&&"bg-destructive/20 text-destructive border-2 border-destructive/50",
+                          day.status ==="future"&&"bg-muted/30 text-muted-foreground/50 border border-dashed border-muted-foreground/30",
+                          day.isToday &&"ring-2 ring-primary ring-offset-2 ring-offset-background"                        )}>
+                          {day.status ==="completed"&& <CheckCircle2 className="h-4 w-4"/>}
+                          {day.status ==="missed"&& <XCircle className="h-4 w-4"/>}
+                          {day.status ==="rest"&& <span className="text-xs">—</span>}
+                          {day.status ==="future"&& <span className="text-xs">•</span>}
                         </div>
                       </div>
                     ))}
@@ -2885,19 +2772,17 @@ export default function AthleteDetail() {
                         <div 
                           className={cn(
                             "h-full rounded-full transition-all",
-                            weeklyCompliance.adherence >= 80 && "bg-success",
-                            weeklyCompliance.adherence >= 50 && weeklyCompliance.adherence < 80 && "bg-warning",
-                            weeklyCompliance.adherence < 50 && "bg-destructive"
-                          )}
-                          style={{ width: `${weeklyCompliance.adherence}%` }}
+                            weeklyCompliance.adherence >= 80 &&"bg-success",
+                            weeklyCompliance.adherence >= 50 && weeklyCompliance.adherence < 80 &&"bg-warning",
+                            weeklyCompliance.adherence < 50 &&"bg-destructive"                          )}
+                          style={{ width:`${weeklyCompliance.adherence}%`}}
                         />
                       </div>
                       <span className={cn(
                         "text-lg font-bold tabular-nums",
-                        weeklyCompliance.adherence >= 80 && "text-success",
-                        weeklyCompliance.adherence >= 50 && weeklyCompliance.adherence < 80 && "text-warning",
-                        weeklyCompliance.adherence < 50 && "text-destructive"
-                      )}>
+                        weeklyCompliance.adherence >= 80 &&"text-success",
+                        weeklyCompliance.adherence >= 50 && weeklyCompliance.adherence < 80 &&"text-warning",
+                        weeklyCompliance.adherence < 50 &&"text-destructive"                      )}>
                         {weeklyCompliance.adherence}%
                       </span>
                     </div>
@@ -2908,11 +2793,10 @@ export default function AthleteDetail() {
               {/* Card 4: Pain Status */}
               <Card className={cn(
                 "md:col-span-1 lg:col-span-2 overflow-hidden transition-colors",
-                painStatus.hasPain && "border-destructive/50 bg-destructive/5"
-              )}>
+                painStatus.hasPain &&"border-destructive/50 bg-destructive/5"              )}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Heart className={cn("h-4 w-4", painStatus.hasPain ? "text-destructive" : "text-success")} />
+                    <Heart className={cn("h-4 w-4", painStatus.hasPain ?"text-destructive":"text-success")} />
                     Stato Dolore
                   </CardTitle>
                 </CardHeader>
@@ -2920,17 +2804,17 @@ export default function AthleteDetail() {
                   {painStatus.hasPain ? (
                     <div className="flex items-center gap-4">
                       <div className="h-14 w-14 rounded-full bg-destructive/10 flex items-center justify-center">
-                        <AlertTriangle className="h-7 w-7 text-destructive" />
+                        <AlertTriangle className="h-7 w-7 text-destructive"/>
                       </div>
                       <div className="flex-1">
                         <p className="font-semibold text-destructive text-lg">Problema Attivo Rilevato</p>
                         <p className="text-sm text-muted-foreground">
-                          {'location' in painStatus && String(painStatus.location)}:{' '}
+                          {'location'in painStatus && String(painStatus.location)}:{''}
                           <span className="capitalize font-medium text-foreground">
-                            {'severity' in painStatus && String(painStatus.severity)}
+                            {'severity'in painStatus && String(painStatus.severity)}
                           </span>
                         </p>
-                        {'count' in painStatus && typeof painStatus.count === 'number' && painStatus.count > 1 && (
+                        {'count'in painStatus && typeof painStatus.count ==='number'&& painStatus.count > 1 && (
                           <p className="text-xs text-muted-foreground mt-1">
                             +{painStatus.count - 1} altri infortuni attivi
                           </p>
@@ -2940,10 +2824,10 @@ export default function AthleteDetail() {
                   ) : (
                     <div className="flex items-center gap-4">
                       <div className="h-14 w-14 rounded-full bg-success/10 flex items-center justify-center">
-                        <CheckCircle2 className="h-7 w-7 text-success" />
+                        <CheckCircle2 className="h-7 w-7 text-success"/>
                       </div>
                       <div className="flex-1">
-                        <p className="font-semibold text-success text-lg">All Clear ✅</p>
+                        <p className="font-semibold text-success text-lg">All Clear </p>
                         <p className="text-sm text-muted-foreground">
                           Nessun infortunio o dolore segnalato
                         </p>
@@ -2960,33 +2844,32 @@ export default function AthleteDetail() {
           </TabsContent>
 
           {/* Program Tab - Weekly Microcycle */}
-          <TabsContent value="program" className="space-y-6">
+          <TabsContent value="program"className="space-y-6">
             {/* 1. Active Phase Header */}
             <Card className="overflow-hidden">
               <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div className="flex items-center gap-3">
                     <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                      <Dumbbell className="h-6 w-6 text-primary" />
+                      <Dumbbell className="h-6 w-6 text-primary"/>
                     </div>
                     <div>
                       <CardTitle className="text-lg">
-                        {currentPhase?.name || "Nessun Programma Attivo"}
+                        {currentPhase?.name ||"Nessun Programma Attivo"}
                       </CardTitle>
                       {currentPhase && (
                         <p className="text-sm text-muted-foreground">
-                          {format(new Date(currentPhase.start_date), "d MMM", { locale: it })} - {format(new Date(currentPhase.end_date), "d MMM yyyy", { locale: it })}
+                          {format(new Date(currentPhase.start_date),"d MMM", { locale: it })} - {format(new Date(currentPhase.end_date),"d MMM yyyy", { locale: it })}
                         </p>
                       )}
                     </div>
                   </div>
                   <Button 
                     onClick={() => navigate(`/coach/programs?athlete=${id}`)}
-                    className="gap-2"
-                  >
-                    <Play className="h-4 w-4" />
+                    className="gap-2"                  >
+                    <Play className="h-4 w-4"/>
                     Apri Program Builder
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-4 w-4"/>
                   </Button>
                 </div>
               </CardHeader>
@@ -3003,8 +2886,7 @@ export default function AthleteDetail() {
                     </div>
                     <div className="h-2 rounded-full bg-muted overflow-hidden">
                       <div 
-                        className="h-full rounded-full bg-primary transition-all duration-500"
-                        style={{ width: `${phaseProgress.percentage}%` }}
+                        className="h-full rounded-full bg-primary transition-all duration-500"                        style={{ width:`${phaseProgress.percentage}%`}}
                       />
                     </div>
                   </div>
@@ -3032,22 +2914,19 @@ export default function AthleteDetail() {
                     key={idx}
                     className={cn(
                       "rounded-xl border transition-all",
-                      day.isToday && "ring-2 ring-primary ring-offset-2 ring-offset-background",
-                      day.isFuture && "opacity-60"
-                    )}
+                      day.isToday &&"ring-2 ring-primary ring-offset-2 ring-offset-background",
+                      day.isFuture &&"opacity-60"                    )}
                   >
                     {/* Day Header */}
                     <div className={cn(
                       "px-3 py-2 border-b text-center",
-                      day.isToday ? "bg-primary/10" : "bg-muted/30"
-                    )}>
+                      day.isToday ?"bg-primary/10":"bg-muted/30"                    )}>
                       <p className="text-xs font-medium text-muted-foreground uppercase">
                         {day.dayName}
                       </p>
                       <p className={cn(
                         "text-lg font-bold",
-                        day.isToday ? "text-primary" : "text-foreground"
-                      )}>
+                        day.isToday ?"text-primary":"text-foreground"                      )}>
                         {day.dayNumber}
                       </p>
                     </div>
@@ -3059,13 +2938,12 @@ export default function AthleteDetail() {
                           {/* Status Indicator */}
                           <div className={cn(
                             "w-6 h-6 rounded-full flex items-center justify-center mx-auto",
-                            day.status === "completed" && "bg-success text-success-foreground",
-                            day.status === "missed" && "bg-destructive text-destructive-foreground",
-                            day.status === "scheduled" && "bg-primary/20 text-primary"
-                          )}>
-                            {day.status === "completed" && <CheckCircle2 className="h-4 w-4" />}
-                            {day.status === "missed" && <XCircle className="h-4 w-4" />}
-                            {day.status === "scheduled" && <Dumbbell className="h-3 w-3" />}
+                            day.status ==="completed"&&"bg-success text-success-foreground",
+                            day.status ==="missed"&&"bg-destructive text-destructive-foreground",
+                            day.status ==="scheduled"&&"bg-primary/20 text-primary"                          )}>
+                            {day.status ==="completed"&& <CheckCircle2 className="h-4 w-4"/>}
+                            {day.status ==="missed"&& <XCircle className="h-4 w-4"/>}
+                            {day.status ==="scheduled"&& <Dumbbell className="h-3 w-3"/>}
                           </div>
 
                           {/* Workout Info */}
@@ -3078,21 +2956,21 @@ export default function AthleteDetail() {
                           {/* Badges */}
                           <div className="flex flex-wrap justify-center gap-1">
                             {day.workout.estimated_duration && (
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                <Clock className="h-2.5 w-2.5 mr-0.5" />
+                              <Badge variant="secondary"className="text-[10px] px-1.5 py-0">
+                                <Clock className="h-2.5 w-2.5 mr-0.5"/>
                                 {day.workout.estimated_duration}m
                               </Badge>
                             )}
                             {currentPhase?.focus_type && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 capitalize">
-                                {currentPhase.focus_type.replace('_', ' ')}
+                              <Badge variant="outline"className="text-[10px] px-1.5 py-0 capitalize">
+                                {currentPhase.focus_type.replace('_','')}
                               </Badge>
                             )}
                           </div>
                         </div>
                       ) : (
                         <div className="h-full flex flex-col items-center justify-center text-muted-foreground/50">
-                          <Coffee className="h-6 w-6 mb-1" />
+                          <Coffee className="h-6 w-6 mb-1"/>
                           <span className="text-xs">Giorno di Riposo</span>
                         </div>
                       )}
@@ -3108,16 +2986,14 @@ export default function AthleteDetail() {
                     key={idx}
                     className={cn(
                       "overflow-hidden transition-all",
-                      day.isToday && "ring-2 ring-primary",
-                      day.isFuture && "opacity-60"
-                    )}
+                      day.isToday &&"ring-2 ring-primary",
+                      day.isFuture &&"opacity-60"                    )}
                   >
                     <div className="flex items-center gap-3 p-3">
                       {/* Date Column */}
                       <div className={cn(
                         "w-14 h-14 rounded-lg flex flex-col items-center justify-center flex-shrink-0",
-                        day.isToday ? "bg-primary text-primary-foreground" : "bg-muted"
-                      )}>
+                        day.isToday ?"bg-primary text-primary-foreground":"bg-muted"                      )}>
                         <span className="text-[10px] uppercase font-medium">
                           {day.dayName}
                         </span>
@@ -3130,11 +3006,11 @@ export default function AthleteDetail() {
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="font-medium truncate">{day.workout.title}</p>
-                              {day.status === "completed" && (
-                                <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
+                              {day.status ==="completed"&& (
+                                <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0"/>
                               )}
-                              {day.status === "missed" && (
-                                <XCircle className="h-4 w-4 text-destructive flex-shrink-0" />
+                              {day.status ==="missed"&& (
+                                <XCircle className="h-4 w-4 text-destructive flex-shrink-0"/>
                               )}
                             </div>
                             <div className="flex items-center gap-2 mt-1">
@@ -3144,15 +3020,15 @@ export default function AthleteDetail() {
                                 </span>
                               )}
                               {currentPhase?.focus_type && (
-                                <Badge variant="outline" className="text-[10px] capitalize">
-                                  {currentPhase.focus_type.replace('_', ' ')}
+                                <Badge variant="outline"className="text-[10px] capitalize">
+                                  {currentPhase.focus_type.replace('_','')}
                                 </Badge>
                               )}
                             </div>
                           </div>
                         ) : (
                           <div className="flex items-center gap-2 text-muted-foreground">
-                            <Coffee className="h-4 w-4" />
+                            <Coffee className="h-4 w-4"/>
                             <span className="text-sm">Giorno di Riposo</span>
                           </div>
                         )}
@@ -3172,7 +3048,7 @@ export default function AthleteDetail() {
                       <p className="text-2xl font-bold text-foreground">{weeklyStats.totalSets}</p>
                       <p className="text-xs text-muted-foreground">Serie Totali</p>
                     </div>
-                    <div className="h-8 w-px bg-border" />
+                    <div className="h-8 w-px bg-border"/>
                     <div className="text-center">
                       <p className="text-2xl font-bold text-foreground">
                         {weeklyStats.workoutsCompleted}/{weeklyStats.workoutsPlanned}
@@ -3185,13 +3061,13 @@ export default function AthleteDetail() {
                     <span className="text-sm text-muted-foreground">Focus:</span>
                     {weeklyStats.focusTypes.length > 0 ? (
                       weeklyStats.focusTypes.map((focus, idx) => (
-                        <Badge key={idx} variant="secondary" className="capitalize">
-                          {focus.replace('_', ' ')}
+                        <Badge key={idx} variant="secondary"className="capitalize">
+                          {focus.replace('_','')}
                         </Badge>
                       ))
                     ) : currentPhase?.focus_type ? (
-                      <Badge variant="secondary" className="capitalize">
-                        {currentPhase.focus_type.replace('_', ' ')}
+                      <Badge variant="secondary"className="capitalize">
+                        {currentPhase.focus_type.replace('_','')}
                       </Badge>
                     ) : (
                       <Badge variant="outline">None</Badge>
@@ -3202,32 +3078,32 @@ export default function AthleteDetail() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="exercise-stats" className="space-y-6">
+          <TabsContent value="exercise-stats"className="space-y-6">
             <ExerciseStatsContent athleteId={id} />
           </TabsContent>
 
-          <TabsContent value="advanced-stats" className="space-y-6">
+          <TabsContent value="advanced-stats"className="space-y-6">
             <AdvancedStatsContent athleteId={id} />
           </TabsContent>
 
-          <TabsContent value="body-metrics" className="space-y-6">
+          <TabsContent value="body-metrics"className="space-y-6">
             <BodyMetricsContent athleteId={id} />
           </TabsContent>
 
-          <TabsContent value="progress-pics" className="space-y-6">
+          <TabsContent value="progress-pics"className="space-y-6">
             <ProgressPicsContent athleteId={id} />
           </TabsContent>
 
-          <TabsContent value="vbt-analytics" className="space-y-6">
+          <TabsContent value="vbt-analytics"className="space-y-6">
             <VelocityTrendChart athleteId={id} />
             <BarPathGallery athleteId={id} />
           </TabsContent>
 
-          <TabsContent value="strategy" className="space-y-6">
+          <TabsContent value="strategy"className="space-y-6">
             <StrategyContent athleteId={id} />
           </TabsContent>
 
-          <TabsContent value="settings" className="space-y-6">
+          <TabsContent value="settings"className="space-y-6">
             <SettingsContent 
               athleteId={id} 
               profile={profile}
@@ -3239,7 +3115,7 @@ export default function AthleteDetail() {
         {/* God Mode - View as Athlete */}
         <AthleteViewerDialog
           athleteId={id!}
-          athleteName={profile.full_name || "Atleta"}
+          athleteName={profile.full_name ||"Atleta"}
           open={godModeOpen}
           onOpenChange={setGodModeOpen}
         />

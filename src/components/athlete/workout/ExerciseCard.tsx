@@ -1,20 +1,20 @@
-import { useState, memo } from "react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { useState, memo } from"react";
+import { Card, CardContent } from"@/components/ui/card";
+import { Button } from"@/components/ui/button";
+import { Alert, AlertTitle, AlertDescription } from"@/components/ui/alert";
+import { AspectRatio } from"@/components/ui/aspect-ratio";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import { Dumbbell, Play, Info, Zap } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { SetInputRow } from "./SetInputRow";
-import { extractYouTubeId, getYouTubeThumbnail } from "@/lib/media";
-import type { LastSetData } from "@/hooks/useExerciseHistory";
-import { motion } from "framer-motion";
+} from"@/components/ui/dialog";
+import { Dumbbell, Play, Info, Zap } from"lucide-react";
+import { cn } from"@/lib/utils";
+import { SetInputRow } from"./SetInputRow";
+import { extractYouTubeId, getYouTubeThumbnail } from"@/lib/media";
+import type { LastSetData } from"@/hooks/useExerciseHistory";
+import { motion } from"framer-motion";
 
 export interface SetData {
   id: string;
@@ -52,7 +52,7 @@ interface ExerciseCardProps {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Space 1 – Video Thumbnail                                         */
+/* Space 1 – Video Thumbnail */
 /* ------------------------------------------------------------------ */
 
 function VideoThumbnail({ videoUrl }: { videoUrl?: string }) {
@@ -66,7 +66,7 @@ function VideoThumbnail({ videoUrl }: { videoUrl?: string }) {
     return (
       <AspectRatio ratio={16 / 9} className="bg-muted/40 rounded-xl overflow-hidden">
         <div className="flex items-center justify-center h-full">
-          <Dumbbell className="h-8 w-8 text-muted-foreground/30" />
+          <Dumbbell className="h-8 w-8 text-muted-foreground/30"/>
         </div>
       </AspectRatio>
     );
@@ -78,18 +78,14 @@ function VideoThumbnail({ videoUrl }: { videoUrl?: string }) {
       <>
         <button
           onClick={() => setDialogOpen(true)}
-          className="w-full rounded-xl overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        >
+          className="w-full rounded-xl overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"        >
           <AspectRatio ratio={16 / 9} className="bg-muted">
             <img
               src={getYouTubeThumbnail(youtubeId)}
-              alt="Video esercizio"
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
+              alt="Video esercizio"              className="w-full h-full object-cover"              loading="lazy"            />
             <div className="absolute inset-0 flex items-center justify-center bg-black/25 transition-colors hover:bg-black/35">
               <div className="h-14 w-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-                <Play className="h-6 w-6 text-foreground ml-0.5" fill="currentColor" />
+                <Play className="h-6 w-6 text-foreground ml-0.5"fill="currentColor"/>
               </div>
             </div>
           </AspectRatio>
@@ -103,11 +99,8 @@ function VideoThumbnail({ videoUrl }: { videoUrl?: string }) {
             <AspectRatio ratio={16 / 9}>
               <iframe
                 src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1`}
-                allow="autoplay; encrypted-media"
-                allowFullScreen
-                className="w-full h-full border-0"
-                title="Video esercizio"
-              />
+                allow="autoplay; encrypted-media"                allowFullScreen
+                className="w-full h-full border-0"                title="Video esercizio"              />
             </AspectRatio>
           </DialogContent>
         </Dialog>
@@ -120,12 +113,11 @@ function VideoThumbnail({ videoUrl }: { videoUrl?: string }) {
     <>
       <button
         onClick={() => setDialogOpen(true)}
-        className="w-full rounded-xl overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-      >
+        className="w-full rounded-xl overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"      >
         <AspectRatio ratio={16 / 9} className="bg-muted">
           <div className="flex items-center justify-center h-full">
             <div className="h-14 w-14 rounded-full bg-white/90 flex items-center justify-center shadow-lg">
-              <Play className="h-6 w-6 text-foreground ml-0.5" fill="currentColor" />
+              <Play className="h-6 w-6 text-foreground ml-0.5"fill="currentColor"/>
             </div>
           </div>
         </AspectRatio>
@@ -136,7 +128,7 @@ function VideoThumbnail({ videoUrl }: { videoUrl?: string }) {
           <DialogHeader className="sr-only">
             <DialogTitle>Video esercizio</DialogTitle>
           </DialogHeader>
-          <video src={videoUrl} controls autoPlay playsInline className="w-full" />
+          <video src={videoUrl} controls autoPlay playsInline className="w-full"/>
         </DialogContent>
       </Dialog>
     </>
@@ -144,7 +136,7 @@ function VideoThumbnail({ videoUrl }: { videoUrl?: string }) {
 }
 
 /* ------------------------------------------------------------------ */
-/*  Protocol Summary builder                                          */
+/* Protocol Summary builder */
 /* ------------------------------------------------------------------ */
 
 function buildProtocol(exercise: ExerciseData, isRecoveryMode: boolean): string {
@@ -169,11 +161,11 @@ function buildProtocol(exercise: ExerciseData, isRecoveryMode: boolean): string 
     }
   }
 
-  return parts.join(" x ");
+  return parts.join("x");
 }
 
 /* ------------------------------------------------------------------ */
-/*  ExerciseCard                                                       */
+/* ExerciseCard */
 /* ------------------------------------------------------------------ */
 
 export const ExerciseCard = memo(function ExerciseCard({
@@ -200,17 +192,15 @@ export const ExerciseCard = memo(function ExerciseCard({
         className={cn(
           "border-0 overflow-hidden transition-all duration-300",
           isActive
-            ? "bg-[hsl(var(--m3-surface-container-high,var(--card)))] shadow-lg ring-1 ring-primary/10"
-            : "bg-[hsl(var(--m3-surface-container,var(--card)))]",
-          supersetInfo && "border-l-4 border-l-primary",
-          allCompleted && "ring-1 ring-primary/30"
-        )}
+            ?"bg-[hsl(var(--m3-surface-container-high,var(--card)))] shadow-lg ring-1 ring-primary/10"            :"bg-[hsl(var(--m3-surface-container,var(--card)))]",
+          supersetInfo &&"border-l-4 border-l-primary",
+          allCompleted &&"ring-1 ring-primary/30"        )}
       >
         <CardContent className="p-0">
           {/* Superset indicator */}
           {supersetInfo?.isFirst && (
             <div className="px-4 py-1.5 bg-primary/10 border-b border-primary/20 flex items-center gap-2">
-              <Zap className="h-3 w-3 text-primary" />
+              <Zap className="h-3 w-3 text-primary"/>
               <span className="text-[10px] font-semibold text-primary uppercase tracking-wider">
                 Superset ({supersetInfo.total} esercizi)
               </span>
@@ -225,23 +215,22 @@ export const ExerciseCard = memo(function ExerciseCard({
             <div>
               <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
                 {supersetInfo
-                  ? `${supersetInfo.index + 1}/${supersetInfo.total}`
-                  : `Esercizio ${exerciseIndex + 1}`}
+                  ?`${supersetInfo.index + 1}/${supersetInfo.total}`                  :`Esercizio ${exerciseIndex + 1}`}
               </span>
               <h3 className="text-xl font-bold tracking-tight">{exercise.name}</h3>
 
               {/* History context */}
               {historyData && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Ultima volta:{" "}
+                  Ultima volta:{""}
                   <span className="font-medium text-foreground">
                     {historyData.weight_kg}kg × {historyData.reps}
-                    {historyData.rpe ? ` @RPE${historyData.rpe}` : ""}
+                    {historyData.rpe ?`@RPE${historyData.rpe}`:""}
                   </span>
-                  {" — "}
+                  {"—"}
                   {new Date(historyData.date).toLocaleDateString("it-IT", {
-                    day: "numeric",
-                    month: "short",
+                    day:"numeric",
+                    month:"short",
                   })}
                 </p>
               )}
@@ -249,15 +238,15 @@ export const ExerciseCard = memo(function ExerciseCard({
 
             {/* Space 3: Protocol Summary */}
             <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Obiettivo:</span>{" "}
+              <span className="font-medium text-foreground">Obiettivo:</span>{""}
               {buildProtocol(exercise, isRecoveryMode)}
-              {exercise.sets[0]?.targetKg > 0 && ` — ${exercise.sets[0].targetKg}kg`}
+              {exercise.sets[0]?.targetKg > 0 &&`— ${exercise.sets[0].targetKg}kg`}
             </p>
 
             {/* Space 4: Coach's Notes */}
             {exercise.coachNotes && (
               <Alert className="bg-primary/5 border-primary/15">
-                <Info className="h-4 w-4 text-primary" />
+                <Info className="h-4 w-4 text-primary"/>
                 <AlertTitle className="text-sm font-semibold">Note del Coach</AlertTitle>
                 <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
                   {exercise.coachNotes}
@@ -273,7 +262,7 @@ export const ExerciseCard = memo(function ExerciseCard({
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground text-center">Kg</span>
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground text-center">Reps</span>
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground text-center">RPE</span>
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground text-center">✓</span>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground text-center"></span>
               </div>
 
               <div className="space-y-2">
@@ -300,7 +289,7 @@ export const ExerciseCard = memo(function ExerciseCard({
             {allCompleted && (
               <div className="text-center">
                 <span className="text-xs font-semibold text-primary">
-                  ✓ {completedSets}/{exercise.sets.length} serie completate
+                   {completedSets}/{exercise.sets.length} serie completate
                 </span>
               </div>
             )}
