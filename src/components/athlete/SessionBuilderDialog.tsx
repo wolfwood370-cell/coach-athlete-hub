@@ -1,7 +1,7 @@
-import { useState, useMemo } from"react";
-import { useNavigate } from"react-router-dom";
-import { useMutation, useQuery } from"@tanstack/react-query";
-import { supabase } from"@/integrations/supabase/client";
+import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -9,25 +9,18 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from"@/components/ui/dialog";
-import { Button } from"@/components/ui/button";
-import { Input } from"@/components/ui/input";
-import { Checkbox } from"@/components/ui/checkbox";
-import { ScrollArea } from"@/components/ui/scroll-area";
-import { Badge } from"@/components/ui/badge";
-import { Skeleton } from"@/components/ui/skeleton";
-import {
-  Search,
-  Dumbbell,
-  Play,
-  Loader2,
-  X,
-  Filter,
-} from"lucide-react";
-import { cn } from"@/lib/utils";
-import { useToast } from"@/hooks/use-toast";
-import { format } from"date-fns";
-import { it } from"date-fns/locale";
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Search, Dumbbell, Play, Loader2, X, Filter } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
 
 interface Exercise {
   id: string;
@@ -90,10 +83,9 @@ export function SessionBuilderDialog({
   const filteredExercises = useMemo(() => {
     return exercises.filter((ex) => {
       const matchesSearch =
-        searchQuery ===""||
+        searchQuery === "" ||
         ex.name.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesMuscle =
-        !filterMuscle || ex.muscles.includes(filterMuscle);
+      const matchesMuscle = !filterMuscle || ex.muscles.includes(filterMuscle);
       return matchesSearch && matchesMuscle;
     });
   }, [exercises, searchQuery, filterMuscle]);
@@ -115,19 +107,19 @@ export function SessionBuilderDialog({
   const createSessionMutation = useMutation({
     mutationFn: async () => {
       const now = new Date();
-      const sessionName =`Sessione ${format(now,"dd/MM HH:mm", { locale: it })}`;
+      const sessionName = `Sessione ${format(now, "dd/MM HH:mm", { locale: it })}`;
 
       // Build structure from selected exercises
       const structure = selectedExercises.map((ex, index) => ({
-        id:`ex-${index}`,
+        id: `ex-${index}`,
         exercise_id: ex.id,
         exercise_name: ex.name,
         name: ex.name,
         sets: 3,
-        reps:"10",
-        load:"",
-        rpe:"",
-        notes:"",
+        reps: "10",
+        load: "",
+        rpe: "",
+        notes: "",
         restSeconds: 90,
       }));
 
@@ -138,9 +130,9 @@ export function SessionBuilderDialog({
           athlete_id: athleteId,
           coach_id: coachId,
           title: sessionName,
-          description:"Sessione libera",
-          scheduled_date: format(now,"yyyy-MM-dd"),
-          status:"pending",
+          description: "Sessione libera",
+          scheduled_date: format(now, "yyyy-MM-dd"),
+          status: "pending",
           structure: structure,
         })
         .select("id")
@@ -155,10 +147,10 @@ export function SessionBuilderDialog({
           workout_id: workout.id,
           athlete_id: athleteId,
           started_at: now.toISOString(),
-          scheduled_date: format(now,"yyyy-MM-dd"),
-          status:"scheduled",
+          scheduled_date: format(now, "yyyy-MM-dd"),
+          status: "scheduled",
           exercises_data: structure,
-          sync_status:"synced",
+          sync_status: "synced",
         })
         .select("id")
         .single();
@@ -169,8 +161,8 @@ export function SessionBuilderDialog({
     },
     onSuccess: ({ workoutId }) => {
       toast({
-        title:"Sessione creata",
-        description:"Buon allenamento!",
+        title: "Sessione creata",
+        description: "Buon allenamento!",
       });
       onOpenChange(false);
       setSelectedExercises([]);
@@ -180,9 +172,9 @@ export function SessionBuilderDialog({
     onError: (error) => {
       console.error("Session creation error:", error);
       toast({
-        title:"Errore",
-        description:"Impossibile creare la sessione",
-        variant:"destructive",
+        title: "Errore",
+        description: "Impossibile creare la sessione",
+        variant: "destructive",
       });
     },
   });
@@ -190,9 +182,9 @@ export function SessionBuilderDialog({
   const handleStartSession = () => {
     if (selectedExercises.length === 0) {
       toast({
-        title:"Seleziona esercizi",
-        description:"Scegli almeno un esercizio per iniziare",
-        variant:"destructive",
+        title: "Seleziona esercizi",
+        description: "Scegli almeno un esercizio per iniziare",
+        variant: "destructive",
       });
       return;
     }
@@ -211,7 +203,10 @@ export function SessionBuilderDialog({
       <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0">
         <DialogHeader className="px-4 pt-4 pb-2">
           <DialogTitle className="flex items-center gap-2">
-            <Dumbbell className="h-5 w-5"style={{ color: brandColor || undefined }} />
+            <Dumbbell
+              className="h-5 w-5"
+              style={{ color: brandColor || undefined }}
+            />
             Sessione Libera
           </DialogTitle>
           <DialogDescription>
@@ -222,16 +217,19 @@ export function SessionBuilderDialog({
         {/* Search Bar */}
         <div className="px-4 pb-2 space-y-2">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Cerca esercizio..."              value={searchQuery}
+              placeholder="Cerca esercizio..."
+              value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 pr-8"            />
+              className="pl-9 pr-8"
+            />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"              >
-                <X className="h-4 w-4"/>
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -241,18 +239,30 @@ export function SessionBuilderDialog({
             <ScrollArea className="w-full whitespace-nowrap">
               <div className="flex gap-1.5 pb-1">
                 <Badge
-                  variant={filterMuscle === null ?"default":"outline"}
-                  className="cursor-pointer shrink-0"                  onClick={() => setFilterMuscle(null)}
-                  style={filterMuscle === null && brandColor ? { backgroundColor: brandColor } : undefined}
+                  variant={filterMuscle === null ? "default" : "outline"}
+                  className="cursor-pointer shrink-0"
+                  onClick={() => setFilterMuscle(null)}
+                  style={
+                    filterMuscle === null && brandColor
+                      ? { backgroundColor: brandColor }
+                      : undefined
+                  }
                 >
                   Tutti
                 </Badge>
                 {allMuscles.slice(0, 8).map((muscle) => (
                   <Badge
                     key={muscle}
-                    variant={filterMuscle === muscle ?"default":"outline"}
-                    className="cursor-pointer shrink-0 capitalize"                    onClick={() => setFilterMuscle(filterMuscle === muscle ? null : muscle)}
-                    style={filterMuscle === muscle && brandColor ? { backgroundColor: brandColor } : undefined}
+                    variant={filterMuscle === muscle ? "default" : "outline"}
+                    className="cursor-pointer shrink-0 capitalize"
+                    onClick={() =>
+                      setFilterMuscle(filterMuscle === muscle ? null : muscle)
+                    }
+                    style={
+                      filterMuscle === muscle && brandColor
+                        ? { backgroundColor: brandColor }
+                        : undefined
+                    }
                   >
                     {muscle}
                   </Badge>
@@ -265,15 +275,25 @@ export function SessionBuilderDialog({
         {/* Selected count */}
         {selectedExercises.length > 0 && (
           <div className="px-4 pb-2">
-            <div 
-              className="flex items-center justify-between px-3 py-2 rounded-lg"              style={{ backgroundColor: brandColor ?`${brandColor}15`:"hsl(var(--primary) / 0.1)"}}
+            <div
+              className="flex items-center justify-between px-3 py-2 rounded-lg"
+              style={{
+                backgroundColor: brandColor
+                  ? `${brandColor}15`
+                  : "hsl(var(--primary) / 0.1)",
+              }}
             >
               <span className="text-sm font-medium">
-                {selectedExercises.length} eserciz{selectedExercises.length === 1 ?"io":"i"} selezionat{selectedExercises.length === 1 ?"o":"i"}
+                {selectedExercises.length} eserciz
+                {selectedExercises.length === 1 ? "io" : "i"} selezionat
+                {selectedExercises.length === 1 ? "o" : "i"}
               </span>
               <Button
-                variant="ghost"                size="sm"                onClick={() => setSelectedExercises([])}
-                className="text-xs h-7"              >
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedExercises([])}
+                className="text-xs h-7"
+              >
                 Rimuovi tutti
               </Button>
             </div>
@@ -285,11 +305,11 @@ export function SessionBuilderDialog({
           <div className="space-y-1 pb-4">
             {isLoading ? (
               Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-14 w-full rounded-lg"/>
+                <Skeleton key={i} className="h-14 w-full rounded-lg" />
               ))
             ) : filteredExercises.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <Filter className="h-8 w-8 mx-auto mb-2 opacity-50"/>
+                <Filter className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">Nessun esercizio trovato</p>
               </div>
             ) : (
@@ -302,20 +322,34 @@ export function SessionBuilderDialog({
                     className={cn(
                       "flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all",
                       selected
-                        ?"bg-primary/10 border border-primary/30"                        :"hover:bg-muted/50 border border-transparent"                    )}
-                    style={selected && brandColor ? { backgroundColor:`${brandColor}15`, borderColor:`${brandColor}50`} : undefined}
+                        ? "bg-primary/10 border border-primary/30"
+                        : "hover:bg-muted/50 border border-transparent",
+                    )}
+                    style={
+                      selected && brandColor
+                        ? {
+                            backgroundColor: `${brandColor}15`,
+                            borderColor: `${brandColor}50`,
+                          }
+                        : undefined
+                    }
                   >
                     <Checkbox
                       checked={selected}
                       onCheckedChange={() => toggleExercise(exercise)}
-                      className="pointer-events-none"                    />
+                      className="pointer-events-none"
+                    />
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">{exercise.name}</p>
+                      <p className="font-medium text-sm truncate">
+                        {exercise.name}
+                      </p>
                       <div className="flex items-center gap-1.5 mt-0.5">
                         {exercise.muscles.slice(0, 2).map((muscle) => (
                           <Badge
                             key={muscle}
-                            variant="secondary"                            className="text-[10px] py-0 capitalize"                          >
+                            variant="secondary"
+                            className="text-[10px] py-0 capitalize"
+                          >
                             {muscle}
                           </Badge>
                         ))}
@@ -337,17 +371,20 @@ export function SessionBuilderDialog({
         <DialogFooter className="px-4 py-3 border-t bg-muted/30">
           <Button
             onClick={handleStartSession}
-            disabled={selectedExercises.length === 0 || createSessionMutation.isPending}
-            className="w-full gap-2"            style={{ backgroundColor: brandColor || undefined }}
+            disabled={
+              selectedExercises.length === 0 || createSessionMutation.isPending
+            }
+            className="w-full gap-2"
+            style={{ backgroundColor: brandColor || undefined }}
           >
             {createSessionMutation.isPending ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin"/>
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Creazione...
               </>
             ) : (
               <>
-                <Play className="h-4 w-4"/>
+                <Play className="h-4 w-4" />
                 Inizia Sessione ({selectedExercises.length})
               </>
             )}

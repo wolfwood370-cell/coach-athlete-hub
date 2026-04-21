@@ -1,8 +1,8 @@
-import { Card, CardContent, CardHeader, CardTitle } from"@/components/ui/card";
-import { ScrollArea } from"@/components/ui/scroll-area";
-import { Badge } from"@/components/ui/badge";
-import { Button } from"@/components/ui/button";
-import { Skeleton } from"@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Calendar,
   Activity,
@@ -11,17 +11,12 @@ import {
   Dumbbell,
   AlertTriangle,
   ChevronRight,
-} from"lucide-react";
-import { cn } from"@/lib/utils";
-import { format, addDays } from"date-fns";
-import { it } from"date-fns/locale";
-import { Conversation } from"./ChatList";
-import {
-  LineChart,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-} from"recharts";
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { format, addDays } from "date-fns";
+import { it } from "date-fns/locale";
+import { Conversation } from "./ChatList";
+import { LineChart, Line, ResponsiveContainer, Tooltip } from "recharts";
 
 interface ContextSidebarProps {
   conversation: Conversation | null;
@@ -31,13 +26,13 @@ interface ContextSidebarProps {
 
 // Mock data for athlete context
 const mockUpcomingWorkouts = [
-  { date: new Date(), name:"Upper Body A", time:"09:00"},
-  { date: addDays(new Date(), 1), name:"Lower Body A", time:"10:00"},
-  { date: addDays(new Date(), 2), name:"Rest Day", time: null },
+  { date: new Date(), name: "Upper Body A", time: "09:00" },
+  { date: addDays(new Date(), 1), name: "Lower Body A", time: "10:00" },
+  { date: addDays(new Date(), 2), name: "Rest Day", time: null },
 ];
 
 const mockLastWorkout = {
-  name:"Full Body Strength",
+  name: "Full Body Strength",
   date: new Date(Date.now() - 24 * 60 * 60 * 1000),
   rpe: 8.5,
   duration: 62,
@@ -64,20 +59,21 @@ function MiniSparkline({
   color: string;
 }) {
   return (
-    <ResponsiveContainer width="100%"height={40}>
+    <ResponsiveContainer width="100%" height={40}>
       <LineChart data={data}>
         <Line
-          type="monotone"          dataKey={dataKey}
+          type="monotone"
+          dataKey={dataKey}
           stroke={color}
           strokeWidth={2}
           dot={false}
         />
         <Tooltip
           contentStyle={{
-            background:"hsl(var(--popover))",
-            border:"1px solid hsl(var(--border))",
-            borderRadius:"6px",
-            fontSize:"12px",
+            background: "hsl(var(--popover))",
+            border: "1px solid hsl(var(--border))",
+            borderRadius: "6px",
+            fontSize: "12px",
           }}
         />
       </LineChart>
@@ -97,7 +93,9 @@ export function ContextSidebar({
           "border-0 shadow-sm h-full flex flex-col",
           "fixed inset-y-0 right-0 z-50 w-80 transition-all duration-300 lg:relative lg:w-full",
           isOpen
-            ?"translate-x-0 opacity-100"            :"translate-x-full opacity-0 lg:translate-x-0 lg:opacity-100"        )}
+            ? "translate-x-0 opacity-100"
+            : "translate-x-full opacity-0 lg:translate-x-0 lg:opacity-100",
+        )}
       >
         <div className="flex-1 flex items-center justify-center p-6 text-center text-muted-foreground">
           <p className="text-sm">Seleziona un atleta per vedere il contesto</p>
@@ -112,7 +110,9 @@ export function ContextSidebar({
         "border-0 shadow-sm h-full flex flex-col overflow-hidden",
         "fixed inset-y-0 right-0 z-50 w-80 transition-all duration-300 lg:relative lg:w-full",
         isOpen
-          ?"translate-x-0 opacity-100"          :"translate-x-full opacity-0 lg:translate-x-0 lg:opacity-100"      )}
+          ? "translate-x-0 opacity-100"
+          : "translate-x-full opacity-0 lg:translate-x-0 lg:opacity-100",
+      )}
     >
       {/* Header */}
       <CardHeader className="flex-shrink-0 border-b pb-3">
@@ -121,9 +121,12 @@ export function ContextSidebar({
             Contesto Atleta
           </CardTitle>
           <Button
-            variant="ghost"            size="icon"            className="h-7 w-7 lg:hidden"            onClick={onClose}
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 lg:hidden"
+            onClick={onClose}
           >
-            <X className="h-4 w-4"/>
+            <X className="h-4 w-4" />
           </Button>
         </div>
       </CardHeader>
@@ -133,7 +136,7 @@ export function ContextSidebar({
           {/* Section A: Mini Calendar */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <Calendar className="h-4 w-4 text-primary"/>
+              <Calendar className="h-4 w-4 text-primary" />
               <h4 className="text-xs font-semibold uppercase text-muted-foreground">
                 Prossimi 3 Giorni
               </h4>
@@ -142,11 +145,12 @@ export function ContextSidebar({
               {mockUpcomingWorkouts.map((workout, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"                >
+                  className="flex items-center justify-between p-2.5 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer"
+                >
                   <div className="flex items-center gap-2.5">
                     <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center">
                       {workout.time ? (
-                        <Dumbbell className="h-4 w-4 text-primary"/>
+                        <Dumbbell className="h-4 w-4 text-primary" />
                       ) : (
                         <span className="text-xs"></span>
                       )}
@@ -154,12 +158,12 @@ export function ContextSidebar({
                     <div>
                       <p className="text-sm font-medium">{workout.name}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {format(workout.date,"EEEE d", { locale: it })}
-                        {workout.time &&`• ${workout.time}`}
+                        {format(workout.date, "EEEE d", { locale: it })}
+                        {workout.time && `• ${workout.time}`}
                       </p>
                     </div>
                   </div>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground"/>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               ))}
             </div>
@@ -168,7 +172,7 @@ export function ContextSidebar({
           {/* Section B: Recent Activity */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <Activity className="h-4 w-4 text-primary"/>
+              <Activity className="h-4 w-4 text-primary" />
               <h4 className="text-xs font-semibold uppercase text-muted-foreground">
                 Ultima Attività
               </h4>
@@ -176,20 +180,26 @@ export function ContextSidebar({
             <div className="p-3 rounded-lg border bg-card">
               <div className="flex items-start justify-between mb-2">
                 <div>
-                  <p className="text-sm font-semibold">{mockLastWorkout.name}</p>
+                  <p className="text-sm font-semibold">
+                    {mockLastWorkout.name}
+                  </p>
                   <p className="text-xs text-muted-foreground">
-                    {format(mockLastWorkout.date,"d MMMM", { locale: it })} •{""}
+                    {format(mockLastWorkout.date, "d MMMM", { locale: it })} •
+                    {""}
                     {mockLastWorkout.duration} min
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Badge
-                    variant={mockLastWorkout.rpe > 8 ?"destructive":"secondary"}
-                    className="text-xs"                  >
+                    variant={
+                      mockLastWorkout.rpe > 8 ? "destructive" : "secondary"
+                    }
+                    className="text-xs"
+                  >
                     RPE {mockLastWorkout.rpe}
                   </Badge>
                   {mockLastWorkout.rpe > 8 && (
-                    <AlertTriangle className="h-4 w-4 text-destructive"/>
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
                   )}
                 </div>
               </div>
@@ -203,7 +213,7 @@ export function ContextSidebar({
           {/* Section C: Quick Metrics */}
           <div>
             <div className="flex items-center gap-2 mb-3">
-              <TrendingUp className="h-4 w-4 text-primary"/>
+              <TrendingUp className="h-4 w-4 text-primary" />
               <h4 className="text-xs font-semibold uppercase text-muted-foreground">
                 Metriche Rapide
               </h4>
@@ -217,12 +227,17 @@ export function ContextSidebar({
                     Peso Corporeo (30gg)
                   </span>
                   <span className="text-sm font-semibold">
-                    {mockWeightData[mockWeightData.length - 1].weight.toFixed(1)} kg
+                    {mockWeightData[mockWeightData.length - 1].weight.toFixed(
+                      1,
+                    )}{" "}
+                    kg
                   </span>
                 </div>
                 <MiniSparkline
                   data={mockWeightData}
-                  dataKey="weight"                  color="hsl(var(--primary))"                />
+                  dataKey="weight"
+                  color="hsl(var(--primary))"
+                />
               </div>
 
               {/* Compliance */}
@@ -233,14 +248,17 @@ export function ContextSidebar({
                   </span>
                   <span className="text-sm font-semibold text-green-500">
                     {Math.round(
-                      mockComplianceData[mockComplianceData.length - 1].compliance
+                      mockComplianceData[mockComplianceData.length - 1]
+                        .compliance,
                     )}
                     %
                   </span>
                 </div>
                 <MiniSparkline
                   data={mockComplianceData}
-                  dataKey="compliance"                  color="hsl(142 71% 45%)"                />
+                  dataKey="compliance"
+                  color="hsl(142 71% 45%)"
+                />
               </div>
             </div>
           </div>

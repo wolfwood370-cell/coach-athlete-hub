@@ -1,8 +1,8 @@
-import { useState } from"react";
-import { DayBuilderCard } from"@/components/coach/program/DayBuilderCard";
-import { Button } from"@/components/ui/button";
-import { ScrollArea } from"@/components/ui/scroll-area";
-import { Checkbox } from"@/components/ui/checkbox";
+import { useState } from "react";
+import { DayBuilderCard } from "@/components/coach/program/DayBuilderCard";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -10,14 +10,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from"@/components/ui/dialog";
+} from "@/components/ui/dialog";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from"@/components/ui/tooltip";
-import { RadioGroup, RadioGroupItem } from"@/components/ui/radio-group";
-import { Label } from"@/components/ui/label";
+} from "@/components/ui/tooltip";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import {
   Calendar,
   Copy,
@@ -26,11 +26,11 @@ import {
   ChevronRight,
   Layers,
   Loader2,
-} from"lucide-react";
-import { cn } from"@/lib/utils";
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 // Types
-import type { ExerciseProgression } from"@/types/progression";
+import type { ExerciseProgression } from "@/types/progression";
 
 export interface ProgramExercise {
   id: string;
@@ -54,8 +54,16 @@ export interface ProgramExercise {
 export type WeekProgram = Record<number, ProgramExercise[]>;
 export type ProgramData = Record<number, WeekProgram>;
 
-const DAYS = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
-const DAYS_FULL = ["Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato","Domenica"];
+const DAYS = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+const DAYS_FULL = [
+  "Lunedì",
+  "Martedì",
+  "Mercoledì",
+  "Giovedì",
+  "Venerdì",
+  "Sabato",
+  "Domenica",
+];
 
 // Copy Day Dialog
 function CopyDayDialog({
@@ -69,10 +77,10 @@ function CopyDayDialog({
   onOpenChange: (open: boolean) => void;
   sourceDayIndex: number;
   isLoading?: boolean;
-  onConfirm: (targetDays: number[], mode:"append"|"overwrite") => void;
+  onConfirm: (targetDays: number[], mode: "append" | "overwrite") => void;
 }) {
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
-  const [mode, setMode] = useState<"append"|"overwrite">("append");
+  const [mode, setMode] = useState<"append" | "overwrite">("append");
 
   const handleConfirm = () => {
     if (selectedDays.length > 0) {
@@ -93,7 +101,7 @@ function CopyDayDialog({
     setSelectedDays((prev) =>
       prev.includes(dayIndex)
         ? prev.filter((d) => d !== dayIndex)
-        : [...prev, dayIndex]
+        : [...prev, dayIndex],
     );
   };
 
@@ -102,7 +110,7 @@ function CopyDayDialog({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5 text-primary"/>
+            <Calendar className="h-5 w-5 text-primary" />
             Copia Allenamento
           </DialogTitle>
           <DialogDescription>
@@ -112,7 +120,9 @@ function CopyDayDialog({
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Seleziona giorni destinazione</Label>
+            <Label className="text-sm font-medium">
+              Seleziona giorni destinazione
+            </Label>
             <div className="grid grid-cols-2 gap-2">
               {DAYS_FULL.map((day, idx) =>
                 idx !== sourceDayIndex ? (
@@ -121,29 +131,34 @@ function CopyDayDialog({
                     className={cn(
                       "flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-colors border",
                       selectedDays.includes(idx)
-                        ?"bg-primary/10 border-primary"                        :"hover:bg-secondary border-transparent"                    )}
+                        ? "bg-primary/10 border-primary"
+                        : "hover:bg-secondary border-transparent",
+                    )}
                     onClick={() => toggleDay(idx)}
                   >
                     <Checkbox checked={selectedDays.includes(idx)} />
                     <span className="text-sm">{day}</span>
                   </div>
-                ) : null
+                ) : null,
               )}
             </div>
           </div>
 
           <div className="space-y-2">
             <Label className="text-sm font-medium">Modalità</Label>
-            <RadioGroup value={mode} onValueChange={(v) => setMode(v as"append"|"overwrite")}>
+            <RadioGroup
+              value={mode}
+              onValueChange={(v) => setMode(v as "append" | "overwrite")}
+            >
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="append"id="append"/>
-                <Label htmlFor="append"className="text-sm cursor-pointer">
+                <RadioGroupItem value="append" id="append" />
+                <Label htmlFor="append" className="text-sm cursor-pointer">
                   Aggiungi (mantieni esercizi esistenti)
                 </Label>
               </div>
               <div className="flex items-center space-x-2">
-                <RadioGroupItem value="overwrite"id="overwrite"/>
-                <Label htmlFor="overwrite"className="text-sm cursor-pointer">
+                <RadioGroupItem value="overwrite" id="overwrite" />
+                <Label htmlFor="overwrite" className="text-sm cursor-pointer">
                   Sovrascrivi (sostituisci tutto)
                 </Label>
               </div>
@@ -152,14 +167,21 @@ function CopyDayDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline"onClick={() => handleOpenChange(false)} disabled={isLoading}>
+          <Button
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            disabled={isLoading}
+          >
             Annulla
           </Button>
-          <Button onClick={handleConfirm} disabled={selectedDays.length === 0 || isLoading}>
+          <Button
+            onClick={handleConfirm}
+            disabled={selectedDays.length === 0 || isLoading}
+          >
             {isLoading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
-              <Copy className="h-4 w-4 mr-2"/>
+              <Copy className="h-4 w-4 mr-2" />
             )}
             Copia in {selectedDays.length} giorni
           </Button>
@@ -205,7 +227,7 @@ function CopyWeekDialog({
     setSelectedWeeks((prev) =>
       prev.includes(weekIndex)
         ? prev.filter((w) => w !== weekIndex)
-        : [...prev, weekIndex]
+        : [...prev, weekIndex],
     );
   };
 
@@ -214,7 +236,7 @@ function CopyWeekDialog({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Layers className="h-5 w-5 text-primary"/>
+            <Layers className="h-5 w-5 text-primary" />
             Copia Settimana
           </DialogTitle>
           <DialogDescription>
@@ -224,7 +246,9 @@ function CopyWeekDialog({
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
-            <Label className="text-sm font-medium">Seleziona settimane destinazione</Label>
+            <Label className="text-sm font-medium">
+              Seleziona settimane destinazione
+            </Label>
             <div className="grid grid-cols-3 gap-2">
               {Array.from({ length: totalWeeks }, (_, idx) =>
                 idx !== sourceWeek ? (
@@ -233,31 +257,41 @@ function CopyWeekDialog({
                     className={cn(
                       "flex items-center justify-center gap-2 p-2 rounded-lg cursor-pointer transition-colors border",
                       selectedWeeks.includes(idx)
-                        ?"bg-primary/10 border-primary"                        :"hover:bg-secondary border-transparent"                    )}
+                        ? "bg-primary/10 border-primary"
+                        : "hover:bg-secondary border-transparent",
+                    )}
                     onClick={() => toggleWeek(idx)}
                   >
                     <Checkbox checked={selectedWeeks.includes(idx)} />
                     <span className="text-sm">Sett. {idx + 1}</span>
                   </div>
-                ) : null
+                ) : null,
               )}
             </div>
           </div>
 
           <p className="text-xs text-muted-foreground">
-             Le settimane selezionate verranno <strong>sostituite</strong> completamente.
+            Le settimane selezionate verranno <strong>sostituite</strong>{" "}
+            completamente.
           </p>
         </div>
 
         <DialogFooter>
-          <Button variant="outline"onClick={() => handleOpenChange(false)} disabled={isLoading}>
+          <Button
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            disabled={isLoading}
+          >
             Annulla
           </Button>
-          <Button onClick={handleConfirm} disabled={selectedWeeks.length === 0 || isLoading}>
+          <Button
+            onClick={handleConfirm}
+            disabled={selectedWeeks.length === 0 || isLoading}
+          >
             {isLoading ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin"/>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
-              <Layers className="h-4 w-4 mr-2"/>
+              <Layers className="h-4 w-4 mr-2" />
             )}
             Copia in {selectedWeeks.length} settimane
           </Button>
@@ -279,7 +313,11 @@ interface WeekGridProps {
   onToggleSuperset: (dayIndex: number, exerciseId: string) => void;
   onSelectExercise?: (dayIndex: number, exercise: ProgramExercise) => void;
   onAddSlot: (dayIndex: number) => void;
-  onCopyDay: (sourceDayIndex: number, targetDays: number[], mode:"append"|"overwrite") => void;
+  onCopyDay: (
+    sourceDayIndex: number,
+    targetDays: number[],
+    mode: "append" | "overwrite",
+  ) => void;
   onCopyWeekTo: (targetWeeks: number[]) => void;
   onClearWeek: () => void;
   onSaveAsTemplate: (dayIndex: number) => void;
@@ -315,7 +353,10 @@ export function WeekGrid({
     setCopyDayDialogOpen(true);
   };
 
-  const handleCopyDayConfirm = (targetDays: number[], mode:"append"|"overwrite") => {
+  const handleCopyDayConfirm = (
+    targetDays: number[],
+    mode: "append" | "overwrite",
+  ) => {
     onCopyDay(copyDaySource, targetDays, mode);
   };
 
@@ -336,19 +377,25 @@ export function WeekGrid({
       <div className="flex items-center justify-between px-2 py-2 border-b border-border/50">
         <div className="flex items-center gap-2">
           <Button
-            variant="ghost"            size="icon"            className="h-7 w-7"            onClick={() => onWeekChange(currentWeek - 1)}
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => onWeekChange(currentWeek - 1)}
             disabled={currentWeek <= 0}
           >
-            <ChevronLeft className="h-4 w-4"/>
+            <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm font-semibold min-w-[100px] text-center">
             Settimana {currentWeek + 1} / {totalWeeks}
           </span>
           <Button
-            variant="ghost"            size="icon"            className="h-7 w-7"            onClick={() => onWeekChange(currentWeek + 1)}
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => onWeekChange(currentWeek + 1)}
             disabled={currentWeek >= totalWeeks - 1}
           >
-            <ChevronRight className="h-4 w-4"/>
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
 
@@ -356,9 +403,12 @@ export function WeekGrid({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                variant="outline"                size="sm"                className="h-7 text-xs"                onClick={() => setCopyWeekDialogOpen(true)}
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setCopyWeekDialogOpen(true)}
               >
-                <Layers className="h-3 w-3 mr-1"/>
+                <Layers className="h-3 w-3 mr-1" />
                 Copia Sett.
               </Button>
             </TooltipTrigger>
@@ -366,8 +416,13 @@ export function WeekGrid({
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="outline"size="sm"className="h-7 text-xs"onClick={onClearWeek}>
-                <RotateCcw className="h-3 w-3 mr-1"/>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={onClearWeek}
+              >
+                <RotateCcw className="h-3 w-3 mr-1" />
                 Pulisci
               </Button>
             </TooltipTrigger>
@@ -386,9 +441,15 @@ export function WeekGrid({
               weekIndex={currentWeek}
               exercises={weekData[dayIndex] || []}
               selectedExerciseId={selectedExerciseId}
-              onRemoveExercise={(exerciseId) => onRemoveExercise(dayIndex, exerciseId)}
-              onToggleSuperset={(exerciseId) => onToggleSuperset(dayIndex, exerciseId)}
-              onSelectExercise={(exercise) => onSelectExercise?.(dayIndex, exercise)}
+              onRemoveExercise={(exerciseId) =>
+                onRemoveExercise(dayIndex, exerciseId)
+              }
+              onToggleSuperset={(exerciseId) =>
+                onToggleSuperset(dayIndex, exerciseId)
+              }
+              onSelectExercise={(exercise) =>
+                onSelectExercise?.(dayIndex, exercise)
+              }
               onAddSlot={() => onAddSlot(dayIndex)}
               onCopyDay={() => handleOpenCopyDayDialog(dayIndex)}
               onSaveAsTemplate={() => onSaveAsTemplate(dayIndex)}
