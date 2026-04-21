@@ -1,10 +1,147 @@
-import { memo, useState, useCallback } from "react";
+import { memo, useState, useCallback, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useSetMutation } from "@/hooks/useSetMutation";
 import { Calculator, Check, Minus, Plus } from "lucide-react";
 import { triggerHaptic } from "@/hooks/useHapticFeedback";
+
+// ---------------------------------------------------------------------------
+// Hybrid Tap-to-Edit Stepper — center input is editable, ± buttons adjust
+// ---------------------------------------------------------------------------
+
+function HybridStepper({
+  value,
+  displayValue,
+  onChange,
+  onAdjust,
+  step,
+  inputMode,
+  unit,
+  ariaLabel,
+  completed,
+  onCenterTap,
+  centerIcon,
+}: {
+  value: string;
+  displayValue: number;
+  onChange: (raw: string) => void;
+  onAdjust: (delta: number) => void;
+  step: number;
+  inputMode: "decimal" | "numeric";
+  unit: string;
+  ariaLabel: string;
+  completed?: boolean;
+  onCenterTap?: () => void;
+  centerIcon?: React.ReactNode;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [focused, setFocused] = useState(false);
+
+  // Show empty while focused if user is typing; otherwise show formatted number
+  const shown = focused
+    ? value
+    : displayValue > 0
+      ? formatNumber(displayValue)
+      : "";
+
+  return (
+    <div className="grid grid-cols-[auto_1fr_auto] gap-1.5 items-center">
+      <button
+        type="button"
+        aria-label={`Riduci ${ariaLabel}`}
+        onClick={() => {
+          triggerHaptic("light");
+          onAdjust(-step);
+        }}
+        className={cn(
+          "h-12 w-12 rounded-xl flex items-center justify-center",
+          "bg-background/80 text-foreground hover:bg-background",
+          "transition-transform active:scale-90 select-none touch-manipulation",
+        )}
+      >
+        <Minus className="h-4 w-4" />
+      </button>
+
+      <div
+        className={cn(
+          "relative h-12 rounded-xl flex items-center justify-center px-2",
+          "bg-background border border-border/50",
+          completed && "border-primary/40",
+          focused && "ring-2 ring-primary/40",
+        )}
+      >
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode={inputMode}
+          pattern={inputMode === "decimal" ? "[0-9]*[.,]?[0-9]*" : "[0-9]*"}
+          enterKeyHint="done"
+          aria-label={ariaLabel}
+          value={shown}
+          placeholder="—"
+          onFocus={(e) => {
+            setFocused(true);
+            // Select-all so user can immediately overwrite
+            requestAnimationFrame(() => e.target.select());
+            onCenterTap?.();
+          }}
+          onChange={(e) => {
+            const raw = e.target.value.replace(",", ".");
+            // Allow empty / valid numeric input only
+            if (raw === "" || /^\d*\.?\d*$/.test(raw)) {
+              onChange(raw);
+            }
+          }}
+          onBlur={() => {
+            setFocused(false);
+            // Normalize on blur
+            if (value === "" || value === ".") {
+              onChange("");
+              return;
+            }
+            const n = parseFloat(value);
+            if (Number.isFinite(n)) {
+              onChange(formatNumber(Math.max(0, n)));
+            }
+          }}
+          className={cn(
+            "w-full min-w-[60px] bg-transparent border-0 outline-none p-0",
+            "text-center text-xl font-bold tabular-nums",
+            "focus:ring-0 focus-visible:ring-0",
+            completed ? "text-primary" : "text-foreground",
+            "placeholder:text-muted-foreground placeholder:font-bold",
+          )}
+        />
+        <span className="absolute right-2 text-[10px] uppercase tracking-wider text-muted-foreground pointer-events-none">
+          {centerIcon}
+          {!centerIcon && unit}
+        </span>
+      </div>
+
+      <button
+        type="button"
+        aria-label={`Aumenta ${ariaLabel}`}
+        onClick={() => {
+          triggerHaptic("light");
+          onAdjust(step);
+        }}
+        className={cn(
+          "h-12 w-12 rounded-xl flex items-center justify-center",
+          "bg-background/80 text-foreground hover:bg-background",
+          "transition-transform active:scale-90 select-none touch-manipulation",
+        )}
+      >
+        <Plus className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function formatNumber(n: number): string {
+  // Drop trailing zeros, keep up to 2 decimals
+  return (+n.toFixed(2)).toString();
+}
 import {
   Drawer,
   DrawerContent,
