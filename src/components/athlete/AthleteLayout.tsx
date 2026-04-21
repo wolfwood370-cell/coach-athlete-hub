@@ -6,7 +6,7 @@ import { SunThemeToggle } from "@/components/SunThemeToggle";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { SyncIndicator } from "@/components/athlete/SyncIndicator";
 import { ResponsivePhoneWrapper } from "./PhoneMockup";
-import { InstallPrompt } from "@/components/mobile/InstallPrompt";
+
 
 interface AthleteLayoutProps {
   children: React.ReactNode;
@@ -62,7 +62,6 @@ export function AthleteLayout({ children, title }: AthleteLayoutProps) {
       </main>
 
       <AthleteBottomNav />
-      <InstallPrompt />
     </div>
   );
 
