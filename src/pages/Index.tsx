@@ -58,7 +58,15 @@ const fadeUp = {
 };
 
 export default function Index() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading } = useAuth();
+
+  // Auto-redirect authenticated users (e.g. after email confirmation) to their proper destination
+  if (!loading && user && profile) {
+    if (profile.role === "coach") return <Navigate to="/coach" replace />;
+    if (profile.role === "athlete") {
+      return <Navigate to={profile.onboarding_completed ? "/athlete" : "/onboarding"} replace />;
+    }
+  }
 
   const dashboardPath = profile?.role === "coach" ? "/coach" : profile?.role === "athlete" ? (profile.onboarding_completed ? "/athlete" : "/onboarding") : "/auth";
 
