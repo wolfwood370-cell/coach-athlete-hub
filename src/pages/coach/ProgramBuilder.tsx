@@ -1,1286 +1,572 @@
-import { useState, useCallback, useMemo, useEffect } from"react";
-import {
-  DndContext,
-  DragOverlay,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragStartEvent,
-  DragEndEvent,
-} from"@dnd-kit/core";
-import { sortableKeyboardCoordinates, arrayMove } from"@dnd-kit/sortable";
-import { CoachLayout } from"@/components/coach/CoachLayout";
-import { ExerciseLibrarySidebar, type LibraryExercise } from"@/components/coach/ExerciseLibrarySidebar";
-import { WeekGrid, type ProgramExercise, type WeekProgram, type ProgramData } from"@/components/coach/WeekGrid";
-import { WeekTabs, type PhaseInfo } from"@/components/coach/WeekTabs";
-import { ExerciseContextEditor } from"@/components/coach/ExerciseContextEditor";
-import { PeriodizationHeader } from"@/components/coach/PeriodizationHeader";
-import { CloneWeekDialog } from"@/components/coach/CloneWeekDialog";
-import { SaveDayTemplateDialog } from"@/components/coach/templates/SaveDayTemplateDialog";
-import { TemplatesSidebar } from"@/components/coach/templates/TemplatesSidebar";
-import { AiProgramWizard } from"@/components/coach/program/AiProgramWizard";
-import { useWorkoutTemplates } from"@/hooks/useWorkoutTemplates";
-import { Button } from"@/components/ui/button";
-import { Badge } from"@/components/ui/badge";
-import { Input } from"@/components/ui/input";
-import { Label } from"@/components/ui/label";
-import { Checkbox } from"@/components/ui/checkbox";
-import { Card, CardContent, CardHeader, CardTitle } from"@/components/ui/card";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from"@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from"@/components/ui/select";
-import { ScrollArea } from"@/components/ui/scroll-area";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from"@/components/ui/collapsible";
-import {
-  User,
-  Save,
-  RotateCcw,
-  Dumbbell,
-  Loader2,
-  Calendar,
-  AlertTriangle,
-  Activity,
-  ShieldAlert,
-  X,
-  ChevronDown,
-  ChevronUp,
-  CheckCircle2,
-  Eye,
-  FileText,
-  Copy,
-  Bookmark,
-  Wand2,
-} from"lucide-react";
-import { cn } from"@/lib/utils";
-import { useQuery, useMutation, useQueryClient } from"@tanstack/react-query";
-import { supabase } from"@/integrations/supabase/client";
-import { useAuth } from"@/hooks/useAuth";
-import { toast } from"sonner";
-import { useFmsAlerts, checkExerciseContraindication } from"@/hooks/useFmsAlerts";
-import { useAthleteHealthProfile, type FmsScore } from"@/hooks/useAthleteHealthProfile";
-import { usePeriodization } from"@/hooks/usePeriodization";
-import { format, parseISO, differenceInWeeks } from"date-fns";
-import { it } from"date-fns/locale";
+/**
+ * ProgramBuilder (V2)
+ * ---------------------------------------------------------------------------
+ * Coach-facing builder wired to the new periodized engine
+ * (`useAdvancedProgramStore` → ProgramBlock → Microcycle → Session →
+ * ProgrammedExercise → ProgrammedSet).
+ *
+ * Layout (desktop-first; horizontal scroll is acceptable on small screens):
+ *
+ *   ┌─────────────────────────────────────────────────────────────┐
+ *   │  Header: block name · goal · meta                            │
+ *   ├─────────────────────────────────────────────────────────────┤
+ *   │  ◀  Macro-Timeline (horizontal scroll, one card per week)  ▶ │
+ *   ├─────────────────────────────────────────────────────────────┤
+ *   │  Week Grid: Session 1 │ Session 2 │ Session 3 │ Session 4   │
+ *   │             (vertical columns of exercise cards)              │
+ *   └─────────────────────────────────────────────────────────────┘
+ *
+ * State ownership: this page owns ONLY `selectedWeekId` (a UI concern).
+ * All program data lives in the Zustand store and is mutated via store
+ * actions. We deliberately do NOT mirror store data into local state.
+ *
+ * Out of scope for this iteration (per task brief):
+ *   - Real exercise library selector (uses a mock for now)
+ *   - Set-level editing UI
+ *   - Save / persistence wiring
+ *   - Athlete assignment
+ */
 
-// Import Zustand store and selectors
-import { useProgramBuilderStore } from"@/stores/useProgramBuilderStore";
-import {
-  useProgramState,
-  useWeekActions,
-  useExerciseActions,
-  useSupersetActions,
-  useSelectionActions,
-  useProgramActions,
-  useTotalExerciseCount,
-  useSelectedExerciseData,
-  useDndHandlers,
-} from"@/hooks/useProgramBuilderSelectors";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { CoachLayout } from "@/components/coach/CoachLayout";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Plus, Calendar, Target, Layers, Dumbbell } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useShallow } from "zustand/shallow";
 
-const DEFAULT_WEEKS = 4;
-const DAYS = ["Lun","Mar","Mer","Gio","Ven","Sab","Dom"];
+import { useAdvancedProgramStore } from "@/stores/useAdvancedProgramStore";
+import type {
+  Microcycle,
+  Session,
+  ProgrammedExercise,
+  ProgrammedSet,
+  NewProgrammedExercise,
+  UUID,
+} from "@/types/training";
 
-// Initialize empty program (simple: weekIndex -> dayIndex -> exercises[])
-function createEmptyProgram(weeks: number = DEFAULT_WEEKS): ProgramData {
-  const program: ProgramData = {};
-  for (let w = 0; w < weeks; w++) {
-    program[w] = {};
-    for (let d = 0; d < 7; d++) {
-      program[w][d] = [];
-    }
-  }
-  return program;
-}
+// ---------------------------------------------------------------------------
+// Constants & helpers
+// ---------------------------------------------------------------------------
 
-// Create empty slot placeholder
-function createEmptySlot(weekIndex: number, dayIndex: number): ProgramExercise {
+/**
+ * Default scaffold used when the page mounts with no active block.
+ * Matches typical block-periodization defaults: 4-week mesocycle, 4 sessions
+ * per week. Coaches can resize / rename later.
+ */
+const DEFAULT_BLOCK = {
+  name: "New Training Block",
+  weeksCount: 4,
+  sessionsPerWeek: 4,
+} as const;
+
+/**
+ * Coach-facing labels for the first few microcycles in a classical linear
+ * mesocycle. Beyond the prebaked range we fall back to "Week N". These are
+ * purely cosmetic — the underlying data has no notion of accumulation /
+ * intensification (yet); that lives in the coach's mental model.
+ */
+const WEEK_PHASE_LABELS = [
+  "Accumulation",
+  "Intensification",
+  "Realization",
+  "Deload",
+] as const;
+
+const weekPhaseLabel = (week: Microcycle): string => {
+  if (week.is_deload) return "Deload";
+  // `order` is 1-indexed in the V2 model.
+  const idx = week.order - 1;
+  return WEEK_PHASE_LABELS[idx] ?? `Week ${week.order}`;
+};
+
+/**
+ * Builds a placeholder exercise with one working set so the grid has
+ * something visible to render. This will be replaced by the real exercise
+ * library selector in the next slice.
+ *
+ * Each call generates fresh names so coaches can distinguish multiple mock
+ * adds during smoke-testing.
+ */
+const mockExerciseCounter = { value: 0 };
+
+const buildMockExercise = (): NewProgrammedExercise => {
+  mockExerciseCounter.value += 1;
+  const n = mockExerciseCounter.value;
+
+  // A single working set @ RPE 8 / 8-10 reps — sane hypertrophy default.
+  // The store will re-stamp set ids defensively, but we provide one here
+  // so the payload satisfies `ProgrammedSet` as written.
+  const set: ProgrammedSet = {
+    id: crypto.randomUUID(),
+    set_number: 1,
+    reps_target: "8-10",
+    rpe_target: 8,
+    rir_target: 2,
+    rest_seconds: 90,
+  };
+
   return {
-    id:`slot-${weekIndex}-${dayIndex}-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-    exerciseId:"",
-    name:"",
-    sets: 0,
-    reps:"",
-    load:"",
-    rpe: null,
-    restSeconds: 90,
-    notes:"",
-    isEmpty: true,
+    // The store fills in `id` and `order` on the exercise itself.
+    exercise_id: "mock-library-id",
+    exercise_name: `Placeholder Exercise ${n}`,
+    sets: [set],
   };
+};
+
+// ---------------------------------------------------------------------------
+// Subcomponent: WeekTimelineCard
+// ---------------------------------------------------------------------------
+
+/**
+ * A single selectable week tile inside the Macro-Timeline. Kept narrow
+ * (~160px) so a 12-week mesocycle fits inside a 1280px viewport without
+ * scroll, but wide enough to show both the phase label and exercise count.
+ */
+interface WeekTimelineCardProps {
+  week: Microcycle;
+  isActive: boolean;
+  onSelect: () => void;
 }
 
-// Dragging overlay component
-function DragOverlayContent({ exercise }: { exercise: LibraryExercise | null }) {
-  if (!exercise) return null;
-  
-  return (
-    <div className="bg-card border-2 border-primary rounded-lg p-3 shadow-xl min-w-[180px]">
-      <div className="flex items-center gap-2">
-        <div className="h-8 w-8 rounded-md bg-primary/20 flex items-center justify-center">
-          <Dumbbell className="h-4 w-4 text-primary"/>
-        </div>
-        <div>
-          <p className="text-sm font-medium">{exercise.name}</p>
-          <p className="text-[10px] text-muted-foreground">{exercise.muscles?.[0] ||""}</p>
-        </div>
-      </div>
-    </div>
+function WeekTimelineCard({ week, isActive, onSelect }: WeekTimelineCardProps) {
+  // Total prescribed exercises across all sessions in this week. Useful as
+  // a glance metric: empty weeks visually fade vs. populated ones.
+  const exerciseCount = useMemo(
+    () => week.sessions.reduce((sum, s) => sum + s.exercises.length, 0),
+    [week.sessions]
   );
-}
 
-// Physical Readiness Banner Component
-interface PhysicalReadinessBannerProps {
-  healthProfile: import("@/hooks/useAthleteHealthProfile").AthleteHealthProfile;
-  isExpanded: boolean;
-  onToggleExpand: () => void;
-  onViewDetails: () => void;
-}
-
-function PhysicalReadinessBanner({ 
-  healthProfile, 
-  isExpanded, 
-  onToggleExpand,
-  onViewDetails 
-}: PhysicalReadinessBannerProps) {
-  const { summary, athleteName, fmsTestDate, fmsTotalScore, fmsMaxScore, activeInjuries } = healthProfile;
-  
-  const statusConfig = {
-    green: {
-      bgClass:"bg-emerald-500/5 border-emerald-500/30",
-      iconBgClass:"bg-emerald-500/10",
-      iconClass:"text-emerald-600",
-      textClass:"text-emerald-700 dark:text-emerald-400",
-      Icon: CheckCircle2,
-    },
-    yellow: {
-      bgClass:"bg-amber-500/5 border-amber-500/30",
-      iconBgClass:"bg-amber-500/10",
-      iconClass:"text-amber-600",
-      textClass:"text-amber-700 dark:text-amber-400",
-      Icon: AlertTriangle,
-    },
-    red: {
-      bgClass:"bg-destructive/5 border-destructive/50",
-      iconBgClass:"bg-destructive/10",
-      iconClass:"text-destructive",
-      textClass:"text-destructive",
-      Icon: ShieldAlert,
-    },
-  };
-  
-  const config = statusConfig[summary.status];
-  const Icon = config.Icon;
-  
   return (
-    <Collapsible open={isExpanded} onOpenChange={onToggleExpand}>
-      <Card className={cn("transition-all duration-200", config.bgClass)}>
-        <CollapsibleTrigger asChild>
-          <CardContent className="p-3 cursor-pointer">
-            <div className="flex items-center gap-3">
-              <div className={cn("flex h-8 w-8 items-center justify-center rounded-lg flex-shrink-0", config.iconBgClass)}>
-                <Icon className={cn("h-4 w-4", config.iconClass)} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <h4 className={cn("text-sm font-semibold", config.textClass)}>
-                    {summary.title}
-                  </h4>
-                  {fmsTestDate && (
-                    <Badge variant="outline"className={cn("text-[10px]", config.textClass)}>
-                      FMS: {fmsTotalScore}/{fmsMaxScore}
-                    </Badge>
-                  )}
-                  {activeInjuries.length > 0 && (
-                    <Badge variant="destructive"className="text-[10px]">
-                      {activeInjuries.length} infortuni
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">{summary.description}</p>
-              </div>
-              <Button variant="ghost"size="icon"className="h-7 w-7">
-                {isExpanded ? <ChevronUp className="h-4 w-4"/> : <ChevronDown className="h-4 w-4"/>}
-              </Button>
-            </div>
-          </CardContent>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="px-3 pb-3 pt-0">
-            <div className="border-t border-border/50 pt-2 space-y-1.5">
-              {summary.details.slice(0, 5).map((detail, i) => (
-                <p key={i} className="text-xs text-muted-foreground pl-11">
-                  {detail}
-                </p>
-              ))}
-              {summary.details.length > 5 && (
-                <p className="text-xs text-muted-foreground pl-11">
-                  +{summary.details.length - 5} altri dettagli...
-                </p>
-              )}
-              <div className="flex justify-end pt-2">
-                <Button 
-                  variant="outline"                  size="sm"                  className="h-7 text-xs"                  onClick={(e) => {
-                    e.stopPropagation();
-                    onViewDetails();
-                  }}
-                >
-                  <FileText className="h-3 w-3 mr-1.5"/>
-                  Dettagli Completi
-                </Button>
-              </div>
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Card>
-    </Collapsible>
-  );
-}
-
-// FMS Score Card for Details Dialog
-function FmsScoreCard({ score }: { score: FmsScore }) {
-  const statusColors = {
-    optimal:"bg-emerald-500/10 text-emerald-600 border-emerald-500/30",
-    limited:"bg-amber-500/10 text-amber-600 border-amber-500/30",
-    dysfunctional:"bg-orange-500/10 text-orange-600 border-orange-500/30",
-    pain:"bg-destructive/10 text-destructive border-destructive/30",
-  };
-  
-  const statusLabels = {
-    optimal:"Ottimale",
-    limited:"Limitato",
-    dysfunctional:"Disfunzionale",
-    pain:"Dolore",
-  };
-  
-  return (
-    <div className={cn(
-      "p-3 rounded-lg border",
-      statusColors[score.status]
-    )}>
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-sm font-medium">{score.testName}</span>
-        <Badge variant="outline"className={cn("text-[10px]", statusColors[score.status])}>
-          {statusLabels[score.status]}
-        </Badge>
-      </div>
-      <p className="text-xs text-muted-foreground mb-2">{score.bodyArea}</p>
-      {score.leftScore !== null && score.rightScore !== null ? (
-        <div className="flex items-center gap-4 text-sm">
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground text-xs">Sx:</span>
-            <span className="font-semibold tabular-nums">{score.leftScore}/3</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-muted-foreground text-xs">Dx:</span>
-            <span className="font-semibold tabular-nums">{score.rightScore}/3</span>
-          </div>
-        </div>
-      ) : (
-        <div className="text-sm">
-          <span className="font-semibold tabular-nums">{score.score ?? score.minScore}/3</span>
-        </div>
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "group relative flex h-[88px] w-[160px] shrink-0 flex-col justify-between rounded-lg border p-3 text-left transition-all",
+        "hover:border-primary/50 hover:shadow-sm",
+        isActive
+          ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/40"
+          : "border-border/60 bg-card",
+        // Visually muted state for empty weeks — coach attention should
+        // gravitate toward weeks that already have prescribed work.
+        exerciseCount === 0 && !isActive && "opacity-70"
       )}
-    </div>
+      aria-pressed={isActive}
+      aria-label={`Week ${week.order}: ${weekPhaseLabel(week)}`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            Week {week.order}
+          </p>
+          <p className="mt-0.5 truncate text-sm font-semibold leading-tight">
+            {weekPhaseLabel(week)}
+          </p>
+        </div>
+        {week.is_deload && (
+          <Badge
+            variant="outline"
+            className="h-4 shrink-0 border-sky-500/40 px-1 text-[9px] text-sky-600 dark:text-sky-400"
+          >
+            Deload
+          </Badge>
+        )}
+      </div>
+
+      <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+        <Dumbbell className="h-3 w-3" />
+        <span className="tabular-nums">
+          {exerciseCount} {exerciseCount === 1 ? "exercise" : "exercises"}
+        </span>
+        <span className="text-muted-foreground/50">·</span>
+        <span className="tabular-nums">{week.sessions.length}d</span>
+      </div>
+    </button>
   );
 }
 
-export default function ProgramBuilder() {
-  const { user } = useAuth();
-  const queryClient = useQueryClient();
+// ---------------------------------------------------------------------------
+// Subcomponent: ExerciseCard (minimalist, inside a Session column)
+// ---------------------------------------------------------------------------
 
-  // =========================================
-  // ZUSTAND STORE - Core program state (NO local state for program data!)
-  // =========================================
-  const { program, totalWeeks, currentWeek, isDirty, programName: storeProgramName } = useProgramState();
-  const totalExercises = useTotalExerciseCount();
-  const selectedExerciseData = useSelectedExerciseData();
-  const storeSelectedExercise = useProgramBuilderStore((state) => state.selectedExercise);
+/**
+ * One programmed exercise rendered as a compact card. Surfaces the four
+ * coaching-critical fields: name, sets × reps, intensity (RPE/RIR/%1RM),
+ * and rest. Anything more granular (per-set editing, tempo, notes) is left
+ * for the dedicated editor in a later slice.
+ *
+ * Intensity precedence is RPE > RIR > %1RM, matching how most coaches
+ * write programs ("RPE 8" beats "75% 1RM" when both are present because
+ * autoregulation is the more actionable target on the day).
+ */
+interface ExerciseCardProps {
+  exercise: ProgrammedExercise;
+}
 
-  // Store Actions
-  const weekActions = useWeekActions();
-  const exerciseActions = useExerciseActions();
-  const supersetActions = useSupersetActions();
-  const selectionActions = useSelectionActions();
-  const programActions = useProgramActions();
-  const dndHandlers = useDndHandlers();
+function ExerciseCard({ exercise }: ExerciseCardProps) {
+  const totalSets = exercise.sets.length;
 
-  // =========================================
-  // UI-ONLY local state (not program data)
-  // =========================================
-  const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null);
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [programName, setProgramName] = useState("");
-  const [selectedAthleteIds, setSelectedAthleteIds] = useState<string[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [activeExercise, setActiveExercise] = useState<LibraryExercise | null>(null);
+  // Use the first working set as the representative target. Coaches
+  // typically prescribe homogeneous sets (5×5 @ RPE 8); divergent sets are
+  // surfaced in the detailed editor, not here.
+  const firstSet = exercise.sets[0];
 
-  // Clone Week Dialog state
-  const [cloneWeekDialogOpen, setCloneWeekDialogOpen] = useState(false);
-  const [cloneWeekSourceIndex, setCloneWeekSourceIndex] = useState(0);
-  const [isCloning, setIsCloning] = useState(false);
-
-  // Workout Templates state
-  const [saveTemplateDialogOpen, setSaveTemplateDialogOpen] = useState(false);
-  const [saveTemplateDayIndex, setSaveTemplateDayIndex] = useState(0);
-  const [templatesSidebarOpen, setTemplatesSidebarOpen] = useState(false);
-  const [aiWizardOpen, setAiWizardOpen] = useState(false);
-
-  // Workout Templates hook
-  const {
-    templates,
-    allTags,
-    isLoading: templatesLoading,
-    createTemplate,
-    deleteTemplate,
-    isCreating: templatesCreating,
-    isDeleting: templatesDeleting,
-    hydrateTemplate,
-  } = useWorkoutTemplates();
-
-  // DnD sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 10,
-        tolerance: 5,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
-  // Fetch athletes
-  const { data: athletes = [] } = useQuery({
-    queryKey: ["coach-athletes-for-program", user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, one_rm_data")
-        .eq("coach_id", user.id)
-        .eq("role","athlete");
-      
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user,
-  });
-
-  const selectedAthlete = athletes.find((a) => a.id === selectedAthleteId) || athletes[0];
-  
-  // FMS Alerts for exercise contraindication checks
-  const { data: fmsAlerts } = useFmsAlerts(selectedAthlete?.id || null);
-  
-  // Comprehensive health profile for selected athlete
-  const { data: healthProfile, isLoading: loadingHealth } = useAthleteHealthProfile(selectedAthlete?.id || null);
-  
-  // Periodization phases for the athlete
-  const { phases } = usePeriodization(selectedAthlete?.id || null);
-  
-  // Convert phases to PhaseInfo format for WeekTabs
-  const phaseInfos: PhaseInfo[] = useMemo(() => {
-    return phases.map(p => ({
-      id: p.id,
-      name: p.name,
-      focus_type: p.focus_type,
-      start_date: p.start_date,
-      end_date: p.end_date,
-    }));
-  }, [phases]);
-  
-  // UI state for health banner
-  const [healthBannerExpanded, setHealthBannerExpanded] = useState(false);
-  const [healthDetailsDialogOpen, setHealthDetailsDialogOpen] = useState(false);
-  
-  // Auto-expand banner for yellow/red status
-  useEffect(() => {
-    if (healthProfile?.summary.status ==="red") {
-      setHealthBannerExpanded(true);
-    } else if (healthProfile?.summary.status ==="yellow") {
-      setHealthBannerExpanded(true);
-    } else {
-      setHealthBannerExpanded(false);
+  // Pick the strongest available intensity signal and color-code it. The
+  // distinct hues let a coach pattern-match a week's intensity profile at
+  // a glance — RPE-heavy weeks read amber, %1RM-heavy weeks read indigo.
+  const intensityBadge = useMemo(() => {
+    if (!firstSet) return null;
+    if (firstSet.rpe_target != null) {
+      return {
+        label: `RPE ${firstSet.rpe_target}`,
+        // Amber: signals subjective autoregulation.
+        className:
+          "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+      };
     }
-  }, [healthProfile?.summary.status, selectedAthlete?.id]);
-
-  // Get 1RM reference
-  const getOneRM = useCallback((): number => {
-    if (!selectedAthlete?.one_rm_data) return 100;
-    const oneRmData = selectedAthlete.one_rm_data as Record<string, number>;
-    return oneRmData.squat || oneRmData.bench || 100;
-  }, [selectedAthlete]);
-
-  // Current week data from store
-  const weekData = program[currentWeek] || {};
-
-  // =========================================
-  // Clone Week Handler
-  // =========================================
-  const handleOpenCloneWeekDialog = useCallback((weekIndex: number) => {
-    setCloneWeekSourceIndex(weekIndex);
-    setCloneWeekDialogOpen(true);
-  }, []);
-
-  const handleConfirmCloneWeek = useCallback((targetWeekIndices: number[]) => {
-    setIsCloning(true);
-    try {
-      weekActions.cloneWeekToRange(cloneWeekSourceIndex, targetWeekIndices);
-      toast.success(
-        `Settimana ${cloneWeekSourceIndex + 1} clonata in ${targetWeekIndices.length} settiman${targetWeekIndices.length === 1 ?'a':'e'}!`,
-        { description:"Tutti gli esercizi sono stati copiati con nuovi ID univoci"}
-      );
-      setCloneWeekDialogOpen(false);
-    } catch (error) {
-      console.error("Clone week error:", error);
-      toast.error("Errore durante la clonazione della settimana");
-    } finally {
-      setIsCloning(false);
+    if (firstSet.rir_target != null) {
+      return {
+        label: `RIR ${firstSet.rir_target}`,
+        // Emerald: RIR is essentially RPE inverted; using a sibling hue
+        // keeps the autoregulation family visually grouped.
+        className:
+          "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+      };
     }
-  }, [cloneWeekSourceIndex, weekActions]);
-
-  // =========================================
-  // Apply Progression Handler
-  // =========================================
-  const handleApplyProgression = useCallback((weekIndex: number) => {
-    weekActions.applyProgression(weekIndex);
-    toast.success(
-      `Progressione applicata dalla Settimana ${weekIndex + 1}`,
-      { description:"I carichi e i parametri sono stati aggiornati nelle settimane successive"}
-    );
-  }, [weekActions]);
-
-  // =========================================
-  // Remove Week Handler
-  // =========================================
-  const handleRemoveWeek = useCallback((weekIndex: number) => {
-    if (totalWeeks <= 1) {
-      toast.error("Devi mantenere almeno una settimana");
-      return;
+    if (firstSet.percent_1rm_target != null) {
+      return {
+        label: `${firstSet.percent_1rm_target}% 1RM`,
+        // Indigo: signals objective load prescription.
+        className:
+          "border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
+      };
     }
-    weekActions.removeWeek(weekIndex);
-    toast.success(`Settimana ${weekIndex + 1} eliminata`);
-  }, [totalWeeks, weekActions]);
-
-  // Handle drag start
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    const { active } = event;
-    setActiveId(active.id as string);
-    
-    if (active.data.current?.type ==="library-exercise") {
-      setActiveExercise(active.data.current.exercise);
-    }
-  }, []);
-
-  // Handle drag end - uses store actions
-  const handleDragEnd = useCallback(
-    (event: DragEndEvent) => {
-      const { active, over } = event;
-
-      setActiveId(null);
-      setActiveExercise(null);
-
-      if (!over) return;
-
-      // Library exercise dropped on empty slot
-      if (
-        active.data.current?.type ==="library-exercise"&&
-        over.data.current?.type ==="empty-slot"      ) {
-        const libraryExercise = active.data.current.exercise as LibraryExercise;
-        const { weekIndex, dayIndex, slotId } = over.data.current;
-
-        // Check for contraindications before adding
-        if (fmsAlerts?.flags && fmsAlerts.flags.length > 0) {
-          const contraindication = checkExerciseContraindication(
-            libraryExercise.name,
-            fmsAlerts.flags
-          );
-          if (contraindication) {
-            toast.warning(`Controindicato: ${libraryExercise.name}`, {
-              description:`${fmsAlerts.athleteName} ha ${contraindication.message}`,
-              duration: 5000,
-            });
-          }
-        }
-
-        // Use store action to fill the slot
-        exerciseActions.fillSlot(slotId, libraryExercise, weekIndex, dayIndex);
-        return;
-      }
-
-      // Library exercise dropped on day cell (append to end)
-      if (
-        active.data.current?.type ==="library-exercise"&&
-        over.data.current?.type ==="day-cell"      ) {
-        const libraryExercise = active.data.current.exercise as LibraryExercise;
-        const { weekIndex, dayIndex } = over.data.current;
-
-        if (fmsAlerts?.flags && fmsAlerts.flags.length > 0) {
-          const contraindication = checkExerciseContraindication(
-            libraryExercise.name,
-            fmsAlerts.flags
-          );
-          if (contraindication) {
-            toast.warning(`Controindicato: ${libraryExercise.name}`, {
-              description:`${fmsAlerts.athleteName} ha ${contraindication.message}`,
-              duration: 5000,
-            });
-          }
-        }
-
-        const newExercise: ProgramExercise = {
-          id: crypto.randomUUID(),
-          exerciseId: libraryExercise.id,
-          name: libraryExercise.name,
-          sets: 3,
-          reps:"8",
-          load:"",
-          rpe: null,
-          restSeconds: 90,
-          notes:"",
-          isEmpty: false,
-          // Snapshot configuration at time of adding
-          snapshotTrackingFields: [...libraryExercise.tracking_fields],
-          snapshotMuscles: [...libraryExercise.muscles],
-        };
-
-        exerciseActions.addExercise(dayIndex, newExercise, weekIndex);
-        return;
-      }
-
-      // Reorder within same day - use store action
-      if (
-        active.data.current?.type ==="program-exercise"&&
-        over.data.current?.type ==="program-exercise"      ) {
-        const activeData = active.data.current;
-        const overData = over.data.current;
-
-        if (
-          activeData.dayIndex === overData.dayIndex &&
-          activeData.weekIndex === overData.weekIndex
-        ) {
-          const { weekIndex, dayIndex } = activeData;
-          const exercises = program[weekIndex]?.[dayIndex] || [];
-          const oldIndex = exercises.findIndex((e) => e.id === active.id);
-          const newIndex = exercises.findIndex((e) => e.id === over.id);
-
-          if (oldIndex !== -1 && newIndex !== -1) {
-            const newOrder = arrayMove(exercises.map((e) => e.id), oldIndex, newIndex);
-            exerciseActions.reorderExercises(dayIndex, newOrder, weekIndex);
-          }
-        }
-      }
-    },
-    [fmsAlerts, exerciseActions, program]
-  );
-
-  // Add empty slot to a day - uses store action
-  const handleAddSlot = useCallback(
-    (dayIndex: number) => {
-      exerciseActions.addEmptySlot(dayIndex, currentWeek);
-    },
-    [currentWeek, exerciseActions]
-  );
-
-  // Remove exercise - uses store action
-  const handleRemoveExercise = useCallback(
-    (dayIndex: number, exerciseId: string) => {
-      exerciseActions.removeExercise(dayIndex, exerciseId, currentWeek);
-    },
-    [currentWeek, exerciseActions]
-  );
-
-  // Select exercise for editing in context panel - uses store action
-  const handleSelectExercise = useCallback(
-    (dayIndex: number, exercise: ProgramExercise) => {
-      if (exercise.isEmpty) return; // Don't select empty slots
-      selectionActions.selectExercise(currentWeek, dayIndex, exercise.id);
-    },
-    [currentWeek, selectionActions]
-  );
-
-  // Toggle superset - uses store action
-  const handleToggleSuperset = useCallback(
-    (dayIndex: number, exerciseId: string) => {
-      supersetActions.toggleSuperset(dayIndex, exerciseId, currentWeek);
-    },
-    [currentWeek, supersetActions]
-  );
-
-  // Copy day to other days - uses store action
-  const [isCopyingDay, setIsCopyingDay] = useState(false);
-  const [isCopyingWeek, setIsCopyingWeek] = useState(false);
-
-  const handleCopyDay = useCallback(
-    async (sourceDayIndex: number, targetDays: number[], mode:"append"|"overwrite") => {
-      const sourceExercises = program[currentWeek]?.[sourceDayIndex] || [];
-      const filledExercises = sourceExercises.filter((e) => !e.isEmpty);
-      
-      if (filledExercises.length === 0) {
-        toast.error("Nessun esercizio da copiare");
-        return;
-      }
-
-      setIsCopyingDay(true);
-      
-      try {
-        // Use store action for copy
-        for (const targetDay of targetDays) {
-          exerciseActions.copyDay?.(
-            currentWeek, sourceDayIndex, 
-            currentWeek, targetDay, 
-            mode
-          );
-        }
-
-        toast.success(
-          `Workout copiato in ${targetDays.length} ${targetDays.length === 1 ?'giorno':'giorni'}!`,
-          { description: mode ==="append"?"Esercizi aggiunti":"Giornate sostituite"}
-        );
-      } catch (error) {
-        console.error("Copy day error:", error);
-        toast.error("Errore durante la copia", {
-          description: error instanceof Error ? error.message :"Riprova più tardi"        });
-      } finally {
-        setIsCopyingDay(false);
-      }
-    },
-    [currentWeek, program, exerciseActions]
-  );
-
-  // Copy week to other weeks - now uses CloneWeekDialog
-  const handleCopyWeekTo = useCallback(
-    async (targetWeeks: number[]) => {
-      const sourceWeek = program[currentWeek];
-      if (!sourceWeek) return;
-
-      const hasExercises = Object.values(sourceWeek).some(
-        (exercises) => exercises.filter((e) => !e.isEmpty).length > 0
-      );
-      
-      if (!hasExercises) {
-        toast.error("Settimana vuota, niente da copiare");
-        return;
-      }
-
-      setIsCopyingWeek(true);
-
-      try {
-        // Use store action for clone
-        weekActions.cloneWeekToRange(currentWeek, targetWeeks);
-
-        toast.success(
-          `Settimana copiata in ${targetWeeks.length} ${targetWeeks.length === 1 ?'settimana':'settimane'}!`        );
-      } catch (error) {
-        console.error("Copy week error:", error);
-        toast.error("Errore durante la copia della settimana", {
-          description: error instanceof Error ? error.message :"Riprova più tardi"        });
-      } finally {
-        setIsCopyingWeek(false);
-      }
-    },
-    [currentWeek, program, weekActions]
-  );
-
-  // Clear week - uses store action
-  const handleClearWeek = useCallback(() => {
-    for (let d = 0; d < 7; d++) {
-      useProgramBuilderStore.getState().clearDay(currentWeek, d);
-    }
-    toast.success(`Settimana ${currentWeek + 1} svuotata`);
-  }, [currentWeek]);
-
-  // =========================================
-  // Template Handlers
-  // =========================================
-  const DAYS_FULL = ["Lunedì","Martedì","Mercoledì","Giovedì","Venerdì","Sabato","Domenica"];
-
-  const handleOpenSaveTemplateDialog = useCallback((dayIndex: number) => {
-    setSaveTemplateDayIndex(dayIndex);
-    setSaveTemplateDialogOpen(true);
-  }, []);
-
-  const handleSaveTemplate = useCallback(
-    async (data: { name: string; description: string; tags: string[] }) => {
-      const exercises = program[currentWeek]?.[saveTemplateDayIndex] || [];
-      await createTemplate({
-        name: data.name,
-        description: data.description,
-        structure: exercises,
-        tags: data.tags,
-      });
-    },
-    [currentWeek, saveTemplateDayIndex, program, createTemplate]
-  );
-
-  const handleInsertTemplate = useCallback(
-    (exercises: ProgramExercise[]) => {
-      // Append template exercises to the selected day
-      for (const exercise of exercises) {
-        exerciseActions.addExercise(saveTemplateDayIndex, exercise, currentWeek);
-      }
-      toast.success(`Template inserito in ${DAYS_FULL[saveTemplateDayIndex]}!`);
-    },
-    [currentWeek, saveTemplateDayIndex, exerciseActions]
-  );
-
-  // Reset entire program - uses store action
-  const handleResetProgram = useCallback(() => {
-    programActions.reset();
-    toast.success("Programma resettato");
-  }, [programActions]);
-
-  // Handle AI Program apply - loads generated data into the store
-  const handleAiProgramApply = useCallback((aiProgramData: ProgramData, rationale: string) => {
-    // Load the AI-generated week into the store
-    const state = useProgramBuilderStore.getState();
-    const currentProgram = { ...state.program };
-    
-    // Merge AI data into week 0 (current)
-    const aiWeek = aiProgramData[0];
-    if (aiWeek) {
-      currentProgram[0] = aiWeek;
-    }
-    
-    programActions.loadProgram(currentProgram, state.programId ||'', state.programName ||'AI Generated');
-    
-  }, [programActions]);
-
-  // Handle weeks generated from periodization - uses store action
-  const handleWeeksGenerated = useCallback((weeks: number) => {
-    weekActions.setTotalWeeks(weeks);
-  }, [weekActions]);
-
-  // Handle week navigation from timeline - uses store action
-  const handleWeekFromTimeline = useCallback((weekIndex: number) => {
-    if (weekIndex >= 0 && weekIndex < totalWeeks) {
-      weekActions.setCurrentWeek(weekIndex);
-    }
-  }, [totalWeeks, weekActions]);
-
-  // Save mutation
-  const saveMutation = useMutation({
-    mutationFn: async ({
-      athleteIds,
-      title,
-      structure,
-    }: {
-      athleteIds: string[];
-      title: string;
-      structure: ProgramData;
-    }) => {
-      if (!user) throw new Error("Non autenticato");
-      if (athleteIds.length === 0) throw new Error("Seleziona almeno un atleta");
-
-      const workoutsToInsert: Array<{
-        coach_id: string;
-        athlete_id: string;
-        title: string;
-        description: string | null;
-        structure: any;
-        status:"pending"|"in_progress"|"completed"|"skipped";
-        scheduled_date: string | null;
-        estimated_duration: number | null;
-      }> = [];
-
-      const today = new Date();
-
-      for (const athleteId of athleteIds) {
-        for (const [weekStr, days] of Object.entries(structure)) {
-          const weekIndex = parseInt(weekStr);
-          for (const [dayStr, exercises] of Object.entries(days)) {
-            const dayIndex = parseInt(dayStr);
-            const filledExercises = exercises.filter((e) => !e.isEmpty);
-
-            if (filledExercises.length > 0) {
-              const scheduledDate = new Date(today);
-              scheduledDate.setDate(today.getDate() + weekIndex * 7 + dayIndex);
-
-              workoutsToInsert.push({
-                coach_id: user.id,
-                athlete_id: athleteId,
-                title:`${title} - S${weekIndex + 1} ${DAYS[dayIndex]}`,
-                description: null,
-                structure: filledExercises,
-                status:"pending",
-                scheduled_date: scheduledDate.toISOString().split("T")[0],
-                estimated_duration: filledExercises.length * 10,
-              });
-            }
-          }
-        }
-      }
-
-      if (workoutsToInsert.length === 0) {
-        throw new Error("Il programma è vuoto. Aggiungi almeno un esercizio.");
-      }
-
-      const { error } = await supabase.from("workouts").insert(workoutsToInsert as any);
-      if (error) throw error;
-      return { sessions: workoutsToInsert.length, athletes: athleteIds.length };
-    },
-    onSuccess: (result) => {
-      toast.success(`Programma salvato! ${result.sessions} sessioni per ${result.athletes} atleti.`);
-      queryClient.invalidateQueries({ queryKey: ["coach-workouts"] });
-      setSaveDialogOpen(false);
-      setProgramName("");
-      setSelectedAthleteIds([]);
-      handleResetProgram();
-    },
-    onError: (error) => {
-      toast.error(`Errore: ${error.message}`);
-    },
-  });
-
-  const handleSave = () => {
-    if (selectedAthleteIds.length === 0) {
-      toast.error("Seleziona almeno un atleta");
-      return;
-    }
-    if (!programName.trim()) {
-      toast.error("Inserisci un nome per il programma");
-      return;
-    }
-    saveMutation.mutate({
-      athleteIds: selectedAthleteIds,
-      title: programName.trim(),
-      structure: program,
-    });
-  };
-
-  const toggleAthleteSelection = (athleteId: string) => {
-    setSelectedAthleteIds((prev) =>
-      prev.includes(athleteId)
-        ? prev.filter((id) => id !== athleteId)
-        : [...prev, athleteId]
-    );
-  };
-
-  // Convert selected exercise for context editor compatibility
-  const contextEditorExercise = selectedExerciseData ? {
-    ...selectedExerciseData,
-  } : null;
+    return null;
+  }, [firstSet]);
 
   return (
-    <CoachLayout title="Costruttore Programmi"subtitle="Crea schede di allenamento drag & drop">
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="flex h-[calc(100vh-140px)] overflow-hidden">
-          {/* Left Sidebar - Exercise Library */}
-          <ExerciseLibrarySidebar className="w-[320px] min-w-[320px] shrink-0"/>
+    <Card className="border-border/60 transition-colors hover:border-border">
+      <CardContent className="space-y-1.5 p-2.5">
+        {/* Title row */}
+        <p className="truncate text-xs font-semibold leading-tight" title={exercise.exercise_name}>
+          {exercise.exercise_name}
+        </p>
 
-          {/* Main Content */}
-          <div className="flex-1 flex flex-col min-w-0 overflow-x-auto">
-            {/* TOP ROW: Periodization Timeline Header */}
-            <PeriodizationHeader
-              athleteId={selectedAthlete?.id || null}
-              currentWeek={currentWeek}
-              totalWeeks={totalWeeks}
-              onWeeksGenerated={handleWeeksGenerated}
-              onWeekClick={handleWeekFromTimeline}
-            />
-            
-            {/* Physical Readiness Banner */}
-            {selectedAthlete && healthProfile && (
-              <div className="mx-4 mt-2">
-                <PhysicalReadinessBanner
-                  healthProfile={healthProfile}
-                  isExpanded={healthBannerExpanded}
-                  onToggleExpand={() => setHealthBannerExpanded(!healthBannerExpanded)}
-                  onViewDetails={() => setHealthDetailsDialogOpen(true)}
-                />
-              </div>
-            )}
-            
-            {/* Header Controls */}
-            <div className="flex items-center justify-between px-4 py-2 border-b border-border/50 bg-card">
-              <div className="flex items-center gap-4">
-                {/* Athlete Selector */}
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground"/>
-                  <Select
-                    value={selectedAthleteId || selectedAthlete?.id ||""}
-                    onValueChange={setSelectedAthleteId}
-                  >
-                    <SelectTrigger className="w-44 h-8 text-sm">
-                      <SelectValue placeholder="Seleziona atleta"/>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {athletes.length === 0 ? (
-                        <SelectItem value="none"disabled>
-                          Nessun atleta
-                        </SelectItem>
-                      ) : (
-                        athletes.map((athlete) => (
-                          <SelectItem key={athlete.id} value={athlete.id}>
-                            {athlete.full_name ||"Atleta"}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 1RM Display */}
-                {selectedAthlete && (
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-secondary">
-                    <Label className="text-xs text-muted-foreground">1RM Ref</Label>
-                    <span className="text-sm font-semibold tabular-nums">{getOneRM()} kg</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Badge variant="outline"className="text-xs">
-                  {totalExercises} esercizi
-                </Badge>
-                <Button
-                  variant="outline"                  size="sm"                  className="h-8 gap-1.5"                  onClick={() => setAiWizardOpen(true)}
-                >
-                  <Wand2 className="h-3.5 w-3.5"/>
-                   AI Designer
-                </Button>
-                <Button
-                  size="sm"                  className="h-8 gradient-primary"                  onClick={() => {
-                    if (selectedAthlete?.id && !selectedAthleteIds.includes(selectedAthlete.id)) {
-                      setSelectedAthleteIds([selectedAthlete.id]);
-                    }
-                    setSaveDialogOpen(true);
-                  }}
-                >
-                  <Save className="h-3.5 w-3.5 mr-1.5"/>
-                  Salva
-                </Button>
-              </div>
-            </div>
-
-            {/* MIDDLE ROW: Week Tabs with Phase Colors */}
-            <WeekTabs
-              currentWeek={currentWeek}
-              totalWeeks={totalWeeks}
-              phases={phaseInfos}
-              onWeekChange={weekActions.setCurrentWeek}
-              onCloneWeek={handleOpenCloneWeekDialog}
-              onApplyProgression={handleApplyProgression}
-              onRemoveWeek={handleRemoveWeek}
-              onCopyWeek={(weekIndex) => {
-                weekActions.copyWeekToClipboard(weekIndex);
-                toast.success("Settimana copiata con successo!", {
-                  description:`Settimana ${weekIndex + 1} copiata negli appunti`,
-                });
-              }}
-              onPasteWeek={(weekIndex) => {
-                weekActions.pasteWeekFromClipboard(weekIndex);
-                toast.success("Settimana incollata!", {
-                  description:`Contenuto incollato nella Settimana ${weekIndex + 1}`,
-                });
-              }}
-              onClearWeek={(weekIndex) => {
-                weekActions.clearWeek(weekIndex);
-                toast.success(`Settimana ${weekIndex + 1} svuotata`);
-              }}
-              hasClipboard={!!useProgramBuilderStore.getState().weekClipboard}
-            />
-
-            {/* MAIN SECTION: Slot-Based Day Grid */}
-            <div className="relative flex-1">
-              <WeekGrid
-                currentWeek={currentWeek}
-                totalWeeks={totalWeeks}
-                weekData={weekData}
-                selectedExerciseId={storeSelectedExercise?.exerciseId}
-                isCopyingDay={isCopyingDay}
-                isCopyingWeek={isCopyingWeek}
-                onWeekChange={weekActions.setCurrentWeek}
-                onRemoveExercise={handleRemoveExercise}
-                onToggleSuperset={handleToggleSuperset}
-                onSelectExercise={handleSelectExercise}
-                onAddSlot={handleAddSlot}
-                onCopyDay={handleCopyDay}
-                onCopyWeekTo={handleCopyWeekTo}
-                onClearWeek={handleClearWeek}
-                onSaveAsTemplate={handleOpenSaveTemplateDialog}
-              />
-              {/* Load Templates Button - Floating */}
-              <Button
-                variant="outline"                size="sm"                className="absolute bottom-4 right-4 shadow-md bg-background"                onClick={() => setTemplatesSidebarOpen(true)}
-              >
-                <Bookmark className="h-4 w-4 mr-2"/>
-                Carica Template
-              </Button>
-            </div>
-          </div>
-
-          {/* Right Sidebar - Context Editor */}
-          {storeSelectedExercise && contextEditorExercise && (
-            <ExerciseContextEditor
-              exercise={contextEditorExercise as any}
-              dayIndex={storeSelectedExercise.dayIndex}
-              weekIndex={storeSelectedExercise.weekIndex}
-              oneRM={getOneRM()}
-              onClose={() => selectionActions.clearSelection()}
-              className="w-72 flex-shrink-0"            />
+        {/* Volume row: sets × reps */}
+        <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span className="tabular-nums font-medium text-foreground">
+            {totalSets}
+          </span>
+          <span>×</span>
+          <span className="tabular-nums">
+            {firstSet?.reps_target ?? "—"}
+          </span>
+          {firstSet?.rest_seconds != null && (
+            <>
+              <span className="text-muted-foreground/50">·</span>
+              <span className="tabular-nums">{firstSet.rest_seconds}s</span>
+            </>
           )}
         </div>
 
-        {/* Drag Overlay */}
-        <DragOverlay>
-          <DragOverlayContent exercise={activeExercise} />
-        </DragOverlay>
-      </DndContext>
+        {/* Intensity badge — only rendered when the coach actually
+            prescribed a target. Avoids visual noise on placeholder rows. */}
+        {intensityBadge && (
+          <Badge
+            variant="outline"
+            className={cn("h-4 px-1.5 text-[10px] font-medium", intensityBadge.className)}
+          >
+            {intensityBadge.label}
+          </Badge>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
-      {/* Clone Week Dialog */}
-      <CloneWeekDialog
-        open={cloneWeekDialogOpen}
-        onOpenChange={setCloneWeekDialogOpen}
-        sourceWeekIndex={cloneWeekSourceIndex}
-        totalWeeks={totalWeeks}
-        onConfirm={handleConfirmCloneWeek}
-        isLoading={isCloning}
-      />
+// ---------------------------------------------------------------------------
+// Subcomponent: SessionColumn
+// ---------------------------------------------------------------------------
 
-      {/* Save Day as Template Dialog */}
-      <SaveDayTemplateDialog
-        open={saveTemplateDialogOpen}
-        onOpenChange={setSaveTemplateDialogOpen}
-        exercises={program[currentWeek]?.[saveTemplateDayIndex] || []}
-        dayName={DAYS_FULL[saveTemplateDayIndex]}
-        onSave={handleSaveTemplate}
-        isLoading={templatesCreating}
-      />
+/**
+ * One vertical column representing a single training day. The "+ Add
+ * Exercise" ghost button at the bottom triggers `addExerciseToSession`
+ * with a mock payload — that wiring will be replaced when the exercise
+ * library modal lands.
+ */
+interface SessionColumnProps {
+  weekId: UUID;
+  session: Session;
+  onAddExercise: (weekId: UUID, sessionId: UUID) => void;
+}
 
-      {/* Templates Sidebar */}
-      <TemplatesSidebar
-        open={templatesSidebarOpen}
-        onOpenChange={setTemplatesSidebarOpen}
-        templates={templates}
-        allTags={allTags}
-        isLoading={templatesLoading}
-        isDeleting={templatesDeleting}
-        onInsert={handleInsertTemplate}
-        onDelete={deleteTemplate}
-        hydrateTemplate={hydrateTemplate}
-      />
+function SessionColumn({ weekId, session, onAddExercise }: SessionColumnProps) {
+  return (
+    <div className="flex h-full w-[260px] shrink-0 flex-col gap-2 rounded-lg border border-border/60 bg-muted/20 p-3">
+      {/* Column header — keeps day name & focus on top so a coach can
+          scan a week of sessions horizontally without losing context. */}
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold leading-tight">
+            {session.name}
+          </p>
+          {session.focus && (
+            <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">
+              {session.focus}
+            </p>
+          )}
+        </div>
+        <Badge
+          variant="secondary"
+          className="h-4 shrink-0 px-1.5 text-[10px] tabular-nums"
+        >
+          {session.exercises.length}
+        </Badge>
+      </div>
 
-      {/* Save Dialog */}
-      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-primary"/>
-              Salva Programma
-            </DialogTitle>
-            <DialogDescription>
-              Assegna il programma agli atleti selezionati
-            </DialogDescription>
-          </DialogHeader>
+      <Separator className="bg-border/40" />
 
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="program-name">Nome Programma</Label>
-              <Input
-                id="program-name"                placeholder="es. Forza - Mesociclo 1"                value={programName}
-                onChange={(e) => setProgramName(e.target.value)}
-              />
-            </div>
+      {/* Exercise list. Empty-state messaging is intentionally muted —
+          the prominent "+ Add" button below carries the call-to-action. */}
+      <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto">
+        {session.exercises.length === 0 ? (
+          <p className="px-1 py-3 text-center text-[11px] italic text-muted-foreground/70">
+            No exercises yet
+          </p>
+        ) : (
+          session.exercises.map((ex) => (
+            <ExerciseCard key={ex.id} exercise={ex} />
+          ))
+        )}
+      </div>
 
-            <div className="space-y-2">
-              <Label>Atleti</Label>
-              <ScrollArea className="h-[200px] border rounded-lg p-2">
-                {athletes.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Nessun atleta collegato
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {athletes.map((athlete) => (
-                      <div
-                        key={athlete.id}
-                        className={cn(
-                          "flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors",
-                          selectedAthleteIds.includes(athlete.id)
-                            ?"bg-primary/10 border border-primary/30"                            :"hover:bg-secondary"                        )}
-                        onClick={() => toggleAthleteSelection(athlete.id)}
-                      >
-                        <Checkbox checked={selectedAthleteIds.includes(athlete.id)} />
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">
-                            {athlete.full_name ||"Atleta"}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
+      {/* Add button. `ghost` variant + dashed border = familiar "add slot"
+          affordance from Trello / Linear. */}
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => onAddExercise(weekId, session.id)}
+        className="h-8 w-full justify-center gap-1.5 border border-dashed border-border/60 text-xs text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        Add Exercise
+      </Button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page component
+// ---------------------------------------------------------------------------
+
+export default function ProgramBuilder() {
+  // -------------------------------------------------------------------------
+  // Store wiring
+  // -------------------------------------------------------------------------
+
+  // Read the active block. We pull it as a single value (rather than
+  // destructuring nested fields) because zustand+immer returns stable
+  // references for unchanged subtrees — re-renders are already minimal.
+  const block = useAdvancedProgramStore((s) => s.block);
+
+  // Actions are grouped via useShallow so the function-identity object
+  // doesn't churn on every state change.
+  const { initializeBlock, addExerciseToSession } = useAdvancedProgramStore(
+    useShallow((s) => ({
+      initializeBlock: s.initializeBlock,
+      addExerciseToSession: s.addExerciseToSession,
+    }))
+  );
+
+  // -------------------------------------------------------------------------
+  // Local UI state — selected week (a pure view concern)
+  // -------------------------------------------------------------------------
+
+  const [selectedWeekId, setSelectedWeekId] = useState<UUID | null>(null);
+
+  // -------------------------------------------------------------------------
+  // Lifecycle: scaffold an empty block on first mount if none exists.
+  // -------------------------------------------------------------------------
+
+  // We don't yet have a "load by id" flow (that lands when persistence
+  // wiring is built). For now, mounting the page with no block scaffolds a
+  // 4×4 default so the grid has something to render. This keeps the UI
+  // exercise-able in isolation.
+  useEffect(() => {
+    if (!block) {
+      initializeBlock({
+        name: DEFAULT_BLOCK.name,
+        weeksCount: DEFAULT_BLOCK.weeksCount,
+        sessionsPerWeek: DEFAULT_BLOCK.sessionsPerWeek,
+      });
+    }
+  }, [block, initializeBlock]);
+
+  // Keep `selectedWeekId` in sync with the block: default to the first
+  // week, and recover gracefully if the selected week was removed.
+  useEffect(() => {
+    if (!block || block.weeks.length === 0) {
+      if (selectedWeekId !== null) setSelectedWeekId(null);
+      return;
+    }
+    const stillExists = block.weeks.some((w) => w.id === selectedWeekId);
+    if (!stillExists) {
+      setSelectedWeekId(block.weeks[0].id);
+    }
+  }, [block, selectedWeekId]);
+
+  // -------------------------------------------------------------------------
+  // Derived data
+  // -------------------------------------------------------------------------
+
+  const selectedWeek: Microcycle | undefined = useMemo(
+    () => block?.weeks.find((w) => w.id === selectedWeekId),
+    [block, selectedWeekId]
+  );
+
+  // -------------------------------------------------------------------------
+  // Handlers
+  // -------------------------------------------------------------------------
+
+  const handleAddExercise = useCallback(
+    (weekId: UUID, sessionId: UUID) => {
+      addExerciseToSession(weekId, sessionId, buildMockExercise());
+    },
+    [addExerciseToSession]
+  );
+
+  // -------------------------------------------------------------------------
+  // Render
+  // -------------------------------------------------------------------------
+
+  // Loading shim: the init effect runs synchronously on the next tick, so
+  // this branch is only hit for one frame. Still — render *something*
+  // rather than crashing on the null block.
+  if (!block) {
+    return (
+      <CoachLayout title="Program Builder" subtitle="Initializing…">
+        <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
+          Loading…
+        </div>
+      </CoachLayout>
+    );
+  }
+
+  return (
+    <CoachLayout
+      title="Program Builder"
+      subtitle="Design periodized training blocks"
+    >
+      <div className="flex h-[calc(100vh-9rem)] flex-col gap-4">
+        {/* ───────────────────────────────────────────────────────────────
+            Block header — name, goal, structural meta. Compact: two rows
+            max, tabular numerals so 4 wks / 16 sessions read clean.
+           ─────────────────────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between gap-4 px-1">
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-bold leading-tight">
+              {block.name}
+            </h1>
+            <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <Target className="h-3 w-3" />
+                {block.goal}
+              </span>
+              <span className="flex items-center gap-1">
+                <Layers className="h-3 w-3" />
+                <span className="tabular-nums">{block.weeks.length}</span> weeks
+              </span>
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                Starts {block.start_date}
+              </span>
             </div>
           </div>
+        </div>
 
-          <DialogFooter>
-            <Button variant="outline"onClick={() => setSaveDialogOpen(false)}>
-              Annulla
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={saveMutation.isPending}
-              className="gradient-primary"            >
-              {saveMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2"/>
-              ) : (
-                <Save className="h-4 w-4 mr-2"/>
+        {/* ───────────────────────────────────────────────────────────────
+            Macro-Timeline — horizontal strip of week cards. Uses Shadcn
+            ScrollArea so the scrollbar matches the rest of the app and
+            keyboard scrolling works out of the box.
+           ─────────────────────────────────────────────────────────────── */}
+        <section
+          aria-label="Macro-cycle timeline"
+          className="rounded-lg border border-border/60 bg-card"
+        >
+          <div className="flex items-center justify-between px-3 py-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Macro-Timeline
+            </h2>
+            <span className="text-[10px] text-muted-foreground">
+              {block.weeks.length} microcycles
+            </span>
+          </div>
+          <Separator className="bg-border/40" />
+          <ScrollArea className="w-full">
+            <div className="flex gap-2 p-3">
+              {block.weeks.map((week) => (
+                <WeekTimelineCard
+                  key={week.id}
+                  week={week}
+                  isActive={week.id === selectedWeekId}
+                  onSelect={() => setSelectedWeekId(week.id)}
+                />
+              ))}
+            </div>
+            <ScrollBar orientation="horizontal" />
+          </ScrollArea>
+        </section>
+
+        {/* ───────────────────────────────────────────────────────────────
+            Week Grid — vertical session columns side-by-side. Wraps in a
+            second horizontal ScrollArea so 6+ session weeks remain usable
+            on a 13" laptop without breaking the column rhythm.
+           ─────────────────────────────────────────────────────────────── */}
+        <section
+          aria-label={`Week ${selectedWeek?.order ?? ""} sessions`}
+          className="flex min-h-0 flex-1 flex-col rounded-lg border border-border/60 bg-card"
+        >
+          <div className="flex items-center justify-between px-3 py-2">
+            <div className="flex items-baseline gap-2">
+              <h2 className="text-sm font-semibold">
+                Week {selectedWeek?.order ?? "—"}
+              </h2>
+              {selectedWeek && (
+                <span className="text-xs text-muted-foreground">
+                  · {weekPhaseLabel(selectedWeek)}
+                </span>
               )}
-              Salva Programma
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </div>
+            <span className="text-[10px] text-muted-foreground">
+              {selectedWeek?.sessions.length ?? 0} sessions
+            </span>
+          </div>
+          <Separator className="bg-border/40" />
 
-      {/* Health Details Dialog */}
-      <Dialog open={healthDetailsDialogOpen} onOpenChange={setHealthDetailsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-primary"/>
-              Profilo Salute: {healthProfile?.athleteName}
-            </DialogTitle>
-            <DialogDescription>
-              Dettaglio completo della situazione fisica dell'atleta
-            </DialogDescription>
-          </DialogHeader>
-
-          <ScrollArea className="flex-1 pr-4">
-            <div className="space-y-6 py-4">
-              {/* FMS Scores Section */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-semibold">Test FMS</h3>
-                  {healthProfile?.fmsTestDate && (
-                    <Badge variant="outline"className="text-xs">
-                      {format(new Date(healthProfile.fmsTestDate),"d MMMM yyyy", { locale: it })}
-                    </Badge>
-                  )}
-                </div>
-                {healthProfile?.fmsScores && healthProfile.fmsScores.length > 0 ? (
-                  <div className="grid grid-cols-2 gap-2">
-                    {healthProfile.fmsScores.map((score) => (
-                      <FmsScoreCard key={score.testKey} score={score} />
-                    ))}
-                  </div>
-                ) : (
-                  <Card className="p-4">
-                    <p className="text-sm text-muted-foreground text-center">
-                      Nessun test FMS registrato
-                    </p>
-                  </Card>
-                )}
-                {healthProfile && (
-                  <div className="mt-3 p-3 rounded-lg bg-secondary/50 text-center">
-                    <span className="text-sm text-muted-foreground">Punteggio Totale: </span>
-                    <span className="text-lg font-bold">
-                      {healthProfile.fmsTotalScore}/{healthProfile.fmsMaxScore}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Active Injuries Section */}
-              <div>
-                <h3 className="text-sm font-semibold mb-3">Infortuni Attivi</h3>
-                {healthProfile?.activeInjuries && healthProfile.activeInjuries.length > 0 ? (
-                  <div className="space-y-2">
-                    {healthProfile.activeInjuries.map((injury) => (
-                      <Card key={injury.id} className="p-3 border-destructive/30 bg-destructive/5">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-destructive">{injury.bodyZone}</p>
-                            {injury.description && (
-                              <p className="text-xs text-muted-foreground mt-0.5">{injury.description}</p>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <Badge 
-                              variant="outline"                              className={cn(
-                                "text-[10px]",
-                                injury.status ==="in_rehab"                                  ?"border-destructive/50 text-destructive"                                  :"border-amber-500/50 text-amber-600"                              )}
-                            >
-                              {injury.status ==="in_rehab"?"In Riabilitazione": 
-                               injury.status ==="monitoring"?"In Osservazione":"Recuperato"}
-                            </Badge>
-                            <p className="text-[10px] text-muted-foreground mt-1">
-                              dal {format(new Date(injury.injuryDate),"d MMM", { locale: it })}
-                            </p>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <Card className="p-4">
-                    <p className="text-sm text-muted-foreground text-center">
-                       Nessun infortunio attivo
-                    </p>
-                  </Card>
-                )}
-              </div>
-
-              {/* Recent Pain Reports */}
-              {healthProfile?.recentPainReports && healthProfile.recentPainReports.some(r => r.hasPain) && (
-                <div>
-                  <h3 className="text-sm font-semibold mb-3">Dolore Recente (ultimi 7 giorni)</h3>
-                  <div className="space-y-1">
-                    {healthProfile.recentPainReports
-                      .filter(r => r.hasPain)
-                      .map((report, i) => (
-                        <div key={i} className="flex items-center gap-2 text-sm p-2 rounded bg-destructive/5">
-                          <ShieldAlert className="h-3.5 w-3.5 text-destructive"/>
-                          <span className="text-muted-foreground">
-                            {format(new Date(report.date),"EEEE d MMMM", { locale: it })}
-                          </span>
-                          <span className="text-destructive">- Dolore riportato</span>
-                        </div>
-                      ))}
-                  </div>
+          <ScrollArea className="flex-1">
+            <div className="flex h-full min-h-[400px] gap-3 p-3">
+              {selectedWeek?.sessions.length ? (
+                selectedWeek.sessions.map((session) => (
+                  <SessionColumn
+                    key={session.id}
+                    weekId={selectedWeek.id}
+                    session={session}
+                    onAddExercise={handleAddExercise}
+                  />
+                ))
+              ) : (
+                <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
+                  No sessions in this week.
                 </div>
               )}
             </div>
+            <ScrollBar orientation="horizontal" />
           </ScrollArea>
-
-          <DialogFooter className="border-t pt-4">
-            <Button variant="outline"onClick={() => setHealthDetailsDialogOpen(false)}>
-              Chiudi
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* AI Program Wizard */}
-      <AiProgramWizard
-        open={aiWizardOpen}
-        onOpenChange={setAiWizardOpen}
-        athleteId={selectedAthlete?.id || null}
-        athleteName={selectedAthlete?.full_name ||"Atleta"}
-        onApply={handleAiProgramApply}
-      />
+        </section>
+      </div>
     </CoachLayout>
   );
 }
