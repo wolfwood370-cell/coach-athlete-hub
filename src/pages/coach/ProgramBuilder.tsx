@@ -443,13 +443,7 @@ export default function ProgramBuilder() {
   // -------------------------------------------------------------------------
   // Handlers
   // -------------------------------------------------------------------------
-
-  const handleAddExercise = useCallback(
-    (weekId: UUID, sessionId: UUID) => {
-      addExerciseToSession(weekId, sessionId, buildMockExercise());
-    },
-    [addExerciseToSession]
-  );
+  // (Add-exercise wiring now lives inside SessionColumn via the drawer.)
 
   // -------------------------------------------------------------------------
   // Render
@@ -567,7 +561,6 @@ export default function ProgramBuilder() {
                     key={session.id}
                     weekId={selectedWeek.id}
                     session={session}
-                    onAddExercise={handleAddExercise}
                   />
                 ))
               ) : (
