@@ -1,44 +1,16 @@
 import { motion } from "framer-motion";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Shield, FileText, Camera } from "lucide-react";
+import { ShieldAlert } from "lucide-react";
 import { LegalConsent } from "@/types/onboarding";
-import { cn } from "@/lib/utils";
 
 interface LegalStepProps {
   data: LegalConsent;
   onUpdate: (data: LegalConsent) => void;
 }
 
-const agreements = [
-  {
-    key: 'medicalDisclaimer' as const,
-    icon: Shield,
-    title: 'Dichiarazione Medica',
-    description: 'Confermo di partecipare volontariamente ad attività fisica e sono responsabile della mia idoneità medica.',
-  },
-  {
-    key: 'professionalScope' as const,
-    icon: FileText,
-    title: 'Ambito Professionale',
-    description: 'Comprendo che Nicolò Castello fornisce coaching prestazionale, non consulenza medica o dietistica clinica.',
-  },
-  {
-    key: 'dataAnalysis' as const,
-    icon: Camera,
-    title: 'Dati & Analisi',
-    description: 'Acconsento alla memorizzazione dei miei dati e all\'uso di video-analisi (Telestration) per feedback tecnici.',
-  },
-];
-
 export function LegalStep({ data, onUpdate }: LegalStepProps) {
-  const handleToggle = (key: keyof LegalConsent) => {
-    onUpdate({ ...data, [key]: !data[key] });
-  };
-
-  const allAccepted = data.medicalDisclaimer && data.professionalScope && data.dataAnalysis;
-
   return (
     <motion.div
       initial={{ opacity: 0, x: 20 }}
@@ -47,82 +19,54 @@ export function LegalStep({ data, onUpdate }: LegalStepProps) {
       transition={{ duration: 0.3 }}
       className="space-y-6"
     >
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-foreground mb-2">
-          Prima di iniziare
-        </h2>
-        <p className="text-muted-foreground">
-          Conferma i seguenti accordi per procedere
+      <div className="text-center mb-6">
+        <h2 className="text-2xl font-bold text-foreground mb-2">Sicurezza & Termini</h2>
+        <p className="text-muted-foreground text-sm">
+          Prima di iniziare, leggi e accetta i termini di servizio e la liberatoria medico-sportiva.
         </p>
       </div>
 
-      <div className="space-y-4 max-w-xl mx-auto">
-        {agreements.map((agreement, index) => {
-          const Icon = agreement.icon;
-          const isChecked = data[agreement.key];
+      <div className="max-w-2xl mx-auto">
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardContent className="pt-6 space-y-4 text-sm">
+            <div className="flex gap-3">
+              <ShieldAlert className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div className="space-y-2 leading-relaxed text-muted-foreground">
+                <p>
+                  <strong className="text-foreground">Liberatoria medico-sportiva.</strong> L'attività fisica intensa
+                  comporta rischi. Confermo di essere idoneo/a all'attività fisica e che, in caso di dubbi medici,
+                  consulterò il mio medico curante prima di iniziare il programma.
+                </p>
+                <p>
+                  <strong className="text-foreground">Termini di servizio.</strong> Accetto che le indicazioni fornite
+                  da NC Training System sono di carattere educativo e prestazionale, non sostituiscono diagnosi o
+                  prescrizioni mediche, e che la responsabilità dell'esecuzione resta in capo all'atleta.
+                </p>
+                <p>
+                  <strong className="text-foreground">Trattamento dati.</strong> Acconsento al trattamento dei dati
+                  biometrici, di allenamento e nutrizionali per la personalizzazione del programma da parte del mio
+                  Coach.
+                </p>
+              </div>
+            </div>
 
-          return (
-            <motion.div
-              key={agreement.key}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-            >
-              <Card
-                onClick={() => handleToggle(agreement.key)}
-                className={cn(
-                  "cursor-pointer transition-all duration-200 border-2",
-                  isChecked 
-                    ? "border-success bg-success/5" 
-                    : "border-border hover:border-primary/50"
-                )}
-              >
-                <CardContent className="p-4">
-                  <div className="flex items-start gap-4">
-                    <div className={cn(
-                      "p-2 rounded-lg transition-colors",
-                      isChecked ? "bg-success/10" : "bg-muted"
-                    )}>
-                      <Icon className={cn(
-                        "h-5 w-5",
-                        isChecked ? "text-success" : "text-muted-foreground"
-                      )} />
-                    </div>
-                    
-                    <div className="flex-1">
-                      <Label className="font-semibold text-base cursor-pointer">
-                        {agreement.title}
-                      </Label>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {agreement.description}
-                      </p>
-                    </div>
-                    
-                    <Checkbox
-                      checked={isChecked}
-                      onCheckedChange={() => handleToggle(agreement.key)}
-                      className="mt-1"
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          );
-        })}
+            <div className="flex items-start gap-3 pt-4 border-t border-border">
+              <Checkbox
+                id="terms-accepted"
+                checked={data.termsAccepted}
+                onCheckedChange={(checked) =>
+                  onUpdate({ ...data, termsAccepted: checked === true })
+                }
+                className="mt-0.5"
+              />
+              <Label htmlFor="terms-accepted" className="text-sm leading-relaxed cursor-pointer">
+                Confermo di aver letto, compreso e accettato integralmente i termini di servizio e la liberatoria
+                medico-sportiva. <span className="text-destructive">*</span>
+              </Label>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-
-      {allAccepted && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="text-center mt-6"
-        >
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-success/10 text-success text-sm font-medium">
-            <Shield className="h-4 w-4" />
-            Tutti gli accordi accettati
-          </div>
-        </motion.div>
-      )}
     </motion.div>
   );
 }
