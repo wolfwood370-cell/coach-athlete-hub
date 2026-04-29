@@ -84,22 +84,12 @@ export function useAuth() {
         emailRedirectTo: window.location.origin,
         data: {
           full_name: fullName,
+          role, // Letto dal trigger handle_new_user per creare il profilo con il role corretto
         },
       },
     });
 
     if (error) throw error;
-
-    // Update the profile with role
-    if (data.user) {
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({ role, full_name: fullName })
-        .eq("id", data.user.id);
-      
-      if (profileError) throw profileError;
-    }
-
     return data;
   };
 
