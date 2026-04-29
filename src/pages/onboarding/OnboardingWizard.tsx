@@ -141,6 +141,22 @@ export default function OnboardingWizard() {
     }
   };
 
+  // Auto-calculate neurotype as soon as all 30 answers are completed (Step 5)
+  useEffect(() => {
+    if (
+      currentStep === 5 &&
+      data.neurotypAnswers.length === 30 &&
+      !showResult &&
+      !dominantType
+    ) {
+      const result = calculateNeurotype();
+      setDominantType(result.dominant);
+      setScores(result.scores);
+      setShowResult(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data.neurotypAnswers.length, currentStep]);
+
   const handleBack = () => setCurrentStep((s) => Math.max(1, s - 1));
 
   const handleComplete = async () => {
