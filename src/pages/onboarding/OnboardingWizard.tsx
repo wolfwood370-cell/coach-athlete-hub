@@ -266,9 +266,13 @@ export default function OnboardingWizard() {
         description: "Profilo salvato. Il tuo Coach è stato notificato dei flag rilevanti.",
       });
       navigate("/athlete");
-    } catch (error) {
-      console.error(error);
-      toast({ title: "Errore", description: "Si è verificato un errore. Riprova.", variant: "destructive" });
+    } catch (error: any) {
+      console.error("[Onboarding] handleComplete failed:", error);
+      toast({
+        title: "Errore nel salvataggio",
+        description: error?.message || "Si è verificato un errore. Riprova.",
+        variant: "destructive",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -334,6 +338,7 @@ export default function OnboardingWizard() {
                       questions={MEDICAL_QUESTIONS}
                       values={data.medical}
                       onChange={(medical) => setData({ ...data, medical })}
+                      invertColors
                     />
                   )}
                   {currentStep === 4 && (
@@ -343,6 +348,7 @@ export default function OnboardingWizard() {
                       questions={ORTHOPEDIC_QUESTIONS}
                       values={data.orthopedic}
                       onChange={(orthopedic) => setData({ ...data, orthopedic })}
+                      invertColors
                     />
                   )}
                   {currentStep === 5 && (
