@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 import { 
   LayoutDashboard, 
   Users, 
@@ -57,6 +59,17 @@ const secondaryNavItems = [
 export function CoachSidebar() {
   const { state, toggleSidebar } = useSidebar();
   const isCollapsed = state === "collapsed";
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+    } catch (e) {
+      console.error("Logout error:", e);
+      toast.error("Errore durante il logout");
+      window.location.href = "/auth";
+    }
+  };
 
   return (
     <Sidebar 
@@ -221,7 +234,12 @@ export function CoachSidebar() {
                 <p className="text-sm font-medium text-sidebar-foreground truncate">Marco Coach</p>
                 <p className="text-xs text-sidebar-foreground/50 truncate">Piano Pro</p>
               </div>
-              <button className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors">
+              <button
+                onClick={handleLogout}
+                title="Logout"
+                aria-label="Logout"
+                className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"
+              >
                 <LogOut className="h-4 w-4" />
               </button>
             </>
