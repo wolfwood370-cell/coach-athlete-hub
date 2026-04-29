@@ -53,8 +53,8 @@ interface SavedDraft {
   savedAt: string;
 }
 
-const allAnswered = <T extends Record<string, YesNoIDK | null>>(values: T): boolean =>
-  Object.values(values).every((v) => v !== null && v !== undefined);
+const allAnswered = (values: Record<string, YesNoIDK | null> | object): boolean =>
+  Object.values(values as Record<string, YesNoIDK | null>).every((v) => v !== null && v !== undefined);
 
 export default function OnboardingWizard() {
   const navigate = useNavigate();
