@@ -508,22 +508,60 @@ export function useOfflineSync() {
     },
   });
 
+  // Mutation: Log/upsert daily metrics (queues if offline). Uses timestamp-based
+  // last-write-wins resolution server-side.
+  const logMetricsMutation = useMutation({
+    mutationFn: async (
+      payload: Omit<DailyMetricsPayload, 'type' | 'client_updated_at'> & { client_updated_at?: number }
+    ) => {
+      const fullPayload: DailyMetricsPayload = {
+        ...payload,
+        type: 'daily_metrics',
+        client_updated_at: payload.client_updated_at ?? Date.now(),
+      };
+
+      if (navigator.onLine) {
+        try {
+          await syncDailyMetrics(fullPayload);
+          return { synced: true, id: payload.local_id };
+        } catch (e) {
+          // Network/transient — queue for retry instead of failing the UI.
+          addToQueue(fullPayload);
+          return { synced: false, id: payload.local_id };
+        }
+      } else {
+        addToQueue(fullPayload);
+        return { synced: false, id: payload.local_id };
+      }
+    },
+    onSuccess: (result) => {
+      if (result.synced) {
+        queryClient.invalidateQueries({ queryKey: ['daily-metrics'] });
+      }
+    },
+  });
+
   return {
     // Status
     isOnline,
     syncStatus,
     pendingCount: getQueue().length,
-    
+
     // Workout logging (athlete only)
     logWorkout: logWorkoutMutation.mutate,
     logWorkoutAsync: logWorkoutMutation.mutateAsync,
     isLoggingWorkout: logWorkoutMutation.isPending,
-    
+
     // Readiness logging (athlete only)
     logReadiness: logReadinessMutation.mutate,
     logReadinessAsync: logReadinessMutation.mutateAsync,
     isLoggingReadiness: logReadinessMutation.isPending,
-    
+
+    // Daily metrics (wearables / nutrition / body weight)
+    logMetrics: logMetricsMutation.mutate,
+    logMetricsAsync: logMetricsMutation.mutateAsync,
+    isLoggingMetrics: logMetricsMutation.isPending,
+
     // Manual sync trigger
     forceSync: processQueue,
   };
