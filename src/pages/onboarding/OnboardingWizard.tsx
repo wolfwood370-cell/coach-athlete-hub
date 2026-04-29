@@ -299,11 +299,12 @@ export default function OnboardingWizard() {
           window.location.replace("/athlete");
         }
       }, 150);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("[Onboarding] handleComplete failed:", error);
+      const message = error instanceof Error ? error.message : "Si è verificato un errore. Riprova.";
       toast({
         title: "Errore nel salvataggio",
-        description: error?.message || "Si è verificato un errore. Riprova.",
+        description: message,
         variant: "destructive",
       });
     } finally {
