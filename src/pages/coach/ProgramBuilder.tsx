@@ -446,6 +446,28 @@ export default function ProgramBuilder() {
   );
 
   // -------------------------------------------------------------------------
+  // Save mutation
+  // -------------------------------------------------------------------------
+
+  const { saveBlock, isPending: isSaving } = useSaveProgramBlock();
+
+  const handleSave = useCallback(async () => {
+    if (!block) return;
+    try {
+      await saveBlock(block);
+      toast.success("Program saved", {
+        description: `"${block.name}" is up to date.`,
+      });
+    } catch (e) {
+      const message =
+        e instanceof SaveProgramBlockError
+          ? e.message
+          : "Unexpected error while saving the program.";
+      toast.error("Save failed", { description: message });
+    }
+  }, [block, saveBlock]);
+
+  // -------------------------------------------------------------------------
   // Handlers
   // -------------------------------------------------------------------------
   // (Add-exercise wiring now lives inside SessionColumn via the drawer.)
