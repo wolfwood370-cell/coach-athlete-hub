@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { MetaHead } from "@/components/MetaHead";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Footer } from "@/components/layout/Footer";
 import { useAuth } from "@/hooks/useAuth";
@@ -58,7 +58,15 @@ const fadeUp = {
 };
 
 export default function Index() {
-  const { user, profile } = useAuth();
+  const { user, profile, loading } = useAuth();
+
+  // Auto-redirect authenticated users (e.g. after email confirmation) to their proper destination
+  if (!loading && user && profile) {
+    if (profile.role === "coach") return <Navigate to="/coach" replace />;
+    if (profile.role === "athlete") {
+      return <Navigate to={profile.onboarding_completed ? "/athlete" : "/onboarding"} replace />;
+    }
+  }
 
   const dashboardPath = profile?.role === "coach" ? "/coach" : profile?.role === "athlete" ? (profile.onboarding_completed ? "/athlete" : "/onboarding") : "/auth";
 
