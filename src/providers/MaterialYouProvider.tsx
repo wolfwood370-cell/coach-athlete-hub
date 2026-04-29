@@ -404,7 +404,7 @@ export function MaterialYouProvider({
 
       const { data } = await supabase
         .from("profiles")
-        .select("neurotype, coach_id")
+        .select("neurotype, coach_id, role, brand_color")
         .eq("id", user.id)
         .single();
 
