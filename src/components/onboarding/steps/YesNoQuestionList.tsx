@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { YesNoIDK, YesNoQuestion } from "@/types/onboarding";
 
-interface YesNoQuestionListProps<T extends Record<string, YesNoIDK | null>> {
+interface YesNoQuestionListProps<T> {
   title: string;
   subtitle?: string;
   questions: YesNoQuestion[];
@@ -17,7 +17,7 @@ const OPTIONS: { value: YesNoIDK; label: string }[] = [
   { value: "idk", label: "Non lo so" },
 ];
 
-export function YesNoQuestionList<T extends Record<string, YesNoIDK | null>>({
+export function YesNoQuestionList<T>({
   title,
   subtitle,
   questions,
@@ -39,7 +39,7 @@ export function YesNoQuestionList<T extends Record<string, YesNoIDK | null>>({
 
       <div className="max-w-2xl mx-auto space-y-3">
         {questions.map((q, index) => {
-          const current = values[q.id as keyof T] as YesNoIDK | null;
+          const current = (values as any)[q.id] as YesNoIDK | null;
           return (
             <Card key={q.id} className={cn("transition-colors", current ? "border-primary/30" : "border-border")}>
               <CardContent className="p-4 space-y-3">
