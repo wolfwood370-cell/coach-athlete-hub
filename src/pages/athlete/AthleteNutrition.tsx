@@ -12,8 +12,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MacroRings } from "@/components/nutrition/MacroRings";
+import { MealScannerDialog } from "@/components/nutrition/MealScannerDialog";
 import { useMetabolicStore } from "@/stores/useMetabolicStore";
 import { Flame, Plus, Sparkles, Utensils } from "lucide-react";
+import { useState } from "react";
 
 const PHASE_META: Record<
   "cut" | "maintain" | "surplus",
@@ -40,12 +42,14 @@ export default function AthleteNutrition() {
   const baseTDEE = useMetabolicStore((s) => s.baseTDEE);
   const currentPhase = useMetabolicStore((s) => s.currentPhase);
   const todayMacros = useMetabolicStore((s) => s.todayMacros);
+  const todayIntake = useMetabolicStore((s) => s.todayIntake);
   const lastAdjustment = useMetabolicStore((s) => s.lastAdjustment);
 
+  const [scannerOpen, setScannerOpen] = useState(false);
   const phase = PHASE_META[currentPhase];
 
-  // Intake will be wired to the food log once the AI camera scanner ships.
-  const intake = { calories: 0, protein: 0, carbs: 0, fats: 0 };
+  const intake = todayIntake ?? { calories: 0, protein: 0, carbs: 0, fats: 0 };
+  const hasMeals = intake.calories > 0;
 
   return (
     <AthleteLayout title="Nutrition">
