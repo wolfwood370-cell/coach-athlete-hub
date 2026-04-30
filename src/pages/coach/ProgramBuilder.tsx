@@ -345,9 +345,15 @@ function ExerciseCard({ exercise }: ExerciseCardProps) {
 interface SessionColumnProps {
   weekId: UUID;
   session: Session;
+  /**
+   * Optional risk-checker injected from the page. Closes over the
+   * cached FMS assessment for the assigned athlete; safe to call before
+   * data lands (returns a low-risk verdict with `unknown_assessment`).
+   */
+  checkExercise?: (exercise: ExerciseInfo) => ExerciseRiskAssessment;
 }
 
-function SessionColumn({ weekId, session }: SessionColumnProps) {
+function SessionColumn({ weekId, session, checkExercise }: SessionColumnProps) {
   const [libraryOpen, setLibraryOpen] = useState(false);
   const removeExercise = useAdvancedProgramStore((s) => s.removeExercise);
 
@@ -389,6 +395,7 @@ function SessionColumn({ weekId, session }: SessionColumnProps) {
               sessionId={session.id}
               exercise={ex}
               onRemove={() => removeExercise(weekId, session.id, ex.id)}
+              checkExercise={checkExercise}
             />
           ))
         )}
