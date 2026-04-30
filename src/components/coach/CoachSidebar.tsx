@@ -54,6 +54,7 @@ const mainNavItems = [
   { title: "Exercises", url: "/coach/exercises", icon: Dumbbell },
   { title: "Movement", url: "/coach/fms", icon: Stethoscope },
   { title: "AI Brain", url: "/coach/knowledge", icon: BrainCircuit },
+  { title: "Master Copilot", url: "/coach/copilot", icon: Sparkles },
   { title: "Analisi", url: "/coach/analytics", icon: BarChart3 },
   { title: "Business", url: "/coach/business", icon: CreditCard },
 ];
