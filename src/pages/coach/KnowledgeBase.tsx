@@ -91,6 +91,8 @@ export default function KnowledgeBase() {
   const [pending, setPending] = useState<PendingFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
+  const [isReading, setIsReading] = useState(false);
+  const [readingLabel, setReadingLabel] = useState<string>("");
   const [progress, setProgress] = useState(0);
   const [statusLine, setStatusLine] = useState<string>("");
 
