@@ -445,6 +445,16 @@ export default function ProgramBuilder() {
   );
 
   // -------------------------------------------------------------------------
+  // Live coach roster + FMS risk hook for the assigned athlete.
+  // -------------------------------------------------------------------------
+
+  const { data: athletesRoster = [], isLoading: athletesLoading } =
+    useCoachAthletes();
+
+  const assignedAthleteId = block?.athlete_id ?? null;
+  const { checkExercise } = useAthleteRiskAnalysis(assignedAthleteId);
+
+  // -------------------------------------------------------------------------
   // Local UI state — selected week (a pure view concern)
   // -------------------------------------------------------------------------
 
