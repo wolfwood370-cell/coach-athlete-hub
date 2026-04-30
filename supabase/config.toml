@@ -12,6 +12,9 @@ verify_jwt = false
 [functions.ingest-knowledge]
 verify_jwt = false
 
+[functions.ask-copilot]
+verify_jwt = false
+
 [functions.chat-with-coach]
 verify_jwt = false
 
