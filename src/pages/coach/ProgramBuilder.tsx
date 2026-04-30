@@ -96,14 +96,30 @@ const WEEK_PHASE_LABELS = [
 ] as const;
 
 /**
- * Mock athlete roster for the assignment dropdown. Replaced by a live
- * `useCoachAthletes` query in a later slice.
+ * Inline hook: fetch the authenticated coach's athletes from the
+ * `profiles` table. Kept local to the page since this is the only
+ * consumer for now; will be promoted to a shared hook if a second
+ * caller appears.
  */
-const MOCK_ATHLETES = [
-  { id: "athlete-john-doe", name: "John Doe" },
-  { id: "athlete-jane-smith", name: "Jane Smith" },
-  { id: "athlete-mark-rivera", name: "Mark Rivera" },
-] as const;
+function useCoachAthletes() {
+  const { user, profile } = useAuth();
+  return useQuery({
+    queryKey: ["coach-athletes-roster", user?.id],
+    queryFn: async () => {
+      if (!user) return [];
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, full_name")
+        .eq("coach_id", user.id)
+        .eq("role", "athlete")
+        .order("full_name", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; full_name: string | null }>;
+    },
+    enabled: !!user && profile?.role === "coach",
+    staleTime: 5 * 60 * 1000,
+  });
+}
 
 const weekPhaseLabel = (week: Microcycle): string => {
   if (week.is_deload) return "Deload";
