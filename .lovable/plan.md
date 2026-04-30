@@ -1,57 +1,41 @@
+## Goal
 
+Route all AI edge function calls back through the **Lovable AI Gateway** (`https://ai.gateway.lovable.dev/v1/chat/completions`) using `LOVABLE_API_KEY`, eliminating direct OpenAI billing for chat/generation/analysis. Embeddings (`text-embedding-3-small`) stay on OpenAI directly — the gateway is for chat completions only.
 
-## Piano: Passare a GPT-4o-mini per le risposte AI
+## Model routing
 
-### Cosa cambia
+| Function | New Model | Reason |
+|---|---|---|
+| `generate-program` | `openai/gpt-5.2` | Highest reasoning for program design |
+| `analyze-athlete-week` | `openai/gpt-5-mini` | Cost-effective structured summarization |
+| `chat-with-coach` | `openai/gpt-5-mini` | Cost-effective streaming chat |
+| `analyze-meal-photo` | `google/gemini-3-flash-preview` | Fast multimodal vision (already on gateway, model swap from `gemini-2.5-flash`) |
 
-Tutte e 3 le Edge Function che attualmente usano il Lovable AI Gateway (`google/gemini-3-flash-preview`) verranno modificate per chiamare direttamente l'API OpenAI (`https://api.openai.com/v1/chat/completions`) con il modello `gpt-4o-mini`, usando la chiave `OPENAI_API_KEY` gia' configurata.
+## Changes per function
 
-Gli embeddings (`text-embedding-3-small`) restano invariati.
+### 1. `supabase/functions/generate-program/index.ts`
+- Replace `OPENAI_API_KEY` env read with `LOVABLE_API_KEY`.
+- Change endpoint from `https://api.openai.com/v1/chat/completions` to `https://ai.gateway.lovable.dev/v1/chat/completions`.
+- Change `model: "gpt-4o-mini"` → `"openai/gpt-5.2"`.
+- Update missing-key error message to reference the gateway.
+- Keep tool-calling (`submit_program`) and 429/402 handling intact.
 
-### Funzioni da modificare
+### 2. `supabase/functions/analyze-athlete-week/index.ts`
+- Same swap pattern: `OPENAI_API_KEY` → `LOVABLE_API_KEY`, endpoint → gateway, `model` → `"openai/gpt-5-mini"`.
+- Keep `submit_analysis` tool-call + sentiment-clamp logic + DB insert unchanged.
 
-**1. `chat-with-coach/index.ts`** (Chat AI con streaming)
-- Sostituire la chiamata al Lovable AI Gateway con l'API OpenAI diretta
-- Modello: `gpt-4o-mini`
-- Mantenere lo streaming SSE
-- Rimuovere la dipendenza da `LOVABLE_API_KEY` (in questa funzione)
-- Aggiornare la gestione errori (429/402) per il formato OpenAI
+### 3. `supabase/functions/chat-with-coach/index.ts`
+- Keep `OPENAI_API_KEY` (still needed for `getEmbedding` → `text-embedding-3-small`).
+- Add a separate `LOVABLE_API_KEY` env read for the chat call.
+- Change chat endpoint to gateway, `model: "gpt-4o-mini"` → `"openai/gpt-5-mini"`.
+- Streaming SSE response and quota-tracking logic unchanged.
 
-**2. `generate-program/index.ts`** (Generazione programmi)
-- Stessa sostituzione: OpenAI diretta con `gpt-4o-mini`
-- Mantenere il tool calling (`submit_program`)
-- Usare `OPENAI_API_KEY` al posto di `LOVABLE_API_KEY`
+### 4. `supabase/functions/analyze-meal-photo/index.ts`
+- Already uses Lovable Gateway + `LOVABLE_API_KEY`. Only swap model from `"google/gemini-2.5-flash"` to `"google/gemini-3-flash-preview"`.
 
-**3. `analyze-athlete-week/index.ts`** (Report settimanali)
-- Stessa sostituzione: OpenAI diretta con `gpt-4o-mini`
-- Mantenere il tool calling (`submit_analysis`)
-- Usare `OPENAI_API_KEY` al posto di `LOVABLE_API_KEY`
+## Out of scope (intentionally untouched)
+- Embeddings in `chat-with-coach` and `ingest-knowledge` continue to call OpenAI directly (`text-embedding-3-small`) — the Lovable Gateway is chat-completions only.
+- No changes to RLS, schema, frontend, quota tables, or `supabase/config.toml`.
 
-### Dettagli tecnici
-
-In ogni funzione, il blocco:
-```typescript
-const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-  headers: { Authorization: `Bearer ${lovableKey}` },
-  body: JSON.stringify({ model: "google/gemini-3-flash-preview", ... }),
-});
-```
-
-Diventa:
-```typescript
-const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-  headers: { Authorization: `Bearer ${openaiKey}` },
-  body: JSON.stringify({ model: "gpt-4o-mini", ... }),
-});
-```
-
-### Impatto costi
-- **Prima:** Embeddings su OpenAI + Chat su Lovable AI (gratuito incluso)
-- **Dopo:** Tutto su OpenAI (embeddings + chat + programmi + analisi) -- i costi dipendono interamente dal tuo piano OpenAI
-- `gpt-4o-mini` e' economico (~$0.15/1M input tokens, ~$0.60/1M output tokens)
-
-### Nessuna modifica richiesta
-- Database / RLS
-- Frontend / UI
-- Embeddings (`text-embedding-3-small`)
-
+## Verification
+After deploy I'll confirm each function compiles (no TS errors in Deno) and report back the routing summary. No client code needs updates — function contracts are identical.
