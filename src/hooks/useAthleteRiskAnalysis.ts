@@ -127,6 +127,8 @@ function rowToAssessment(row: FmsAssessmentRow): FmsAssessment {
     compositeTotal: row.composite_total,
     isComplete: row.is_complete,
     generalNotes: payload.generalNotes,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }
 
