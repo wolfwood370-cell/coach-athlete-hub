@@ -1,8 +1,18 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, X } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Plus, X, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProgramBuilderStore } from '@/stores/programBuilder/useProgramBuilderStore';
+import type {
+  ExerciseInfo,
+  ExerciseRiskAssessment,
+} from '@/lib/math/fmsRiskEngine';
 import type {
   ProgrammedExercise,
   ProgrammedSet,
