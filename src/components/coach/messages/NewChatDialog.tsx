@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { useAthleteRiskAnalysis } from "@/hooks/useAthleteRiskAnalysis";
+import { useAthletesRiskOverview } from "@/hooks/useAthletesRiskOverview";
 
 interface NewChatDialogProps {
   open: boolean;
@@ -25,7 +25,7 @@ export function NewChatDialog({
   onSelectAthlete,
   isCreating
 }: NewChatDialogProps) {
-  const { allAthletes, isLoading } = useAthleteRiskAnalysis();
+  const { allAthletes, isLoading } = useAthletesRiskOverview();
   const [search, setSearch] = useState("");
 
   const filteredAthletes = allAthletes.filter(athlete =>
