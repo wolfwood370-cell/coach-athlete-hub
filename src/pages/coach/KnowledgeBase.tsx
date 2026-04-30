@@ -120,35 +120,58 @@ export default function KnowledgeBase() {
   const totalChunks = documents.reduce((acc, d) => acc + (d.chunk_count ?? 0), 0);
 
   const handleFiles = useCallback(async (files: FileList | File[]) => {
+    const list = Array.from(files);
+    if (list.length === 0) return;
+
+    // Immediate UI feedback: show the "reading" overlay BEFORE we touch
+    // potentially huge files. Yield once so React paints the loader before
+    // file.text() blocks the main thread.
+    setIsReading(true);
+    setReadingLabel(
+      list.length === 1
+        ? `Lettura di "${list[0].name}"... attendi`
+        : `Lettura di ${list.length} documenti... attendi`,
+    );
+    await new Promise((r) => setTimeout(r, 0));
+
     const next: PendingFile[] = [];
-    for (const file of Array.from(files)) {
-      const ext = "." + (file.name.split(".").pop() ?? "").toLowerCase();
-      if (!ACCEPTED_TYPES.includes(ext)) {
-        toast.error(`${file.name}: formato non supportato (solo .pdf, .txt)`);
-        continue;
-      }
-      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
-        toast.error(`${file.name}: troppo grande (max ${MAX_FILE_SIZE_MB}MB)`);
-        continue;
-      }
+    try {
+      for (const file of list) {
+        setReadingLabel(`Lettura "${file.name}" (${formatBytes(file.size)})...`);
+        // Yield to the event loop so the label updates between files.
+        await new Promise((r) => setTimeout(r, 0));
 
-      const entry: PendingFile = { id: crypto.randomUUID(), file };
-
-      if (ext === ".txt") {
-        try {
-          entry.textContent = await file.text();
-        } catch {
-          entry.error = "Lettura file fallita";
+        const ext = "." + (file.name.split(".").pop() ?? "").toLowerCase();
+        if (!ACCEPTED_TYPES.includes(ext)) {
+          toast.error(`${file.name}: formato non supportato (solo .pdf, .txt)`);
+          continue;
         }
-      } else {
-        // PDF: extraction not yet wired (would require pdfjs-dist).
-        // TODO: integrate pdfjs-dist or upload to Storage and let edge function extract.
-        entry.error = "Estrazione PDF non disponibile in MVP — usa .txt";
-      }
+        if (file.size > MAX_FILE_SIZE_BYTES) {
+          toast.error(`${file.name}: troppo grande (max ${MAX_FILE_SIZE_MB}MB)`);
+          continue;
+        }
 
-      next.push(entry);
+        const entry: PendingFile = { id: crypto.randomUUID(), file };
+
+        if (ext === ".txt") {
+          try {
+            entry.textContent = await file.text();
+          } catch {
+            entry.error = "Lettura file fallita";
+          }
+        } else {
+          // PDF: extraction not yet wired (would require pdfjs-dist).
+          // TODO: integrate pdfjs-dist or upload to Storage and let edge function extract.
+          entry.error = "Estrazione PDF non disponibile in MVP — usa .txt";
+        }
+
+        next.push(entry);
+      }
+      setPending((prev) => [...prev, ...next]);
+    } finally {
+      setIsReading(false);
+      setReadingLabel("");
     }
-    setPending((prev) => [...prev, ...next]);
   }, []);
 
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
