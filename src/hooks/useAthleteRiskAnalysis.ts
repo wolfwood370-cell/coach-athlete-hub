@@ -1,367 +1,282 @@
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "./useAuth";
+/**
+ * src/hooks/useAthleteRiskAnalysis.ts
+ * ---------------------------------------------------------------------------
+ * React Query hook that fetches an athlete's most recent *completed* FMS
+ * assessment and exposes a `checkExercise(exercise)` callback for the
+ * Coach's program builder. The callback runs each candidate exercise
+ * through the pure `fmsRiskEngine` and returns a structured traffic-light
+ * verdict.
+ *
+ * Why a single hook (not separate query + util)?
+ * ----------------------------------------------
+ * The program-builder UI checks dozens of exercises per render (every
+ * cell of every day of every week). Fetching the assessment in each
+ * cell would either thrash the cache or pollute every component with
+ * the same `useQuery` boilerplate. By exposing `checkExercise` as a
+ * `useCallback` closed over the cached assessment, the consumer gets a
+ * stable, sync-feeling function that internally relies on the React
+ * Query cache for freshness.
+ *
+ * Cache integration
+ * -----------------
+ * - Query key: `['fms-assessments', athleteId, 'latest-completed']`.
+ *   The `'fms-assessments', athleteId` prefix is identical to the
+ *   invalidation key used by `useSaveAssessment`, so saving a new
+ *   assessment automatically refetches us. The `'latest-completed'`
+ *   suffix narrows further so a future "list all assessments" query
+ *   on the same prefix can coexist without clobbering this one.
+ * - `staleTime` is 5 minutes. FMS assessments are administered weekly
+ *   at most; refetching on every focus would be wasteful.
+ *
+ * Schema notes
+ * ------------
+ * The `fms_assessments` table layout (see migration
+ * 20260430115033_*_create_fms_assessments.sql) is denormalized: scalar
+ * columns for list/sort views (`athlete_id`, `coach_id`,
+ * `assessment_date`, `composite_total`, `is_complete`) plus a JSONB
+ * `payload` containing the clinical document. We rebuild the canonical
+ * `FmsAssessment` shape on read by merging the two — same approach
+ * `useSaveAssessment` uses on the write path, in reverse.
+ *
+ * As of writing, `src/integrations/supabase/types.ts` has not yet been
+ * regenerated to include the `fms_assessments` table, so we use the same
+ * narrow `as never` cast pattern documented in `useSaveAssessment.ts`.
+ * Once codegen catches up, the casts can be removed without changing the
+ * public surface of this hook.
+ */
 
-export type RiskLevel = "high" | "moderate" | "low" | "optimal";
-export type RiskType = "high_injury_risk" | "detraining_risk" | "low_recovery" | "overload_warning";
+import { useCallback } from 'react';
+import {
+  useQuery,
+  type UseQueryResult,
+} from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import type {
+  FmsAssessment,
+  ClearingTestId,
+  ClearingTestResult,
+  FmsTestId,
+  FmsTestResult,
+  RedFlag,
+} from '@/types/movement';
+import {
+  analyzeExerciseRisk,
+  type ExerciseInfo,
+  type ExerciseRiskAssessment,
+} from '@/lib/math/fmsRiskEngine';
 
-export interface RiskFlag {
-  type: RiskType;
-  label: string;
-  level: RiskLevel;
-  value: string;
-  details?: string;
-}
+// ---------------------------------------------------------------------------
+// DB row shape (local — until types.ts regen)
+// ---------------------------------------------------------------------------
 
-export interface AthleteRiskData {
-  athleteId: string;
-  athleteName: string;
-  avatarUrl: string | null;
-  avatarInitials: string;
-  
-  // ACWR metrics
-  acwr: number | null;
-  acuteLoad: number;
-  chronicLoad: number;
-  
-  // Risk assessment
-  riskLevel: RiskLevel;
-  riskFlags: RiskFlag[];
-  primaryFlag: RiskFlag | null;
-  
-  // Readiness
-  latestReadiness: number | null;
-  readinessDate: string | null;
-  
-  // Historical data for sparklines (last 28 days daily load)
-  dailyLoadHistory: number[];
-}
-
-interface WorkoutLogRaw {
-  id: string;
-  athlete_id: string;
-  completed_at: string | null;
-  duration_seconds: number | null;
-  rpe_global: number | null;
-  srpe: number | null;
-}
-
-interface DailyMetricRaw {
-  id: string;
-  user_id: string;
-  date: string;
-  subjective_readiness: number | null;
-}
-
-interface DailyReadinessRaw {
-  id: string;
-  athlete_id: string;
-  date: string;
-  score: number | null;
-}
-
-interface AthleteProfile {
-  id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-}
+const ASSESSMENTS_TABLE = 'fms_assessments' as const;
 
 /**
- * Calculate daily loads for the last N days, filling gaps with 0
+ * The JSONB payload sub-shape — clinical fields only. The scalar
+ * columns ride alongside this on the row. Mirrors the type in
+ * `useSaveAssessment.ts` (kept private to avoid a circular import).
  */
-function calculateDailyLoads(
-  logs: WorkoutLogRaw[],
-  days: number
-): number[] {
-  const now = new Date();
-  const dailyLoads: number[] = [];
-  
-  for (let i = days - 1; i >= 0; i--) {
-    const targetDate = new Date(now);
-    targetDate.setDate(now.getDate() - i);
-    const dateStr = targetDate.toISOString().split("T")[0];
-    
-    // Sum all loads for this day
-    const dayLoad = logs
-      .filter(log => {
-        if (!log.completed_at) return false;
-        return log.completed_at.split("T")[0] === dateStr;
-      })
-      .reduce((sum, log) => {
-        // Use sRPE if available, otherwise RPE * duration
-        const rpe = log.srpe ?? log.rpe_global ?? 0;
-        const durationMinutes = (log.duration_seconds ?? 0) / 60;
-        return sum + (rpe * durationMinutes);
-      }, 0);
-    
-    dailyLoads.push(Math.round(dayLoad));
-  }
-  
-  return dailyLoads;
-}
+type FmsAssessmentPayload = Pick<
+  FmsAssessment,
+  'tests' | 'clearingTests' | 'redFlags' | 'generalNotes'
+>;
 
 /**
- * Calculate ACWR from daily loads
- * Acute = average of last 7 days
- * Chronic = average of last 28 days
+ * Local mirror of the `fms_assessments` row shape returned by
+ * `SELECT *`. Keep this aligned with the SQL migration; if the DB
+ * grows columns we don't read here, leaving them off this interface
+ * is fine — we just won't see them.
  */
-function calculateAcwr(dailyLoads: number[]): {
-  acwr: number | null;
-  acuteLoad: number;
-  chronicLoad: number;
-} {
-  if (dailyLoads.length < 28) {
-    return { acwr: null, acuteLoad: 0, chronicLoad: 0 };
-  }
-  
-  // Last 7 days for acute
-  const acuteDays = dailyLoads.slice(-7);
-  const acuteLoad = acuteDays.reduce((a, b) => a + b, 0) / 7;
-  
-  // All 28 days for chronic
-  const chronicLoad = dailyLoads.reduce((a, b) => a + b, 0) / 28;
-  
-  if (chronicLoad === 0) {
-    return { acwr: null, acuteLoad, chronicLoad };
-  }
-  
+interface FmsAssessmentRow {
+  id: string;
+  athlete_id: string;
+  coach_id: string;
+  assessment_date: string; // ISO date (YYYY-MM-DD)
+  composite_total: number | null;
+  is_complete: boolean;
+  payload: FmsAssessmentPayload;
+  created_at: string;
+  updated_at: string;
+}
+
+// ---------------------------------------------------------------------------
+// Row → domain mapper
+// ---------------------------------------------------------------------------
+
+/**
+ * Reconstruct the canonical `FmsAssessment` document from a raw DB row.
+ * Inverse of the carving done by `useSaveAssessment.mutationFn`.
+ *
+ * Defensive against malformed JSONB: if `payload` is missing the
+ * expected sub-objects we substitute empty maps so the engine still
+ * runs (and treats every test as "not scored").
+ */
+function rowToAssessment(row: FmsAssessmentRow): FmsAssessment {
+  const payload = row.payload ?? ({} as Partial<FmsAssessmentPayload>);
+
   return {
-    acwr: Math.round((acuteLoad / chronicLoad) * 100) / 100,
-    acuteLoad: Math.round(acuteLoad),
-    chronicLoad: Math.round(chronicLoad),
+    id: row.id,
+    athleteId: row.athlete_id,
+    coachId: row.coach_id,
+    assessmentDate: row.assessment_date,
+    tests: (payload.tests ?? {}) as Readonly<Record<FmsTestId, FmsTestResult>>,
+    clearingTests: (payload.clearingTests ?? {}) as Readonly<
+      Record<ClearingTestId, ClearingTestResult>
+    >,
+    redFlags: (payload.redFlags ?? []) as ReadonlyArray<RedFlag>,
+    compositeTotal: row.composite_total,
+    isComplete: row.is_complete,
+    generalNotes: payload.generalNotes,
   };
 }
 
-/**
- * Determine risk flags based on ACWR and readiness
- */
-function assessRisks(
-  acwr: number | null,
-  readiness: number | null
-): { riskLevel: RiskLevel; riskFlags: RiskFlag[] } {
-  const flags: RiskFlag[] = [];
-  
-  // ACWR-based risks
-  if (acwr !== null) {
-    if (acwr > 1.5) {
-      flags.push({
-        type: "high_injury_risk",
-        label: "High Injury Risk",
-        level: "high",
-        value: `ACWR ${acwr.toFixed(2)}`,
-        details: "Acute workload significantly exceeds chronic capacity",
-      });
-    } else if (acwr > 1.3) {
-      flags.push({
-        type: "overload_warning",
-        label: "Overload Warning",
-        level: "moderate",
-        value: `ACWR ${acwr.toFixed(2)}`,
-        details: "Approaching injury risk zone",
-      });
-    } else if (acwr < 0.8) {
-      flags.push({
-        type: "detraining_risk",
-        label: "Detraining Risk",
-        level: "moderate",
-        value: `ACWR ${acwr.toFixed(2)}`,
-        details: "Training load may be insufficient",
-      });
-    }
-  }
-  
-  // Readiness-based risks (threshold: 40/100)
-  if (readiness !== null && readiness < 40) {
-    flags.push({
-      type: "low_recovery",
-      label: "Low Recovery",
-      level: "high",
-      value: `Readiness ${readiness}/100`,
-      details: "Athlete reports poor recovery status",
-    });
-  }
-  
-  // Determine overall risk level
-  let riskLevel: RiskLevel = "optimal";
-  
-  if (flags.some(f => f.level === "high")) {
-    riskLevel = "high";
-  } else if (flags.some(f => f.level === "moderate")) {
-    riskLevel = "moderate";
-  } else if (acwr !== null && acwr >= 0.8 && acwr <= 1.3) {
-    riskLevel = "optimal";
-  } else if (acwr === null && readiness === null) {
-    riskLevel = "low"; // Insufficient data
-  }
-  
-  return { riskLevel, riskFlags: flags };
+// ---------------------------------------------------------------------------
+// Public hook surface
+// ---------------------------------------------------------------------------
+
+export interface UseAthleteRiskAnalysisOptions {
+  /**
+   * Disable the query (e.g. while the parent dialog is closed). Mirrors
+   * the `enabled` pattern used by sibling hooks in this codebase.
+   * Default: true (when `athleteId` is provided).
+   */
+  enabled?: boolean;
 }
 
-export function useAthleteRiskAnalysis() {
-  const { user, profile } = useAuth();
-  
-  // Get date range for queries
-  const now = new Date();
-  const twentyEightDaysAgo = new Date(now);
-  twentyEightDaysAgo.setDate(now.getDate() - 28);
-  const today = now.toISOString().split("T")[0];
-  
-  // Fetch athletes
-  const athletesQuery = useQuery({
-    queryKey: ["risk-analysis-athletes", user?.id],
-    queryFn: async () => {
-      if (!user) return [];
-      
+/**
+ * Return type. Composes a React Query result for the assessment with a
+ * stable `checkExercise` callback. The callback is safe to call before
+ * the query resolves: it will return a "no assessment available" verdict
+ * until data lands, which the engine treats as `low` risk with a
+ * `unknown_assessment` reason.
+ */
+export interface UseAthleteRiskAnalysisResult
+  extends Pick<
+    UseQueryResult<FmsAssessment | null, Error>,
+    'data' | 'isLoading' | 'isError' | 'error' | 'refetch'
+  > {
+  /** The latest completed assessment, or `null` if none on file. */
+  assessment: FmsAssessment | null;
+  /**
+   * Run an exercise through the risk engine against the cached
+   * assessment. Pure projection — does not trigger I/O.
+   */
+  checkExercise: (exercise: ExerciseInfo) => ExerciseRiskAssessment;
+}
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch the latest *completed* FMS assessment for `athleteId` and expose
+ * a `checkExercise` callback that runs the cached assessment through
+ * the pure risk engine.
+ *
+ * @example
+ * ```tsx
+ * const { assessment, isLoading, checkExercise } =
+ *   useAthleteRiskAnalysis(athleteId);
+ *
+ * const verdict = checkExercise({
+ *   name: 'Overhead Press',
+ *   movementPattern: 'Vertical Push',
+ *   targets: ['Shoulders'],
+ * });
+ *
+ * if (verdict.riskLevel === 'high') showRedBadge(verdict.reasons[0]);
+ * ```
+ *
+ * @param athleteId The UUID of the athlete whose assessment to check.
+ *                  Pass `null`/`undefined` to disable the query.
+ * @param options   Optional `enabled` override for the underlying query.
+ */
+export function useAthleteRiskAnalysis(
+  athleteId: string | null | undefined,
+  options: UseAthleteRiskAnalysisOptions = {},
+): UseAthleteRiskAnalysisResult {
+  const { enabled = true } = options;
+
+  const query = useQuery<FmsAssessment | null, Error>({
+    // Prefix matches the invalidation key in `useSaveAssessment` so a
+    // newly saved assessment auto-refreshes this query. The
+    // `'latest-completed'` suffix lets a future "list all assessments"
+    // query share the prefix without conflicting.
+    queryKey: ['fms-assessments', athleteId, 'latest-completed'],
+
+    queryFn: async (): Promise<FmsAssessment | null> => {
+      if (!athleteId) return null;
+
+      // Fetch the single most recent COMPLETED assessment. Two ordering
+      // keys (assessment_date DESC, then updated_at DESC) so that
+      // multiple assessments captured the same day fall back to the
+      // most recently saved row — important on the gym floor where the
+      // coach might re-open and resave a draft.
+      //
+      // The `as never` casts mirror the `useSaveAssessment` workaround
+      // for the pre-codegen window; remove once
+      // `src/integrations/supabase/types.ts` is regenerated.
       const { data, error } = await supabase
-        .from("profiles")
-        .select("id, full_name, avatar_url")
-        .eq("coach_id", user.id)
-        .eq("role", "athlete");
-      
-      if (error) throw error;
-      return data as AthleteProfile[];
+        .from(ASSESSMENTS_TABLE as never)
+        .select('*')
+        .eq('athlete_id' as never, athleteId as never)
+        .eq('is_complete' as never, true as never)
+        .order('assessment_date' as never, { ascending: false })
+        .order('updated_at' as never, { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) {
+        // Re-throw so React Query surfaces a typed Error to consumers.
+        throw new Error(
+          `Failed to load latest FMS assessment: ${error.message}`,
+        );
+      }
+
+      const row = data as unknown as FmsAssessmentRow | null;
+      return row ? rowToAssessment(row) : null;
     },
-    enabled: !!user && profile?.role === "coach",
+
+    // Only run when we actually have an athlete ID and the caller hasn't
+    // disabled the hook.
+    enabled: Boolean(athleteId) && enabled,
+
+    // FMS assessments are administered weekly at most, so 5 minutes of
+    // staleness is plenty. `gcTime` keeps the cache warm for half an
+    // hour to support fast tab-switching in the program builder.
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+
+    // Network blips shouldn't block program editing; one retry is
+    // sufficient and keeps the UI snappy.
+    retry: 1,
   });
-  
-  const athleteIds = athletesQuery.data?.map(a => a.id) ?? [];
-  
-  // Fetch workout logs for last 28 days
-  const logsQuery = useQuery({
-    queryKey: ["risk-analysis-logs", user?.id, athleteIds.join(",")],
-    queryFn: async () => {
-      if (!user || athleteIds.length === 0) return [];
-      
-      const { data, error } = await supabase
-        .from("workout_logs")
-        .select("id, athlete_id, completed_at, duration_seconds, rpe_global, srpe")
-        .in("athlete_id", athleteIds)
-        .not("completed_at", "is", null)
-        .gte("completed_at", twentyEightDaysAgo.toISOString())
-        .order("completed_at", { ascending: true });
-      
-      if (error) throw error;
-      return data as WorkoutLogRaw[];
-    },
-    enabled: !!user && profile?.role === "coach" && athleteIds.length > 0,
-  });
-  
-  // Fetch daily_metrics for readiness
-  const metricsQuery = useQuery({
-    queryKey: ["risk-analysis-metrics", user?.id, athleteIds.join(",")],
-    queryFn: async () => {
-      if (!user || athleteIds.length === 0) return [];
-      
-      const { data, error } = await supabase
-        .from("daily_metrics")
-        .select("id, user_id, date, subjective_readiness")
-        .in("user_id", athleteIds)
-        .gte("date", twentyEightDaysAgo.toISOString().split("T")[0])
-        .order("date", { ascending: false });
-      
-      if (error) throw error;
-      return data as DailyMetricRaw[];
-    },
-    enabled: !!user && profile?.role === "coach" && athleteIds.length > 0,
-  });
-  
-  // Also fetch daily_readiness as fallback
-  const readinessQuery = useQuery({
-    queryKey: ["risk-analysis-readiness", user?.id, athleteIds.join(",")],
-    queryFn: async () => {
-      if (!user || athleteIds.length === 0) return [];
-      
-      const { data, error } = await supabase
-        .from("daily_readiness")
-        .select("id, athlete_id, date, score")
-        .in("athlete_id", athleteIds)
-        .gte("date", twentyEightDaysAgo.toISOString().split("T")[0])
-        .order("date", { ascending: false });
-      
-      if (error) throw error;
-      return data as DailyReadinessRaw[];
-    },
-    enabled: !!user && profile?.role === "coach" && athleteIds.length > 0,
-  });
-  
-  // Process data for each athlete
-  const athleteRiskData: AthleteRiskData[] = (athletesQuery.data ?? []).map(athlete => {
-    // Filter logs for this athlete
-    const athleteLogs = (logsQuery.data ?? []).filter(
-      log => log.athlete_id === athlete.id
-    );
-    
-    // Calculate 28-day daily loads
-    const dailyLoadHistory = calculateDailyLoads(athleteLogs, 28);
-    
-    // Calculate ACWR
-    const { acwr, acuteLoad, chronicLoad } = calculateAcwr(dailyLoadHistory);
-    
-    // Get latest readiness (from daily_metrics or daily_readiness)
-    const latestMetric = (metricsQuery.data ?? []).find(
-      m => m.user_id === athlete.id
-    );
-    const latestReadinessRecord = (readinessQuery.data ?? []).find(
-      r => r.athlete_id === athlete.id
-    );
-    
-    const latestReadiness = latestMetric?.subjective_readiness ?? 
-                            latestReadinessRecord?.score ?? 
-                            null;
-    const readinessDate = latestMetric?.date ?? latestReadinessRecord?.date ?? null;
-    
-    // Assess risks
-    const { riskLevel, riskFlags } = assessRisks(acwr, latestReadiness);
-    
-    // Avatar initials
-    const avatarInitials = athlete.full_name
-      ?.split(" ")
-      .map(n => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2) ?? "??";
-    
-    return {
-      athleteId: athlete.id,
-      athleteName: athlete.full_name ?? "Atleta",
-      avatarUrl: athlete.avatar_url,
-      avatarInitials,
-      acwr,
-      acuteLoad,
-      chronicLoad,
-      riskLevel,
-      riskFlags,
-      primaryFlag: riskFlags[0] ?? null,
-      latestReadiness,
-      readinessDate,
-      dailyLoadHistory,
-    };
-  });
-  
-  // Sort by risk: high first, then moderate, then others
-  const sortedAthletes = [...athleteRiskData].sort((a, b) => {
-    const riskOrder: Record<RiskLevel, number> = {
-      high: 0,
-      moderate: 1,
-      low: 2,
-      optimal: 3,
-    };
-    return riskOrder[a.riskLevel] - riskOrder[b.riskLevel];
-  });
-  
-  // Separate into attention-needed and healthy
-  const needsAttention = sortedAthletes.filter(
-    a => a.riskLevel === "high" || a.riskLevel === "moderate"
+
+  const assessment = query.data ?? null;
+
+  /**
+   * Stable per-render callback. Memoized on `assessment` so dependency
+   * arrays in consumer `useMemo`/`useEffect` calls don't churn when
+   * unrelated parts of the query result change (loading flags, etc.).
+   *
+   * Pure: does not trigger network I/O; pulls strictly from the cached
+   * assessment. Safe to call hundreds of times per render.
+   */
+  const checkExercise = useCallback(
+    (exercise: ExerciseInfo): ExerciseRiskAssessment =>
+      analyzeExerciseRisk(exercise, assessment),
+    [assessment],
   );
-  const healthyAthletes = sortedAthletes.filter(
-    a => a.riskLevel === "optimal" || a.riskLevel === "low"
-  );
-  
+
   return {
-    allAthletes: sortedAthletes,
-    needsAttention,
-    healthyAthletes,
-    isLoading: athletesQuery.isLoading || logsQuery.isLoading || metricsQuery.isLoading || readinessQuery.isLoading,
-    error: athletesQuery.error || logsQuery.error || metricsQuery.error || readinessQuery.error,
+    // Re-expose the React Query primitives consumers commonly need.
+    data: query.data,
+    isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
+    refetch: query.refetch,
+    // Domain-shaped accessors.
+    assessment,
+    checkExercise,
   };
 }
