@@ -5,7 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { InviteAthleteDialog } from "@/components/coach/InviteAthleteDialog";
-import { useAthleteRiskAnalysis } from "@/hooks/useAthleteRiskAnalysis";
+import { useAthletesRiskOverview } from "@/hooks/useAthletesRiskOverview";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
@@ -22,7 +22,7 @@ type ViewMode = "grid" | "list";
 export default function CoachAthletes() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { allAthletes, isLoading } = useAthleteRiskAnalysis();
+  const { allAthletes, isLoading } = useAthletesRiskOverview();
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
