@@ -1,19 +1,21 @@
-import { Home, Dumbbell, Utensils, User } from "lucide-react";
+import { Home, Dumbbell, Utensils, Sparkles } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useHapticFeedback } from "@/hooks/useHapticFeedback";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const navItems = [
   { title: "Home", url: "/athlete", icon: Home },
   { title: "Training", url: "/athlete/workout", icon: Dumbbell },
   { title: "Nutrition", url: "/athlete/nutrition", icon: Utensils },
-  { title: "Profilo", url: "/athlete/profile", icon: User },
+  { title: "Copilot", url: "/athlete/messages", icon: Sparkles },
 ];
 
 export function AthleteBottomNav() {
   const { light } = useHapticFeedback();
+  const isMobile = useIsMobile();
 
   // Fetch coach brand color for active state
   const { data: brandColor } = useQuery({
@@ -43,9 +45,12 @@ export function AthleteBottomNav() {
     staleTime: 10 * 60 * 1000,
   });
 
+  // Mobile-only navigation. Hidden on tablet/desktop.
+  if (!isMobile) return null;
+
   return (
     <nav
-      className="absolute bottom-0 left-0 right-0 z-50"
+      className="absolute bottom-0 left-0 right-0 z-50 md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {/* Glassmorphic surface */}
@@ -58,12 +63,12 @@ export function AthleteBottomNav() {
             to={item.url}
             end={item.url === "/athlete"}
             onClick={() => light()}
-            className="relative flex flex-col items-center justify-center gap-0.5 flex-1 h-full min-h-[44px] min-w-[44px] text-zinc-500 transition-transform duration-150 active:scale-90"
+            className="relative flex flex-col items-center justify-center gap-0.5 flex-1 h-full min-h-[48px] min-w-[48px] text-zinc-500 transition-transform duration-150 active:scale-90"
             activeClassName="text-primary"
           >
             {({ isActive }) => (
               <div className="relative flex flex-col items-center">
-                {/* Active top indicator */}
+                {/* Active top indicator dot/line */}
                 {isActive && (
                   <div
                     className="absolute -top-2.5 left-1/2 -translate-x-1/2 h-0.5 w-8 rounded-full"
