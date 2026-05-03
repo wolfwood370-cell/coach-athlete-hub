@@ -1,49 +1,49 @@
-import React from "react";
-import ReactDOM from "react-dom/client";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { persistQueryClient } from "@tanstack/react-query-persist-client";
+import { createRoot } from "react-dom/client";
+import { QueryClient } from "@tanstack/react-query";
+import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { HelmetProvider } from "react-helmet-async";
-import { ThemeProvider } from "next-themes";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster as SonnerToaster } from "@/components/ui/sonner";
-import { Toaster } from "@/components/ui/toaster";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { idbPersister } from "@/lib/queryPersister";
-import App from "./App";
+import { MaterialYouProvider } from "./providers/MaterialYouProvider";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { idbPersister } from "./lib/queryPersister";
+import App from "./App.tsx";
 import "./index.css";
+
+const MS_24H = 24 * 60 * 60 * 1000;
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5,
-      gcTime: 1000 * 60 * 60 * 24, // 24h
-      retry: 1,
-      refetchOnWindowFocus: false,
+      staleTime: Infinity,
+      gcTime: MS_24H,
+      retry: (failureCount, error) => {
+        if (error && typeof error === 'object' && 'status' in error) {
+          const status = (error as { status: number }).status;
+          if (status >= 400 && status < 500) return false;
+        }
+        return failureCount < 3;
+      },
+      networkMode: 'offlineFirst',
+    },
+    mutations: {
+      networkMode: 'offlineFirst',
     },
   },
 });
 
-// Hydrate offline cache
-persistQueryClient({
-  queryClient,
-  persister: idbPersister as any,
-  maxAge: 1000 * 60 * 60 * 24,
-});
+const persistOptions = {
+  persister: idbPersister,
+  maxAge: MS_24H,
+  buster: "v1",
+};
 
-ReactDOM.createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <ErrorBoundary>
-      <HelmetProvider>
-        <QueryClientProvider client={queryClient}>
-          <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-            <TooltipProvider>
-              <App />
-              <Toaster />
-              <SonnerToaster />
-            </TooltipProvider>
-          </ThemeProvider>
-        </QueryClientProvider>
-      </HelmetProvider>
-    </ErrorBoundary>
-  </React.StrictMode>,
+createRoot(document.getElementById("root")!).render(
+  <ErrorBoundary>
+    <HelmetProvider>
+      <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
+        <MaterialYouProvider>
+          <App />
+        </MaterialYouProvider>
+      </PersistQueryClientProvider>
+    </HelmetProvider>
+  </ErrorBoundary>
 );
