@@ -12,6 +12,12 @@ import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { SubscriptionGuard } from "@/components/auth/SubscriptionGuard";
 import { SwUpdatePrompt } from "@/components/pwa/SwUpdatePrompt";
 import { CelebrationOverlay } from "@/components/celebration/Confetti";
+import { AppShell } from "@/components/shell/AppShell";
+
+const DashboardPage = lazy(() => import("./pages/shell/DashboardPage"));
+const TrainingPage = lazy(() => import("./pages/shell/TrainingPage"));
+const NutritionPage = lazy(() => import("./pages/shell/NutritionPage"));
+const CopilotPage = lazy(() => import("./pages/shell/CopilotPage"));
 
 
 // Lazy-loaded pages
@@ -105,7 +111,15 @@ const App = () => (
               {/* Legal */}
               <Route path="/privacy" element={<PrivacyPolicy />} />
               <Route path="/terms" element={<TermsOfService />} />
-              
+
+              {/* App Shell with Bottom Navigation */}
+              <Route element={<AppShell />}>
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/training" element={<TrainingPage />} />
+                <Route path="/nutrition" element={<NutritionPage />} />
+                <Route path="/copilot" element={<CopilotPage />} />
+              </Route>
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
