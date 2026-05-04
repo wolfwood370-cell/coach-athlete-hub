@@ -101,6 +101,7 @@ const App = () => (
                 <Route path="form-analysis" element={<FormAnalysis />} />
                 <Route path="plan-update" element={<PlanUpdate />} />
                 <Route path="achievement-streak" element={<AchievementStreak />} />
+                <Route path="acwr-analysis" element={<ACWRAnalysis />} />
                 <Route path="training" element={<AthleteTraining />} />
                 <Route path="training/active" element={<ActiveWorkout />} />
                 <Route path="nutrition" element={<AthleteNutrition />} />
