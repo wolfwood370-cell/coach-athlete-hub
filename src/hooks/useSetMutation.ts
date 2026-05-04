@@ -1,12 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useActiveSessionStore } from "@/stores/useActiveSessionStore";
+import { useActiveSessionStore, type SetLog } from "@/stores/useActiveSessionStore";
 import { toast } from "sonner";
 
 interface SetPayload {
   exerciseId: string;
   setIndex: number;
-  field: string;
+  field: keyof SetLog;
   value: string | boolean;
 }
 
@@ -47,7 +47,7 @@ export function useSetMutation() {
           completed: true,
         });
       } else {
-        updateSetField(exerciseId, setIndex, field as any, value);
+        updateSetField(exerciseId, setIndex, field, value);
       }
 
       return { prevLogs };
