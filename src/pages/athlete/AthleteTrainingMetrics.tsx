@@ -188,12 +188,18 @@ export default function AthleteTrainingMetrics() {
           </div>
 
           <p className="font-display text-5xl font-bold text-primary mt-4">
-            142.5 <span className="text-3xl">kg</span>
+            {latestE1RM !== null ? latestE1RM.toFixed(1) : "—"}{" "}
+            <span className="text-3xl">kg</span>
           </p>
-          <p className="text-emerald-500 text-sm font-semibold mt-2 flex items-center gap-1">
-            <TrendingUp className="w-4 h-4" />
-            +2.5 kg questo mese
-          </p>
+          {monthDelta !== null && (
+            <p
+              className={`text-sm font-semibold mt-2 flex items-center gap-1 ${monthDelta >= 0 ? "text-emerald-500" : "text-rose-500"}`}
+            >
+              <TrendingUp className="w-4 h-4" />
+              {monthDelta >= 0 ? "+" : ""}
+              {monthDelta.toFixed(1)} kg questo mese
+            </p>
+          )}
 
           {/* Chart */}
           <div className="mt-6">
