@@ -51,7 +51,8 @@ function ReadinessRing({
       <button
         type="button"
         onClick={onClick}
-        className="flex h-28 w-28 items-center justify-center rounded-full border-2 border-dashed border-brand text-brand font-display text-sm font-semibold hover:bg-surface-container transition-colors"
+        aria-label="Avvia check-in giornaliero"
+        className="flex h-28 w-28 items-center justify-center rounded-full border-[2.5px] border-dashed border-brand text-brand font-display text-base font-bold tracking-tight hover:bg-surface-container active:scale-95 transition-all"
       >
         Check-in
       </button>
