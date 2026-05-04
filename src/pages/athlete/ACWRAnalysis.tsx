@@ -1,18 +1,76 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Info, Lightbulb } from "lucide-react";
+import { useAcwrData } from "@/hooks/useAcwrData";
 
 export default function ACWRAnalysis() {
   const navigate = useNavigate();
+  const { data: acwr, isLoading } = useAcwrData();
 
-  // Gauge geometry: semicircle from (20,110) sweeping to (200,110), radius 90, center (110,110)
-  // Needle pointing to ~1.15 (sweet spot, slightly past center) — angle ~10° right of top
-  const needleAngle = -80; // degrees from horizontal axis (semicircle: -180 left, 0 right, -90 top)
+  const ratio = acwr?.ratio ?? null;
+  const acuteLoad = Math.round(acwr?.acuteLoad ?? 0);
+  const chronicLoad = Math.round(acwr?.chronicLoad ?? 0);
+  const zone = acwr?.zone ?? "insufficient-data";
+
+  // Map ACWR ratio (typical range 0.5..2.0) to needle angle (-180° = far left, 0° = far right, -90° = top)
+  // 0.8..1.3 = sweet spot (centered around -90°)
+  const clampedRatio = Math.max(0.5, Math.min(2.0, ratio ?? 1.0));
+  const needleAngle = -180 + ((clampedRatio - 0.5) / 1.5) * 180;
   const needleRad = (needleAngle * Math.PI) / 180;
   const needleLen = 75;
   const cx = 110;
   const cy = 110;
   const nx = cx + needleLen * Math.cos(needleRad);
   const ny = cy + needleLen * Math.sin(needleRad);
+
+  // Status pill + insight derived from zone
+  const statusConfig: Record<
+    string,
+    { label: string; pillBg: string; pillText: string; insight: string }
+  > = {
+    optimal: {
+      label: "Sweet Spot",
+      pillBg: "bg-emerald-100",
+      pillText: "text-emerald-800",
+      insight:
+        "Il carico è aumentato gradualmente. Puoi procedere con il sovraccarico progressivo programmato per la seduta odierna.",
+    },
+    "sweet-spot": {
+      label: "Sweet Spot",
+      pillBg: "bg-emerald-100",
+      pillText: "text-emerald-800",
+      insight:
+        "Il carico è aumentato gradualmente. Puoi procedere con il sovraccarico progressivo programmato per la seduta odierna.",
+    },
+    undertraining: {
+      label: "Sotto-Carico",
+      pillBg: "bg-amber-100",
+      pillText: "text-amber-800",
+      insight:
+        "Il carico recente è basso rispetto alla media. Puoi aumentare il volume in modo controllato per stimolare l'adattamento.",
+    },
+    warning: {
+      label: "Attenzione",
+      pillBg: "bg-amber-100",
+      pillText: "text-amber-800",
+      insight:
+        "Il carico acuto sta crescendo rapidamente. Mantieni il volume stabile nelle prossime sedute per consolidare l'adattamento.",
+    },
+    "high-risk": {
+      label: "Rischio Elevato",
+      pillBg: "bg-red-100",
+      pillText: "text-red-800",
+      insight:
+        "Il carico acuto è significativamente sopra la media: priorità al recupero. Considera una sessione più leggera o un giorno di scarico.",
+    },
+    "insufficient-data": {
+      label: "Dati Insufficienti",
+      pillBg: "bg-surface-container",
+      pillText: "text-on-surface-variant",
+      insight:
+        "Servono più sedute completate per calcolare con precisione il tuo ACWR. Continua a registrare i tuoi allenamenti.",
+    },
+  };
+  const status = statusConfig[zone] ?? statusConfig["insufficient-data"];
 
   return (
     <div className="min-h-screen bg-background relative">
@@ -93,13 +151,15 @@ export default function ACWRAnalysis() {
           </svg>
 
           <p className="font-display text-5xl font-bold text-primary-container leading-none mt-4">
-            1.15
+            {ratio !== null ? ratio.toFixed(2) : "—"}
           </p>
-          <span className="inline-flex items-center px-4 py-1 rounded-full bg-emerald-100 text-emerald-800 text-xs font-semibold mt-4">
-            Sweet Spot
+          <span
+            className={`inline-flex items-center px-4 py-1 rounded-full ${status.pillBg} ${status.pillText} text-xs font-semibold mt-4`}
+          >
+            {isLoading ? "Calcolo in corso..." : status.label}
           </span>
           <p className="text-sm text-on-surface-variant text-center max-w-xs mt-4">
-            Adattamento ottimale. Rischio infortuni minimizzato.
+            {status.insight}
           </p>
         </section>
 
@@ -110,7 +170,7 @@ export default function ACWRAnalysis() {
               Carico Acuto (7gg)
             </span>
             <span className="font-display text-xl font-bold text-on-surface mt-1">
-              12,450 kg
+              {acuteLoad.toLocaleString("it-IT")} AU
             </span>
           </div>
           <div className="w-px h-12 bg-surface-variant mx-4" />
@@ -119,7 +179,7 @@ export default function ACWRAnalysis() {
               Carico Cronico (28gg)
             </span>
             <span className="font-display text-xl font-bold text-on-surface mt-1">
-              10,820 kg
+              {chronicLoad.toLocaleString("it-IT")} AU
             </span>
           </div>
         </section>
@@ -188,9 +248,7 @@ export default function ACWRAnalysis() {
         <section className="bg-surface-container-low rounded-[32px] p-6 flex gap-4 items-start shadow-sm relative overflow-hidden border-l-4 border-primary-container">
           <Lightbulb className="text-primary-container mt-1 shrink-0 w-5 h-5" />
           <p className="text-on-surface text-base leading-relaxed">
-            <span className="font-bold">Insight:</span> Il carico è aumentato
-            gradualmente. Puoi procedere con il sovraccarico progressivo
-            programmato per la seduta odierna.
+            <span className="font-bold">Insight:</span> {status.insight}
           </p>
         </section>
 

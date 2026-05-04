@@ -1,8 +1,26 @@
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Flame, Quote, Brain } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useGamification } from "@/hooks/useGamification";
 
 const AchievementStreak = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { currentStreak, longestStreak, loading } = useGamification(user?.id);
+
+  const streak = loading ? 0 : currentStreak;
+  const best = loading ? 0 : Math.max(longestStreak, currentStreak);
+  const subtitle = loading
+    ? "Caricamento dei tuoi traguardi..."
+    : streak > 0
+    ? `Hai registrato i tuoi parametri per ${streak} giorni consecutivi.`
+    : "Inizia oggi a costruire la tua streak.";
+  const title =
+    streak >= 7
+      ? "Settimana Perfetta!"
+      : streak > 1
+      ? "Streak in Corso!"
+      : "Costruisci la tua Streak";
 
   return (
     <div className="min-h-screen bg-background flex flex-col relative">
@@ -26,15 +44,15 @@ const AchievementStreak = () => {
           <div className="relative flex items-center justify-center w-40 h-40 rounded-full bg-white border-[6px] border-[#F59E0B] shadow-[0_8px_30px_rgba(245,158,11,0.2)] mx-auto">
             <div className="flex flex-col items-center justify-center">
               <Flame className="text-[#F59E0B] w-12 h-12 mb-[-4px]" />
-              <span className="font-display text-5xl font-bold text-on-surface">7</span>
+              <span className="font-display text-5xl font-bold text-on-surface">{streak}</span>
             </div>
           </div>
           <div className="flex flex-col gap-2">
             <h2 className="font-display text-3xl font-bold text-on-surface">
-              Settimana Perfetta!
+              {title}
             </h2>
             <p className="font-body-md text-base text-on-surface-variant">
-              Hai registrato i tuoi parametri per 7 giorni consecutivi.
+              {subtitle}
             </p>
           </div>
         </section>
@@ -46,7 +64,7 @@ const AchievementStreak = () => {
               Streak Attuale
             </span>
             <span className="font-display text-3xl font-bold text-primary-container mt-1">
-              7 Giorni
+              {streak} {streak === 1 ? "Giorno" : "Giorni"}
             </span>
           </div>
           <div className="h-16 w-px bg-outline-variant/30 mx-4" />
@@ -55,7 +73,7 @@ const AchievementStreak = () => {
               Miglior Record
             </span>
             <span className="font-display text-3xl font-bold text-on-surface mt-1">
-              14 Giorni
+              {best} {best === 1 ? "Giorno" : "Giorni"}
             </span>
           </div>
         </section>
