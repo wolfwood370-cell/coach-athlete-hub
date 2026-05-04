@@ -31,7 +31,7 @@ export function SubscriptionGuard({ children }: Props) {
   }
 
   const status = profile.subscription_status;
-  const tier = (profile as any).subscription_tier as string | null;
+  const tier = profile.subscription_tier;
 
   if (!tier || tier === "free") {
     return <>{children}</>;

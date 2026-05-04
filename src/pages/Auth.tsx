@@ -41,7 +41,7 @@ export default function Auth() {
       });
       if (error) throw error;
       toast.success("Email di recupero inviata! Controlla la tua casella di posta.");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(mapSupabaseError(error));
     } finally {
       setLoading(false);
@@ -58,7 +58,7 @@ export default function Auth() {
       
       // Navigate based on role will be handled by auth state change
       navigate("/");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(mapSupabaseError(error));
     } finally {
       setLoading(false);
@@ -75,7 +75,7 @@ export default function Auth() {
       
       // Navigate based on role: coaches go to dashboard, athletes start onboarding
       navigate(signupRole === "coach" ? "/coach" : "/onboarding");
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(mapSupabaseError(error));
     } finally {
       setLoading(false);

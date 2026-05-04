@@ -45,11 +45,21 @@ const ERROR_MAP: Array<{ pattern: RegExp; message: string }> = [
  * Falls back to a generic message if no match is found.
  */
 export function mapSupabaseError(error: unknown): string {
-  const message = typeof error === "string"
-    ? error
-    : error instanceof Error
-      ? error.message
-      : (error as any)?.message || String(error);
+  let message: string;
+  if (typeof error === "string") {
+    message = error;
+  } else if (error instanceof Error) {
+    message = error.message;
+  } else if (
+    error !== null &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof (error as { message: unknown }).message === "string"
+  ) {
+    message = (error as { message: string }).message;
+  } else {
+    message = String(error);
+  }
 
   for (const entry of ERROR_MAP) {
     if (entry.pattern.test(message)) {
