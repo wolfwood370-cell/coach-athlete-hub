@@ -224,11 +224,11 @@ export default function AthleteTrainingMetrics() {
                 </linearGradient>
               </defs>
               <path
-                d="M 5 80 C 60 75, 90 70, 130 60 S 220 35, 260 25 S 305 12, 315 10 L 315 100 L 5 100 Z"
+                d={sparkline.fill}
                 fill="url(#e1rmFill)"
               />
               <path
-                d="M 5 80 C 60 75, 90 70, 130 60 S 220 35, 260 25 S 305 12, 315 10"
+                d={sparkline.line}
                 fill="none"
                 className="stroke-primary-container"
                 strokeWidth="2.5"
@@ -237,9 +237,11 @@ export default function AthleteTrainingMetrics() {
               />
             </svg>
             <div className="flex justify-between mt-2 px-1">
-              <span className="text-xs text-outline">Feb</span>
-              <span className="text-xs text-outline">Mar</span>
-              <span className="text-xs text-outline">Apr</span>
+              {(xLabels.length ? xLabels : ["—", "—", "—"]).map((l, i) => (
+                <span key={i} className="text-xs text-outline">
+                  {l}
+                </span>
+              ))}
             </div>
           </div>
         </section>
