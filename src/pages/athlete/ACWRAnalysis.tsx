@@ -170,7 +170,7 @@ export default function ACWRAnalysis() {
               Carico Acuto (7gg)
             </span>
             <span className="font-display text-xl font-bold text-on-surface mt-1">
-              12,450 kg
+              {acuteLoad.toLocaleString("it-IT")} AU
             </span>
           </div>
           <div className="w-px h-12 bg-surface-variant mx-4" />
@@ -179,7 +179,7 @@ export default function ACWRAnalysis() {
               Carico Cronico (28gg)
             </span>
             <span className="font-display text-xl font-bold text-on-surface mt-1">
-              10,820 kg
+              {chronicLoad.toLocaleString("it-IT")} AU
             </span>
           </div>
         </section>
