@@ -82,12 +82,17 @@ const App = () => (
               <Route path="/coach/settings" element={<SubscriptionGuard><CoachSettings /></SubscriptionGuard>} />
               
               {/* Athlete Routes */}
-              <Route path="/athlete" element={<AthleteDashboard />} />
-              <Route path="/athlete/dashboard" element={<AthleteDashboard />} />
-              <Route path="/athlete/workout" element={<AthleteTraining />} />
-              <Route path="/athlete/workout/active" element={<ActiveWorkout />} />
-              <Route path="/athlete/nutrition" element={<AthleteNutrition />} />
-              <Route path="/athlete/copilot" element={<AthleteCopilot />} />
+              <Route path="/athlete" element={<AthleteLayout />}>
+                <Route index element={<Navigate to="/athlete/dashboard" replace />} />
+                <Route path="dashboard" element={<AthleteDashboard />} />
+                <Route path="training" element={<AthleteTraining />} />
+                <Route path="training/active" element={<ActiveWorkout />} />
+                <Route path="nutrition" element={<AthleteNutrition />} />
+                <Route path="copilot" element={<AthleteCopilot />} />
+              </Route>
+              {/* Legacy redirect */}
+              <Route path="/athlete/workout" element={<Navigate to="/athlete/training" replace />} />
+              <Route path="/athlete/workout/active" element={<Navigate to="/athlete/training/active" replace />} />
               
               {/* Onboarding */}
               <Route path="/onboarding" element={<OnboardingWizard />} />
