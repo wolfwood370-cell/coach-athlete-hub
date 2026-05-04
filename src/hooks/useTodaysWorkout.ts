@@ -2,9 +2,17 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
-import type { WorkoutStructureExercise } from "@/types/database";
+import type { Database } from "@/integrations/supabase/types";
+import {
+  parseWorkoutStructure,
+  type WorkoutStructureExercise,
+} from "@/types/database";
 
 const FIVE_MINUTES = 5 * 60 * 1000;
+
+type WorkoutRow = Database["public"]["Tables"]["workouts"]["Row"];
+type WorkoutLogStatus = Database["public"]["Tables"]["workout_logs"]["Row"]["status"];
+type WorkoutBaseStatus = Database["public"]["Tables"]["workouts"]["Row"]["status"];
 
 export interface TodayWorkout {
   id: string;
@@ -16,6 +24,12 @@ export interface TodayWorkout {
   programWorkoutId?: string | null;
   structure: WorkoutStructureExercise[];
 }
+
+/** Slim shape returned by the embedded `workouts (...)` join in workout_logs. */
+type EmbeddedWorkout = Pick<
+  WorkoutRow,
+  "id" | "title" | "description" | "estimated_duration" | "structure"
+>;
 
 export function useTodaysWorkout() {
   const { user } = useAuth();
@@ -49,17 +63,15 @@ export function useTodaysWorkout() {
         .maybeSingle();
 
       if (logs?.workouts) {
-        const w = logs.workouts as any;
-        const rawStructure = w.structure;
-        const structure: WorkoutStructureExercise[] = Array.isArray(rawStructure)
-          ? (rawStructure as WorkoutStructureExercise[])
-          : [];
+        const w = logs.workouts as EmbeddedWorkout;
+        const structure = parseWorkoutStructure(w.structure);
+        const logStatus = logs.status as WorkoutLogStatus;
         return {
           id: w.id,
           title: w.title,
           description: w.description,
           estimatedDuration: w.estimated_duration,
-          status: logs.status === "scheduled" ? "pending" : "completed",
+          status: logStatus === "scheduled" ? "pending" : "completed",
           exerciseCount: structure.length,
           programWorkoutId: logs.program_workout_id,
           structure,
@@ -78,16 +90,14 @@ export function useTodaysWorkout() {
 
       if (!workout) return null;
 
-      const rawStructure = (workout as any).structure;
-      const structure: WorkoutStructureExercise[] = Array.isArray(rawStructure)
-        ? (rawStructure as WorkoutStructureExercise[])
-        : [];
+      const structure = parseWorkoutStructure(workout.structure);
+      const baseStatus = workout.status as WorkoutBaseStatus;
       return {
         id: workout.id,
         title: workout.title,
         description: workout.description,
         estimatedDuration: workout.estimated_duration,
-        status: workout.status as TodayWorkout["status"],
+        status: (baseStatus ?? "pending") as TodayWorkout["status"],
         exerciseCount: structure.length,
         programWorkoutId: null,
         structure,
