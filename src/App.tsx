@@ -48,6 +48,7 @@ const PlanUpdate = lazy(() => import("./pages/athlete/PlanUpdate"));
 const AchievementStreak = lazy(() => import("./pages/athlete/AchievementStreak"));
 const ACWRAnalysis = lazy(() => import("./pages/athlete/ACWRAnalysis"));
 const AMRAPExecution = lazy(() => import("./pages/athlete/AMRAPExecution"));
+const TodayPlan = lazy(() => import("./pages/athlete/TodayPlan"));
 import { AthleteLayout } from "./components/athlete/AthleteLayout";
 const OnboardingWizard = lazy(() => import("./pages/onboarding/OnboardingWizard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
@@ -104,6 +105,7 @@ const App = () => (
                 <Route path="achievement-streak" element={<AchievementStreak />} />
                 <Route path="acwr-analysis" element={<ACWRAnalysis />} />
                 <Route path="amrap-execution" element={<AMRAPExecution />} />
+                <Route path="today-plan" element={<TodayPlan />} />
                 <Route path="training" element={<AthleteTraining />} />
                 <Route path="training/active" element={<ActiveWorkout />} />
                 <Route path="nutrition" element={<AthleteNutrition />} />
