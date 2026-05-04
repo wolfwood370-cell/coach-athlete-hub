@@ -311,8 +311,13 @@ export default function AthleteTrainingMetrics() {
             <Trophy className="w-5 h-5 text-emerald-500" />
             Record Recenti
           </h2>
+          {personalRecords.length === 0 ? (
+            <p className="text-sm text-on-surface-variant">
+              Nessun record recente. Continua ad allenarti per sbloccarli.
+            </p>
+          ) : (
           <ul>
-            {RECORDS.map((r) => (
+            {personalRecords.map((r) => (
               <li
                 key={r.title}
                 className="flex items-start gap-4 mb-4 last:mb-0"
