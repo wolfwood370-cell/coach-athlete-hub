@@ -39,7 +39,6 @@ const AthleteNutrition = lazy(() => import("./pages/athlete/AthleteNutrition"));
 const AthleteCopilot = lazy(() => import("./pages/athlete/AthleteCopilot"));
 const ActiveWorkout = lazy(() => import("./pages/athlete/ActiveWorkout"));
 import { AthleteLayout } from "./components/athlete/AthleteLayout";
-import { Navigate } from "react-router-dom";
 const OnboardingWizard = lazy(() => import("./pages/onboarding/OnboardingWizard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
