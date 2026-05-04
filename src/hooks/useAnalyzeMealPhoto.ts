@@ -149,15 +149,18 @@ async function analyzeMealPhoto(
   );
 
   if (error) {
-    // FunctionsHttpError exposes context.status; fall back to parsing message
-    // deno-lint-ignore no-explicit-any
-    const status = (error as any)?.context?.status as number | undefined;
+    // FunctionsHttpError exposes `context` (a Response-like object) at runtime
+    // but the public type omits it. Narrow via a focused interface instead of `any`.
+    interface FunctionsErrorContext {
+      status?: number;
+      json?: () => Promise<unknown>;
+    }
+    const context = (error as unknown as { context?: FunctionsErrorContext }).context;
+    const status = context?.status;
     let serverMessage = error.message;
     try {
-      // deno-lint-ignore no-explicit-any
-      const ctx = (error as any)?.context;
-      if (ctx && typeof ctx.json === "function") {
-        const payload = await ctx.json();
+      if (context && typeof context.json === "function") {
+        const payload = (await context.json()) as { error?: string } | null;
         if (payload?.error) serverMessage = payload.error;
       }
     } catch {
