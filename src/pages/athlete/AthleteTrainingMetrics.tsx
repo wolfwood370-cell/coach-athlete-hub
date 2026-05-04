@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Settings,
@@ -7,25 +8,49 @@ import {
   Medal,
 } from "lucide-react";
 import { AthleteBottomNav } from "@/components/athlete/AthleteBottomNav";
+import { useAuth } from "@/hooks/useAuth";
+import {
+  useAthleteStrengthProgression,
+  useAthleteVolumeIntensity,
+} from "@/hooks/useAthleteAnalytics";
+import { subDays, format, parseISO } from "date-fns";
+import { it } from "date-fns/locale";
 
+// TODO: Wire VOLUME_ROWS to a per-muscle-group analytics view when available.
 const VOLUME_ROWS = [
   { label: "Quadricipiti", sets: "12/14 Set", pct: 85, color: "bg-primary" },
   { label: "Pettorali", sets: "10/12 Set", pct: 80, color: "bg-primary" },
   { label: "Femorali", sets: "6/12 Set", pct: 50, color: "bg-amber-500" },
 ];
 
-const RECORDS = [
-  {
-    title: "Romanian Deadlift",
-    detail: "Nuovo 8RM: 110 kg",
-    date: "Oggi",
-  },
-  {
-    title: "Back Squat",
-    detail: "Nuovo 5RM: 130 kg",
-    date: "2 gg fa",
-  },
-];
+function buildSparklinePath(
+  values: number[],
+  width = 320,
+  height = 100,
+): { line: string; fill: string } {
+  if (values.length === 0) {
+    return {
+      line: `M 5 ${height - 10} L ${width - 5} ${height - 10}`,
+      fill: `M 5 ${height - 10} L ${width - 5} ${height - 10} L ${width - 5} ${height} L 5 ${height} Z`,
+    };
+  }
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = Math.max(1, max - min);
+  const stepX = values.length > 1 ? (width - 10) / (values.length - 1) : 0;
+  const points = values.map((v, i) => {
+    const x = 5 + i * stepX;
+    const y = 10 + (1 - (v - min) / range) * (height - 20);
+    return [x, y] as const;
+  });
+  const line = points
+    .map(([x, y], i) => (i === 0 ? `M ${x} ${y}` : `L ${x} ${y}`))
+    .join(" ");
+  const last = points[points.length - 1];
+  const first = points[0];
+  const fill = `${line} L ${last[0]} ${height} L ${first[0]} ${height} Z`;
+  return { line, fill };
+}
 
 export default function AthleteTrainingMetrics() {
   const navigate = useNavigate();
