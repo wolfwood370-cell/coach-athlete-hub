@@ -16,7 +16,7 @@ function getAudioContext(): AudioContext | null {
   if (ctx && ctx.state !== "closed") return ctx;
   try {
     // Safari < 14 only exposes `webkitAudioContext`. Narrow safely.
-    const W = window as Window & { webkitAudioContext?: typeof AudioContext };
+    const W = window as typeof window & { webkitAudioContext?: typeof AudioContext };
     const Ctor = W.AudioContext ?? W.webkitAudioContext;
     if (!Ctor) return null;
     ctx = new Ctor();
