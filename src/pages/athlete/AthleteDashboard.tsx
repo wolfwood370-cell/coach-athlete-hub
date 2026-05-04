@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
-import { Activity, Flame, HeartPulse, Moon } from "lucide-react";
+import { Battery, Flame, Moon, Zap } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
 import { useReadiness } from "@/hooks/useReadiness";
@@ -130,11 +130,59 @@ function MacroBlock({ label, value }: MacroBlockProps) {
         {label}
       </span>
       <div className="flex items-baseline gap-1">
-        <span className="font-display text-4xl font-bold leading-tight text-on-surface tabular-nums">
+        <span className="font-display text-2xl font-bold leading-tight text-on-surface tabular-nums">
           {value}
         </span>
         <span className="text-sm font-semibold text-brand-container">g</span>
       </div>
+    </div>
+  );
+}
+
+interface MiniMetricRingProps {
+  letter: string;
+  label: string;
+  progress: number;
+  color: string;
+}
+
+function MiniMetricRing({ letter, label, progress, color }: MiniMetricRingProps) {
+  const size = 36;
+  const stroke = 4;
+  const radius = (size - stroke) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference * (1 - Math.max(0, Math.min(100, progress)) / 100);
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg width={size} height={size} className="-rotate-90">
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="transparent"
+            stroke="#f1f5f9"
+            strokeWidth={stroke}
+          />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="transparent"
+            stroke={color}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+          />
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center font-display text-xs font-bold text-on-surface">
+          {letter}
+        </span>
+      </div>
+      <span className="text-[9px] font-bold uppercase tracking-wider text-brand-container">
+        {label}
+      </span>
     </div>
   );
 }
@@ -202,10 +250,16 @@ export default function AthleteDashboard() {
   const tone = getReadinessTone(score);
 
   const sleepHours = readiness?.sleepHours ?? null;
-  const hrv = readiness?.hrvRmssd ?? null;
-  const sorenessCount = readiness?.sorenessMap
-    ? Object.values(readiness.sorenessMap).filter((v) => v >= 1).length
-    : 0;
+  const sleepQuality = readiness?.sleepQuality ?? null;
+  const energy = readiness?.energy ?? null;
+  const stress = readiness?.stress ?? null;
+
+  const sleepLabel = sleepHours
+    ? `${sleepHours}h${sleepQuality ? ` · ${sleepQuality}/10` : ""}`
+    : "—";
+  // Fatigue is the inverse of energy (1-10 scale)
+  const fatigueLabel = energy ? `${11 - energy}/10` : "—";
+  const stressLabel = stress ? `${stress}/10` : "—";
 
   const macros = {
     protein: targets?.protein ?? 180,
@@ -254,7 +308,7 @@ export default function AthleteDashboard() {
               <div className="flex flex-col gap-4 flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <h2 className="font-display text-xl font-semibold text-brand">
-                    Readiness
+                    Prontezza
                   </h2>
                   {readinessResult && (
                     <span
@@ -273,17 +327,17 @@ export default function AthleteDashboard() {
                   <MicroMetric
                     icon={<Moon />}
                     label="Qualità Sonno"
-                    value={sleepHours ? `${sleepHours}h` : "—"}
+                    value={sleepLabel}
                   />
                   <MicroMetric
-                    icon={<HeartPulse />}
-                    label="HRV"
-                    value={hrv ? `${hrv} ms` : "Baseline"}
+                    icon={<Battery />}
+                    label="Affaticamento"
+                    value={fatigueLabel}
                   />
                   <MicroMetric
-                    icon={<Activity />}
-                    label="Dolori"
-                    value={sorenessCount > 0 ? `${sorenessCount} aree` : "Nessuno"}
+                    icon={<Zap />}
+                    label="Stress"
+                    value={stressLabel}
                   />
                 </div>
               </div>
@@ -376,6 +430,12 @@ export default function AthleteDashboard() {
             <span className="font-display text-xs font-bold uppercase tracking-widest text-brand">
               − {macros.kcalRemaining} kcal rimanenti
             </span>
+          </div>
+
+          <div className="mt-4 pt-4 border-t border-surface-variant grid grid-cols-3 gap-2">
+            <MiniMetricRing letter="F" label="Fibre" progress={60} color="#7cc78a" />
+            <MiniMetricRing letter="A" label="Acqua" progress={45} color="#5bb6e8" />
+            <MiniMetricRing letter="S" label="Sodio" progress={80} color="#e8a25b" />
           </div>
         </section>
       </main>
