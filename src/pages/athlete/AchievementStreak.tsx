@@ -64,7 +64,7 @@ const AchievementStreak = () => {
               Streak Attuale
             </span>
             <span className="font-display text-3xl font-bold text-primary-container mt-1">
-              7 Giorni
+              {streak} {streak === 1 ? "Giorno" : "Giorni"}
             </span>
           </div>
           <div className="h-16 w-px bg-outline-variant/30 mx-4" />
@@ -73,7 +73,7 @@ const AchievementStreak = () => {
               Miglior Record
             </span>
             <span className="font-display text-3xl font-bold text-on-surface mt-1">
-              14 Giorni
+              {best} {best === 1 ? "Giorno" : "Giorni"}
             </span>
           </div>
         </section>
