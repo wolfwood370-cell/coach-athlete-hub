@@ -2,7 +2,7 @@ import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { SunThemeSync } from "@/components/logic/SunThemeSync";
 import { OfflineSyncProvider } from "@/providers/OfflineSyncProvider";
@@ -38,6 +38,7 @@ const AthleteTraining = lazy(() => import("./pages/athlete/AthleteTraining"));
 const AthleteNutrition = lazy(() => import("./pages/athlete/AthleteNutrition"));
 const AthleteCopilot = lazy(() => import("./pages/athlete/AthleteCopilot"));
 const ActiveWorkout = lazy(() => import("./pages/athlete/ActiveWorkout"));
+import { AthleteLayout } from "./components/athlete/AthleteLayout";
 const OnboardingWizard = lazy(() => import("./pages/onboarding/OnboardingWizard"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
@@ -80,12 +81,17 @@ const App = () => (
               <Route path="/coach/settings" element={<SubscriptionGuard><CoachSettings /></SubscriptionGuard>} />
               
               {/* Athlete Routes */}
-              <Route path="/athlete" element={<AthleteDashboard />} />
-              <Route path="/athlete/dashboard" element={<AthleteDashboard />} />
-              <Route path="/athlete/workout" element={<AthleteTraining />} />
-              <Route path="/athlete/workout/active" element={<ActiveWorkout />} />
-              <Route path="/athlete/nutrition" element={<AthleteNutrition />} />
-              <Route path="/athlete/copilot" element={<AthleteCopilot />} />
+              <Route path="/athlete" element={<AthleteLayout />}>
+                <Route index element={<Navigate to="/athlete/dashboard" replace />} />
+                <Route path="dashboard" element={<AthleteDashboard />} />
+                <Route path="training" element={<AthleteTraining />} />
+                <Route path="training/active" element={<ActiveWorkout />} />
+                <Route path="nutrition" element={<AthleteNutrition />} />
+                <Route path="copilot" element={<AthleteCopilot />} />
+              </Route>
+              {/* Legacy redirect */}
+              <Route path="/athlete/workout" element={<Navigate to="/athlete/training" replace />} />
+              <Route path="/athlete/workout/active" element={<Navigate to="/athlete/training/active" replace />} />
               
               {/* Onboarding */}
               <Route path="/onboarding" element={<OnboardingWizard />} />
