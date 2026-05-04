@@ -337,6 +337,7 @@ export default function AthleteTrainingMetrics() {
               </li>
             ))}
           </ul>
+          )}
         </section>
       </main>
 
