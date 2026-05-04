@@ -107,6 +107,7 @@ const App = () => (
                 <Route path="acwr-analysis" element={<ACWRAnalysis />} />
                 <Route path="amrap-execution" element={<AMRAPExecution />} />
                 <Route path="today-plan" element={<TodayPlan />} />
+                <Route path="training-metrics" element={<AthleteTrainingMetrics />} />
                 <Route path="training" element={<AthleteTraining />} />
                 <Route path="training/active" element={<ActiveWorkout />} />
                 <Route path="nutrition" element={<AthleteNutrition />} />
