@@ -45,7 +45,7 @@ export default function AthleteReadinessDetails() {
       { key: "dolori", label: "Dolori", value: doloriValue },
       { key: "stress", label: "Stress", value: Math.round(11 - (r?.stress ?? 0)) },
       { key: "umore", label: "Umore", value: Math.round(r?.mood ?? 0) },
-      { key: "digestione", label: "Digestione", value: Math.round(r?.digestione ?? r?.digestion ?? 0) },
+      { key: "digestione", label: "Digestione", value: Math.round(r?.digestion ?? 0) },
     ];
   }, [readiness]);
 
