@@ -103,12 +103,13 @@ export function InviteAthleteDialog({
       form.reset();
       setOpen(false);
       onAthleteInvited?.();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error inviting athlete:", error);
+      const description = error instanceof Error ? error.message : "Impossibile invitare l'atleta. Riprova.";
       toast({
         variant: "destructive",
         title: "Errore",
-        description: error.message || "Impossibile invitare l'atleta. Riprova.",
+        description,
       });
     } finally {
       setIsSubmitting(false);

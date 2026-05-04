@@ -62,8 +62,9 @@ export default function ResetPassword() {
       if (error) throw error;
       toast.success("Password aggiornata con successo!");
       navigate("/auth");
-    } catch (error: any) {
-      toast.error(error.message || "Errore durante il reset della password");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Errore durante il reset della password";
+      toast.error(message);
     } finally {
       setLoading(false);
     }

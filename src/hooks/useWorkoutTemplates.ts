@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import type { ProgramExercise } from "@/components/coach/WeekGrid";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface WorkoutTemplate {
   id: string;
@@ -83,7 +84,7 @@ export function useWorkoutTemplates() {
           coach_id: user.id,
           name: input.name,
           description: input.description || null,
-          structure: cleanedStructure as any,
+          structure: cleanedStructure as unknown as Json,
           tags: input.tags || [],
         })
         .select()
