@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
+import type { WorkoutStructureExercise } from "@/types/database";
 
 const FIVE_MINUTES = 5 * 60 * 1000;
 
@@ -13,6 +14,7 @@ export interface TodayWorkout {
   status: "pending" | "in_progress" | "completed" | "skipped";
   exerciseCount: number;
   programWorkoutId?: string | null;
+  structure: WorkoutStructureExercise[];
 }
 
 export function useTodaysWorkout() {
