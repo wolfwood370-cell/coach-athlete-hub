@@ -15,8 +15,24 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        display: ['Manrope', 'Inter', 'system-ui', 'sans-serif'],
       },
       colors: {
+        /* Athlete brand palette — namespaced to avoid colliding with Coach semantic tokens */
+        brand: {
+          DEFAULT: "#005685",
+          container: "#226fa3",
+          foreground: "#ffffff",
+        },
+        surface: {
+          DEFAULT: "#f5faff",
+          variant: "#c5e7ff",
+          container: "#def0ff",
+        },
+        "on-surface": {
+          DEFAULT: "#001e2d",
+          variant: "#40474f",
+        },
         border: "var(--border)",
         input: "var(--input)",
         ring: "var(--ring)",
