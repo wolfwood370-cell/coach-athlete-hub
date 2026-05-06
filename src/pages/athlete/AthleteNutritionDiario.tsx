@@ -67,7 +67,7 @@ function LoggedMeal({ time, name, foods, kcal }: LoggedMealProps) {
       >
         <span className="w-2 h-2 bg-primary-container rounded-full" />
       </span>
-      <div className="bg-white/80 backdrop-blur-md border border-surface-variant/50 rounded-xl p-4 flex justify-between items-center shadow-sm gap-4">
+      <div className="bg-white/70 backdrop-blur-md border border-surface-variant/50 rounded-xl p-4 flex justify-between items-center shadow-sm gap-4">
         <div className="flex flex-col min-w-0">
           <span className="text-xs text-primary-container font-semibold">
             {time}
@@ -89,7 +89,7 @@ function EmptyMeal({ time, name }: EmptyMealProps) {
   return (
     <div className="relative">
       <span
-        className="absolute -left-8 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white border-2 border-outline-variant flex items-center justify-center z-10"
+        className="absolute -left-8 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-white border-2 border-outline-variant/60 flex items-center justify-center z-10"
         aria-hidden
       >
         <span className="w-2 h-2 bg-outline-variant/50 rounded-full" />
@@ -193,7 +193,7 @@ export default function AthleteNutritionDiario() {
                 <span className="text-[10px] uppercase text-on-surface-variant tracking-widest font-bold">
                   Rimanenti
                 </span>
-                <span className="font-display text-3xl text-on-surface font-bold tabular-nums">
+                <span className="font-display text-3xl text-primary-container font-bold tabular-nums">
                   {calories.remaining.toLocaleString("it-IT")} kcal
                 </span>
               </div>
@@ -221,18 +221,18 @@ export default function AthleteNutritionDiario() {
               current={55}
               target={65}
               unit="g"
-              bulletClass="bg-primary"
-              trackClass="bg-primary/10"
-              fillClass="bg-primary"
+              bulletClass="bg-tertiary-container"
+              trackClass="bg-tertiary-container/10"
+              fillClass="bg-tertiary-container"
             />
             <MacroCol
               label="Carb"
               current={180}
               target={250}
               unit="g"
-              bulletClass="bg-blue-400"
-              trackClass="bg-blue-400/10"
-              fillClass="bg-blue-400"
+              bulletClass="bg-primary-fixed-dim"
+              trackClass="bg-primary-fixed-dim/10"
+              fillClass="bg-primary-fixed-dim"
             />
           </div>
         </section>
@@ -269,10 +269,10 @@ export default function AthleteNutritionDiario() {
 
         {/* Daily Timeline */}
         <section>
-          <h2 className="font-display text-2xl font-bold text-primary mb-4">
+          <h2 className="font-display text-xl font-bold text-primary tracking-tight mb-4">
             Diario Alimentare
           </h2>
-          <div className="relative pl-8 space-y-8 before:absolute before:inset-y-0 before:left-[11px] before:w-[2px] before:bg-surface-variant">
+          <div className="relative pl-8 space-y-8 before:absolute before:inset-y-0 before:left-[11px] before:w-[2px] before:bg-outline-variant/30">
             <LoggedMeal
               time="08:00"
               name="Colazione"
