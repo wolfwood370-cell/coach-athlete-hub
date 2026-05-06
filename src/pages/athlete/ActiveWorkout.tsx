@@ -221,11 +221,22 @@ export default function ActiveWorkout() {
             <Play className="w-4 h-4" />
             Riprendi A1. Squat
           </button>
-          <button className="w-[30%] bg-[#001e2d] text-white font-semibold py-4 rounded-full transition-colors flex items-center justify-center active:scale-95 shadow-lg">
+          <button
+            onClick={() => setExitOpen(true)}
+            className="w-[30%] bg-[#001e2d] text-white font-semibold py-4 rounded-full transition-colors flex items-center justify-center active:scale-95 shadow-lg"
+          >
             Termina
           </button>
         </div>
       </div>
+
+      <ExitWorkoutDialog
+        isOpen={exitOpen}
+        onResume={handleResume}
+        onFinish={handleFinish}
+        onDiscard={handleDiscard}
+        timerDuration={formatTimer(elapsed)}
+      />
     </div>
   );
 }
