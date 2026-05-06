@@ -63,7 +63,7 @@ export default function ActiveWorkout() {
       <header className="fixed top-0 left-0 w-full z-50 bg-white/90 backdrop-blur-md">
         <div className="flex justify-between items-center px-6 py-4">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => setExitOpen(true)}
             className="text-on-surface hover:bg-surface-variant/50 p-2 -ml-2 rounded-full transition-colors"
             aria-label="Chiudi"
           >
