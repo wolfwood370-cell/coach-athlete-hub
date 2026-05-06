@@ -133,6 +133,7 @@ const App = () => (
               <Route path="/athlete/onboarding/nutrition/step-1" element={<NutritionWizardStep1 />} />
               <Route path="/athlete/onboarding/nutrition/step-2" element={<NutritionWizardStep2 />} />
               <Route path="/athlete/onboarding/nutrition/step-3" element={<NutritionWizardStep3 />} />
+              <Route path="/athlete/onboarding/nutrition/reveal" element={<NutritionWizardReveal />} />
               
               {/* Legal */}
               <Route path="/privacy" element={<PrivacyPolicy />} />
