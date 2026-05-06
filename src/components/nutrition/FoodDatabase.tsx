@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Search,
   CheckCircle,
@@ -8,7 +8,15 @@ import {
   Mic,
   Plus,
   Check,
+  Loader2,
 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { format } from "date-fns";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useDebounce } from "@/hooks/useDebounce";
+import { searchFood } from "@/services/foodApi";
 
 type QuickFilter = "Recenti" | "Preferiti" | "I Miei Cibi" | "Ricette";
 
@@ -22,45 +30,6 @@ interface FoodItem {
   carb: number;
 }
 
-const RECENT_FOODS: FoodItem[] = [
-  {
-    id: "1",
-    name: "Petto di Pollo Grigliato",
-    subtitle: "150g • 247 kcal",
-    kcal: 247,
-    protein: 46,
-    fat: 5,
-    carb: 0,
-  },
-  {
-    id: "2",
-    name: "Riso Basmati",
-    subtitle: "80g (peso a crudo) • 280 kcal",
-    kcal: 280,
-    protein: 6,
-    fat: 1,
-    carb: 62,
-  },
-  {
-    id: "3",
-    name: "Avocado",
-    subtitle: "100g • 160 kcal",
-    kcal: 160,
-    protein: 2,
-    fat: 15,
-    carb: 9,
-  },
-  {
-    id: "4",
-    name: "Yogurt Greco 0%",
-    subtitle: "170g • 100 kcal",
-    kcal: 100,
-    protein: 17,
-    fat: 0,
-    carb: 6,
-  },
-];
-
 const QUICK_FILTERS: { label: QuickFilter; icon?: typeof Clock }[] = [
   { label: "Recenti", icon: Clock },
   { label: "Preferiti" },
@@ -69,9 +38,80 @@ const QUICK_FILTERS: { label: QuickFilter; icon?: typeof Clock }[] = [
 ];
 
 const FoodDatabase = () => {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [activeFilter, setActiveFilter] = useState<QuickFilter>("Recenti");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebounce(query, 350);
+
+  // Recent foods from nutrition_logs (deduped by meal_name)
+  const { data: recentFoods = [], isLoading: isLoadingRecents } = useQuery({
+    queryKey: ["food-recents", user?.id],
+    queryFn: async (): Promise<FoodItem[]> => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from("nutrition_logs")
+        .select("id, meal_name, calories, protein, fats, carbs, logged_at")
+        .eq("athlete_id", user.id)
+        .not("meal_name", "is", null)
+        .order("logged_at", { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      const seen = new Set<string>();
+      const items: FoodItem[] = [];
+      for (const row of data ?? []) {
+        const name = row.meal_name ?? "";
+        if (!name || seen.has(name)) continue;
+        seen.add(name);
+        items.push({
+          id: row.id,
+          name,
+          subtitle: `${row.calories ?? 0} kcal`,
+          kcal: row.calories ?? 0,
+          protein: Math.round(Number(row.protein ?? 0)),
+          fat: Math.round(Number(row.fats ?? 0)),
+          carb: Math.round(Number(row.carbs ?? 0)),
+        });
+        if (items.length >= 8) break;
+      }
+      return items;
+    },
+    enabled: !!user?.id,
+    staleTime: 60_000,
+  });
+
+  // Search Open Food Facts
+  const { data: searchResults = [], isFetching: isSearching } = useQuery({
+    queryKey: ["food-search", debouncedQuery],
+    queryFn: async (): Promise<FoodItem[]> => {
+      const results = await searchFood(debouncedQuery);
+      return results.slice(0, 15).map((r) => ({
+        id: r.id,
+        name: r.name,
+        subtitle: `${r.brand ? r.brand + " • " : ""}${Math.round(r.calories ?? 0)} kcal/100g`,
+        kcal: Math.round(r.calories ?? 0),
+        protein: Math.round(r.protein ?? 0),
+        fat: Math.round(r.fats ?? 0),
+        carb: Math.round(r.carbs ?? 0),
+      }));
+    },
+    enabled: debouncedQuery.trim().length >= 2,
+    staleTime: 5 * 60_000,
+  });
+
+  const isSearchMode = debouncedQuery.trim().length >= 2;
+  const visibleFoods = isSearchMode ? searchResults : recentFoods;
+
+  // Drop selections that no longer exist in the visible list when switching
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const ids = new Set(visibleFoods.map((f) => f.id));
+      const next = new Set<string>();
+      prev.forEach((id) => ids.has(id) && next.add(id));
+      return next;
+    });
+  }, [visibleFoods]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) => {
@@ -83,12 +123,42 @@ const FoodDatabase = () => {
   };
 
   const totals = useMemo(() => {
-    const items = RECENT_FOODS.filter((f) => selectedIds.has(f.id));
+    const items = visibleFoods.filter((f) => selectedIds.has(f.id));
     return {
       count: items.length,
       kcal: items.reduce((s, f) => s + f.kcal, 0),
+      items,
     };
-  }, [selectedIds]);
+  }, [selectedIds, visibleFoods]);
+
+  const logMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id) throw new Error("Not authenticated");
+      if (totals.items.length === 0) return;
+      const today = format(new Date(), "yyyy-MM-dd");
+      const rows = totals.items.map((f) => ({
+        athlete_id: user.id,
+        date: today,
+        meal_name: f.name,
+        calories: f.kcal,
+        protein: f.protein,
+        fats: f.fat,
+        carbs: f.carb,
+      }));
+      const { error } = await supabase.from("nutrition_logs").insert(rows);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Pasti registrati!");
+      setSelectedIds(new Set());
+      queryClient.invalidateQueries({ queryKey: ["food-recents"] });
+      queryClient.invalidateQueries({ queryKey: ["nutrition-logs"] });
+    },
+    onError: (err) => {
+      console.error(err);
+      toast.error("Errore nel salvataggio");
+    },
+  });
 
   return (
     <div className="min-h-screen bg-background">
@@ -180,13 +250,26 @@ const FoodDatabase = () => {
           </div>
         </section>
 
-        {/* Recents List */}
+        {/* Recents / Search List */}
         <section>
           <h4 className="font-semibold text-[10px] text-outline-variant uppercase tracking-widest pl-1 mb-2">
-            Cibi Recenti
+            {isSearchMode ? "Risultati" : "Cibi Recenti"}
           </h4>
+
+          {(isSearchMode ? isSearching : isLoadingRecents) && (
+            <div className="flex justify-center py-6">
+              <Loader2 className="size-5 animate-spin text-primary" />
+            </div>
+          )}
+
+          {!((isSearchMode ? isSearching : isLoadingRecents)) && visibleFoods.length === 0 && (
+            <p className="text-sm text-outline py-6 text-center">
+              {isSearchMode ? "Nessun risultato" : "Nessun cibo recente"}
+            </p>
+          )}
+
           <ul>
-            {RECENT_FOODS.map((food) => {
+            {visibleFoods.map((food) => {
               const selected = selectedIds.has(food.id);
               return (
                 <li
@@ -250,9 +333,11 @@ const FoodDatabase = () => {
           </div>
           <button
             type="button"
-            className="bg-primary-container text-white px-6 py-2.5 rounded-full font-semibold text-xs"
+            disabled={logMutation.isPending}
+            onClick={() => logMutation.mutate()}
+            className="bg-primary-container text-white px-6 py-2.5 rounded-full font-semibold text-xs disabled:opacity-60"
           >
-            Log Ora
+            {logMutation.isPending ? "..." : "Log Ora"}
           </button>
         </div>
       )}
