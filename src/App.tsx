@@ -64,12 +64,11 @@ const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/legal/TermsOfService"));
 
 const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+  <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} forcedTheme="light">
     <OfflineSyncProvider>
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <SunThemeSync />
         <NetworkBadge />
         <InstallPrompt />
         <SwUpdatePrompt />
