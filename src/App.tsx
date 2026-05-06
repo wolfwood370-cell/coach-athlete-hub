@@ -59,6 +59,7 @@ const OnboardingWizard = lazy(() => import("./pages/onboarding/OnboardingWizard"
 const NutritionWizardStep1 = lazy(() => import("./pages/athlete/onboarding/NutritionWizardStep1"));
 const NutritionWizardStep2 = lazy(() => import("./pages/athlete/onboarding/NutritionWizardStep2"));
 const NutritionWizardStep3 = lazy(() => import("./pages/athlete/onboarding/NutritionWizardStep3"));
+const NutritionWizardReveal = lazy(() => import("./pages/athlete/onboarding/NutritionWizardReveal"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/legal/TermsOfService"));
