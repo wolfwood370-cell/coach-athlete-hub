@@ -77,7 +77,7 @@ export default function ActiveWorkout() {
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-error animate-pulse" />
               <span className="font-display text-lg font-bold text-primary-container tabular-nums">
-                12:45
+                {formatTimer(elapsed)}
               </span>
             </div>
           </div>
