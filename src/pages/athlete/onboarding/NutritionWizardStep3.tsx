@@ -1,12 +1,26 @@
-import { useState } from "react";
-import { ArrowLeft, CheckCircle } from "lucide-react";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, CheckCircle, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-type DistributionKey = "lineare" | "polarizzata";
-type ProteinKey = "basso" | "moderato" | "alto" | "molto-alto";
+import { useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useAthleteBiometrics } from "@/hooks/useAthleteBiometrics";
+import {
+  APPROACH_SPLIT,
+  PROTEIN_G_PER_KG,
+  computeInitialCalories,
+  computeTargetEndDate,
+  estimateBaselineTDEE,
+  rateToPctPerWeek,
+  useNutritionWizardStore,
+  type DistributionKey,
+  type ProteinKey,
+} from "@/stores/useNutritionWizardStore";
 
 interface DayDef {
-  id: string; // stable
+  id: string;
   label: string;
 }
 
@@ -24,30 +38,122 @@ interface ProteinOption {
   key: ProteinKey;
   label: string;
   value: string;
-  hint?: string;
 }
 
 const PROTEINS: ProteinOption[] = [
   { key: "basso", label: "Basso", value: "1.2g/kg" },
   { key: "moderato", label: "Moderato", value: "1.6g/kg" },
-  { key: "alto", label: "Alto", value: "2.0g/kg", hint: "~164g/day" },
+  { key: "alto", label: "Alto", value: "2.0g/kg" },
   { key: "molto-alto", label: "Molto Alto", value: "2.4g/kg" },
 ];
 
-export default function NutritionWizardStep3() {
-  const [distribution, setDistribution] = useState<DistributionKey>("polarizzata");
-  const [trainingDays, setTrainingDays] = useState<string[]>([
-    "mon",
-    "tue",
-    "fri",
-    "sat",
-  ]);
-  const [protein, setProtein] = useState<ProteinKey>("alto");
+const FALLBACK_WEIGHT = 80;
 
-  const toggleDay = (id: string) => {
-    setTrainingDays((prev) =>
-      prev.includes(id) ? prev.filter((d) => d !== id) : [...prev, id],
-    );
+export default function NutritionWizardStep3() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { data: bio } = useAthleteBiometrics();
+
+  const wizard = useNutritionWizardStore();
+  const distribution = wizard.caloricDistribution;
+  const trainingDays = wizard.trainingDays;
+  const protein = wizard.proteinIntake;
+
+  const [isSaving, setIsSaving] = useState(false);
+
+  const setDistribution = (v: DistributionKey) => wizard.setCaloricDistribution(v);
+
+  const proteinHint = useMemo(() => {
+    const w = bio?.weightKg ?? FALLBACK_WEIGHT;
+    const grams = Math.round(w * PROTEIN_G_PER_KG[protein]);
+    return `~${grams}g/day`;
+  }, [bio, protein]);
+
+  const handleSubmit = async () => {
+    if (!user?.id) {
+      toast.error("Sessione scaduta. Esegui di nuovo l'accesso.");
+      return;
+    }
+    setIsSaving(true);
+    try {
+      const currentWeight = bio?.weightKg ?? FALLBACK_WEIGHT;
+      const baselineTdee = estimateBaselineTDEE({
+        weightKg: currentWeight,
+        heightCm: bio?.heightCm ?? null,
+        ageYears: bio?.ageYears ?? null,
+        gender: bio?.gender ?? null,
+      });
+      const dailyCalories = computeInitialCalories({
+        baselineTdee,
+        goal: wizard.goal,
+        weightKg: currentWeight,
+        rate: wizard.rateOfChange,
+      });
+      const split = APPROACH_SPLIT[wizard.dietaryApproach];
+      const proteinG = Math.round(currentWeight * PROTEIN_G_PER_KG[protein]);
+      const fatsG = Math.round((dailyCalories * split.fats) / 9);
+      const carbsG = Math.max(
+        0,
+        Math.round((dailyCalories - proteinG * 4 - fatsG * 9) / 4),
+      );
+      const endDate = computeTargetEndDate({
+        currentWeightKg: currentWeight,
+        targetWeightKg: wizard.targetWeight,
+        goal: wizard.goal,
+        rate: wizard.rateOfChange,
+      });
+
+      // Persist on athlete-owned profile.onboarding_data.nutrition_program
+      const { data: existing, error: fetchErr } = await supabase
+        .from("profiles")
+        .select("onboarding_data")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (fetchErr) throw fetchErr;
+
+      const prev =
+        (existing?.onboarding_data as Record<string, unknown> | null) ?? {};
+      const merged = {
+        ...prev,
+        nutrition_program: {
+          goal: wizard.goal,
+          target_weight_kg: wizard.targetWeight,
+          rate_of_change: wizard.rateOfChange,
+          rate_pct_per_week: rateToPctPerWeek(wizard.rateOfChange),
+          dietary_approach: wizard.dietaryApproach,
+          caloric_distribution: distribution,
+          training_days: distribution === "polarizzata" ? trainingDays : [],
+          protein_intake: protein,
+          // Computed targets
+          baseline_tdee: baselineTdee,
+          daily_calories: dailyCalories,
+          protein_g: proteinG,
+          carbs_g: carbsG,
+          fats_g: fatsG,
+          target_end_date: endDate ? endDate.toISOString().slice(0, 10) : null,
+          generated_at: new Date().toISOString(),
+        },
+      };
+
+      const { error: updErr } = await supabase
+        .from("profiles")
+        .update({ onboarding_data: merged })
+        .eq("id", user.id);
+      if (updErr) throw updErr;
+
+      await queryClient.invalidateQueries({ queryKey: ["nutrition-plan", user.id] });
+      await queryClient.invalidateQueries({ queryKey: ["athlete-biometrics", user.id] });
+
+      toast.success("Programma nutrizionale generato!");
+      wizard.reset();
+      navigate("/athlete/nutrition");
+    } catch (err) {
+      console.error("[NutritionWizardStep3] save failed", err);
+      toast.error("Salvataggio fallito. Riprova.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -56,6 +162,7 @@ export default function NutritionWizardStep3() {
       <header className="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 pt-[env(safe-area-inset-top,0px)] bg-white/80 backdrop-blur-xl border-b border-surface-variant/20 shadow-none">
         <button
           type="button"
+          onClick={() => navigate(-1)}
           className="text-primary hover:bg-surface-container/50 rounded-full p-2 transition-colors"
           aria-label="Torna indietro"
         >
@@ -79,6 +186,7 @@ export default function NutritionWizardStep3() {
         </div>
         <button
           type="button"
+          onClick={() => navigate("/athlete/dashboard")}
           className="text-primary font-bold hover:bg-surface-container/50 px-3 py-2 rounded-lg transition-colors"
         >
           Skip
@@ -163,7 +271,7 @@ export default function NutritionWizardStep3() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          toggleDay(day.id);
+                          wizard.toggleTrainingDay(day.id);
                         }}
                         aria-pressed={active}
                         aria-label={`Giorno ${day.label}`}
@@ -202,7 +310,7 @@ export default function NutritionWizardStep3() {
                 <button
                   key={opt.key}
                   type="button"
-                  onClick={() => setProtein(opt.key)}
+                  onClick={() => wizard.setProteinIntake(opt.key)}
                   aria-pressed={active}
                   className={cn(
                     "p-5 rounded-[20px] cursor-pointer flex flex-col justify-between aspect-square transition-colors text-left relative",
@@ -237,9 +345,9 @@ export default function NutritionWizardStep3() {
                     >
                       {opt.value}
                     </span>
-                    {active && opt.hint && (
+                    {active && (
                       <span className="text-xs text-on-surface-variant mt-0.5">
-                        {opt.hint}
+                        {proteinHint}
                       </span>
                     )}
                   </div>
@@ -254,9 +362,18 @@ export default function NutritionWizardStep3() {
       <footer className="fixed bottom-0 left-0 w-full p-6 bg-white/80 backdrop-blur-2xl border-t border-surface-variant/30 z-50">
         <button
           type="button"
-          className="w-full max-w-md mx-auto bg-primary-container text-white py-4 px-6 rounded-full font-bold text-lg shadow-lg hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2"
+          onClick={handleSubmit}
+          disabled={isSaving}
+          className="w-full max-w-md mx-auto bg-primary-container text-white py-4 px-6 rounded-full font-bold text-lg shadow-lg hover:opacity-90 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
         >
-          Genera Programma ✨
+          {isSaving ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+              Salvataggio…
+            </>
+          ) : (
+            <>Genera Programma ✨</>
+          )}
         </button>
       </footer>
     </div>
