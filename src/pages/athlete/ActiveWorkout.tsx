@@ -1,3 +1,4 @@
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   X,
@@ -8,9 +9,53 @@ import {
   ArrowUpDown,
   Play,
 } from "lucide-react";
+import { ExitWorkoutDialog } from "@/components/athlete/ActiveWorkout/ExitWorkoutDialog";
+import { useActiveSessionStore } from "@/stores/useActiveSessionStore";
+import { toast } from "sonner";
+
+function formatTimer(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}
 
 export default function ActiveWorkout() {
   const navigate = useNavigate();
+  const [exitOpen, setExitOpen] = useState(false);
+
+  const startedAt = useActiveSessionStore((s) => s.startedAt);
+  const endSession = useActiveSessionStore((s) => s.endSession);
+  const markDoneLocally = useActiveSessionStore((s) => s.markDoneLocally);
+  const cancelRestTimer = useActiveSessionStore((s) => s.cancelRestTimer);
+
+  const startMs = useMemo(
+    () => (startedAt ? new Date(startedAt).getTime() : Date.now()),
+    [startedAt],
+  );
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const tick = () =>
+      setElapsed(Math.max(0, Math.floor((Date.now() - startMs) / 1000)));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [startMs]);
+
+  const handleResume = () => setExitOpen(false);
+  const handleFinish = () => {
+    cancelRestTimer();
+    markDoneLocally();
+    toast.success("Allenamento salvato");
+    setExitOpen(false);
+    navigate("/athlete/training");
+  };
+  const handleDiscard = () => {
+    cancelRestTimer();
+    endSession();
+    toast.info("Allenamento scartato");
+    setExitOpen(false);
+    navigate("/athlete/training");
+  };
 
   return (
     <div className="min-h-screen bg-background relative">
@@ -18,7 +63,7 @@ export default function ActiveWorkout() {
       <header className="fixed top-0 left-0 w-full z-50 bg-white/90 backdrop-blur-md">
         <div className="flex justify-between items-center px-6 py-4">
           <button
-            onClick={() => navigate(-1)}
+            onClick={() => setExitOpen(true)}
             className="text-on-surface hover:bg-surface-variant/50 p-2 -ml-2 rounded-full transition-colors"
             aria-label="Chiudi"
           >
@@ -32,7 +77,7 @@ export default function ActiveWorkout() {
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-error animate-pulse" />
               <span className="font-display text-lg font-bold text-primary-container tabular-nums">
-                12:45
+                {formatTimer(elapsed)}
               </span>
             </div>
           </div>
@@ -176,11 +221,22 @@ export default function ActiveWorkout() {
             <Play className="w-4 h-4" />
             Riprendi A1. Squat
           </button>
-          <button className="w-[30%] bg-[#001e2d] text-white font-semibold py-4 rounded-full transition-colors flex items-center justify-center active:scale-95 shadow-lg">
+          <button
+            onClick={() => setExitOpen(true)}
+            className="w-[30%] bg-[#001e2d] text-white font-semibold py-4 rounded-full transition-colors flex items-center justify-center active:scale-95 shadow-lg"
+          >
             Termina
           </button>
         </div>
       </div>
+
+      <ExitWorkoutDialog
+        isOpen={exitOpen}
+        onResume={handleResume}
+        onFinish={handleFinish}
+        onDiscard={handleDiscard}
+        timerDuration={formatTimer(elapsed)}
+      />
     </div>
   );
 }
