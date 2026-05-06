@@ -33,7 +33,7 @@ const SORENESS_LABELS: Record<string, string> = {
 const AthleteCopilotIntervention = () => {
   const navigate = useNavigate();
   const { readiness, isLoading: loadingReadiness } = useReadiness();
-  const { data: todayWorkout, isLoading: loadingWorkout } = useTodaysWorkout();
+  const { workout: todayWorkout, isLoading: loadingWorkout } = useTodaysWorkout();
 
   const handleClose = () => navigate(-1);
   const handleAcceptSafePlan = () => {
