@@ -1,3 +1,4 @@
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   X,
@@ -8,9 +9,53 @@ import {
   ArrowUpDown,
   Play,
 } from "lucide-react";
+import { ExitWorkoutDialog } from "@/components/athlete/ActiveWorkout/ExitWorkoutDialog";
+import { useActiveSessionStore } from "@/stores/useActiveSessionStore";
+import { toast } from "sonner";
+
+function formatTimer(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}
 
 export default function ActiveWorkout() {
   const navigate = useNavigate();
+  const [exitOpen, setExitOpen] = useState(false);
+
+  const startedAt = useActiveSessionStore((s) => s.startedAt);
+  const endSession = useActiveSessionStore((s) => s.endSession);
+  const markDoneLocally = useActiveSessionStore((s) => s.markDoneLocally);
+  const cancelRestTimer = useActiveSessionStore((s) => s.cancelRestTimer);
+
+  const startMs = useMemo(
+    () => (startedAt ? new Date(startedAt).getTime() : Date.now()),
+    [startedAt],
+  );
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    const tick = () =>
+      setElapsed(Math.max(0, Math.floor((Date.now() - startMs) / 1000)));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [startMs]);
+
+  const handleResume = () => setExitOpen(false);
+  const handleFinish = () => {
+    cancelRestTimer();
+    markDoneLocally();
+    toast.success("Allenamento salvato");
+    setExitOpen(false);
+    navigate("/athlete/training");
+  };
+  const handleDiscard = () => {
+    cancelRestTimer();
+    endSession();
+    toast.info("Allenamento scartato");
+    setExitOpen(false);
+    navigate("/athlete/training");
+  };
 
   return (
     <div className="min-h-screen bg-background relative">
