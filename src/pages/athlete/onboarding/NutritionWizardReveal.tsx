@@ -84,7 +84,7 @@ export default function NutritionWizardReveal() {
       protein: proteinPct,
       fat: fatsPct,
       carb: carbsPct,
-      active: i === new Date().getDay() === 0 ? false : i === ((new Date().getDay() + 6) % 7),
+      active: i === ((new Date().getDay() + 6) % 7),
     };
   });
 
