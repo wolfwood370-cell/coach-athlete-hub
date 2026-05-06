@@ -59,6 +59,7 @@ const OnboardingWizard = lazy(() => import("./pages/onboarding/OnboardingWizard"
 const NutritionWizardStep1 = lazy(() => import("./pages/athlete/onboarding/NutritionWizardStep1"));
 const NutritionWizardStep2 = lazy(() => import("./pages/athlete/onboarding/NutritionWizardStep2"));
 const NutritionWizardStep3 = lazy(() => import("./pages/athlete/onboarding/NutritionWizardStep3"));
+const NutritionWizardReveal = lazy(() => import("./pages/athlete/onboarding/NutritionWizardReveal"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/legal/TermsOfService"));
@@ -132,6 +133,7 @@ const App = () => (
               <Route path="/athlete/onboarding/nutrition/step-1" element={<NutritionWizardStep1 />} />
               <Route path="/athlete/onboarding/nutrition/step-2" element={<NutritionWizardStep2 />} />
               <Route path="/athlete/onboarding/nutrition/step-3" element={<NutritionWizardStep3 />} />
+              <Route path="/athlete/onboarding/nutrition/reveal" element={<NutritionWizardReveal />} />
               
               {/* Legal */}
               <Route path="/privacy" element={<PrivacyPolicy />} />
