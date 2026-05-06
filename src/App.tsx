@@ -38,6 +38,7 @@ const AthleteTraining = lazy(() => import("./pages/athlete/AthleteTraining"));
 const AthleteNutrition = lazy(() => import("./pages/athlete/AthleteNutrition"));
 const AthleteTDEEAnalytics = lazy(() => import("./pages/athlete/AthleteTDEEAnalytics"));
 const AthleteCopilot = lazy(() => import("./pages/athlete/AthleteCopilot"));
+const AthleteCopilotMeal = lazy(() => import("./pages/athlete/AthleteCopilotMeal"));
 const ActiveWorkout = lazy(() => import("./pages/athlete/ActiveWorkout"));
 const AthleteReadinessDetails = lazy(() => import("./pages/athlete/AthleteReadinessDetails"));
 const DailyCheckin = lazy(() => import("./pages/athlete/DailyCheckin"));
@@ -125,6 +126,7 @@ const App = () => (
                 <Route path="nutrition" element={<AthleteNutrition />} />
                 <Route path="copilot" element={<AthleteCopilot />} />
                 <Route path="analytics/tdee" element={<AthleteTDEEAnalytics />} />
+                <Route path="copilot/meal" element={<AthleteCopilotMeal />} />
               </Route>
               {/* Legacy redirect */}
               <Route path="/athlete/workout" element={<Navigate to="/athlete/training" replace />} />
