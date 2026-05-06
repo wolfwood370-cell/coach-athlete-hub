@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { format } from "date-fns";
+import { it } from "date-fns/locale";
 import {
   ArrowLeft,
   Check,
@@ -9,8 +12,15 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-type ApproachKey = "balanced" | "low-carb" | "low-fat" | "keto";
+import {
+  computeInitialCalories,
+  computeTargetEndDate,
+  estimateBaselineTDEE,
+  rateToPctPerWeek,
+  useNutritionWizardStore,
+  type ApproachKey,
+} from "@/stores/useNutritionWizardStore";
+import { useAthleteBiometrics } from "@/hooks/useAthleteBiometrics";
 
 interface ApproachOption {
   key: ApproachKey;
@@ -46,8 +56,60 @@ const APPROACHES: ApproachOption[] = [
   },
 ];
 
+const FALLBACK_WEIGHT = 80;
+
 export default function NutritionWizardStep2() {
-  const [approach, setApproach] = useState<ApproachKey>("balanced");
+  const navigate = useNavigate();
+  const { data: bio } = useAthleteBiometrics();
+
+  const goal = useNutritionWizardStore((s) => s.goal);
+  const targetWeight = useNutritionWizardStore((s) => s.targetWeight);
+  const rate = useNutritionWizardStore((s) => s.rateOfChange);
+  const approach = useNutritionWizardStore((s) => s.dietaryApproach);
+  const setApproach = useNutritionWizardStore((s) => s.setDietaryApproach);
+
+  const currentWeight = bio?.weightKg ?? FALLBACK_WEIGHT;
+
+  const projection = useMemo(() => {
+    const baselineTdee = estimateBaselineTDEE({
+      weightKg: currentWeight,
+      heightCm: bio?.heightCm ?? null,
+      ageYears: bio?.ageYears ?? null,
+      gender: bio?.gender ?? null,
+    });
+    const calories = computeInitialCalories({
+      baselineTdee,
+      goal,
+      weightKg: currentWeight,
+      rate,
+    });
+    const pct = rateToPctPerWeek(rate);
+    const kgPerWeek = (currentWeight * pct) / 100;
+    const direction = goal === "gain" ? 1 : goal === "lose" ? -1 : 0;
+    const endDate = computeTargetEndDate({
+      currentWeightKg: currentWeight,
+      targetWeightKg: targetWeight,
+      goal,
+      rate,
+    });
+    return {
+      calories,
+      kgPerWeek: direction === 0 ? 0 : direction * kgPerWeek,
+      endDate,
+    };
+  }, [bio, currentWeight, goal, rate, targetWeight]);
+
+  const formattedKgPerWeek =
+    projection.kgPerWeek === 0
+      ? "—"
+      : `${projection.kgPerWeek > 0 ? "+" : ""}${projection.kgPerWeek.toFixed(2)} kg`;
+
+  const formattedEndDate = projection.endDate
+    ? format(projection.endDate, "MMM yyyy", { locale: it }).replace(
+        /^\w/,
+        (c) => c.toUpperCase(),
+      )
+    : "—";
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -55,6 +117,7 @@ export default function NutritionWizardStep2() {
       <header className="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 pt-[env(safe-area-inset-top,0px)] bg-white/80 backdrop-blur-xl border-b border-surface-variant/30 shadow-sm">
         <button
           type="button"
+          onClick={() => navigate(-1)}
           className="text-primary hover:bg-surface-container-highest/30 rounded-full p-2 transition-colors"
           aria-label="Torna indietro"
         >
@@ -74,6 +137,7 @@ export default function NutritionWizardStep2() {
         </div>
         <button
           type="button"
+          onClick={() => navigate("/athlete/dashboard")}
           className="font-label-sm text-primary uppercase tracking-wider px-3 py-2 hover:opacity-80 transition-opacity"
         >
           Salta
@@ -93,7 +157,7 @@ export default function NutritionWizardStep2() {
               </span>
               <div className="flex items-baseline gap-1">
                 <span className="font-display text-4xl text-primary-container font-black tabular-nums">
-                  2,150
+                  {projection.calories.toLocaleString("it-IT")}
                 </span>
                 <span className="text-on-surface-variant">kcal</span>
               </div>
@@ -107,7 +171,7 @@ export default function NutritionWizardStep2() {
                   Obiettivo
                 </span>
                 <span className="font-semibold text-on-surface tabular-nums">
-                  82.0 kg
+                  {targetWeight.toFixed(1)} kg
                 </span>
               </div>
               <div className="flex flex-col gap-1">
@@ -115,14 +179,16 @@ export default function NutritionWizardStep2() {
                   A settimana
                 </span>
                 <span className="font-semibold text-on-surface tabular-nums">
-                  -0.45 kg
+                  {formattedKgPerWeek}
                 </span>
               </div>
               <div className="flex flex-col gap-1">
                 <span className="text-[10px] text-on-surface-variant uppercase font-semibold tracking-wider">
                   Traguardo
                 </span>
-                <span className="font-semibold text-emerald-500">Nov 2026</span>
+                <span className="font-semibold text-emerald-500">
+                  {formattedEndDate}
+                </span>
               </div>
             </div>
           </div>
@@ -195,6 +261,7 @@ export default function NutritionWizardStep2() {
       <footer className="fixed bottom-0 left-0 w-full z-50 px-6 pb-[env(safe-area-inset-bottom,24px)] pt-4 bg-gradient-to-t from-background via-background/90 to-transparent">
         <button
           type="button"
+          onClick={() => navigate("/athlete/onboarding/nutrition/step-3")}
           className="w-full flex items-center justify-center bg-primary-container text-white rounded-full py-4 px-8 font-bold text-xs uppercase tracking-wider shadow-lg max-w-md mx-auto mb-4 hover:brightness-110 active:scale-95 transition-all"
         >
           Continua

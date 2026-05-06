@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useMemo, useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Info,
@@ -9,8 +10,12 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-type GoalKey = "lose" | "maintain" | "gain";
+import {
+  rateToPctPerWeek,
+  useNutritionWizardStore,
+  type GoalKey,
+} from "@/stores/useNutritionWizardStore";
+import { useAthleteBiometrics } from "@/hooks/useAthleteBiometrics";
 
 interface GoalOption {
   key: GoalKey;
@@ -24,20 +29,26 @@ const GOALS: GoalOption[] = [
   { key: "gain", label: "Aumentare", Icon: TrendingUp },
 ];
 
-const CURRENT_WEIGHT = 90;
+const FALLBACK_WEIGHT = 80;
 
 export default function NutritionWizardStep1() {
-  const [goal, setGoal] = useState<GoalKey>("lose");
-  const [targetWeight, setTargetWeight] = useState<string>("82.0");
-  const [rate, setRate] = useState<number>(25); // 0..100
+  const navigate = useNavigate();
+  const { data: bio } = useAthleteBiometrics();
+  const currentWeight = bio?.weightKg ?? FALLBACK_WEIGHT;
+
+  const goal = useNutritionWizardStore((s) => s.goal);
+  const targetWeight = useNutritionWizardStore((s) => s.targetWeight);
+  const rate = useNutritionWizardStore((s) => s.rateOfChange);
+  const setGoal = useNutritionWizardStore((s) => s.setGoal);
+  const setTargetWeight = useNutritionWizardStore((s) => s.setTargetWeight);
+  const setRate = useNutritionWizardStore((s) => s.setRateOfChange);
+
   const trackRef = useRef<HTMLDivElement>(null);
 
   const feedback = useMemo(() => {
-    // Map slider 0..100 to a percentage of body weight per week 0.1% .. 1.2%
-    const pct = 0.1 + (rate / 100) * 1.1;
+    const pct = rateToPctPerWeek(rate);
     const direction = goal === "gain" ? 1 : goal === "lose" ? -1 : 0;
-    const kgPerWeek = (CURRENT_WEIGHT * pct) / 100;
-    const signedPct = (direction * pct).toFixed(1);
+    const kgPerWeek = (currentWeight * pct) / 100;
     const headline =
       goal === "maintain"
         ? "Mantenimento del peso corporeo"
@@ -48,8 +59,8 @@ export default function NutritionWizardStep1() {
         : goal === "gain"
           ? `Aumento di circa ${kgPerWeek.toFixed(2)} kg a settimana. Rateo ottimale per minimizzare l'accumulo di massa grassa.`
           : `Perdita di circa ${kgPerWeek.toFixed(2)} kg a settimana. È il rateo ottimale per preservare la massa muscolare.`;
-    return { headline, body, signedPct };
-  }, [rate, goal]);
+    return { headline, body };
+  }, [rate, goal, currentWeight]);
 
   const updateRateFromPointer = (clientX: number) => {
     const el = trackRef.current;
@@ -70,12 +81,22 @@ export default function NutritionWizardStep1() {
     updateRateFromPointer(e.clientX);
   };
 
+  const handleTargetWeightChange = (raw: string) => {
+    // Allow empty / decimal-in-progress entries without breaking; only persist valid numbers
+    const normalized = raw.replace(",", ".");
+    if (normalized === "" || normalized === ".") return;
+    const parsed = parseFloat(normalized);
+    if (!Number.isFinite(parsed)) return;
+    setTargetWeight(parsed);
+  };
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Top App Bar */}
       <header className="fixed top-0 left-0 w-full z-40 bg-white/80 backdrop-blur-xl border-b border-surface-variant/30 shadow-sm flex justify-between items-center px-6 py-4">
         <button
           type="button"
+          onClick={() => navigate("/athlete/dashboard")}
           className="text-primary hover:opacity-80 transition-opacity"
           aria-label="Chiudi wizard"
         >
@@ -95,6 +116,7 @@ export default function NutritionWizardStep1() {
         </div>
         <button
           type="button"
+          onClick={() => navigate("/athlete/dashboard")}
           className="text-[10px] text-primary uppercase tracking-widest font-bold hover:opacity-80 transition-opacity"
         >
           Salta
@@ -153,14 +175,14 @@ export default function NutritionWizardStep1() {
           </h2>
           <div className="bg-white border border-outline-variant rounded-xl p-6 shadow-sm flex flex-col items-center justify-center gap-2">
             <span className="text-[10px] text-on-surface-variant uppercase tracking-widest">
-              Attuale: {CURRENT_WEIGHT} kg
+              Attuale: {currentWeight.toFixed(1)} kg
             </span>
             <div className="flex items-baseline gap-1 border-b-2 border-primary pb-1">
               <input
                 type="text"
                 inputMode="decimal"
-                value={targetWeight}
-                onChange={(e) => setTargetWeight(e.target.value)}
+                defaultValue={targetWeight.toFixed(1)}
+                onChange={(e) => handleTargetWeightChange(e.target.value)}
                 className="w-32 text-center bg-transparent border-none focus:ring-0 text-4xl font-black text-primary p-0 m-0 outline-none"
                 aria-label="Peso obiettivo"
               />
@@ -218,6 +240,7 @@ export default function NutritionWizardStep1() {
       <footer className="fixed bottom-0 left-0 w-full z-50 px-6 pb-10 pt-4 bg-gradient-to-t from-white via-white/90 to-transparent">
         <button
           type="button"
+          onClick={() => navigate("/athlete/onboarding/nutrition/step-2")}
           className="w-full bg-primary text-white rounded-full py-5 px-8 shadow-lg shadow-primary/20 flex items-center justify-center hover:brightness-110 active:scale-95 transition-all max-w-lg mx-auto"
         >
           <span className="text-xs font-bold uppercase tracking-widest mr-2">
