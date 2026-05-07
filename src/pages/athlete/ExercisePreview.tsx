@@ -1,167 +1,185 @@
-import { useMemo } from "react";
-import { ArrowLeft, MoreVertical, Play, MessageSquare, Lock, PlayCircle, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useTodaysWorkout } from "@/hooks/useTodaysWorkout";
-import { useExerciseHistory } from "@/hooks/useExerciseHistory";
-import { useActiveSessionStore } from "@/stores/useActiveSessionStore";
+import { ArrowLeft, Clock, Zap, Repeat, ClipboardList, Play } from "lucide-react";
 
-const ExercisePreview = () => {
+const HERO_IMAGE =
+  "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop";
+
+export default function ExercisePreview() {
   const navigate = useNavigate();
-  const { workout, isLoading } = useTodaysWorkout();
-  const startSession = useActiveSessionStore((s) => s.startSession);
 
-  // Use the first exercise of the day as the previewed one (entry point from Today's plan).
-  const exercise = workout?.structure?.[0] ?? null;
+  // TODO: Connect to backend — derive from selected exercise / today's workout
+  const dayTitle = "Giorno Gambe B";
+  const phaseLabel = "Fase Ipertrofia";
+  const durationMin = 65;
 
-  const exerciseNames = useMemo(
-    () => (exercise?.name ? [exercise.name] : []),
-    [exercise?.name],
-  );
-  const { data: historyMap } = useExerciseHistory(exerciseNames);
-  const lastPerf = exercise?.name ? historyMap?.[exercise.name] : null;
-  const prevLabel = lastPerf
-    ? `${lastPerf.weight_kg}kg x ${lastPerf.reps}`
-    : "—";
+  const exerciseTitle = "C1. Leg Curl Seduto";
+  const exerciseSubtitle = "Isolamento • 1 Serie Totale (Protocollo esteso)";
+  const protocolName = "Rest-Pause";
 
-  const plannedSets = exercise?.sets ?? 3;
-  const repsTarget = exercise?.reps ? `${exercise.reps} reps` : `${plannedSets} set`;
-  const previewRows = Array.from({ length: plannedSets }, (_, i) => ({
-    id: i + 1,
-    target: repsTarget,
-    prev: prevLabel,
-  }));
+  const activationTitle = "Serie di Attivazione: 10-12 Reps @ RPE 9";
+  const activationDesc =
+    "Raggiungi il cedimento, poi recupera esattamente 15 secondi.";
 
-  const title = exercise
-    ? `A1. ${exercise.name}`
-    : isLoading
-    ? "Caricamento..."
-    : "Nessun esercizio disponibile";
+  const microTitle = "Micro-Set: 3-5 Reps x 4 Round";
+  const microDesc =
+    "15 sec di recupero tra i round. Fermati quando non chiudi 3 reps.";
+
   const coachNote =
-    (exercise as any)?.notes ??
-    "Mantieni esecuzione controllata e tecnica pulita.";
+    "Note: Mantieni tensione costante nel punto di massima contrazione.";
+
+  const targetVolume = 24;
+  const targetIntensity = 9.5;
 
   const handleStart = () => {
-    if (!workout) return;
-    startSession(crypto.randomUUID(), workout.id);
-    navigate("/athlete/exercise-execution");
+    // TODO: Connect to backend — start active session
+    navigate("/athlete/active-workout");
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-surface-bright">
       {/* Top App Bar */}
-      <header className="fixed top-0 w-full z-50 flex items-center justify-between px-6 h-16 bg-white/70 backdrop-blur-xl border-b border-surface-variant shadow-sm">
-        <button
-          onClick={() => navigate(-1)}
-          className="flex items-center justify-center w-9 h-9 -ml-2 rounded-full active:bg-surface-container transition-colors"
-          aria-label="Indietro"
-        >
-          <ArrowLeft className="size-5 text-on-surface" />
-        </button>
-        <h1 className="font-display text-lg font-bold text-on-surface">
-          Anteprima Esercizio
-        </h1>
-        <button
-          className="flex items-center justify-center w-9 h-9 -mr-2 rounded-full active:bg-surface-container transition-colors"
-          aria-label="Altre opzioni"
-        >
-          <MoreVertical className="size-5 text-on-surface" />
-        </button>
+      <header className="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-white/70 backdrop-blur-xl border-b border-surface-variant/50 shadow-sm">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate(-1)}
+            className="text-primary p-2 -ml-2 rounded-full hover:bg-surface-variant/50 transition-colors"
+            aria-label="Indietro"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="font-display font-semibold tracking-tight text-lg text-on-surface">
+            Panoramica Allenamento
+          </h1>
+        </div>
+        <div className="w-8 h-8 rounded-full bg-surface-variant" />
       </header>
 
-      <main className="pt-24 pb-48 px-6 max-w-md mx-auto flex flex-col gap-6">
-        {/* Video Placeholder */}
-        <div className="w-full aspect-video rounded-[32px] bg-surface-container relative flex items-center justify-center overflow-hidden shadow-sm">
-          <img
-            src="https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&auto=format&fit=crop"
-            alt="Anteprima esercizio"
-            className="absolute inset-0 object-cover w-full h-full"
-            loading="lazy"
-          />
-          <button
-            className="relative z-10 w-16 h-16 bg-white/80 backdrop-blur-md rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-transform"
-            aria-label="Riproduci video"
-          >
-            <Play className="text-primary fill-current ml-0.5" size={26} />
-          </button>
+      {/* Main */}
+      <main className="pt-24 pb-32 px-6 max-w-md mx-auto">
+        {/* Screen Header */}
+        <div className="mb-6">
+          <h2 className="font-display text-4xl text-inverse-surface font-bold mb-2">
+            {dayTitle}
+          </h2>
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 bg-primary/10 text-primary rounded-full font-semibold text-xs uppercase tracking-wider">
+              {phaseLabel}
+            </span>
+            <span className="text-on-surface-variant font-semibold text-xs uppercase tracking-widest flex items-center gap-1">
+              <Clock className="w-4 h-4" />
+              {durationMin} Min
+            </span>
+          </div>
         </div>
 
-        {/* Title */}
-        <h2 className="font-display text-2xl font-bold text-on-surface flex items-center gap-2">
-          {isLoading && <Loader2 className="w-5 h-5 animate-spin text-on-surface-variant" />}
-          {title}
-        </h2>
-
-        {/* Coach Notes */}
-        <div className="bg-surface-container-low/50 rounded-3xl p-5 border-l-4 border-primary shadow-sm">
-          <MessageSquare className="text-primary mb-2 size-5" />
-          <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-1">
-            Note del Coach
-          </p>
-          <p className="text-sm text-on-surface-variant leading-relaxed">{coachNote}</p>
-        </div>
-
-        {/* Preview Mode Banner */}
-        <div className="bg-blue-50/50 rounded-2xl p-4 border border-blue-100 flex items-center gap-3">
-          <Lock className="text-primary size-5 shrink-0" />
-          <p className="text-xs font-semibold text-primary leading-relaxed">
-            Modalità Anteprima. Avvia l'allenamento per registrare i tuoi set.
-          </p>
-        </div>
-
-        {/* Logging Table (Preview State) */}
-        <div>
-          <div className="grid grid-cols-[30px_1fr_1fr_60px_60px] gap-2 px-2 pb-2 border-b border-surface-variant">
-            <span className="text-[10px] text-outline font-bold uppercase text-center">Set</span>
-            <span className="text-[10px] text-outline font-bold uppercase text-center">Target</span>
-            <span className="text-[10px] text-outline font-bold uppercase text-center">Prec.</span>
-            <span className="text-[10px] text-outline font-bold uppercase text-center">Kg</span>
-            <span className="text-[10px] text-outline font-bold uppercase text-center">Reps</span>
+        {/* Intensity Protocol Preview Card */}
+        <article className="bg-white rounded-2xl shadow-sm border border-surface-variant/50 overflow-hidden mb-6">
+          {/* Image Header */}
+          <div className="h-48 w-full relative">
+            <img
+              src={HERO_IMAGE}
+              alt="Anteprima esercizio"
+              className="object-cover w-full h-full"
+              loading="lazy"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-white via-transparent to-transparent" />
           </div>
 
-          {!exercise && !isLoading ? (
-            <p className="text-sm text-on-surface-variant text-center py-8">
-              Nessun dato disponibile.
-            </p>
-          ) : (
-            previewRows.map((s) => (
-              <div
-                key={s.id}
-                className="grid grid-cols-[30px_1fr_1fr_60px_60px] gap-2 items-center px-2 py-4"
-              >
-                <span className="text-xs font-bold text-outline text-center">{s.id}</span>
-                <span className="text-sm text-outline text-center">{s.target}</span>
-                <span className="text-sm text-outline text-center">{s.prev}</span>
-                <div className="h-10 bg-surface-container-low rounded-xl border border-dashed border-outline-variant/50 flex items-center justify-center text-outline">
-                  -
+          {/* Card Content */}
+          <div className="p-6 -mt-8 relative z-10">
+            <div className="flex justify-between items-center mb-6">
+              <span className="text-primary-container text-[10px] uppercase tracking-widest font-bold">
+                Tecnica di Intensità
+              </span>
+              <span className="bg-primary-container text-white text-xs px-4 py-1 rounded-full shadow-sm">
+                {protocolName}
+              </span>
+            </div>
+
+            <h3 className="font-display text-2xl font-bold text-primary-container mb-1">
+              {exerciseTitle}
+            </h3>
+            <p className="text-secondary text-sm">{exerciseSubtitle}</p>
+
+            {/* Protocol Breakdown */}
+            <div className="bg-surface-bright rounded-2xl p-5 border border-surface-variant/50 mt-6 space-y-8">
+              {/* Row 1 */}
+              <div className="relative flex items-start gap-3">
+                <div className="w-6 h-6 rounded-full bg-white border border-primary-container/20 flex items-center justify-center shadow-sm shrink-0 mt-1">
+                  <Zap className="size-3 text-primary-container" />
                 </div>
-                <div className="h-10 bg-surface-container-low rounded-xl border border-dashed border-outline-variant/50 flex items-center justify-center text-outline">
-                  -
+                <div className="flex-1">
+                  <p className="font-bold text-sm text-on-surface">
+                    {activationTitle}
+                  </p>
+                  <p className="text-secondary text-xs mt-1">
+                    {activationDesc}
+                  </p>
                 </div>
               </div>
-            ))
-          )}
+
+              {/* Row 2 with L-bracket */}
+              <div className="pl-8 relative flex items-start gap-3">
+                <div className="absolute -left-[14px] -top-[40px] w-[14px] h-[54px] border-l border-b border-surface-variant/80 rounded-bl-lg" />
+                <div className="w-6 h-6 rounded-full bg-white border border-primary-container/20 flex items-center justify-center shadow-sm shrink-0 mt-1">
+                  <Repeat className="size-3 text-primary-container" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-bold text-sm text-on-surface">
+                    {microTitle}
+                  </p>
+                  <p className="text-secondary text-xs mt-1">{microDesc}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Coaching Insight Footnote */}
+          <div className="bg-primary-container/5 border-t border-primary-container/10 p-5 flex items-center gap-3">
+            <ClipboardList className="text-primary-container w-4 h-4 shrink-0" />
+            <p className="text-[11px] font-medium text-primary-container uppercase tracking-wider">
+              {coachNote}
+            </p>
+          </div>
+        </article>
+
+        {/* Context Widgets */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="bg-white/80 backdrop-blur-md rounded-2xl p-5 border border-surface-variant/50 shadow-sm">
+            <span className="text-secondary text-xs uppercase tracking-widest font-semibold mb-2 block">
+              Target Volume
+            </span>
+            <div className="flex items-baseline gap-1">
+              <span className="font-display text-3xl font-bold text-on-surface">
+                {targetVolume}
+              </span>
+              <span className="text-xs text-on-surface-variant">REPS</span>
+            </div>
+          </div>
+          <div className="bg-white/80 backdrop-blur-md rounded-2xl p-5 border border-surface-variant/50 shadow-sm">
+            <span className="text-secondary text-xs uppercase tracking-widest font-semibold mb-2 block">
+              Intensità
+            </span>
+            <div className="flex items-baseline gap-1">
+              <span className="font-display text-3xl font-bold text-on-surface">
+                {targetIntensity}
+              </span>
+              <span className="text-xs text-on-surface-variant">RPE</span>
+            </div>
+          </div>
         </div>
       </main>
 
-      {/* Sticky Bottom Actions */}
-      <div className="fixed bottom-0 left-0 w-full p-6 bg-gradient-to-t from-background via-background/90 to-transparent z-50 flex flex-col gap-4 pb-10">
+      {/* Sticky CTA */}
+      <div className="fixed bottom-0 left-0 w-full p-6 bg-gradient-to-t from-surface-bright via-surface-bright to-transparent z-40 pb-[env(safe-area-inset-bottom,24px)]">
         <button
           onClick={handleStart}
-          disabled={!workout}
-          className="w-full max-w-md mx-auto bg-primary-container text-white font-bold py-4 rounded-full flex items-center justify-center gap-2 shadow-lg active:scale-95 transition-transform disabled:opacity-60"
+          className="w-full bg-primary-container text-white font-display font-bold py-5 rounded-full shadow-lg active:scale-95 transition-all flex items-center justify-center gap-3 uppercase tracking-widest text-sm"
         >
-          <PlayCircle className="size-5" />
-          Inizia Allenamento Ora
-        </button>
-        <button
-          onClick={() => navigate(-1)}
-          className="w-full text-secondary font-bold text-sm py-2 flex items-center justify-center uppercase tracking-wider"
-        >
-          Chiudi Anteprima
+          Inizia Sessione
+          <Play className="w-4 h-4 fill-current" />
         </button>
       </div>
     </div>
   );
-};
-
-export default ExercisePreview;
+}
