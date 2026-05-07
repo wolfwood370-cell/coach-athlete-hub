@@ -1,6 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { X, MoreVertical, CheckCircle2, ArrowRight } from "lucide-react";
+import { X, MoreVertical, CheckCircle2, ArrowRight, Loader2 } from "lucide-react";
+import { useActiveSessionStore } from "@/stores/useActiveSessionStore";
+import { useTodaysWorkout } from "@/hooks/useTodaysWorkout";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const RPE_OPTIONS = [5, 6, 7, 8, 9, 10] as const;
 type Rpe = (typeof RPE_OPTIONS)[number];
@@ -14,23 +19,133 @@ const RPE_LABELS: Record<Rpe, string> = {
   10: "10 - Massimale (Cedimento totale)",
 };
 
-const MUSCLES = ["Quadricipiti", "Glutei", "Femorali", "Core"];
+function formatDuration(startedAt: string | null): string {
+  if (!startedAt) return "—";
+  const ms = Date.now() - new Date(startedAt).getTime();
+  if (ms <= 0) return "0m";
+  const totalMin = Math.floor(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  return h > 0 ? `${h}h ${m}m` : `${m}m`;
+}
 
 export default function WorkoutDebrief() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { workout } = useTodaysWorkout();
+  const sessionLogs = useActiveSessionStore((s) => s.sessionLogs);
+  const startedAt = useActiveSessionStore((s) => s.startedAt);
+  const activeSessionId = useActiveSessionStore((s) => s.activeSessionId);
+  const workoutId = useActiveSessionStore((s) => s.workoutId);
+  const endSession = useActiveSessionStore((s) => s.endSession);
+
   const [rpe, setRpe] = useState<Rpe>(8);
   const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  // TODO: Connect to backend — derive from completed session
-  const sessionTitle = "Lower Body Power";
-  const sessionDuration = "1h 15m";
-  const totalVolume = "8.450 kg";
-  const completedSets = 24;
-  const plannedSets = 24;
+  // === Derived stats from session logs ===
+  const { totalVolume, completedSets, plannedSets, muscles } = useMemo(() => {
+    let volume = 0;
+    let completed = 0;
+    let planned = 0;
+    const muscleSet = new Set<string>();
 
-  const handleSave = () => {
-    // TODO: Connect to backend — persist sRPE + notes to workout_logs
-    navigate("/athlete/dashboard");
+    const structure = workout?.structure ?? [];
+    structure.forEach((ex) => {
+      planned += ex.sets ?? 0;
+      const exMuscles = (ex as { muscleTags?: string[]; muscles?: string[] })
+        .muscleTags ?? (ex as { muscles?: string[] }).muscles ?? [];
+      exMuscles.forEach((m) => m && muscleSet.add(m));
+    });
+
+    Object.values(sessionLogs).forEach((logs) => {
+      logs.forEach((log) => {
+        if (log.completed) {
+          completed += 1;
+          const kg = parseFloat(log.actualKg) || 0;
+          const reps = parseFloat(log.actualReps) || 0;
+          volume += kg * reps;
+        }
+      });
+    });
+
+    if (planned === 0) planned = completed;
+
+    return {
+      totalVolume: volume,
+      completedSets: completed,
+      plannedSets: planned,
+      muscles: Array.from(muscleSet),
+    };
+  }, [sessionLogs, workout]);
+
+  const sessionTitle = workout?.title ?? "Allenamento";
+  const sessionDuration = formatDuration(startedAt);
+  const formattedVolume = `${totalVolume.toLocaleString("it-IT")} kg`;
+
+  const handleSave = async () => {
+    if (!user?.id) {
+      toast.error("Sessione utente non trovata");
+      return;
+    }
+    setSaving(true);
+    try {
+      const completedAt = new Date().toISOString();
+      const exercisesData = sessionLogs as unknown as Record<string, unknown>;
+
+      // Try to update an existing workout_log for this workout
+      const targetWorkoutId = workout?.id ?? workoutId ?? null;
+
+      let updated = false;
+      if (targetWorkoutId) {
+        const { error, count } = await supabase
+          .from("workout_logs")
+          .update({
+            status: "completed",
+            rpe_global: rpe,
+            notes: notes || null,
+            completed_at: completedAt,
+            exercises_data: exercisesData,
+          }, { count: "exact" })
+          .eq("athlete_id", user.id)
+          .eq("workout_id", targetWorkoutId);
+        if (error) throw error;
+        updated = (count ?? 0) > 0;
+      }
+
+      if (!updated && targetWorkoutId) {
+        const { error: insertErr } = await supabase.from("workout_logs").insert({
+          athlete_id: user.id,
+          workout_id: targetWorkoutId,
+          status: "completed",
+          rpe_global: rpe,
+          notes: notes || null,
+          completed_at: completedAt,
+          started_at: startedAt,
+          exercises_data: exercisesData,
+          local_id: activeSessionId,
+        });
+        if (insertErr) throw insertErr;
+      }
+
+      // Mark workout itself completed if applicable
+      if (targetWorkoutId) {
+        await supabase
+          .from("workouts")
+          .update({ status: "completed" })
+          .eq("id", targetWorkoutId)
+          .eq("athlete_id", user.id);
+      }
+
+      endSession();
+      toast.success("Allenamento salvato!");
+      navigate("/athlete");
+    } catch (e) {
+      console.error("[WorkoutDebrief] save failed", e);
+      toast.error("Errore nel salvataggio. Riprova.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -81,7 +196,7 @@ export default function WorkoutDebrief() {
             <div>
               <p className="text-sm text-secondary mb-1">Volume Totale</p>
               <p className="font-display text-3xl font-bold text-on-surface">
-                {totalVolume}
+                {formattedVolume}
               </p>
             </div>
             <div>
@@ -94,19 +209,21 @@ export default function WorkoutDebrief() {
               </p>
             </div>
           </div>
-          <div>
-            <p className="text-sm text-secondary mb-3">Muscoli Allenati</p>
-            <div className="flex flex-wrap gap-2">
-              {MUSCLES.map((m) => (
-                <span
-                  key={m}
-                  className="bg-surface-container px-3 py-1.5 rounded-full font-semibold text-xs text-on-surface-variant"
-                >
-                  {m}
-                </span>
-              ))}
+          {muscles.length > 0 && (
+            <div>
+              <p className="text-sm text-secondary mb-3">Muscoli Allenati</p>
+              <div className="flex flex-wrap gap-2">
+                {muscles.map((m) => (
+                  <span
+                    key={m}
+                    className="bg-surface-container px-3 py-1.5 rounded-full font-semibold text-xs text-on-surface-variant"
+                  >
+                    {m}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
         </section>
 
         {/* Session RPE */}
@@ -161,10 +278,20 @@ export default function WorkoutDebrief() {
       <div className="fixed bottom-0 left-0 w-full bg-gradient-to-t from-white via-white to-transparent pt-12 pb-[env(safe-area-inset-bottom,24px)] px-6 z-40">
         <button
           onClick={handleSave}
-          className="w-full max-w-md mx-auto bg-primary text-white font-display font-bold text-lg py-4 rounded-full shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2"
+          disabled={saving}
+          className="w-full max-w-md mx-auto bg-primary text-white font-display font-bold text-lg py-4 rounded-full shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
         >
-          Salva e Torna alla Home
-          <ArrowRight className="w-5 h-5" />
+          {saving ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Salvataggio...
+            </>
+          ) : (
+            <>
+              Salva e Torna alla Home
+              <ArrowRight className="w-5 h-5" />
+            </>
+          )}
         </button>
       </div>
     </div>
