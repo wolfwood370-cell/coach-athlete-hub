@@ -114,7 +114,7 @@ export default function WorkoutDebrief() {
       }
 
       if (!updated && targetWorkoutId) {
-        const { error: insertErr } = await supabase.from("workout_logs").insert({
+        const { error: insertErr } = await supabase.from("workout_logs").insert([{
           athlete_id: user.id,
           workout_id: targetWorkoutId,
           status: "completed",
@@ -124,7 +124,7 @@ export default function WorkoutDebrief() {
           started_at: startedAt,
           exercises_data: exercisesData,
           local_id: activeSessionId,
-        });
+        }]);
         if (insertErr) throw insertErr;
       }
 
