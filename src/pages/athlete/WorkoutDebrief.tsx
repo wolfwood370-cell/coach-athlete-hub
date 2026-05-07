@@ -91,7 +91,7 @@ export default function WorkoutDebrief() {
     setSaving(true);
     try {
       const completedAt = new Date().toISOString();
-      const exercisesData = sessionLogs as unknown as Record<string, unknown>;
+      const exercisesData = JSON.parse(JSON.stringify(sessionLogs));
 
       // Try to update an existing workout_log for this workout
       const targetWorkoutId = workout?.id ?? workoutId ?? null;
