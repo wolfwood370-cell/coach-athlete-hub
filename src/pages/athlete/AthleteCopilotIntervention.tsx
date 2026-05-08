@@ -299,18 +299,21 @@ const AthleteCopilotIntervention = () => {
           <button
             type="button"
             onClick={handleAcceptSafePlan}
-            className="w-full py-4 bg-primary text-white rounded-full font-bold text-xs uppercase tracking-[0.1em] shadow-lg flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all"
+            disabled={acceptMutation.isPending || overrideMutation.isPending || !adaptationQuery.data?.safePlan?.length}
+            className="w-full py-4 bg-primary text-white rounded-full font-bold text-xs uppercase tracking-[0.1em] shadow-lg flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60"
           >
-            <CheckCircle className="size-4" />
+            {acceptMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle className="size-4" />}
             Accetta Piano Sicuro
           </button>
           <button
             type="button"
             onClick={handleKeepOriginal}
-            className="w-full py-3 text-secondary font-bold text-xs hover:bg-surface-container rounded-full transition-colors active:scale-[0.98] uppercase tracking-[0.1em] text-center"
+            disabled={acceptMutation.isPending || overrideMutation.isPending}
+            className="w-full py-3 text-secondary font-bold text-xs hover:bg-surface-container rounded-full transition-colors active:scale-[0.98] uppercase tracking-[0.1em] text-center disabled:opacity-60"
           >
             Mantieni Piano Originale (Sconsigliato)
           </button>
+
         </div>
       </footer>
     </div>
