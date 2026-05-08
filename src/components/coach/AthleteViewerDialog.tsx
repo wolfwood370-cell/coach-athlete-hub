@@ -78,6 +78,23 @@ export function AthleteViewerDialog({
     enabled: open && !!athleteId,
   });
 
+  // Fetch completed workout logs for today (review queue)
+  const { data: completedLogs = [], isLoading: logsLoading, refetch: refetchLogs } = useQuery({
+    queryKey: ["god-mode-workout-logs", athleteId, todayDate],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("workout_logs")
+        .select("id, workout_id, rpe_global, srpe, notes, coach_feedback, completed_at, workouts(title)")
+        .eq("athlete_id", athleteId)
+        .eq("status", "completed")
+        .gte("completed_at", `${todayDate}T00:00:00`)
+        .lte("completed_at", `${todayDate}T23:59:59`)
+        .order("completed_at", { ascending: false });
+      return data || [];
+    },
+    enabled: open && !!athleteId,
+  });
+
   // Fetch nutrition logs for today
   const { data: nutritionLogs = [], isLoading: nutritionLoading } = useQuery({
     queryKey: ["god-mode-nutrition", athleteId, todayDate],
