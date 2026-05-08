@@ -387,6 +387,7 @@ export function AthleteViewerDialog({
                         srpe={log.srpe}
                         athleteNotes={log.notes}
                         existingFeedback={log.coach_feedback}
+                        exercisesData={log.exercises_data}
                         onSaved={() => refetchLogs()}
                       />
                     ))
