@@ -30,6 +30,13 @@ const AthleteMealAnalysis = () => {
   const { state } = useLocation();
   const { imageUrl, analysis } = (state as LocationState | null) ?? {};
 
+  // Orphan-state guard: refresh / deep-link with no analysis → back to scanner.
+  // Never render demo macros under the "Verified by AI" badge.
+  if (!analysis) {
+    return <Navigate to="/athlete/nutrition" replace />;
+  }
+
+
   const detectedItems = useMemo(
     () =>
       (analysis?.ingredients ?? []).map((label, idx) => ({
