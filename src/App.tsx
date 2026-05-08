@@ -128,6 +128,7 @@ const App = () => (
                 <Route path="exercise-detail" element={<ExerciseDetail />} />
                 <Route path="exercise-preview" element={<ExercisePreview />} />
                 <Route path="conditioning-preview" element={<ConditioningPreview />} />
+                <Route path="weight-analytics" element={<AthleteWeightAnalytics />} />
                 <Route path="workout/:workoutId/phase/:phaseIndex" element={<WorkoutPhaseDetail />} />
                 <Route path="training" element={<AthleteTraining />} />
                 <Route path="training/active" element={<ActiveWorkout />} />
