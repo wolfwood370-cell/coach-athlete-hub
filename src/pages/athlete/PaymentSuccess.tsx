@@ -62,20 +62,7 @@ const PaymentSuccess = () => {
 
         {/* 5. Subscription Status Banner */}
         <div className="bg-surface-container rounded-xl p-4 flex items-start gap-4 border-l-4 border-primary">
-          <svg
-            className="shrink-0 mt-0.5 text-primary"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
-            <path d="m9 12 2 2 4-4" />
-          </svg>
+          <BadgeCheck size={20} className="shrink-0 mt-0.5 text-primary" />
           <p className="text-sm text-on-surface leading-relaxed">
             Il tuo accesso al coaching è completamente attivo. La data del prossimo rinnovo è il{" "}
             <strong className="font-bold">1 Giugno 2026</strong>.
