@@ -44,6 +44,7 @@ const AthleteMealAnalysis = lazy(() => import("./pages/athlete/AthleteMealAnalys
 const PaymentSuccess = lazy(() => import("./pages/athlete/PaymentSuccess"));
 const WorkoutDebrief = lazy(() => import("./pages/athlete/WorkoutDebrief"));
 const SupersetExecution = lazy(() => import("./pages/athlete/SupersetExecution"));
+const ConditioningPreview = lazy(() => import("./pages/athlete/ConditioningPreview"));
 const ActiveWorkout = lazy(() => import("./pages/athlete/ActiveWorkout"));
 const AthleteReadinessDetails = lazy(() => import("./pages/athlete/AthleteReadinessDetails"));
 const DailyCheckin = lazy(() => import("./pages/athlete/DailyCheckin"));
@@ -125,6 +126,7 @@ const App = () => (
                 <Route path="exercise-execution" element={<ExerciseExecution />} />
                 <Route path="exercise-detail" element={<ExerciseDetail />} />
                 <Route path="exercise-preview" element={<ExercisePreview />} />
+                <Route path="conditioning-preview" element={<ConditioningPreview />} />
                 <Route path="workout/:workoutId/phase/:phaseIndex" element={<WorkoutPhaseDetail />} />
                 <Route path="training" element={<AthleteTraining />} />
                 <Route path="training/active" element={<ActiveWorkout />} />
