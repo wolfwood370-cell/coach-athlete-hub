@@ -63,12 +63,52 @@ const AthleteCopilotMeal = () => {
     fats: Math.max(0, Math.round(targets.fats - (consumed?.fats ?? 0))),
   };
 
-  // TODO: Connect to ask-copilot for AI-generated suggestion based on `remaining`.
-  const suggestion = FALLBACK_SUGGESTION;
+  const suggestionMutation = useMutation({
+    mutationFn: async (): Promise<CopilotSuggestion> => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30_000);
+      try {
+        const { data, error } = await supabase.functions.invoke("ask-copilot", {
+          body: { mode: "meal_suggestion", remainingMacros: remaining },
+        });
+        if (error) throw error;
+        const s = (data as { data?: Partial<CopilotSuggestion> } | null)?.data;
+        if (!s || typeof s.name !== "string") {
+          throw new Error("Risposta AI non valida");
+        }
+        return {
+          name: s.name,
+          prepMinutes: Number(s.prepMinutes ?? 15),
+          imageUrl: typeof s.imageUrl === "string" && s.imageUrl ? s.imageUrl : PLACEHOLDER_IMAGE,
+          protein: Math.max(0, Math.round(Number(s.protein ?? 0))),
+          fats: Math.max(0, Math.round(Number(s.fats ?? 0))),
+          carbs: Math.max(0, Math.round(Number(s.carbs ?? 0))),
+          calories: Math.max(0, Math.round(Number(s.calories ?? 0))),
+        };
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+    onError: (err) => {
+      void showAiGatewayError(err);
+    },
+  });
+
+  const suggestion = suggestionMutation.data ?? null;
+  const isGenerating = suggestionMutation.isPending;
+
+  // Auto-generate the first suggestion once macros are ready
+  useEffect(() => {
+    if (!isLoading && !suggestionMutation.data && !suggestionMutation.isPending && !suggestionMutation.isError) {
+      suggestionMutation.mutate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading]);
 
   const logMutation = useMutation({
     mutationFn: async () => {
       if (!user?.id) throw new Error("Not authenticated");
+      if (!suggestion) throw new Error("Nessun suggerimento disponibile");
       const { error } = await supabase.from("nutrition_logs").insert({
         athlete_id: user.id,
         date: today,
@@ -91,9 +131,10 @@ const AthleteCopilotMeal = () => {
 
   const handleClose = () => navigate(-1);
   const handleRegenerate = () => {
-    // TODO: Connect to backend - regenerate AI meal suggestion via ask-copilot
-    toast.info("Generazione di una nuova opzione...");
+    if (isGenerating) return;
+    suggestionMutation.mutate();
   };
+
 
   return (
     <div className="min-h-screen bg-background">
