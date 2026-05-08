@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, CreditCard } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CreditCard, BadgeCheck } from "lucide-react";
 
 const PaymentSuccess = () => {
   const navigate = useNavigate();
