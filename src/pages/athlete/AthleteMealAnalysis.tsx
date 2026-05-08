@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, Navigate } from "react-router-dom";
+
 import {
   ArrowLeft,
   MoreVertical,
@@ -28,6 +29,13 @@ const AthleteMealAnalysis = () => {
   const queryClient = useQueryClient();
   const { state } = useLocation();
   const { imageUrl, analysis } = (state as LocationState | null) ?? {};
+
+  // Orphan-state guard: refresh / deep-link with no analysis → back to scanner.
+  // Never render demo macros under the "Verified by AI" badge.
+  if (!analysis) {
+    return <Navigate to="/athlete/nutrition" replace />;
+  }
+
 
   const detectedItems = useMemo(
     () =>
@@ -70,6 +78,7 @@ const AthleteMealAnalysis = () => {
       toast.error("Errore nel salvataggio");
     },
   });
+
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -116,19 +125,14 @@ const AthleteMealAnalysis = () => {
         <section className="bg-white rounded-2xl p-6 shadow-sm border border-surface-variant/50 flex flex-col gap-6">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-xl font-bold text-on-surface">
-              {analysis?.mealName ?? "Valori Nutrizionali Stimati"}
+              {analysis.mealName}
             </h2>
-            {!analysis && (
-              <span className="text-[10px] uppercase text-on-surface-variant font-semibold">
-                Demo
-              </span>
-            )}
           </div>
 
           <div className="flex items-end justify-between border-b border-surface-variant/50 pb-6">
             <div>
               <span className="font-display text-4xl font-extrabold text-on-surface">
-                {Math.round(analysis?.calories ?? 550)}
+                {Math.round(analysis.calories)}
               </span>
               <span className="text-base font-normal text-on-surface-variant ml-1">
                 kcal
@@ -140,7 +144,7 @@ const AthleteMealAnalysis = () => {
                   Pro
                 </span>
                 <span className="font-bold text-lg text-on-surface">
-                  {Math.round(analysis?.protein ?? 45)}g
+                  {Math.round(analysis.protein)}g
                 </span>
               </div>
               <div className="w-px bg-surface-variant h-8 self-center mx-1" />
@@ -149,7 +153,7 @@ const AthleteMealAnalysis = () => {
                   Fat
                 </span>
                 <span className="font-bold text-lg text-on-surface">
-                  {Math.round(analysis?.fats ?? 20)}g
+                  {Math.round(analysis.fats)}g
                 </span>
               </div>
               <div className="w-px bg-surface-variant h-8 self-center mx-1" />
@@ -158,11 +162,12 @@ const AthleteMealAnalysis = () => {
                   Carb
                 </span>
                 <span className="font-bold text-lg text-on-surface">
-                  {Math.round(analysis?.carbs ?? 40)}g
+                  {Math.round(analysis.carbs)}g
                 </span>
               </div>
             </div>
           </div>
+
 
           <div>
             <h3 className="font-semibold text-[10px] text-on-surface-variant uppercase tracking-widest mb-2">

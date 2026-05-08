@@ -197,12 +197,120 @@ serve(async (req) => {
     // -------------------------------------------------------------------------
     // 1. PARSE & VALIDATE INPUT
     // -------------------------------------------------------------------------
-    let body: { message?: unknown; history?: unknown };
+    let body: {
+      message?: unknown;
+      history?: unknown;
+      mode?: unknown;
+      remainingMacros?: unknown;
+      readiness?: unknown;
+      todayWorkout?: unknown;
+    };
     try {
       body = await req.json();
     } catch {
       return new Response(JSON.stringify({ error: "JSON non valido" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 1b. STRUCTURED MODES — meal_suggestion / session_adaptation bypass RAG
+    //     and return strict JSON. Lovable AI Gateway, no embeddings needed.
+    // -------------------------------------------------------------------------
+    const mode = typeof body.mode === "string" ? body.mode : null;
+    if (mode === "meal_suggestion" || mode === "session_adaptation") {
+      const sysPrompt = mode === "meal_suggestion"
+        ? `You are an elite sports nutritionist. Given the athlete's REMAINING macros for today, propose ONE single meal that fits as closely as possible.
+Return STRICT JSON with this exact shape (no markdown, no prose):
+{"name": string, "prepMinutes": number, "imageUrl": string, "protein": number, "fats": number, "carbs": number, "calories": number}
+- Use realistic Italian meal names.
+- imageUrl can be empty string if unknown.
+- All nutrient numbers in grams; calories in kcal as integers.`
+        : `You are an elite Clinical Sports Coach. Given the athlete's READINESS data and today's WORKOUT structure, produce a safer, adapted plan.
+Return STRICT JSON with this exact shape (no markdown):
+{
+  "rationale": string,
+  "adaptations": [{"type": "swap"|"reduce"|"add", "from": string|null, "to": string, "detail": string}],
+  "safePlan": [{"name": string, "sets": number, "reps": string, "load": string, "notes": string}]
+}
+Keep adaptations <= 5. safePlan should be the new full workout structure.`;
+
+      const userPayload = mode === "meal_suggestion"
+        ? { remainingMacros: body.remainingMacros ?? null }
+        : { readiness: body.readiness ?? null, todayWorkout: body.todayWorkout ?? null };
+
+      let aiResp: Response;
+      try {
+        aiResp = await fetchWithTimeout(
+          "https://ai.gateway.lovable.dev/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${lovableKey}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: [
+                { role: "system", content: sysPrompt },
+                { role: "user", content: JSON.stringify(userPayload) },
+              ],
+              response_format: { type: "json_object" },
+              stream: false,
+            }),
+          },
+          CHAT_TIMEOUT_MS,
+        );
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") {
+          return new Response(JSON.stringify({ error: "Timeout AI" }), {
+            status: 504,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        throw err;
+      }
+
+      if (!aiResp.ok) {
+        if (aiResp.status === 429) {
+          return new Response(JSON.stringify({ error: "Rate limited" }), {
+            status: 429,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        if (aiResp.status === 402) {
+          return new Response(JSON.stringify({ error: "Crediti AI esauriti" }), {
+            status: 402,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const t = await aiResp.text();
+        console.error("[ask-copilot] mode AI error", aiResp.status, t);
+        return new Response(JSON.stringify({ error: "Errore gateway AI" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const aiJson = await aiResp.json();
+      const raw = aiJson?.choices?.[0]?.message?.content ?? "";
+      let parsed: unknown = null;
+      try {
+        parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      } catch {
+        const m = typeof raw === "string" ? raw.match(/\{[\s\S]*\}/) : null;
+        if (m) {
+          try { parsed = JSON.parse(m[0]); } catch { parsed = null; }
+        }
+      }
+      if (!parsed) {
+        return new Response(JSON.stringify({ error: "Risposta AI non valida" }), {
+          status: 502,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ data: parsed }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

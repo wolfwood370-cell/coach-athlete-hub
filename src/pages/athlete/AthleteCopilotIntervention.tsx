@@ -12,9 +12,13 @@ import {
   CheckCircle,
   Loader2,
 } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { useReadiness } from "@/hooks/useReadiness";
 import { useTodaysWorkout } from "@/hooks/useTodaysWorkout";
+import { showAiGatewayError } from "@/lib/ai-error";
 
 const SORENESS_LABELS: Record<string, string> = {
   quads: "Quadricipiti",
@@ -30,22 +34,129 @@ const SORENESS_LABELS: Record<string, string> = {
   core: "Core",
 };
 
+interface Adaptation {
+  type: "swap" | "reduce" | "add";
+  from: string | null;
+  to: string;
+  detail: string;
+}
+interface SafePlanExercise {
+  name: string;
+  sets: number;
+  reps: string;
+  load: string;
+  notes: string;
+}
+interface AdaptationResponse {
+  rationale: string;
+  adaptations: Adaptation[];
+  safePlan: SafePlanExercise[];
+}
+
 const AthleteCopilotIntervention = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { readiness, isLoading: loadingReadiness } = useReadiness();
   const { workout: todayWorkout, isLoading: loadingWorkout } = useTodaysWorkout();
 
+  const adaptationQuery = useQuery({
+    queryKey: ["copilot-adaptation", todayWorkout?.id, readiness?.score],
+    enabled: !!todayWorkout && !!readiness,
+    staleTime: 5 * 60_000,
+    retry: false,
+    queryFn: async (): Promise<AdaptationResponse> => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30_000);
+      try {
+        const { data, error } = await supabase.functions.invoke("ask-copilot", {
+          body: {
+            mode: "session_adaptation",
+            readiness: {
+              score: readiness?.score,
+              sleepHours: readiness?.sleepHours,
+              sorenessMap: readiness?.sorenessMap,
+              stress: readiness?.stress,
+              energy: readiness?.energy,
+            },
+            todayWorkout: {
+              title: todayWorkout?.title,
+              structure: todayWorkout?.structure,
+            },
+          },
+        });
+        if (error) throw error;
+        const payload = (data as { data?: AdaptationResponse } | null)?.data;
+        if (!payload || !Array.isArray(payload.adaptations)) {
+          throw new Error("Risposta AI non valida");
+        }
+        return payload;
+      } finally {
+        clearTimeout(timer);
+      }
+    },
+  });
+
+  // Surface AI errors as toast (once per error)
+  if (adaptationQuery.error && !adaptationQuery.isFetching) {
+    void showAiGatewayError(adaptationQuery.error);
+  }
+
+  const acceptMutation = useMutation({
+    mutationFn: async () => {
+      if (!todayWorkout?.id) throw new Error("Nessun allenamento di oggi");
+      const safePlan = adaptationQuery.data?.safePlan;
+      if (!safePlan || safePlan.length === 0) throw new Error("Piano sicuro non disponibile");
+      const { error } = await supabase
+        .from("workouts")
+        .update({ structure: safePlan as unknown as never })
+        .eq("id", todayWorkout.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Piano sicuro applicato");
+      navigate(-1);
+    },
+    onError: (e) => {
+      console.error(e);
+      toast.error("Errore nell'applicare il piano sicuro");
+    },
+  });
+
+  const overrideMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id) throw new Error("Not authenticated");
+      // Look up coach for the alert
+      const { data: profile, error: pErr } = await supabase
+        .from("profiles")
+        .select("coach_id, full_name")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (pErr) throw pErr;
+      if (!profile?.coach_id) return; // no coach → silently skip alert
+      const { error } = await supabase.from("coach_alerts").insert({
+        coach_id: profile.coach_id,
+        athlete_id: user.id,
+        type: "fatigue_override",
+        severity: "medium",
+        message: `${profile.full_name ?? "L'atleta"} ha ignorato l'avviso di affaticamento e mantenuto il piano originale ("${todayWorkout?.title ?? "allenamento"}").`,
+        link: `/coach/athletes/${user.id}`,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.message("Mantenuto piano originale. Il coach è stato avvisato.");
+      navigate(-1);
+    },
+    onError: (e) => {
+      console.error(e);
+      toast.message("Mantenuto piano originale");
+      navigate(-1);
+    },
+  });
+
   const handleClose = () => navigate(-1);
-  const handleAcceptSafePlan = () => {
-    // TODO: Connect to backend - mutate today's workout structure with adapted exercises
-    toast.success("Piano sicuro applicato");
-    navigate(-1);
-  };
-  const handleKeepOriginal = () => {
-    // TODO: Connect to backend - log the override decision
-    toast.message("Mantenuto piano originale");
-    navigate(-1);
-  };
+  const handleAcceptSafePlan = () => acceptMutation.mutate();
+  const handleKeepOriginal = () => overrideMutation.mutate();
 
   // Derive worst soreness zone
   const worstSoreness = useMemo(() => {
@@ -62,13 +173,8 @@ const AthleteCopilotIntervention = () => {
     return bestKey ? { zone: SORENESS_LABELS[bestKey] ?? bestKey, level: best } : null;
   }, [readiness?.sorenessMap]);
 
-  // Derive heaviest exercise from today's workout (first compound)
-  const heaviestExercise = useMemo(() => {
-    const ex = todayWorkout?.structure?.[0];
-    return ex?.name ?? "Esercizio principale";
-  }, [todayWorkout]);
-
-  const isLoading = loadingReadiness || loadingWorkout;
+  const isLoading = loadingReadiness || loadingWorkout || adaptationQuery.isLoading;
+  const adaptations = adaptationQuery.data?.adaptations ?? [];
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -141,32 +247,47 @@ const AthleteCopilotIntervention = () => {
                 </h2>
               </div>
 
-              {/* TODO: Connect to backend - generate adaptations dynamically via AI based on workout + readiness */}
               <ul className="flex flex-col gap-4 relative z-10">
-                <li className="flex items-start gap-3 bg-white/50 p-4 rounded-xl border border-surface-variant/30">
-                  <ArrowRightLeft className="text-secondary mt-0.5 size-5 shrink-0" />
-                  <div className="flex flex-col">
-                    <span className="line-through text-on-surface-variant/70 mr-2">
-                      {heaviestExercise}
-                    </span>
-                    <div className="font-bold text-primary flex items-center gap-1 mt-1">
-                      <ArrowRight size={16} /> Variante a basso impatto
-                    </div>
-                  </div>
-                </li>
-                <li className="flex items-start gap-3 bg-white/50 p-4 rounded-xl border border-surface-variant/30">
-                  <TrendingDown className="text-secondary mt-0.5 size-5 shrink-0" />
-                  <p className="text-on-surface font-medium">
-                    Volume totale ridotto del 20%
-                  </p>
-                </li>
-                <li className="flex items-start gap-3 bg-white/50 p-4 rounded-xl border border-surface-variant/30">
-                  <PlusCircle className="text-secondary mt-0.5 size-5 shrink-0" />
-                  <p className="text-on-surface font-medium">
-                    Aggiunti 10 min di mobilità mirata
-                  </p>
-                </li>
+                {adaptations.length === 0 ? (
+                  <li className="text-sm text-on-surface-variant italic">
+                    Nessun adattamento generato.
+                  </li>
+                ) : (
+                  adaptations.map((a, i) => {
+                    const Icon =
+                      a.type === "swap"
+                        ? ArrowRightLeft
+                        : a.type === "reduce"
+                          ? TrendingDown
+                          : PlusCircle;
+                    return (
+                      <li
+                        key={i}
+                        className="flex items-start gap-3 bg-white/50 p-4 rounded-xl border border-surface-variant/30"
+                      >
+                        <Icon className="text-secondary mt-0.5 size-5 shrink-0" />
+                        <div className="flex flex-col">
+                          {a.type === "swap" && a.from && (
+                            <span className="line-through text-on-surface-variant/70 mr-2">
+                              {a.from}
+                            </span>
+                          )}
+                          <div className="font-bold text-primary flex items-center gap-1 mt-1">
+                            {a.type === "swap" && <ArrowRight size={16} />}
+                            {a.to}
+                          </div>
+                          {a.detail && (
+                            <p className="text-xs text-on-surface-variant mt-1">
+                              {a.detail}
+                            </p>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })
+                )}
               </ul>
+
             </section>
           </>
         )}
@@ -178,18 +299,21 @@ const AthleteCopilotIntervention = () => {
           <button
             type="button"
             onClick={handleAcceptSafePlan}
-            className="w-full py-4 bg-primary text-white rounded-full font-bold text-xs uppercase tracking-[0.1em] shadow-lg flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all"
+            disabled={acceptMutation.isPending || overrideMutation.isPending || !adaptationQuery.data?.safePlan?.length}
+            className="w-full py-4 bg-primary text-white rounded-full font-bold text-xs uppercase tracking-[0.1em] shadow-lg flex items-center justify-center gap-2 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-60"
           >
-            <CheckCircle className="size-4" />
+            {acceptMutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle className="size-4" />}
             Accetta Piano Sicuro
           </button>
           <button
             type="button"
             onClick={handleKeepOriginal}
-            className="w-full py-3 text-secondary font-bold text-xs hover:bg-surface-container rounded-full transition-colors active:scale-[0.98] uppercase tracking-[0.1em] text-center"
+            disabled={acceptMutation.isPending || overrideMutation.isPending}
+            className="w-full py-3 text-secondary font-bold text-xs hover:bg-surface-container rounded-full transition-colors active:scale-[0.98] uppercase tracking-[0.1em] text-center disabled:opacity-60"
           >
             Mantieni Piano Originale (Sconsigliato)
           </button>
+
         </div>
       </footer>
     </div>
