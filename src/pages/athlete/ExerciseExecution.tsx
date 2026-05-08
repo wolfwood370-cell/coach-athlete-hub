@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Info, Check, Plus, FileEdit, Loader2 } from "lucide-react";
 import { useTodaysWorkout } from "@/hooks/useTodaysWorkout";
 import { useExerciseHistory } from "@/hooks/useExerciseHistory";
-import { useSetMutation } from "@/hooks/useSetMutation";
+import { useOptimisticSetMutation } from "@/hooks/useOptimisticSetMutation";
 import { useActiveSessionStore } from "@/stores/useActiveSessionStore";
 import type { WorkoutStructureExercise } from "@/types/database";
 
@@ -44,7 +44,7 @@ export default function ExerciseExecution() {
   const { workout, isLoading } = useTodaysWorkout();
   const currentIndex = useActiveSessionStore((s) => s.currentExerciseIndex);
   const sessionLogs = useActiveSessionStore((s) => s.sessionLogs);
-  const setMutation = useSetMutation();
+  const setMutation = useOptimisticSetMutation();
 
   const exercise: WorkoutStructureExercise | null = useMemo(() => {
     const list = workout?.structure ?? [];
