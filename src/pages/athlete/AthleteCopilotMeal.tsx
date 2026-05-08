@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { X, Sparkles, CheckCircle, Loader2 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -6,6 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNutritionTargets } from "@/hooks/useNutritionTargets";
+import { showAiGatewayError } from "@/lib/ai-error";
 
 interface CopilotSuggestion {
   name: string;
@@ -17,16 +19,9 @@ interface CopilotSuggestion {
   calories: number;
 }
 
-const FALLBACK_SUGGESTION: CopilotSuggestion = {
-  name: "Petto di Pollo al Limone con Asparagi",
-  prepMinutes: 15,
-  imageUrl:
-    "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=1200&q=80",
-  protein: 48,
-  fats: 6,
-  carbs: 12,
-  calories: 320,
-};
+const PLACEHOLDER_IMAGE =
+  "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1200&q=80";
+
 
 const AthleteCopilotMeal = () => {
   const navigate = useNavigate();
