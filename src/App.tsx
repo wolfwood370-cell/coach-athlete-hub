@@ -133,6 +133,7 @@ const App = () => (
                 <Route path="copilot/meal" element={<AthleteCopilotMeal />} />
                 <Route path="copilot/intervention" element={<AthleteCopilotIntervention />} />
                 <Route path="meal-analysis" element={<AthleteMealAnalysis />} />
+                <Route path="payment-success" element={<PaymentSuccess />} />
                 <Route path="workout/debrief" element={<WorkoutDebrief />} />
               </Route>
               {/* Legacy redirect */}
