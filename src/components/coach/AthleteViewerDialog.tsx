@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -22,10 +24,14 @@ import {
   Scale,
   Utensils,
   AlertTriangle,
+  MessageSquare,
+  Send,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
+import { useReviewWorkout } from "@/hooks/useReviewWorkout";
 
 interface AthleteViewerDialogProps {
   athleteId: string;
