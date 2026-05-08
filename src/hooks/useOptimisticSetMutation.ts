@@ -14,7 +14,7 @@ interface SetPayload {
  * Optimistic mutation for logging individual set fields.
  * Updates the Zustand store instantly (onMutate) and rolls back on error.
  */
-export function useSetMutation() {
+export function useOptimisticSetMutation() {
   const queryClient = useQueryClient();
   const updateSetField = useActiveSessionStore((s) => s.updateSetField);
   const completeSet = useActiveSessionStore((s) => s.completeSet);
