@@ -292,7 +292,35 @@ export function AthleteViewerDialog({
               </CardContent>
             </Card>
 
-            {/* ===== NUTRITION SUMMARY ===== */}
+            {/* ===== REVIEW QUEUE ===== */}
+            {(logsLoading || completedLogs.length > 0) && (
+              <Card>
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold">Feedback Coach</h3>
+                  </div>
+                  {logsLoading ? (
+                    <Skeleton className="h-20 w-full" />
+                  ) : (
+                    completedLogs.map((log) => (
+                      <ReviewWorkoutItem
+                        key={log.id}
+                        logId={log.id}
+                        title={(log.workouts as { title?: string } | null)?.title ?? "Allenamento"}
+                        rpe={log.rpe_global}
+                        srpe={log.srpe}
+                        athleteNotes={log.notes}
+                        existingFeedback={log.coach_feedback}
+                        onSaved={() => refetchLogs()}
+                      />
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2 mb-3">
