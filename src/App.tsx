@@ -136,6 +136,7 @@ const App = () => (
                 <Route path="meal-analysis" element={<AthleteMealAnalysis />} />
                 <Route path="payment-success" element={<PaymentSuccess />} />
                 <Route path="workout/debrief" element={<WorkoutDebrief />} />
+                <Route path="workout/superset" element={<SupersetExecution />} />
               </Route>
               {/* Legacy redirect */}
               <Route path="/athlete/workout" element={<Navigate to="/athlete/training" replace />} />
