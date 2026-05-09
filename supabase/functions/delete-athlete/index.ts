@@ -58,11 +58,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Idempotent: profile already gone → also try removing the orphan auth user, then return success.
+    // Idempotent: profile already gone → return success so retries from a stale UI don't error.
     if (!profile) {
-      const admin0 = createClient(SUPABASE_URL, SERVICE_ROLE);
-      const { error: orphanErr } = await admin0.auth.admin.deleteUser(athlete_id);
-      if (orphanErr) console.warn("delete-athlete orphan auth user cleanup:", orphanErr.message);
       return new Response(JSON.stringify({ success: true, alreadyDeleted: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
