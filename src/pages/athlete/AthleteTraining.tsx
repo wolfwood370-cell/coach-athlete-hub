@@ -116,16 +116,7 @@ export default function AthleteTraining() {
     <div className="min-h-screen bg-background relative">
       {/* Top App Bar */}
       <header className="sticky top-0 w-full z-50 bg-white/80 backdrop-blur-2xl border-b border-surface-variant flex justify-between items-center px-6 py-4">
-        <button
-          className="w-10 h-10 rounded-full overflow-hidden bg-surface-container"
-          aria-label="Profilo"
-        >
-          <img
-            src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=120&q=80"
-            alt="Avatar atleta"
-            className="w-full h-full object-cover"
-          />
-        </button>
+        <span className="w-10 h-10" aria-hidden />
         <h1 className="font-display font-bold text-lg text-primary">Training</h1>
         <button
           onClick={() => navigate("/athlete/settings")}

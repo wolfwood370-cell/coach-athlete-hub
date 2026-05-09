@@ -63,6 +63,7 @@ const ExerciseExecution = lazy(() => import("./pages/athlete/ExerciseExecution")
 const ExerciseDetail = lazy(() => import("./pages/athlete/ExerciseDetail"));
 const ExercisePreview = lazy(() => import("./pages/athlete/ExercisePreview"));
 const WorkoutPhaseDetail = lazy(() => import("./pages/athlete/WorkoutPhaseDetail"));
+const AthleteProfile = lazy(() => import("./pages/athlete/AthleteProfile"));
 import { AthleteLayout } from "./components/athlete/AthleteLayout";
 const OnboardingWizard = lazy(() => import("./pages/onboarding/OnboardingWizard"));
 const NutritionWizardStep1 = lazy(() => import("./pages/athlete/onboarding/NutritionWizardStep1"));
@@ -112,6 +113,7 @@ const App = () => (
               <Route path="/athlete" element={<AthleteLayout />}>
                 <Route index element={<Navigate to="/athlete/dashboard" replace />} />
                 <Route path="dashboard" element={<AthleteDashboard />} />
+                <Route path="profile" element={<AthleteProfile />} />
                 <Route path="readiness" element={<AthleteReadinessDetails />} />
                 <Route path="checkin" element={<DailyCheckin />} />
                 <Route path="checkin/weekly" element={<WeeklyCheckin />} />
