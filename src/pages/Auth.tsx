@@ -36,10 +36,16 @@ export default function Auth() {
     }
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(loginEmail, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      const { data, error } = await supabase.functions.invoke("forgot-password", {
+        body: {
+          email: loginEmail,
+          redirectTo: `${window.location.origin}/reset-password`,
+        },
       });
       if (error) throw error;
+      if (data && (data as { error?: string }).error) {
+        throw new Error((data as { error: string }).error);
+      }
       toast.success("Email di recupero inviata! Controlla la tua casella di posta.");
     } catch (error: unknown) {
       toast.error(mapSupabaseError(error));
