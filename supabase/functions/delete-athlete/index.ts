@@ -50,9 +50,17 @@ Deno.serve(async (req) => {
       .eq("id", athlete_id)
       .maybeSingle();
 
-    if (pErr || !profile) {
-      return new Response(JSON.stringify({ error: "Athlete not found" }), {
-        status: 404,
+    if (pErr) {
+      console.error("delete-athlete profile lookup error:", pErr);
+      return new Response(JSON.stringify({ error: pErr.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Idempotent: profile already gone → return success so retries from a stale UI don't error.
+    if (!profile) {
+      return new Response(JSON.stringify({ success: true, alreadyDeleted: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
