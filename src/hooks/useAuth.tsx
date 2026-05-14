@@ -109,9 +109,6 @@ export function useAuth() {
 
     // Clear Zustand persisted state
     try {
-      const { useActiveSessionStore } = await import('@/stores/useActiveSessionStore');
-      useActiveSessionStore.persist.clearStorage();
-      // Also clear by known key in case persist API fails
       localStorage.removeItem('active-workout-storage');
     } catch { /* ignore */ }
 
