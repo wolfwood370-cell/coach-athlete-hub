@@ -2701,6 +2701,10 @@ export type Database = {
       }
     }
     Functions: {
+      archive_athlete: {
+        Args: { p_athlete_id: string }
+        Returns: void
+      }
       clone_program_week: {
         Args: {
           source_week_id: string

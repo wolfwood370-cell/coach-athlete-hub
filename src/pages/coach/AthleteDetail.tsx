@@ -2231,22 +2231,18 @@ function SettingsContent({
     },
   });
 
-  // Archive athlete mutation
+  // Archive athlete mutation — delegates to the server-side RPC
+  // `archive_athlete` (C8 audit fix). The RPC enforces coach ownership
+  // server-side and performs the JSONB patch atomically with jsonb_set,
+  // eliminating the read-modify-write race that the previous inline
+  // update suffered from when two tabs archived concurrently.
   const archiveAthleteMutation = useMutation({
     mutationFn: async () => {
       if (!athleteId) throw new Error("No athlete ID");
 
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          settings: {
-            ...(profile?.settings || {}),
-            archived: true,
-            archived_at: new Date().toISOString(),
-          },
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", athleteId);
+      const { error } = await supabase.rpc("archive_athlete", {
+        p_athlete_id: athleteId,
+      });
 
       if (error) throw error;
     },
