@@ -2713,6 +2713,14 @@ export type Database = {
         Args: { source_workout_id: string; target_day_id: string }
         Returns: string
       }
+      get_chat_partner_profiles: {
+        Args: { p_user_ids: string[] }
+        Returns: {
+          id: string
+          full_name: string | null
+          avatar_url: string | null
+        }[]
+      }
       get_or_create_direct_room: {
         Args: { user_a: string; user_b: string }
         Returns: string

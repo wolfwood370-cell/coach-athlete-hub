@@ -81,12 +81,14 @@ export function useChatRooms() {
 
       if (allPartError) throw allPartError;
 
-      // Fetch profiles for all participants
+      // Fetch profiles for all participants via the safe RPC
+      // (`get_chat_partner_profiles` — see C4 audit fix). The function returns
+      // ONLY id/full_name/avatar_url and enforces chat-room membership
+      // server-side, so we cannot accidentally pull sensitive fields like
+      // onboarding_data or red_flags via this query path.
       const userIds = [...new Set(allParticipants?.map(p => p.user_id) || [])];
       const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, full_name, avatar_url')
-        .in('id', userIds);
+        .rpc('get_chat_partner_profiles', { p_user_ids: userIds });
 
       if (profilesError) throw profilesError;
 
@@ -208,17 +210,42 @@ export function useMessages(roomId: string | null) {
     queryFn: async () => {
       if (!roomId) return [];
 
-      const { data, error } = await supabase
+      // Fetch messages without the FK embed on profiles. The audit C4 fix
+      // dropped the over-broad "Read profiles of shared chat rooms" policy,
+      // so the embed would return null sender objects for anyone outside the
+      // caller's coach/athlete relationships. Instead we resolve sender
+      // identities via the safe RPC and join client-side.
+      const { data: rawMessages, error } = await supabase
         .from('messages')
-        .select(`
-          *,
-          sender:profiles!messages_sender_id_fkey(id, full_name, avatar_url)
-        `)
+        .select('*')
         .eq('room_id', roomId)
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      return (data || []) as (Message & { sender: { id: string; full_name: string | null; avatar_url: string | null } })[];
+      const messages = (rawMessages || []) as Message[];
+
+      const senderIds = [...new Set(messages.map((m) => m.sender_id))];
+      if (senderIds.length === 0) {
+        return [] as (Message & { sender: { id: string; full_name: string | null; avatar_url: string | null } })[];
+      }
+
+      const { data: senderProfiles, error: senderError } = await supabase
+        .rpc('get_chat_partner_profiles', { p_user_ids: senderIds });
+
+      if (senderError) throw senderError;
+
+      const senderMap = new Map<string, { id: string; full_name: string | null; avatar_url: string | null }>(
+        (senderProfiles || []).map((p) => [p.id, p])
+      );
+
+      return messages.map((m) => ({
+        ...m,
+        sender: senderMap.get(m.sender_id) ?? {
+          id: m.sender_id,
+          full_name: null,
+          avatar_url: null,
+        },
+      })) as (Message & { sender: { id: string; full_name: string | null; avatar_url: string | null } })[];
     },
     enabled: !!roomId
   });
