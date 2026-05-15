@@ -1,37 +1,60 @@
 project_id = "geepagjpequxsjsoahgw"
 
+# =============================================================================
+# Edge Function gateway JWT policy
+# -----------------------------------------------------------------------------
+# Default (Supabase) is verify_jwt = true. We explicitly re-state it for every
+# authenticated function so the policy is auditable in one place and a new
+# function added in the future inherits the safe default.
+#
+# Only two functions intentionally bypass the gateway check:
+#   - stripe-webhook   → caller is Stripe; auth is done via Stripe-Signature
+#   - forgot-password  → caller is unauthenticated by definition
+# =============================================================================
+
 [functions.analyze-athlete-week]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-program]
-verify_jwt = false
+verify_jwt = true
 
 [functions.analyze-meal-photo]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ingest-knowledge]
-verify_jwt = false
+verify_jwt = true
 
 [functions.ask-copilot]
-verify_jwt = false
+verify_jwt = true
 
 [functions.chat-with-coach]
-verify_jwt = false
+verify_jwt = true
 
 [functions.create-checkout-session]
-verify_jwt = false
+verify_jwt = true
+
+[functions.create-portal-session]
+verify_jwt = true
+
+[functions.send-email]
+verify_jwt = true
+
+[functions.check-achievements]
+verify_jwt = true
+
+[functions.generate-batch-checkins]
+verify_jwt = true
+
+[functions.invite-athlete]
+verify_jwt = true
+
+[functions.delete-athlete]
+verify_jwt = true
+
+# -- Public endpoints (intentionally unauthenticated at the gateway) ---------
 
 [functions.stripe-webhook]
 verify_jwt = false
 
-[functions.create-portal-session]
-verify_jwt = false
-
-[functions.send-email]
-verify_jwt = false
-
-[functions.check-achievements]
-verify_jwt = false
-
-[functions.generate-batch-checkins]
+[functions.forgot-password]
 verify_jwt = false
