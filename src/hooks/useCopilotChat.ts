@@ -57,10 +57,12 @@ export interface UseCopilotChatResult {
 }
 
 // -----------------------------------------------------------------------------
-// Tunables — kept loose enough for slow networks but tight enough that a
-// genuinely hung request fails before the user gives up and reloads.
+// Tunables — strict 30s ceiling. The edge function's own internal timeouts
+// (15s embedding + 45s chat) can stretch longer, but from the user's POV a
+// 30s spinner already feels broken; we'd rather show an actionable error than
+// pin the UI in a loading state indefinitely. C3 audit finding.
 // -----------------------------------------------------------------------------
-const REQUEST_TIMEOUT_MS = 60_000;
+const REQUEST_TIMEOUT_MS = 30_000;
 
 // =============================================================================
 // useCopilotChat
@@ -126,7 +128,13 @@ export function useCopilotChat(): UseCopilotChatResult {
       // a signal/timeout, but it does forward `signal` through fetch under
       // the hood — so this both bounds total wall-time AND lets us cancel on
       // unmount or on a follow-up send.
-      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      // We track timeout-vs-supersede separately: a fresh send (or unmount)
+      // is a silent abort, but a timer-driven abort is a user-facing error.
+      let timedOut = false;
+      const timeoutId = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, REQUEST_TIMEOUT_MS);
 
       try {
         const { data, error: invokeError } = await supabase.functions.invoke<{
@@ -141,8 +149,9 @@ export function useCopilotChat(): UseCopilotChatResult {
           signal: controller.signal,
         });
 
-        // If we were aborted (unmount / superseded), bail silently.
-        if (controller.signal.aborted || !mountedRef.current) return;
+        // If we were aborted by a fresh send or unmount (not the timer),
+        // bail silently. A timeout falls through to the catch block below.
+        if ((controller.signal.aborted && !timedOut) || !mountedRef.current) return;
 
         if (invokeError) {
           throw new Error(invokeError.message || "Errore di rete");
@@ -166,16 +175,23 @@ export function useCopilotChat(): UseCopilotChatResult {
         setMessages((prev) => [...prev, assistantTurn]);
         setLastSources(data.sources ?? []);
       } catch (e) {
-        // Aborts are not user-facing errors.
-        if (
+        // A timer-driven abort is a real user-facing error ("the request hung
+        // past 30s"). A supersede/unmount abort, however, must stay silent —
+        // it would be wrong to toast "timeout" when the user just sent a
+        // newer message or closed the panel.
+        const isAbort =
           (e instanceof DOMException && e.name === "AbortError") ||
-          controller.signal.aborted
-        ) {
+          controller.signal.aborted;
+
+        if (isAbort && !timedOut) {
           return;
         }
 
-        const message =
-          e instanceof Error ? e.message : "Errore imprevisto durante la richiesta.";
+        const message = timedOut
+          ? "Timeout AI: Riprova"
+          : e instanceof Error
+            ? e.message
+            : "Errore imprevisto durante la richiesta.";
 
         if (!mountedRef.current) return;
 
