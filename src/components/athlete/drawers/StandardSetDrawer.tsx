@@ -21,6 +21,7 @@ import { useState } from "react";
 import { Plus, X, Megaphone, Play, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DrawerShell } from "./DrawerShell";
+import { useAthleteWorkoutStore } from "@/stores/useAthleteWorkoutStore";
 
 interface SetRow {
   id: string;
@@ -38,20 +39,32 @@ const INITIAL_SETS: SetRow[] = [
 ];
 
 interface StandardSetDrawerProps {
-  open: boolean;
+  isOpen: boolean;
   onClose: () => void;
+  /**
+   * Unique identifier of the exercise being logged. Used as the key in
+   * `useAthleteWorkoutStore.workoutData.exercises[exerciseId]`. Required
+   * so per-row commits land on the right entry.
+   */
+  exerciseId: string;
   /** Optional override title — defaults to the mock "A1. Barbell Back Squat". */
   exerciseName?: string;
   meta?: string;
 }
 
 export function StandardSetDrawer({
-  open,
+  isOpen,
   onClose,
+  exerciseId,
   exerciseName = "A1. Barbell Back Squat",
   meta = "Forza Primaria · RPE 8",
 }: StandardSetDrawerProps) {
   const [sets, setSets] = useState<SetRow[]>(INITIAL_SETS);
+
+  // Atomic selector — we never read state here, only fire the action.
+  // Subscribing this narrowly means the drawer doesn't re-render when
+  // the global elapsedTime ticks (1Hz in ActiveWorkout).
+  const updateSetData = useAthleteWorkoutStore((s) => s.updateSetData);
 
   const updateField = (id: string, field: keyof SetRow, value: string) => {
     setSets((prev) =>
@@ -59,10 +72,28 @@ export function StandardSetDrawer({
     );
   };
 
+  /**
+   * Per-row done toggle is the commit gesture: marking a row as done
+   * pushes its kg + reps into the shared workout store keyed by
+   * exerciseId + setIndex. Toggling back to undone is a UI-only revert
+   * (we don't expose a "delete set" store action in this commit).
+   */
   const toggleDone = (id: string) => {
-    setSets((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, done: !s.done } : s)),
-    );
+    setSets((prev) => {
+      const next = prev.map((s) =>
+        s.id === id ? { ...s, done: !s.done } : s,
+      );
+      const idx = next.findIndex((s) => s.id === id);
+      const row = idx >= 0 ? next[idx] : undefined;
+      if (row && row.done) {
+        // Parse defensively; empty / NaN inputs land as 0 in the store,
+        // which is honest about what the user actually typed.
+        const reps = Number(row.reps) || 0;
+        const weight = Number(row.kg) || 0;
+        updateSetData(exerciseId, idx, reps, weight);
+      }
+      return next;
+    });
   };
 
   const addSet = () => {
@@ -81,7 +112,7 @@ export function StandardSetDrawer({
   };
 
   return (
-    <DrawerShell open={open} onClose={onClose} ariaLabel={`Esecuzione ${exerciseName}`}>
+    <DrawerShell open={isOpen} onClose={onClose} ariaLabel={`Esecuzione ${exerciseName}`}>
       {/* Header */}
       <header className="shrink-0 px-6 pb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">

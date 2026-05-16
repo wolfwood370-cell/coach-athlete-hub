@@ -64,17 +64,21 @@ interface UpcomingExercise {
   id: string;
   code: string;
   name: string;
-  /** "0/3 Sets" — pre-rendered for display only. */
-  setsLabel: string;
+  totalSets: number;
 }
 
 interface ActiveExercise {
+  /** Stable id used as the key in `workoutData.exercises[id]`. */
+  id: string;
   code: string;
   name: string;
   totalSets: number;
-  completedSets: number;
-  currentSet: {
-    index: number;
+  /**
+   * Coach-prescribed target for the next set. The current set index is
+   * derived live from the store (= completed sets count + 1), so this
+   * struct holds only the prescription, not the live progress.
+   */
+  setTarget: {
     reps: number;
     weightKg: number;
   };
@@ -92,16 +96,16 @@ const COMPLETED_PHASE = {
 };
 
 const ACTIVE_EXERCISE: ActiveExercise = {
+  id: "a1",
   code: "A1",
   name: "Barbell Back Squat",
   totalSets: 4,
-  completedSets: 2,
-  currentSet: { index: 3, reps: 8, weightKg: 100 },
+  setTarget: { reps: 8, weightKg: 100 },
 };
 
 const UPCOMING: UpcomingExercise[] = [
-  { id: "b1", code: "B1", name: "Romanian Deadlift", setsLabel: "0/3 Set" },
-  { id: "b2", code: "B2", name: "Weighted Pull-ups", setsLabel: "0/3 Set" },
+  { id: "b1", code: "B1", name: "Romanian Deadlift", totalSets: 3 },
+  { id: "b2", code: "B2", name: "Weighted Pull-ups", totalSets: 3 },
 ];
 
 // Progress bar (% of session completed) — driven from mock for now.
@@ -115,6 +119,21 @@ function formatMMSS(seconds: number): string {
   const m = Math.floor(safe / 60);
   const s = safe % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+// =============================================================================
+// useCompletedSetCount — atomic selector that returns the number of sets
+// the athlete has actually logged for a given exercise. We count entries
+// with a non-zero `loggedAt` because `updateSetData` pads intermediate
+// slots with `{ reps:0, weight:0, loggedAt:0 }` when a non-sequential
+// setIndex is written — those padding slots must NOT count as completed.
+// =============================================================================
+function useCompletedSetCount(exerciseId: string): number {
+  return useAthleteWorkoutStore((s) => {
+    const log = s.workoutData.exercises[exerciseId];
+    if (!log) return 0;
+    return log.sets.filter((set) => set.loggedAt > 0).length;
+  });
 }
 
 // =============================================================================
@@ -258,20 +277,27 @@ function CompletedPhase() {
 
 // =============================================================================
 // ActiveExerciseCard — focal card for the in-progress exercise.
-// The whole card is a button: tapping it opens the protocol-specific
-// execution drawer (Phase 8 wiring — currently StandardSet only).
+// Live two-way binding to the store: the completed-set count, the pill
+// segments, and the "Set N · Obiettivo" line all derive from
+// `useCompletedSetCount(exercise.id)`. As soon as a set is committed
+// from the StandardSetDrawer, this card updates without a refetch.
 // =============================================================================
 function ActiveExerciseCard({
   exercise,
-  onOpenDrawer,
+  onOpen,
 }: {
   exercise: ActiveExercise;
-  onOpenDrawer: () => void;
+  onOpen: (exerciseId: string) => void;
 }) {
+  const completedSets = useCompletedSetCount(exercise.id);
+  // Clamp at totalSets so an over-shoot doesn't render bogus state.
+  const safeCompleted = Math.min(completedSets, exercise.totalSets);
+  const currentSetIndex = Math.min(safeCompleted + 1, exercise.totalSets);
+
   return (
     <button
       type="button"
-      onClick={onOpenDrawer}
+      onClick={() => onOpen(exercise.id)}
       aria-label={`Apri esecuzione ${exercise.code}. ${exercise.name}`}
       className={cn(
         "relative overflow-hidden w-full text-left",
@@ -289,7 +315,7 @@ function ActiveExerciseCard({
             {exercise.name}
           </h3>
           <p className="mt-1 font-sans text-xs font-semibold tracking-wide text-brand-container">
-            {exercise.completedSets}/{exercise.totalSets} serie completate
+            {safeCompleted}/{exercise.totalSets} serie completate
           </p>
         </div>
         <span
@@ -307,7 +333,7 @@ function ActiveExerciseCard({
         className="flex gap-2 mb-5"
       >
         {Array.from({ length: exercise.totalSets }).map((_, i) => {
-          const isDone = i < exercise.completedSets;
+          const isDone = i < safeCompleted;
           return (
             <div
               key={i}
@@ -321,21 +347,21 @@ function ActiveExerciseCard({
         })}
       </div>
 
-      {/* Current set target */}
+      {/* Current set target — coach prescription, indexed by live progress */}
       <div className="rounded-2xl p-4 bg-surface-container/50 flex items-center justify-between gap-3">
         <div>
           <span className="font-sans text-[10px] font-semibold tracking-widest uppercase text-on-surface-variant">
-            Set {exercise.currentSet.index} · Obiettivo
+            Set {currentSetIndex} · Obiettivo
           </span>
           <p className="mt-1 font-display text-2xl font-semibold tabular-nums text-on-surface">
-            {exercise.currentSet.reps}
+            {exercise.setTarget.reps}
             <span className="ml-1 text-base font-normal text-on-surface-variant">
               reps
             </span>
             <span className="mx-2 text-base font-normal text-on-surface-variant">
               @
             </span>
-            {exercise.currentSet.weightKg}
+            {exercise.setTarget.weightKg}
             <span className="ml-1 text-base font-normal text-on-surface-variant">
               kg
             </span>
@@ -352,16 +378,32 @@ function ActiveExerciseCard({
 }
 
 // =============================================================================
-// UpcomingExerciseCard — compact card for queued exercises.
+// UpcomingExerciseCard — compact card for queued exercises. The whole
+// row is a button that opens the drawer for its exercise; the
+// trailing ArrowUpDown becomes a non-interactive decoration to avoid
+// nested interactive elements.
 // =============================================================================
-function UpcomingExerciseCard({ exercise }: { exercise: UpcomingExercise }) {
+function UpcomingExerciseCard({
+  exercise,
+  onOpen,
+}: {
+  exercise: UpcomingExercise;
+  onOpen: (exerciseId: string) => void;
+}) {
+  const completedSets = useCompletedSetCount(exercise.id);
+  const safeCompleted = Math.min(completedSets, exercise.totalSets);
+
   return (
-    <article
-      aria-label={`Prossimo: ${exercise.code}. ${exercise.name}`}
+    <button
+      type="button"
+      onClick={() => onOpen(exercise.id)}
+      aria-label={`Apri esecuzione ${exercise.code}. ${exercise.name}`}
       className={cn(
-        "rounded-3xl p-5",
+        "rounded-3xl p-5 w-full text-left",
         "bg-white border border-[#c0c7d0]/30",
         "flex items-center justify-between gap-3",
+        "transition-transform active:scale-[0.99]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-container/40",
       )}
     >
       <div className="min-w-0">
@@ -370,24 +412,29 @@ function UpcomingExerciseCard({ exercise }: { exercise: UpcomingExercise }) {
           {exercise.name}
         </h3>
         <p className="mt-1 font-sans text-xs text-on-surface-variant">
-          {exercise.setsLabel}
+          {safeCompleted}/{exercise.totalSets} Set
         </p>
       </div>
-      <button
-        type="button"
-        aria-label={`Riordina ${exercise.name}`}
-        className="h-9 w-9 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container/60 transition-colors active:scale-95"
+      <span
+        aria-hidden="true"
+        className="h-9 w-9 rounded-full flex items-center justify-center text-on-surface-variant"
       >
-        <ArrowUpDown className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-      </button>
-    </article>
+        <ArrowUpDown className="h-4 w-4" strokeWidth={2} />
+      </span>
+    </button>
   );
 }
 
 // =============================================================================
 // ActivePhase — section containing the focal exercise + upcoming queue.
+// The same `onOpen(exerciseId)` callback is wired to both card variants:
+// the parent decides which exerciseId is "active" via local state.
 // =============================================================================
-function ActivePhase({ onOpenDrawer }: { onOpenDrawer: () => void }) {
+function ActivePhase({
+  onOpen,
+}: {
+  onOpen: (exerciseId: string) => void;
+}) {
   return (
     <section aria-label="Fase 2: Main Session (attiva)">
       <div className="flex items-center gap-3 mb-3">
@@ -403,12 +450,9 @@ function ActivePhase({ onOpenDrawer }: { onOpenDrawer: () => void }) {
       </div>
 
       <div className="flex flex-col gap-3">
-        <ActiveExerciseCard
-          exercise={ACTIVE_EXERCISE}
-          onOpenDrawer={onOpenDrawer}
-        />
+        <ActiveExerciseCard exercise={ACTIVE_EXERCISE} onOpen={onOpen} />
         {UPCOMING.map((ex) => (
-          <UpcomingExerciseCard key={ex.id} exercise={ex} />
+          <UpcomingExerciseCard key={ex.id} exercise={ex} onOpen={onOpen} />
         ))}
       </div>
     </section>
@@ -512,9 +556,16 @@ export default function ActiveWorkout() {
   // `isPaused` is page-local: pause halts the visible timer without ending
   // the session (the store stays `isSessionActive=true`). Dialog and drawer
   // visibility are also page-local.
+  //
+  // `selectedExerciseId` decides WHICH exercise the drawer is currently
+  // logging against. Held outside `isDrawerOpen` so the close animation
+  // can read the id during teardown without flicker.
   const [isPaused, setIsPaused] = useState(false);
   const [isExitOpen, setIsExitOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedExerciseId, setSelectedExerciseId] = useState<string | null>(
+    null,
+  );
 
   // Defensive boot: if the user lands on /athlete/active-workout directly
   // (deep link, share, or refresh after losing in-memory state) and no
@@ -594,7 +645,12 @@ export default function ActiveWorkout() {
 
         <main className="flex-1 overflow-y-auto px-5 py-6 max-w-3xl mx-auto w-full flex flex-col gap-6">
           <CompletedPhase />
-          <ActivePhase onOpenDrawer={() => setIsDrawerOpen(true)} />
+          <ActivePhase
+            onOpen={(exerciseId) => {
+              setSelectedExerciseId(exerciseId);
+              setIsDrawerOpen(true);
+            }}
+          />
         </main>
 
         <BottomActionBar
@@ -609,11 +665,19 @@ export default function ActiveWorkout() {
           dialog wins z-stacking via JSX order. Currently wired to
           StandardSet; the other drawers (Superset/AMRAP/Intensity/
           Isometric) are ready to swap in based on the active exercise
-          protocol when the workout data layer lands. */}
-      <StandardSetDrawer
-        open={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-      />
+          protocol when the workout data layer lands.
+
+          We only render the drawer when an exerciseId is actually
+          selected so the prop contract (`exerciseId: string`) stays
+          honest — passing "" would let bogus commits land on a
+          string-keyed store slot. */}
+      {selectedExerciseId !== null && (
+        <StandardSetDrawer
+          isOpen={isDrawerOpen}
+          onClose={() => setIsDrawerOpen(false)}
+          exerciseId={selectedExerciseId}
+        />
+      )}
 
       {/* Friction modal — sits at z-[60] above the workout overlay. */}
       <ExitWorkoutDialog

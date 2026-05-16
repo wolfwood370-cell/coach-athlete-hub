@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAthleteWorkoutStore } from "@/stores/useAthleteWorkoutStore";
 
 // =============================================================================
 // Constants — mock workout stats + RPE label dictionary.
@@ -185,16 +186,30 @@ function RpeSelector({
 // =============================================================================
 export default function PostWorkoutDebrief() {
   const navigate = useNavigate();
+  // Atomic selector — we only fire the action, never read state here.
+  const stopSession = useAthleteWorkoutStore((s) => s.stopSession);
   const [rpe, setRpe] = useState<Rpe | null>(8);
   const [notes, setNotes] = useState("");
 
+  /**
+   * Final submit handler for the debrief screen. Three responsibilities:
+   *   1. Log the (mock) payload for visibility in the next backend pass.
+   *   2. Tear down the workout session in the shared store so the next
+   *      visit to /athlete/training boots a clean slate.
+   *   3. Send the athlete back to the dashboard — the natural rest
+   *      state after closing out a session.
+   */
   const handleSave = () => {
     // eslint-disable-next-line no-console
-    console.info("[PostWorkoutDebrief] payload preview", { rpe, notes: notes.trim() });
+    console.info("[PostWorkoutDebrief] payload preview", {
+      rpe,
+      notes: notes.trim(),
+    });
     toast.success("Debrief salvato", {
       description: "Il tuo coach riceverà le note appena disponibili.",
     });
-    navigate("/athlete/training");
+    stopSession();
+    navigate("/athlete");
   };
 
   return (
