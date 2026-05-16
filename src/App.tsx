@@ -47,6 +47,8 @@ const AthleteProfile = lazy(() => import("./pages/athlete/AthleteProfile"));
 const DailyCheckin = lazy(() => import("./pages/athlete/DailyCheckin"));
 const AthleteReadinessDetails = lazy(() => import("./pages/athlete/AthleteReadinessDetails"));
 const WeeklyCheckin = lazy(() => import("./pages/athlete/WeeklyCheckin"));
+const WorkoutPhaseDetail = lazy(() => import("./pages/athlete/WorkoutPhaseDetail"));
+const ExercisePreview = lazy(() => import("./pages/athlete/ExercisePreview"));
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} forcedTheme="light">
@@ -131,6 +133,27 @@ const App = () => (
                 element={
                   <ProtectedAthleteRoute>
                     <WeeklyCheckin />
+                  </ProtectedAthleteRoute>
+                }
+              />
+
+              {/* Phase 6 — Session preview (phase overview) and single
+                  exercise preview. Both are stack-pushed detail flows with
+                  their own sticky CTA, so they sit as siblings of the
+                  AthleteLayout rather than children. */}
+              <Route
+                path="/athlete/training/phase"
+                element={
+                  <ProtectedAthleteRoute>
+                    <WorkoutPhaseDetail />
+                  </ProtectedAthleteRoute>
+                }
+              />
+              <Route
+                path="/athlete/training/exercise"
+                element={
+                  <ProtectedAthleteRoute>
+                    <ExercisePreview />
                   </ProtectedAthleteRoute>
                 }
               />
