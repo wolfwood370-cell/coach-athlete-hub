@@ -44,6 +44,7 @@ const AthleteLayout = lazy(() => import("./components/athlete/AthleteLayout"));
 const AthleteDashboard = lazy(() => import("./pages/athlete/AthleteDashboard"));
 const AthleteTraining = lazy(() => import("./pages/athlete/AthleteTraining"));
 const AthleteProfile = lazy(() => import("./pages/athlete/AthleteProfile"));
+const DailyCheckin = lazy(() => import("./pages/athlete/DailyCheckin"));
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} forcedTheme="light">
@@ -96,6 +97,18 @@ const App = () => (
                 <Route path="training" element={<AthleteTraining />} />
                 <Route path="profile" element={<AthleteProfile />} />
               </Route>
+
+              {/* Daily Check-in — sibling of the layout, NOT a child, because
+                  the page is a modal-style full-screen flow with its own
+                  sticky bottom action bar that replaces the BottomNavBar. */}
+              <Route
+                path="/athlete/checkin"
+                element={
+                  <ProtectedAthleteRoute>
+                    <DailyCheckin />
+                  </ProtectedAthleteRoute>
+                }
+              />
 
               {/* Onboarding */}
               <Route path="/onboarding" element={<OnboardingWizard />} />
