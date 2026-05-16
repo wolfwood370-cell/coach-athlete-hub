@@ -48,6 +48,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ExitWorkoutDialog } from "@/components/athlete/ExitWorkoutDialog";
+import { StandardSetDrawer } from "@/components/athlete/drawers/StandardSetDrawer";
 
 // =============================================================================
 // Domain types
@@ -256,17 +257,28 @@ function CompletedPhase() {
 
 // =============================================================================
 // ActiveExerciseCard — focal card for the in-progress exercise.
+// The whole card is a button: tapping it opens the protocol-specific
+// execution drawer (Phase 8 wiring — currently StandardSet only).
 // =============================================================================
-function ActiveExerciseCard({ exercise }: { exercise: ActiveExercise }) {
+function ActiveExerciseCard({
+  exercise,
+  onOpenDrawer,
+}: {
+  exercise: ActiveExercise;
+  onOpenDrawer: () => void;
+}) {
   return (
-    <article
-      aria-label={`Esercizio attivo: ${exercise.code}. ${exercise.name}`}
+    <button
+      type="button"
+      onClick={onOpenDrawer}
+      aria-label={`Apri esecuzione ${exercise.code}. ${exercise.name}`}
       className={cn(
-        "relative overflow-hidden",
+        "relative overflow-hidden w-full text-left",
         "rounded-3xl p-6",
         "bg-white border border-brand-container/40",
         "border-l-4 border-l-brand-container",
         "shadow-[0_4px_24px_rgba(34,111,163,0.08)]",
+        "transition-transform active:scale-[0.99]",
       )}
     >
       <div className="flex items-start justify-between mb-5">
@@ -279,13 +291,12 @@ function ActiveExerciseCard({ exercise }: { exercise: ActiveExercise }) {
             {exercise.completedSets}/{exercise.totalSets} serie completate
           </p>
         </div>
-        <button
-          type="button"
-          aria-label="Dettagli esercizio"
-          className="h-8 w-8 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container/60 transition-colors"
+        <span
+          aria-hidden="true"
+          className="h-8 w-8 rounded-full flex items-center justify-center text-on-surface-variant"
         >
-          <Info className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-        </button>
+          <Info className="h-4 w-4" strokeWidth={2} />
+        </span>
       </div>
 
       {/* Pill segments — one per set, filled for completed */}
@@ -335,7 +346,7 @@ function ActiveExerciseCard({ exercise }: { exercise: ActiveExercise }) {
           aria-hidden="true"
         />
       </div>
-    </article>
+    </button>
   );
 }
 
@@ -375,7 +386,7 @@ function UpcomingExerciseCard({ exercise }: { exercise: UpcomingExercise }) {
 // =============================================================================
 // ActivePhase — section containing the focal exercise + upcoming queue.
 // =============================================================================
-function ActivePhase() {
+function ActivePhase({ onOpenDrawer }: { onOpenDrawer: () => void }) {
   return (
     <section aria-label="Fase 2: Main Session (attiva)">
       <div className="flex items-center gap-3 mb-3">
@@ -391,7 +402,10 @@ function ActivePhase() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <ActiveExerciseCard exercise={ACTIVE_EXERCISE} />
+        <ActiveExerciseCard
+          exercise={ACTIVE_EXERCISE}
+          onOpenDrawer={onOpenDrawer}
+        />
         {UPCOMING.map((ex) => (
           <UpcomingExerciseCard key={ex.id} exercise={ex} />
         ))}
@@ -480,10 +494,12 @@ function BottomActionBar({
 export default function ActiveWorkout() {
   const navigate = useNavigate();
 
-  // Local state — timer (seconds), pause flag, dialog visibility.
+  // Local state — timer (seconds), pause flag, dialog visibility, and
+  // the Phase 8 protocol-execution drawer toggle.
   const [seconds, setSeconds] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [isExitOpen, setIsExitOpen] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   // Timer — ticks 1Hz while !isPaused. Cleanup on unmount or pause.
   useEffect(() => {
@@ -544,7 +560,7 @@ export default function ActiveWorkout() {
 
         <main className="flex-1 overflow-y-auto px-5 py-6 max-w-3xl mx-auto w-full flex flex-col gap-6">
           <CompletedPhase />
-          <ActivePhase />
+          <ActivePhase onOpenDrawer={() => setIsDrawerOpen(true)} />
         </main>
 
         <BottomActionBar
@@ -553,6 +569,17 @@ export default function ActiveWorkout() {
           onFinishRequest={openExitDialog}
         />
       </div>
+
+      {/* Phase 8 — protocol execution drawer. Rendered BEFORE the
+          ExitWorkoutDialog so that if both are open simultaneously the
+          dialog wins z-stacking via JSX order. Currently wired to
+          StandardSet; the other drawers (Superset/AMRAP/Intensity/
+          Isometric) are ready to swap in based on the active exercise
+          protocol when the workout data layer lands. */}
+      <StandardSetDrawer
+        open={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+      />
 
       {/* Friction modal — sits at z-[60] above the workout overlay. */}
       <ExitWorkoutDialog
