@@ -111,7 +111,7 @@ const App = () => (
                   the page is a modal-style full-screen flow with its own
                   sticky bottom action bar that replaces the BottomNavBar. */}
               <Route
-                path="/athlete/checkin"
+                path="/athlete/daily-checkin"
                 element={
                   <ProtectedAthleteRoute>
                     <DailyCheckin />
@@ -155,7 +155,7 @@ const App = () => (
                 }
               />
               <Route
-                path="/athlete/training/exercise"
+                path="/athlete/exercise-preview"
                 element={
                   <ProtectedAthleteRoute>
                     <ExercisePreview />
@@ -168,7 +168,7 @@ const App = () => (
                   the global BottomNavBar; back/X opens a friction modal
                   rather than navigating immediately. */}
               <Route
-                path="/athlete/workout"
+                path="/athlete/active-workout"
                 element={
                   <ProtectedAthleteRoute>
                     <ActiveWorkout />
@@ -181,7 +181,7 @@ const App = () => (
                   so they own their own headers / CTAs without the
                   global BottomNavBar competing. */}
               <Route
-                path="/athlete/debrief"
+                path="/athlete/post-workout"
                 element={
                   <ProtectedAthleteRoute>
                     <PostWorkoutDebrief />

@@ -21,7 +21,7 @@
 //        Single card with image, big "Duration" stat row (Target / Durata
 //        / Sovraccarico), coach tip.
 //
-// Mount: SIBLING of <AthleteLayout> at /athlete/training/exercise.
+// Mount: SIBLING of <AthleteLayout> at /athlete/exercise-preview.
 // Back affordance points to /athlete/training.
 //
 // All sub-components inline, mock data only.

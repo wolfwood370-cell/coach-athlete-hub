@@ -29,7 +29,7 @@
 // =============================================================================
 
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { User, Activity, Dumbbell, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +43,14 @@ const MOCK = {
     sleepQuality: "high" as const,
     hrvTrend: "stable" as const,
     soreness: "low" as const,
+    /**
+     * Mock flag — if true the athlete already logged the daily check-in
+     * so tapping the card opens the analysis view; if false it opens the
+     * logging flow. Will be sourced from `useDailyReadiness(today)` once
+     * the data layer is wired. Flip to `false` during QA to test the
+     * "log first" branch.
+     */
+    isLoggedToday: true,
   },
   nextWorkout: {
     title: "Forza Lower Body",
@@ -127,18 +135,32 @@ function MetricRow({
 }
 
 // =============================================================================
-// ReadinessCard — top glass widget.
+// ReadinessCard — top glass widget. Now a clickable surface that routes
+// conditionally:
+//   - isLoggedToday=true  → /athlete/readiness (multi-tab analysis)
+//   - isLoggedToday=false → /athlete/daily-checkin (logging flow)
+// The whole card is a <button> so screen readers and keyboard users get
+// the right affordance; the inner gauge/metrics keep their decorative
+// roles (aria-hidden on indicators, role="img" on the gauge).
 // =============================================================================
-function ReadinessCard() {
+function ReadinessCard({ onOpen }: { onOpen: () => void }) {
   return (
-    <section
-      aria-label="Readiness di oggi"
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={
+        MOCK.readiness.isLoggedToday
+          ? "Apri l'analisi della readiness"
+          : "Registra la tua readiness di oggi"
+      }
       className={cn(
-        "relative overflow-hidden",
+        "relative overflow-hidden w-full text-left",
         "rounded-3xl p-6",
         "bg-white/70 backdrop-blur-xl",
         "border border-[#c0c7d0]/30",
         "flex justify-between items-center",
+        "transition-transform active:scale-[0.99]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-container/40",
       )}
     >
       {/* Ambient brand glow — decorative, behind everything else. */}
@@ -197,7 +219,7 @@ function ReadinessCard() {
 
       {/* Right half: circular gauge */}
       <ReadinessRing value={MOCK.readiness.score} />
-    </section>
+    </button>
   );
 }
 
@@ -310,6 +332,20 @@ function Header() {
 // inline sub-components above.
 // =============================================================================
 export default function AthleteDashboard() {
+  const navigate = useNavigate();
+
+  // Conditional readiness routing — log first, analyse second. The check
+  // here is intentionally a top-level prop chain so when the data layer
+  // lands `MOCK.readiness.isLoggedToday` is the only thing that needs
+  // swapping for a real query result.
+  const handleReadinessCardClick = () => {
+    if (MOCK.readiness.isLoggedToday) {
+      navigate("/athlete/readiness");
+    } else {
+      navigate("/athlete/daily-checkin");
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <Header />
@@ -324,7 +360,7 @@ export default function AthleteDashboard() {
         </p>
       </section>
 
-      <ReadinessCard />
+      <ReadinessCard onOpen={handleReadinessCardClick} />
       <NextWorkoutCard />
     </div>
   );

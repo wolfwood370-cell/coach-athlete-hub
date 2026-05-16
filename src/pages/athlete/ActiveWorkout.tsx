@@ -24,7 +24,7 @@
 // Timer: pure useEffect + setInterval, paused via local boolean.
 // Cleanup on unmount via the effect's return.
 //
-// Mount: SIBLING of <AthleteLayout> at /athlete/workout. The wrapper
+// Mount: SIBLING of <AthleteLayout> at /athlete/active-workout. The wrapper
 // uses `fixed inset-0 z-50` per brief, so even if it were nested under
 // the layout the global nav would be obscured anyway — but mounting it
 // outside the layout subtree is the architecturally honest choice for
@@ -49,6 +49,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ExitWorkoutDialog } from "@/components/athlete/ExitWorkoutDialog";
 import { StandardSetDrawer } from "@/components/athlete/drawers/StandardSetDrawer";
+import { useAthleteWorkoutStore } from "@/stores/useAthleteWorkoutStore";
 
 // =============================================================================
 // Domain types
@@ -494,36 +495,69 @@ function BottomActionBar({
 export default function ActiveWorkout() {
   const navigate = useNavigate();
 
-  // Local state — timer (seconds), pause flag, dialog visibility, and
-  // the Phase 8 protocol-execution drawer toggle.
-  const [seconds, setSeconds] = useState(0);
+  // -- Store integration ----------------------------------------------------
+  // Live timer + active flag now live in the persisted Zustand store, so a
+  // mid-session refresh, accidental tab close, or a navigation away (e.g.
+  // to /athlete/profile from the global nav while the workout is somehow
+  // running in the background) doesn't lose the elapsed time.
+  // We subscribe with individual selectors so a tick doesn't re-render any
+  // component that doesn't read the seconds counter.
+  const seconds = useAthleteWorkoutStore((s) => s.elapsedTime);
+  const isSessionActive = useAthleteWorkoutStore((s) => s.isSessionActive);
+  const startSession = useAthleteWorkoutStore((s) => s.startSession);
+  const stopSession = useAthleteWorkoutStore((s) => s.stopSession);
+  const tick = useAthleteWorkoutStore((s) => s.tick);
+
+  // -- Local UI state -------------------------------------------------------
+  // `isPaused` is page-local: pause halts the visible timer without ending
+  // the session (the store stays `isSessionActive=true`). Dialog and drawer
+  // visibility are also page-local.
   const [isPaused, setIsPaused] = useState(false);
   const [isExitOpen, setIsExitOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Timer — ticks 1Hz while !isPaused. Cleanup on unmount or pause.
+  // Defensive boot: if the user lands on /athlete/active-workout directly
+  // (deep link, share, or refresh after losing in-memory state) and no
+  // session is flagged active in the store, start one transparently. This
+  // keeps the page render-coherent during QA without forcing users to
+  // always come through the Training Hub.
   useEffect(() => {
-    if (isPaused) return undefined;
+    if (!isSessionActive) {
+      startSession();
+    }
+    // Intentionally only on mount — re-running on isSessionActive change
+    // would re-stamp the session every time the user toggled pause.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Timer — 1Hz tick into the store while session is active and not paused.
+  // Cleanup is the entire point of this useEffect: setInterval lives only
+  // as long as the component is mounted AND the session is running.
+  useEffect(() => {
+    if (isPaused || !isSessionActive) return undefined;
     const id = window.setInterval(() => {
-      setSeconds((prev) => prev + 1);
+      tick();
     }, 1000);
     return () => window.clearInterval(id);
-  }, [isPaused]);
+  }, [isPaused, isSessionActive, tick]);
 
   // -- Handlers -------------------------------------------------------------
   const openExitDialog = () => setIsExitOpen(true);
   const handleResume = () => setIsExitOpen(false);
 
+  /** "Termina e Salva" → mark the session as finished in the store and
+   *  jump to the debrief screen so the athlete can rate RPE + log notes. */
   const handleFinish = () => {
     setIsExitOpen(false);
-    toast.success("Sessione salvata", {
-      description: `Allenamento terminato dopo ${formatMMSS(seconds)}.`,
-    });
-    navigate("/athlete/training");
+    stopSession();
+    navigate("/athlete/post-workout");
   };
 
+  /** "Annulla Workout" → discard intent: same store cleanup, but we drop
+   *  the user back at the Training Hub rather than the debrief flow. */
   const handleDiscard = () => {
     setIsExitOpen(false);
+    stopSession();
     toast("Allenamento annullato", {
       description: "I dati di questa sessione non sono stati salvati.",
     });

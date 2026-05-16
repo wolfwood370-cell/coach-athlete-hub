@@ -12,7 +12,7 @@
 //   - Free-form coach notes textarea, bound to local state.
 //   - Sticky bottom CTA "Salva e Torna alla Home".
 //
-// Mount: SIBLING of <AthleteLayout> at /athlete/debrief — modal-style
+// Mount: SIBLING of <AthleteLayout> at /athlete/post-workout — modal-style
 // full-screen flow, the close button + the CTA both route back to
 // /athlete/training. No Supabase wiring.
 // =============================================================================

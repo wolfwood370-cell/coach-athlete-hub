@@ -36,7 +36,7 @@
 // =============================================================================
 
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Activity,
   BarChart3,
@@ -47,8 +47,8 @@ import {
   Play,
   Zap,
 } from "lucide-react";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useAthleteWorkoutStore } from "@/stores/useAthleteWorkoutStore";
 
 // =============================================================================
 // Domain types & mocks
@@ -437,20 +437,34 @@ function PhaseHeader({ index, name }: { index: number; name: string }) {
   );
 }
 
+/**
+ * Whole card is a button — tapping it navigates to the exercise preview
+ * with the exercise payload passed via route state, so the preview page
+ * can show the right protocol/numbers without re-fetching. The inner
+ * MoreHorizontal action is downgraded to a non-interactive span to
+ * avoid nested interactive elements.
+ */
 function ExerciseCard({
   exercise,
   emphasised,
+  onSelect,
 }: {
   exercise: Exercise;
   emphasised: boolean;
+  onSelect: (ex: Exercise) => void;
 }) {
   return (
-    <div
+    <button
+      type="button"
+      onClick={() => onSelect(exercise)}
+      aria-label={`Apri anteprima ${exercise.code ? exercise.code + ". " : ""}${exercise.name}`}
       className={cn(
-        "relative overflow-hidden",
+        "relative overflow-hidden w-full text-left",
         "rounded-2xl p-4",
         "bg-white/70 backdrop-blur-xl",
         "border border-[#c0c7d0]/30",
+        "transition-transform active:scale-[0.99]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-container/40",
       )}
     >
       {emphasised && (
@@ -473,19 +487,22 @@ function ExerciseCard({
             {exercise.scheme}
           </p>
         </div>
-        <button
-          type="button"
-          aria-label={`Opzioni per ${exercise.name}`}
-          className="shrink-0 h-7 w-7 rounded-full flex items-center justify-center text-on-surface-variant/70 hover:text-on-surface hover:bg-surface-container/60 transition-colors"
+        <span
+          aria-hidden="true"
+          className="shrink-0 h-7 w-7 rounded-full flex items-center justify-center text-on-surface-variant/70"
         >
-          <MoreHorizontal className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-        </button>
+          <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
+        </span>
       </div>
-    </div>
+    </button>
   );
 }
 
-function WorkoutBlueprint() {
+function WorkoutBlueprint({
+  onSelectExercise,
+}: {
+  onSelectExercise: (ex: Exercise) => void;
+}) {
   return (
     <section aria-label="Struttura allenamento" className="flex flex-col gap-5">
       <div className="flex items-center justify-between px-1">
@@ -509,6 +526,7 @@ function WorkoutBlueprint() {
                 key={ex.id}
                 exercise={ex}
                 emphasised={phase.emphasised}
+                onSelect={onSelectExercise}
               />
             ))}
           </div>
@@ -603,12 +621,25 @@ function StickyStartCTA({ onStart }: { onStart: () => void }) {
 // =============================================================================
 export default function AthleteTraining() {
   const [view, setView] = useState<View>("diario");
+  const navigate = useNavigate();
+  // Pull only the action — we don't subscribe to state that we don't
+  // read here, which keeps the page from re-rendering on every tick.
+  const startSession = useAthleteWorkoutStore((s) => s.startSession);
 
+  /** Booting handler for the bottom "Inizia Sessione" CTA.
+   *  Stamps a fresh session in the store and jumps to the full-screen
+   *  active workout overlay. */
   const handleStart = () => {
-    // Backend wiring lands next phase — for now confirm intent visually.
-    toast.success("Sessione avviata", {
-      description: "L'esperienza di esecuzione arriverà nel prossimo step.",
-    });
+    startSession();
+    navigate("/athlete/active-workout");
+  };
+
+  /** Per-exercise card tap → exercise preview. We pass the picked
+   *  exercise via route state so the preview page can hydrate without
+   *  re-fetching. The preview component will read it from
+   *  `useLocation().state` once it is updated to consume real data. */
+  const handleSelectExercise = (exercise: Exercise) => {
+    navigate("/athlete/exercise-preview", { state: { exercise } });
   };
 
   return (
@@ -624,7 +655,7 @@ export default function AthleteTraining() {
           <>
             <HeroWorkoutCard />
             <GlanceCards />
-            <WorkoutBlueprint />
+            <WorkoutBlueprint onSelectExercise={handleSelectExercise} />
           </>
         ) : (
           <MetricheView />

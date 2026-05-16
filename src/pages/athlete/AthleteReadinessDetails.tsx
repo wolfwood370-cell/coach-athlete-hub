@@ -473,7 +473,7 @@ export default function AthleteReadinessDetails() {
             <ReadinessGauge value={READINESS.score} label={READINESS.label} />
           </div>
           <Link
-            to="/athlete/checkin"
+            to="/athlete/daily-checkin"
             className={cn(
               "z-10 w-full",
               "flex items-center justify-center gap-2",
