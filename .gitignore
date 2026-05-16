@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Claude Code session/agent artifacts (worktrees, local settings, hooks).
+# Anything inside .claude/ is per-session state and must not be committed.
+.claude/
