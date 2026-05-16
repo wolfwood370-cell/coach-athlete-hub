@@ -20,7 +20,7 @@ export default function AthleteTraining() {
           Allenamenti
         </span>
         <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-on-surface">
-          I tuoi allenamenti
+          I Tuoi Allenamenti
         </h1>
       </header>
 
