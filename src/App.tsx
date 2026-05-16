@@ -45,6 +45,7 @@ const AthleteDashboard = lazy(() => import("./pages/athlete/AthleteDashboard"));
 const AthleteTraining = lazy(() => import("./pages/athlete/AthleteTraining"));
 const AthleteProfile = lazy(() => import("./pages/athlete/AthleteProfile"));
 const DailyCheckin = lazy(() => import("./pages/athlete/DailyCheckin"));
+const AthleteReadinessDetails = lazy(() => import("./pages/athlete/AthleteReadinessDetails"));
 
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} forcedTheme="light">
@@ -106,6 +107,17 @@ const App = () => (
                 element={
                   <ProtectedAthleteRoute>
                     <DailyCheckin />
+                  </ProtectedAthleteRoute>
+                }
+              />
+
+              {/* Readiness Analysis — stack-pushed detail page with its own
+                  back affordance; no bottom nav. Sibling, not child. */}
+              <Route
+                path="/athlete/readiness"
+                element={
+                  <ProtectedAthleteRoute>
+                    <AthleteReadinessDetails />
                   </ProtectedAthleteRoute>
                 }
               />
