@@ -38,6 +38,12 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
 const TermsOfService = lazy(() => import("./pages/legal/TermsOfService"));
 
+// Athlete App — fresh scaffold (Training + Readiness only; no nutrition).
+const AthleteLayout = lazy(() => import("./components/athlete/AthleteLayout"));
+const AthleteDashboard = lazy(() => import("./pages/athlete/AthleteDashboard"));
+const AthleteTraining = lazy(() => import("./pages/athlete/AthleteTraining"));
+const AthleteProfile = lazy(() => import("./pages/athlete/AthleteProfile"));
+
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} forcedTheme="light">
     <OfflineSyncProvider>
@@ -73,16 +79,13 @@ const App = () => (
               <Route path="/coach/copilot" element={<SubscriptionGuard><MasterCopilot /></SubscriptionGuard>} />
               <Route path="/coach/settings" element={<SubscriptionGuard><CoachSettings /></SubscriptionGuard>} />
               
-              {/* Athlete Routes — Under Reconstruction */}
-              <Route path="/athlete/*" element={
-                <div className="flex items-center justify-center min-h-screen bg-background">
-                  <div className="text-center space-y-4 p-8">
-                    <div className="text-6xl">🚧</div>
-                    <h1 className="text-2xl font-bold text-on-surface">Athlete App Under Construction</h1>
-                    <p className="text-on-surface/60">We're rebuilding this experience from scratch.</p>
-                  </div>
-                </div>
-              } />
+              {/* Athlete App — scaffold ships with the layout + three placeholder pages.
+                  Supabase wiring (readiness, workouts) lands in a follow-up commit. */}
+              <Route path="/athlete" element={<AthleteLayout />}>
+                <Route index element={<AthleteDashboard />} />
+                <Route path="training" element={<AthleteTraining />} />
+                <Route path="profile" element={<AthleteProfile />} />
+              </Route>
               
               {/* Onboarding */}
               <Route path="/onboarding" element={<OnboardingWizard />} />
