@@ -2701,6 +2701,7 @@ export type Database = {
       }
     }
     Functions: {
+      archive_athlete: { Args: { p_athlete_id: string }; Returns: undefined }
       clone_program_week: {
         Args: {
           source_week_id: string
@@ -2712,6 +2713,14 @@ export type Database = {
       clone_program_workout: {
         Args: { source_workout_id: string; target_day_id: string }
         Returns: string
+      }
+      get_chat_partner_profiles: {
+        Args: { p_user_ids: string[] }
+        Returns: {
+          avatar_url: string
+          full_name: string
+          id: string
+        }[]
       }
       get_or_create_direct_room: {
         Args: { user_a: string; user_b: string }
