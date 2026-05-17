@@ -1,40 +1,28 @@
 /**
  * src/stores/useAthleteReadinessStore.ts
  * ---------------------------------------------------------------------------
- * Zustand store for the athlete's daily "Prontezza" (readiness) state.
+ * Zustand store for the athlete's daily "Prontezza" (readiness) UI state.
  *
- * Responsibilities
- * ----------------
- * 1. Track whether the user has logged their daily check-in
- *    (`isCompletedToday`) and the resulting composite score
- *    (`dailyScore`, 0..100) that the AthleteDashboard's ring renders.
- * 2. Hold today's AND yesterday's per-metric values (`metrics[key].today`
- *    + `.yesterday`) so the dashboard mini-rows can render a trend icon
- *    (up / down / flat) without a separate hook.
- * 3. Hold the user's three preferred metric keys for the dashboard
- *    surface (`selectedDashboardMetrics`) so the Prontezza card can be
- *    personalised. Defaults to ['Sonno', 'Stress', 'Fatica'] per brief.
+ * Scope after the data-layer refactor
+ * ------------------------------------
+ * This store now holds ONLY local, UI-only state:
  *
- * Non-responsibilities
- * --------------------
- * - Server persistence. Saving to Supabase happens via a dedicated hook
- *   in a follow-up commit; this store is the offline-safe staging
- *   buffer + the source of truth for the dashboard's live read.
- * - Score math. `submitDailyCheckin` currently mints a mock score of
- *   85; the real composite (weighted average + neurotype modifier)
- *   lives in `src/lib/readiness/composite.ts` and will be plumbed in
- *   the data-layer commit.
+ *   1. `metrics` — today/yesterday per-metric snapshots used by the
+ *      dashboard's mini trend rows. Today is updated via
+ *      `submitDailyCheckin` for snappy feedback before the DB round-trip
+ *      completes; yesterday is mock-seeded until a server-side
+ *      "previous day" query lands.
+ *   2. `selectedDashboardMetrics` — the three keys the athlete wants to
+ *      pin on the dashboard's Prontezza card. Pure UI personalisation.
  *
- * Design notes
- * ------------
- * - Zustand 5 + immer middleware (consistent with
- *   useAthleteWorkoutStore / useProgramBuilderStore / useMovementStore).
- * - `persist` middleware writes to localStorage under
- *   "athlete-readiness-storage". Logout should add this key to the
- *   cleanup list in `useAuth.signOut` (see follow-up).
- * - `submitDailyCheckin` accepts a partial map — callers don't have to
- *   pass every metric. Missing keys keep their previous `today` value
- *   if any, otherwise stay null.
+ * What moved OUT of this store
+ * ----------------------------
+ *   - `dailyScore` and `isCompletedToday`: now derived from
+ *     `useDailyReadinessQuery(today)` in components that need them.
+ *     The DB is the source of truth for "did the athlete check in today
+ *     and what was the composite score".
+ *   - Server persistence: handled by `useSubmitReadinessMutation` in
+ *     `src/hooks/athlete/useAthleteReadinessHooks.ts`.
  */
 
 import { create } from "zustand";
@@ -52,7 +40,6 @@ export const METRIC_KEYS = [
   "Soreness",
   "Umore",
   "Digestione",
-  "HRV",
 ] as const;
 
 export type MetricKey = (typeof METRIC_KEYS)[number];
@@ -68,9 +55,9 @@ export interface MetricSnapshot {
 export type MetricsMap = Record<MetricKey, MetricSnapshot>;
 
 // ---------------------------------------------------------------------------
-// Mock seed for yesterday — replaced by a real query once the data
-// layer lands. Keeping these in 0..10 scale so the trend math is
-// boring and obvious.
+// Mock seed for yesterday — replaced by a real query once the previous-day
+// hook lands. Keeping these in 0..10 scale so the trend math is boring
+// and obvious.
 // ---------------------------------------------------------------------------
 const MOCK_YESTERDAY: Record<MetricKey, number> = {
   Sonno: 7,
@@ -79,7 +66,6 @@ const MOCK_YESTERDAY: Record<MetricKey, number> = {
   Soreness: 6,
   Umore: 8,
   Digestione: 7,
-  HRV: 65,
 };
 
 const buildInitialMetrics = (): MetricsMap => {
@@ -97,11 +83,7 @@ const DEFAULT_DASHBOARD_METRICS: MetricKey[] = ["Sonno", "Stress", "Fatica"];
 // ---------------------------------------------------------------------------
 
 export interface AthleteReadinessStoreState {
-  /** Composite 0..100 score. Null until the day's check-in is submitted. */
-  dailyScore: number | null;
-  /** True once `submitDailyCheckin` has been called today. */
-  isCompletedToday: boolean;
-  /** Per-metric today/yesterday values. */
+  /** Per-metric today/yesterday values for the dashboard trend rows. */
   metrics: MetricsMap;
   /**
    * Three metric keys to render on the dashboard Prontezza card.
@@ -113,17 +95,19 @@ export interface AthleteReadinessStoreState {
 
   // ---- Actions -----------------------------------------------------------
   /**
-   * Submits the daily check-in. Merges supplied per-metric values into
-   * `metrics[*].today`, computes the composite score (mock=85 for now)
-   * and flips `isCompletedToday` to true.
+   * Merge the supplied per-metric values into `metrics[*].today`. Used
+   * by the DailyCheckin form for snappy local UI feedback in parallel
+   * with the server mutation in `useSubmitReadinessMutation`.
    *
-   * Values not supplied keep their previous today (typically null on a
-   * fresh day). Callers can pass `null` for an explicit "not measured".
+   * Values not supplied keep their previous today. Callers can pass
+   * `null` for an explicit "not measured".
    */
-  submitDailyCheckin: (payload: Partial<Record<MetricKey, number | null>>) => void;
+  submitDailyCheckin: (
+    payload: Partial<Record<MetricKey, number | null>>,
+  ) => void;
   /** Replace the three metrics to surface on the dashboard card. */
   setSelectedMetrics: (next: MetricKey[]) => void;
-  /** Reset to a fresh day — used by QA and on manual logout. */
+  /** Reset the local today snapshots — used by QA and on manual logout. */
   resetDay: () => void;
 }
 
@@ -134,8 +118,6 @@ export interface AthleteReadinessStoreState {
 export const useAthleteReadinessStore = create<AthleteReadinessStoreState>()(
   persist(
     immer((set) => ({
-      dailyScore: null,
-      isCompletedToday: false,
       metrics: buildInitialMetrics(),
       selectedDashboardMetrics: DEFAULT_DASHBOARD_METRICS,
 
@@ -147,11 +129,6 @@ export const useAthleteReadinessStore = create<AthleteReadinessStoreState>()(
               s.metrics[key].today = value === undefined ? null : value;
             }
           }
-          // Mock composite score for now. Real implementation will
-          // weight Sonno + HRV most heavily and modulate by Fatica /
-          // Soreness — that lives in the data-layer commit.
-          s.dailyScore = 85;
-          s.isCompletedToday = true;
         }),
 
       setSelectedMetrics: (next) =>
@@ -177,8 +154,6 @@ export const useAthleteReadinessStore = create<AthleteReadinessStoreState>()(
 
       resetDay: () =>
         set((s) => {
-          s.dailyScore = null;
-          s.isCompletedToday = false;
           s.metrics = buildInitialMetrics();
         }),
     })),
@@ -186,8 +161,6 @@ export const useAthleteReadinessStore = create<AthleteReadinessStoreState>()(
       name: "athlete-readiness-storage",
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({
-        dailyScore: s.dailyScore,
-        isCompletedToday: s.isCompletedToday,
         metrics: s.metrics,
         selectedDashboardMetrics: s.selectedDashboardMetrics,
       }),

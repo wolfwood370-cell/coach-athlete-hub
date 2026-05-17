@@ -1,74 +1,36 @@
 /**
  * src/stores/useAthleteWorkoutStore.ts
  * ---------------------------------------------------------------------------
- * Zustand store managing an active in-session athlete workout — the shared
- * source of truth that lives between AthleteTraining, ActiveWorkout, the
- * protocol execution drawers, and the post-workout debrief.
+ * Zustand store for the active athlete workout — local UI state only.
  *
- * Responsibilities
- * ----------------
- * 1. Track whether a session is currently running (`isSessionActive`).
- * 2. Hold the live elapsed seconds counter (`elapsedTime`), incremented
- *    by an external 1Hz tick (the ActiveWorkout component owns the
- *    setInterval; the store just integrates the ticks).
- * 3. Persist a flat append-only log of completed sets per exercise
- *    (`loggedSets[exerciseId] = [{ weight, reps }, ...]`). Components
- *    derive "completed count" from `.length`, total volume from a
- *    reduce, and so on — the store stays dumb.
- * 4. Survive page reloads by persisting to localStorage under the
- *    historical `active-workout-storage` key (the same key that
- *    `useAuth.signOut` already clears, so logout still wipes everything).
+ * Scope after the data-layer refactor
+ * ------------------------------------
+ * This store holds ONLY UI state that is not naturally a DB column:
  *
- * Non-responsibilities
- * --------------------
- * - The interval itself. We deliberately do NOT call setInterval inside
- *   the store action: that would survive React tree teardown and leak.
- *   The component that owns the visible timer (ActiveWorkout) installs
- *   the interval, calls `tick()` once per second, and tears it down on
- *   unmount or pause.
- * - Auth wiring. The store is athlete-id-agnostic in this commit; when
- *   the data layer lands the next pass will couple it to useAuth.user.id
- *   so an in-progress session cannot bleed across user accounts.
- * - Server persistence. Saving to Supabase happens via a dedicated hook
- *   in the next commit; this store is the offline-safe staging buffer.
+ *   1. `isSessionActive` + `elapsedTime` + `startedAt` — the visible
+ *      stopwatch driven by ActiveWorkout's 1Hz tick.
+ *   2. `activeSessionId` — local handle to the `workout_logs.id` we
+ *      INSERTed at session start. Persisted so a page reload doesn't
+ *      orphan the in-progress session.
  *
- * Contract changes vs the previous shape
- * --------------------------------------
- * Replaced `workoutData.exercises[id].sets[setIndex] = { reps, weight,
- * loggedAt }` with the flatter `loggedSets[exerciseId] = SetEntry[]`.
- * The pad-empty-slots dance the old `updateSetData` did is gone — there
- * are no indices to address, just `push`. The previous filter-by-
- * loggedAt-greater-than-zero hack in the consumers is also gone because
- * an entry only exists once it has actually been logged.
+ * What moved OUT of this store
+ * ----------------------------
+ *   - `loggedSets` + `logSet`: per-set data now lives in the
+ *     `exercise_logs` table. Reads use `useSessionSetsQuery(sessionId)`
+ *     and writes use `useLogSetMutation()` from
+ *     `src/hooks/athlete/useAthleteWorkoutHooks.ts`.
  *
  * Design notes
  * ------------
- * - Zustand 5 + immer middleware (matches useProgramBuilderStore /
- *   useMovementStore conventions already in this codebase).
- * - `persist` middleware writes to localStorage. We reuse the key
- *   `active-workout-storage` that already exists in useAuth.signOut, so
- *   a fresh signup-out-sign-in cycle reliably starts clean.
+ * - The interval lives in the component that owns the visible timer
+ *   (ActiveWorkout); the store just integrates the ticks.
+ * - `persist` middleware writes to localStorage under the historical
+ *   `active-workout-storage` key (still cleared by useAuth.signOut).
  */
 
 import { create } from "zustand";
 import { immer } from "zustand/middleware/immer";
 import { persist, createJSONStorage } from "zustand/middleware";
-
-// ---------------------------------------------------------------------------
-// Domain types
-// ---------------------------------------------------------------------------
-
-/**
- * A single completed set inside the live workout log. We intentionally
- * keep this minimal — no timestamp, no rpe, no "was this set logged"
- * boolean. If it exists in `loggedSets[exerciseId]` it WAS logged.
- */
-export interface SetEntry {
-  /** Weight in kilograms. Decimals allowed (0.5kg micro-loading). */
-  weight: number;
-  /** Reps actually performed. Integer in practice. */
-  reps: number;
-}
 
 // ---------------------------------------------------------------------------
 // Store contract
@@ -87,27 +49,25 @@ export interface AthleteWorkoutStoreState {
    */
   startedAt: number | null;
   /**
-   * Append-only set log keyed by exerciseId. The array length IS the
-   * completed-set count; no filtering or sentinel checks required by
-   * consumers.
+   * The `workout_logs.id` of the in-progress session. Set by
+   * `startSession(id)` after the DB INSERT returns; cleared by
+   * `stopSession()`. Components key set-log queries / mutations off
+   * this id.
    */
-  loggedSets: Record<string, SetEntry[]>;
+  activeSessionId: string | null;
 
   // ---- Actions -----------------------------------------------------------
-  /** Begin a fresh session — clears any prior state and stamps startedAt. */
-  startSession: () => void;
+  /**
+   * Mark a session active — pass the `workout_logs.id` returned by
+   * `useStartSessionMutation`. Resets the elapsed timer so the visible
+   * stopwatch starts at 00:00.
+   */
+  startSession: (sessionId: string) => void;
   /** End the session and clear all in-memory state. */
   stopSession: () => void;
   /** 1Hz tick — call from the timer component's setInterval. No-op when
-   *  the session is not active (defensive: prevents drift if the
-   *  component forgot to clear its interval). */
+   *  the session is not active. */
   tick: () => void;
-  /**
-   * Append a freshly completed set to `loggedSets[exerciseId]`.
-   * Auto-creates the array on first log. Idempotent in the sense that
-   * each call appends exactly one entry — callers control de-dup.
-   */
-  logSet: (exerciseId: string, weight: number, reps: number) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -118,7 +78,7 @@ const EMPTY_SESSION = {
   isSessionActive: false,
   elapsedTime: 0,
   startedAt: null as number | null,
-  loggedSets: {} as Record<string, SetEntry[]>,
+  activeSessionId: null as string | null,
 };
 
 // ---------------------------------------------------------------------------
@@ -130,12 +90,12 @@ export const useAthleteWorkoutStore = create<AthleteWorkoutStoreState>()(
     immer((set) => ({
       ...EMPTY_SESSION,
 
-      startSession: () =>
+      startSession: (sessionId) =>
         set((s) => {
           s.isSessionActive = true;
           s.elapsedTime = 0;
           s.startedAt = Date.now();
-          s.loggedSets = {};
+          s.activeSessionId = sessionId;
         }),
 
       stopSession: () =>
@@ -143,37 +103,24 @@ export const useAthleteWorkoutStore = create<AthleteWorkoutStoreState>()(
           s.isSessionActive = false;
           s.elapsedTime = 0;
           s.startedAt = null;
-          s.loggedSets = {};
+          s.activeSessionId = null;
         }),
 
       tick: () =>
         set((s) => {
-          // Guard so a stale interval (e.g. left running after a manual
-          // stopSession) cannot keep mutating state.
           if (s.isSessionActive) {
             s.elapsedTime += 1;
           }
         }),
-
-      logSet: (exerciseId, weight, reps) =>
-        set((s) => {
-          if (!s.loggedSets[exerciseId]) {
-            s.loggedSets[exerciseId] = [];
-          }
-          s.loggedSets[exerciseId].push({ weight, reps });
-        }),
     })),
     {
-      // Historical key — useAuth.signOut already cleans this on logout.
       name: "active-workout-storage",
       storage: createJSONStorage(() => localStorage),
-      // Persist only the durable pieces; selectors / actions are
-      // recomputed on every page load.
       partialize: (s) => ({
         isSessionActive: s.isSessionActive,
         elapsedTime: s.elapsedTime,
         startedAt: s.startedAt,
-        loggedSets: s.loggedSets,
+        activeSessionId: s.activeSessionId,
       }),
     },
   ),

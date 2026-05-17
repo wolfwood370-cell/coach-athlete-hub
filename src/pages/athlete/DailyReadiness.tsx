@@ -7,7 +7,7 @@
 // complements the multi-tab AthleteReadinessDetails (Phase 3) by zooming
 // into the contributing factors:
 //   - Hero: large circular SVG gauge (85 / 100) + status pill "Ottima".
-//   - Factor cards (Qualità del Sonno, HRV, DOMS, Stress Percepito);
+//   - Factor cards (Qualità del Sonno, DOMS, Stress Percepito);
 //     the DOMS card is amber-flagged with a left warning border.
 //   - Replacement for the external context image — clean placeholder
 //     div with a brand-tinted gradient and an icon stand-in.
@@ -47,12 +47,6 @@ const FACTORS: readonly Factor[] = [
     label: "Qualità del Sonno",
     score: 90,
     detail: "7h 45m dormite · alta percentuale di sonno profondo.",
-  },
-  {
-    id: "hrv",
-    label: "Recupero Neurale (HRV)",
-    score: 82,
-    detail: "Variabilità cardiaca nella tua baseline superiore.",
   },
   {
     id: "doms",

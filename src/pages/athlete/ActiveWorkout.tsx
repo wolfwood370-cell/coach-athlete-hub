@@ -50,6 +50,10 @@ import { cn } from "@/lib/utils";
 import { ExitWorkoutDialog } from "@/components/athlete/ExitWorkoutDialog";
 import { StandardSetDrawer } from "@/components/athlete/drawers/StandardSetDrawer";
 import { useAthleteWorkoutStore } from "@/stores/useAthleteWorkoutStore";
+import {
+  useSessionSetsQuery,
+  useStartSessionMutation,
+} from "@/hooks/athlete/useAthleteWorkoutHooks";
 
 // =============================================================================
 // Domain types
@@ -124,13 +128,21 @@ function formatMMSS(seconds: number): string {
 }
 
 // =============================================================================
-// useCompletedSetCount — atomic selector that returns the number of sets
-// the athlete has actually logged for a given exercise. With the new
-// flat `loggedSets[id]: SetEntry[]` shape, an entry only exists in the
-// array if it was actually pushed via `logSet` — no filtering required.
+// useCompletedSetCount — DB-backed count of completed sets for an
+// exercise inside the currently-active session. Reads `exercise_logs`
+// via React Query (invalidated by `useLogSetMutation`), filters down to
+// the requested exercise. Returns 0 if no session is active or the
+// query is still loading.
 // =============================================================================
 function useCompletedSetCount(exerciseId: string): number {
-  return useAthleteWorkoutStore((s) => s.loggedSets[exerciseId]?.length ?? 0);
+  const activeSessionId = useAthleteWorkoutStore((s) => s.activeSessionId);
+  const sessionSets = useSessionSetsQuery(activeSessionId);
+  if (!sessionSets.data) return 0;
+  let n = 0;
+  for (const row of sessionSets.data) {
+    if (row.exercise_id === exerciseId) n += 1;
+  }
+  return n;
 }
 
 // =============================================================================
@@ -545,9 +557,14 @@ export default function ActiveWorkout() {
   // component that doesn't read the seconds counter.
   const seconds = useAthleteWorkoutStore((s) => s.elapsedTime);
   const isSessionActive = useAthleteWorkoutStore((s) => s.isSessionActive);
-  const startSession = useAthleteWorkoutStore((s) => s.startSession);
+  const activeSessionId = useAthleteWorkoutStore((s) => s.activeSessionId);
   const stopSession = useAthleteWorkoutStore((s) => s.stopSession);
   const tick = useAthleteWorkoutStore((s) => s.tick);
+
+  // INSERT a `workout_logs` row when this page mounts without an active
+  // session. On success, stash the id in the store so set-logging
+  // mutations can FK to it.
+  const startSessionMutation = useStartSessionMutation();
 
   // -- Local UI state -------------------------------------------------------
   // `isPaused` is page-local: pause halts the visible timer without ending
@@ -565,16 +582,21 @@ export default function ActiveWorkout() {
   );
 
   // Defensive boot: if the user lands on /athlete/active-workout directly
-  // (deep link, share, or refresh after losing in-memory state) and no
-  // session is flagged active in the store, start one transparently. This
-  // keeps the page render-coherent during QA without forcing users to
-  // always come through the Training Hub.
+  // (deep link, share, or refresh after losing the persisted session id)
+  // INSERT a fresh workout_logs row and stash its id in the store. Skip
+  // if the persisted store already has an active session (resume path).
   useEffect(() => {
-    if (!isSessionActive) {
-      startSession();
-    }
-    // Intentionally only on mount — re-running on isSessionActive change
-    // would re-stamp the session every time the user toggled pause.
+    const state = useAthleteWorkoutStore.getState();
+    if (state.activeSessionId && state.isSessionActive) return;
+    startSessionMutation.mutate(
+      {},
+      {
+        onSuccess: (row) => {
+          useAthleteWorkoutStore.getState().startSession(row.id);
+        },
+      },
+    );
+    // Mount-only: re-running would re-INSERT every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -593,11 +615,12 @@ export default function ActiveWorkout() {
   const openExitDialog = () => setIsExitOpen(true);
   const handleResume = () => setIsExitOpen(false);
 
-  /** "Termina e Salva" → mark the session as finished in the store and
-   *  jump to the debrief screen so the athlete can rate RPE + log notes. */
+  /** "Termina e Salva" → jump to the debrief so the athlete can rate
+   *  RPE + log notes. The session id stays in the store; the debrief's
+   *  finish mutation needs it to UPDATE the workout_logs row. The store
+   *  is cleared by the debrief once the mutation completes. */
   const handleFinish = () => {
     setIsExitOpen(false);
-    stopSession();
     navigate("/athlete/post-workout");
   };
 

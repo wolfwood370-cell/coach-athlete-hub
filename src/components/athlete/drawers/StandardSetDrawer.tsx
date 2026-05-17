@@ -1,40 +1,38 @@
 // =============================================================================
 // src/components/athlete/drawers/StandardSetDrawer.tsx
 // =============================================================================
-// Phase 8 — Standard sets execution drawer, rewired for the simplified
-// "logSet" contract from useAthleteWorkoutStore.
+// Standard sets execution drawer, wired to the Supabase data layer.
 //
-// UI model (changed from the previous table-with-checkmarks design):
+// UI model:
 //   - Header: title + close.
-//   - Coach's protocol card (kept).
-//   - "Completed sets" list — reads `loggedSets[exerciseId]` from the
-//     store and renders one row per logged set. Empty when nothing has
-//     been logged yet.
+//   - Coach's protocol card.
+//   - "Completed sets" list — reads `exercise_logs` filtered to this
+//     exercise via React Query. Empty when nothing has been logged yet.
 //   - Active input row — bound to local `weight` + `reps` state. Tapping
-//     "Aggiungi Set" calls `logSet(exerciseId, weight, reps)`, clears
-//     the inputs, and refocuses the kg field for the next set.
+//     "Aggiungi Set" fires `useLogSetMutation` with the next
+//     `set_number`, clears the inputs, and refocuses the kg field.
 //   - Sticky footer: "Termina Esercizio" → closes the drawer.
 //
 // Inputs use `type="number" inputMode="decimal"` per the project's
 // established mobile-keyboard convention. Empty / NaN inputs land as 0
-// in the store — honest about what the user actually typed.
+// in the row — honest about what the user actually typed.
 // =============================================================================
 
 import { useRef, useState } from "react";
 import { Check, Megaphone, Plus, Play, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DrawerShell } from "./DrawerShell";
+import { useAthleteWorkoutStore } from "@/stores/useAthleteWorkoutStore";
 import {
-  useAthleteWorkoutStore,
-  type SetEntry,
-} from "@/stores/useAthleteWorkoutStore";
+  useLogSetMutation,
+  useSessionSetsQuery,
+  type ExerciseLogRow,
+} from "@/hooks/athlete/useAthleteWorkoutHooks";
 
-// Module-scope stable empty array. Returning a fresh `[]` from a Zustand
-// selector breaks the default `Object.is` equality and forces the
-// component to re-render on every store mutation (including the 1Hz
-// timer tick from ActiveWorkout). A single shared reference is the
-// canonical fix.
-const EMPTY_SETS: SetEntry[] = [];
+// Module-scope stable empty array — used as a fallback when the query
+// has no data yet, so the rendered set list reference stays stable
+// across renders.
+const EMPTY_SETS: ExerciseLogRow[] = [];
 
 interface StandardSetDrawerProps {
   isOpen: boolean;
@@ -70,30 +68,47 @@ export function StandardSetDrawer({
   // for rapid back-to-back set logging.
   const weightInputRef = useRef<HTMLInputElement | null>(null);
 
-  // -- Store wiring -------------------------------------------------------
-  // Atomic selectors — the drawer should NOT re-render on the 1Hz timer
-  // tick from ActiveWorkout, so we never subscribe to the whole store.
-  const logSet = useAthleteWorkoutStore((s) => s.logSet);
-  const completedSets = useAthleteWorkoutStore(
-    (s) => s.loggedSets[exerciseId] ?? EMPTY_SETS,
-  );
+  // -- Data layer wiring --------------------------------------------------
+  // The session id is local UI state (which DB row is being edited).
+  // Reads are scoped to that session and filtered down to this exercise.
+  const activeSessionId = useAthleteWorkoutStore((s) => s.activeSessionId);
+  const sessionSets = useSessionSetsQuery(activeSessionId);
+  const completedSets = sessionSets.data
+    ? sessionSets.data.filter((row) => row.exercise_id === exerciseId)
+    : EMPTY_SETS;
+
+  const logSetMutation = useLogSetMutation();
 
   // Disabled until at least one of the fields is populated. We don't
   // require both — coaches sometimes log "BW × N" (bodyweight) which
   // is weight=0, reps=N. Same for "single rep max" tests where reps=1
-  // is intentional.
-  const canLog = weight.trim().length > 0 || reps.trim().length > 0;
+  // is intentional. Also disabled while another set is mid-flight to
+  // avoid duplicate inserts on rapid taps.
+  const canLog =
+    (weight.trim().length > 0 || reps.trim().length > 0) &&
+    !logSetMutation.isPending &&
+    activeSessionId !== null;
 
   const handleLogSet = () => {
-    if (!canLog) return;
+    if (!canLog || !activeSessionId) return;
     const w = Number(weight) || 0;
     const r = Number(reps) || 0;
-    logSet(exerciseId, w, r);
-    // Clear inputs so the drawer is ready for the next set; refocus
-    // weight for keyboard continuity.
-    setWeight("");
-    setReps("");
-    weightInputRef.current?.focus();
+    logSetMutation.mutate(
+      {
+        session_id: activeSessionId,
+        exercise_id: exerciseId,
+        set_number: completedSets.length + 1,
+        weight: w,
+        reps: r,
+      },
+      {
+        onSuccess: () => {
+          setWeight("");
+          setReps("");
+          weightInputRef.current?.focus();
+        },
+      },
+    );
   };
 
   return (
@@ -170,7 +185,7 @@ export function StandardSetDrawer({
             <ul className="flex flex-col gap-2">
               {completedSets.map((set, idx) => (
                 <li
-                  key={idx}
+                  key={set.id}
                   className={cn(
                     "grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1fr)_28px] gap-2 items-center",
                     "rounded-2xl p-3",

@@ -29,6 +29,7 @@ import {
   useAthleteReadinessStore,
   type MetricKey,
 } from "@/stores/useAthleteReadinessStore";
+import { useSubmitReadinessMutation } from "@/hooks/athlete/useAthleteReadinessHooks";
 
 // -----------------------------------------------------------------------------
 // Domain types
@@ -237,6 +238,7 @@ export default function DailyCheckin() {
   const submitDailyCheckin = useAthleteReadinessStore(
     (s) => s.submitDailyCheckin,
   );
+  const submitReadiness = useSubmitReadinessMutation();
 
   // -- State ----------------------------------------------------------------
   // Biofeedback: per-metric 1..5 single select. Partial: a metric is "unset"
@@ -318,14 +320,33 @@ export default function DailyCheckin() {
       Soreness: sorenessScore,
     };
 
+    // Snappy local UI update so the dashboard trend rows reflect today
+    // before the network round-trip completes.
     submitDailyCheckin(payload);
 
-    // eslint-disable-next-line no-console
-    console.info("[DailyCheckin] submitted", payload);
-    toast.success("Check-in salvato", {
-      description: "Punteggio Prontezza aggiornato sulla dashboard.",
-    });
-    navigate("/athlete");
+    // Persist to `daily_readiness`. The hook handles error toasts; on
+    // success we close the page. The composite `score` is currently a
+    // placeholder (85) to match prior mock behaviour — a server-side
+    // weighted composite will replace it in a follow-up.
+    submitReadiness.mutate(
+      {
+        sleep_quality: payload.Sonno,
+        stress_level: payload.Stress,
+        fatigue_score: payload.Fatica,
+        mood: payload.Umore,
+        digestion: payload.Digestione,
+        soreness_map: soreness,
+        score: 85,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Check-in salvato", {
+            description: "Punteggio Prontezza aggiornato sulla dashboard.",
+          });
+          navigate("/athlete");
+        },
+      },
+    );
   };
 
   // Selected muscles, in canonical order (to keep the intensity list stable

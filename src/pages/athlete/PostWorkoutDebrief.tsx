@@ -28,6 +28,10 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useAthleteWorkoutStore } from "@/stores/useAthleteWorkoutStore";
+import {
+  useFinishSessionMutation,
+  useSessionSetsQuery,
+} from "@/hooks/athlete/useAthleteWorkoutHooks";
 
 // =============================================================================
 // Constants — mock workout stats + RPE label dictionary.
@@ -61,40 +65,26 @@ const RPE_LABELS: Record<Rpe, string> = {
 };
 
 // =============================================================================
-// SessionStatsCard — live stats derived from the workout store.
+// SessionStatsCard — live stats derived from the `exercise_logs` rows
+// for the current session.
 //
-// `totalSetsCompleted` = sum of all `loggedSets[*].length` across every
-//   exercise touched in this session.
-// `totalVolumeKg`     = Σ weight × reps across every set in every exercise.
-//                       This is the canonical "tonnage" stat coaches use
-//                       to gauge cumulative work; rounding to the nearest
-//                       kg keeps the display tidy.
-//
-// Both are derived inside one selector so the component re-renders
-// exactly once per logSet, not twice (length + reduce).
+// `totalSetsCompleted` = number of rows in the session-sets query.
+// `totalVolumeKg`     = Σ weight × reps across every set. This is the
+//                       canonical "tonnage" stat coaches use to gauge
+//                       cumulative work; rounded for display tidiness.
 // =============================================================================
 function SessionStatsCard() {
-  // Two ATOMIC selectors instead of one object-returning selector.
-  // Returning a fresh `{ totalSetsCompleted, totalVolumeKg }` from a
-  // single selector breaks Zustand's default `Object.is` equality on
-  // every state change, which on a 1Hz-ticking store causes an
-  // unnecessary render per second AND has been the historical trigger
-  // for "Maximum update depth exceeded" loops when combined with a
-  // side-effecting render. Primitive returns are reference-stable
-  // by definition, so each selector only fires a re-render when its
-  // own number actually changes.
-  const totalSetsCompleted = useAthleteWorkoutStore((s) => {
-    let n = 0;
-    for (const list of Object.values(s.loggedSets)) n += list.length;
-    return n;
-  });
-  const totalVolumeKg = useAthleteWorkoutStore((s) => {
-    let v = 0;
-    for (const list of Object.values(s.loggedSets)) {
-      for (const entry of list) v += entry.weight * entry.reps;
+  const activeSessionId = useAthleteWorkoutStore((s) => s.activeSessionId);
+  const sessionSets = useSessionSetsQuery(activeSessionId);
+  const rows = sessionSets.data;
+  const totalSetsCompleted = rows ? rows.length : 0;
+  let totalVolumeKg = 0;
+  if (rows) {
+    for (const row of rows) {
+      totalVolumeKg += row.weight * row.reps;
     }
-    return Math.round(v);
-  });
+    totalVolumeKg = Math.round(totalVolumeKg);
+  }
 
   return (
     <section
@@ -221,30 +211,44 @@ function RpeSelector({
 // =============================================================================
 export default function PostWorkoutDebrief() {
   const navigate = useNavigate();
-  // Atomic selector — we only fire the action, never read state here.
   const stopSession = useAthleteWorkoutStore((s) => s.stopSession);
+  const activeSessionId = useAthleteWorkoutStore((s) => s.activeSessionId);
+  const elapsedTime = useAthleteWorkoutStore((s) => s.elapsedTime);
+  const finishSession = useFinishSessionMutation();
   const [rpe, setRpe] = useState<Rpe | null>(8);
   const [notes, setNotes] = useState("");
 
   /**
-   * Final submit handler for the debrief screen. Three responsibilities:
-   *   1. Log the (mock) payload for visibility in the next backend pass.
-   *   2. Tear down the workout session in the shared store so the next
-   *      visit to /athlete/training boots a clean slate.
-   *   3. Send the athlete back to the dashboard — the natural rest
-   *      state after closing out a session.
+   * Final submit handler — UPDATE the workout_logs row with end time /
+   * duration / RPE / notes, then clear the local session and return to
+   * the dashboard. Errors are surfaced via the mutation's toast.
    */
   const handleSave = () => {
-    // eslint-disable-next-line no-console
-    console.info("[PostWorkoutDebrief] payload preview", {
-      rpe,
-      notes: notes.trim(),
-    });
-    toast.success("Debrief salvato", {
-      description: "Il tuo coach riceverà le note appena disponibili.",
-    });
-    stopSession();
-    navigate("/athlete");
+    if (!activeSessionId) {
+      // Defensive — should never happen if the user arrived via the
+      // normal Termina-e-Salva flow, but guard against a deep-link
+      // landing on this page without an active session.
+      toast.error("Nessuna sessione attiva da salvare.");
+      navigate("/athlete");
+      return;
+    }
+    finishSession.mutate(
+      {
+        session_id: activeSessionId,
+        duration_seconds: elapsedTime,
+        rpe_global: rpe,
+        notes: notes.trim() || null,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Debrief salvato", {
+            description: "Il tuo coach riceverà le note appena disponibili.",
+          });
+          stopSession();
+          navigate("/athlete");
+        },
+      },
+    );
   };
 
   return (

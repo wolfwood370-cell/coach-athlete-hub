@@ -40,13 +40,18 @@ import {
   User,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAthleteWorkoutStore } from "@/stores/useAthleteWorkoutStore";
 import {
   METRIC_KEYS,
   useAthleteReadinessStore,
   type MetricKey,
   type MetricSnapshot,
 } from "@/stores/useAthleteReadinessStore";
+import { useDailyReadinessQuery } from "@/hooks/athlete/useAthleteReadinessHooks";
+
+/** Today's date as ISO `YYYY-MM-DD` — used as the `daily_readiness.date` key. */
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
 
 // =============================================================================
 // Metric polarity map — drives whether "today > yesterday" is rendered
@@ -59,7 +64,6 @@ const POSITIVE_POLARITY: Record<MetricKey, "high-is-good" | "low-is-good"> = {
   Sonno: "high-is-good",
   Umore: "high-is-good",
   Digestione: "high-is-good",
-  HRV: "high-is-good",
   Stress: "low-is-good",
   Fatica: "low-is-good",
   Soreness: "low-is-good",
@@ -226,8 +230,12 @@ function ReadinessCard({
   onOpen: () => void;
   onEditMetrics: () => void;
 }) {
-  const dailyScore = useAthleteReadinessStore((s) => s.dailyScore);
-  const isCompletedToday = useAthleteReadinessStore((s) => s.isCompletedToday);
+  // Source of truth: the DB row for today. `isCompletedToday` is just
+  // "did we get a row back" and `dailyScore` is its `score` column.
+  const todayQuery = useDailyReadinessQuery(todayIso());
+  const dailyScore = todayQuery.data?.score ?? null;
+  const isCompletedToday = Boolean(todayQuery.data);
+
   const metrics = useAthleteReadinessStore((s) => s.metrics);
   const selectedDashboardMetrics = useAthleteReadinessStore(
     (s) => s.selectedDashboardMetrics,
@@ -422,10 +430,10 @@ export default function AthleteDashboard() {
   const navigate = useNavigate();
   // Atomic selectors — read state primitives only, never an object that
   // would force re-renders on every store mutation.
-  const startSession = useAthleteWorkoutStore((s) => s.startSession);
-  const isReadinessCompletedToday = useAthleteReadinessStore(
-    (s) => s.isCompletedToday,
-  );
+  // DB-backed "did the athlete check in today" — used to pick whether
+  // the Prontezza card opens the analysis page or the logging flow.
+  const todayReadinessQuery = useDailyReadinessQuery(todayIso());
+  const isReadinessCompletedToday = Boolean(todayReadinessQuery.data);
   const currentSelectedMetrics = useAthleteReadinessStore(
     (s) => s.selectedDashboardMetrics,
   );
@@ -473,7 +481,8 @@ export default function AthleteDashboard() {
    *  full-screen active workout overlay. Identical contract to the
    *  AthleteTraining sticky CTA so both entry points stay symmetrical. */
   const handleStartWorkout = () => {
-    startSession();
+    // Session row is INSERTed in ActiveWorkout's mount effect so the
+    // mutation only fires once we're truly on that page.
     navigate("/athlete/active-workout");
   };
 
