@@ -423,7 +423,7 @@ function TopBar({ onBack }: { onBack: () => void }) {
         <ChevronLeft className="h-6 w-6" strokeWidth={2} aria-hidden="true" />
       </button>
       <h1 className="flex-1 text-center -ml-10 font-display text-lg font-bold tracking-tight text-on-surface pointer-events-none">
-        Readiness
+        Prontezza
       </h1>
     </header>
   );
@@ -545,7 +545,7 @@ export default function AthleteReadinessDetails() {
               "hover:brightness-110",
             )}
           >
-            Registra Readiness di oggi
+            Registra Prontezza di oggi
           </Link>
         </GlassCard>
 

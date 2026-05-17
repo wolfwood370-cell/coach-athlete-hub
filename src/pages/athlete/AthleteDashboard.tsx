@@ -28,31 +28,65 @@
 // query) lands in the follow-up commit.
 // =============================================================================
 
-import type { ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { User, Activity, Dumbbell, Play } from "lucide-react";
+import {
+  Activity,
+  Dumbbell,
+  Minus,
+  Play,
+  Settings2,
+  TrendingDown,
+  TrendingUp,
+  User,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAthleteWorkoutStore } from "@/stores/useAthleteWorkoutStore";
+import {
+  METRIC_KEYS,
+  useAthleteReadinessStore,
+  type MetricKey,
+  type MetricSnapshot,
+} from "@/stores/useAthleteReadinessStore";
+
+// =============================================================================
+// Metric polarity map — drives whether "today > yesterday" is rendered
+// as improvement (green TrendingUp) or regression (amber TrendingDown).
+// "Sonno is up" = better sleep = good. "Stress is up" = worse. The map
+// lives at module scope (not inside the component) so its reference is
+// stable across renders.
+// =============================================================================
+const POSITIVE_POLARITY: Record<MetricKey, "high-is-good" | "low-is-good"> = {
+  Sonno: "high-is-good",
+  Umore: "high-is-good",
+  Digestione: "high-is-good",
+  HRV: "high-is-good",
+  Stress: "low-is-good",
+  Fatica: "low-is-good",
+  Soreness: "low-is-good",
+};
+
+type TrendDirection = "up" | "down" | "flat";
+
+function computeTrendDirection(
+  metric: MetricKey,
+  today: number | null,
+  yesterday: number | null,
+): TrendDirection {
+  if (today === null || yesterday === null) return "flat";
+  if (today === yesterday) return "flat";
+  const ascending = today > yesterday;
+  const polarity = POSITIVE_POLARITY[metric];
+  const isImprovement =
+    (ascending && polarity === "high-is-good") ||
+    (!ascending && polarity === "low-is-good");
+  return isImprovement ? "up" : "down";
+}
 
 // -----------------------------------------------------------------------------
 // MOCK DATA — single source of truth for this page until we wire the hooks.
 // -----------------------------------------------------------------------------
 const MOCK = {
   athleteName: "Marco",
-  readiness: {
-    score: 85, // 0–100
-    sleepQuality: "high" as const,
-    hrvTrend: "stable" as const,
-    soreness: "low" as const,
-    /**
-     * Mock flag — if true the athlete already logged the daily check-in
-     * so tapping the card opens the analysis view; if false it opens the
-     * logging flow. Will be sourced from `useDailyReadiness(today)` once
-     * the data layer is wired. Flip to `false` during QA to test the
-     * "log first" branch.
-     */
-    isLoggedToday: true,
-  },
   nextWorkout: {
     title: "Forza Lower Body",
     durationMin: 45,
@@ -115,45 +149,107 @@ function ReadinessRing({ value }: { value: number }) {
 }
 
 // =============================================================================
-// MetricRow — a single label + indicator line inside the readiness card.
-// Kept inline because it has no real reusable contract right now.
+// MetricTrendRow — one dashboard metric: name + today value + trend icon.
+// All three columns derived from the live readiness store.
 // =============================================================================
-function MetricRow({
-  label,
-  indicator,
+function MetricTrendRow({
+  metric,
+  snapshot,
 }: {
-  label: string;
-  indicator: ReactNode;
+  metric: MetricKey;
+  snapshot: MetricSnapshot;
 }) {
+  const direction = computeTrendDirection(
+    metric,
+    snapshot.today,
+    snapshot.yesterday,
+  );
+  const Icon =
+    direction === "up" ? TrendingUp : direction === "down" ? TrendingDown : Minus;
+  const iconTint =
+    direction === "up"
+      ? "text-emerald-600"
+      : direction === "down"
+        ? "text-amber-600"
+        : "text-on-surface-variant/60";
+  const displayValue =
+    snapshot.today === null ? "—" : Number.isInteger(snapshot.today)
+      ? String(snapshot.today)
+      : snapshot.today.toFixed(1);
+
   return (
     <div className="flex items-center justify-between">
       <span className="font-sans text-[11px] font-semibold tracking-wider uppercase text-on-surface-variant">
-        {label}
+        {metric}
       </span>
-      {indicator}
+      <span className="flex items-center gap-1.5">
+        <span className="font-display text-xs font-bold tabular-nums text-on-surface">
+          {displayValue}
+        </span>
+        <Icon
+          className={cn("h-3.5 w-3.5", iconTint)}
+          strokeWidth={2.5}
+          aria-label={
+            direction === "up"
+              ? "In miglioramento"
+              : direction === "down"
+                ? "In peggioramento"
+                : "Stabile"
+          }
+        />
+      </span>
     </div>
   );
 }
 
 // =============================================================================
-// ReadinessCard — top glass widget. Now a clickable surface that routes
-// conditionally:
-//   - isLoggedToday=true  → /athlete/readiness (multi-tab analysis)
-//   - isLoggedToday=false → /athlete/daily-checkin (logging flow)
-// The whole card is a <button> so screen readers and keyboard users get
-// the right affordance; the inner gauge/metrics keep their decorative
-// roles (aria-hidden on indicators, role="img" on the gauge).
+// ReadinessCard — top glass widget, fully driven by useAthleteReadinessStore.
+//
+// Behaviour:
+//   - The whole surface routes on tap: when the day's check-in is
+//     completed → /athlete/readiness (multi-tab analysis), otherwise
+//     → /athlete/daily-checkin (logging flow). The route decision uses
+//     `isCompletedToday` from the store.
+//   - The ring renders `dailyScore` when available, else 0 with a hint.
+//   - The left column maps over `selectedDashboardMetrics` and renders
+//     one MetricTrendRow per pick (default: Sonno / Stress / Fatica).
+//   - A small Settings2 button (top-right) opens a native prompt so
+//     the athlete can pick which 3 metrics to surface. stopPropagation
+//     prevents it from triggering the card's navigation. The card uses
+//     `role="button"` (not an actual <button>) precisely so this inner
+//     button is HTML-valid.
 // =============================================================================
-function ReadinessCard({ onOpen }: { onOpen: () => void }) {
+function ReadinessCard({
+  onOpen,
+  onEditMetrics,
+}: {
+  onOpen: () => void;
+  onEditMetrics: () => void;
+}) {
+  const dailyScore = useAthleteReadinessStore((s) => s.dailyScore);
+  const isCompletedToday = useAthleteReadinessStore((s) => s.isCompletedToday);
+  const metrics = useAthleteReadinessStore((s) => s.metrics);
+  const selectedDashboardMetrics = useAthleteReadinessStore(
+    (s) => s.selectedDashboardMetrics,
+  );
+
+  const ringValue = isCompletedToday && dailyScore !== null ? dailyScore : 0;
+  const ariaLabel = isCompletedToday
+    ? "Apri l'analisi della Prontezza"
+    : "Registra la tua Prontezza di oggi";
+
   return (
-    <button
-      type="button"
+    <div
+      role="button"
+      tabIndex={0}
       onClick={onOpen}
-      aria-label={
-        MOCK.readiness.isLoggedToday
-          ? "Apri l'analisi della readiness"
-          : "Registra la tua readiness di oggi"
-      }
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen();
+        }
+      }}
+      aria-label={ariaLabel}
       className={cn(
         "relative overflow-hidden w-full text-left",
         "rounded-3xl p-6",
@@ -161,6 +257,7 @@ function ReadinessCard({ onOpen }: { onOpen: () => void }) {
         "border border-[#c0c7d0]/30",
         "flex justify-between items-center",
         "transition-transform active:scale-[0.99]",
+        "cursor-pointer",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-container/40",
       )}
     >
@@ -170,57 +267,43 @@ function ReadinessCard({ onOpen }: { onOpen: () => void }) {
         className="pointer-events-none absolute -top-10 -right-10 w-32 h-32 bg-brand-container/15 rounded-full blur-[40px]"
       />
 
-      {/* Left half: micro-metrics column */}
+      {/* Settings2 button — picks the 3 dashboard metrics. stopPropagation
+          keeps the card's onClick from firing when this is tapped. */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onEditMetrics();
+        }}
+        onKeyDown={(e) => e.stopPropagation()}
+        aria-label="Modifica metriche visibili"
+        className={cn(
+          "absolute top-3 right-3 z-20",
+          "h-8 w-8 rounded-full",
+          "flex items-center justify-center",
+          "bg-white/70 backdrop-blur-md border border-[#c0c7d0]/30",
+          "text-on-surface-variant",
+          "hover:text-on-surface hover:bg-white transition-colors",
+          "active:scale-95",
+        )}
+      >
+        <Settings2 className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+      </button>
+
+      {/* Left half: dynamic metric rows */}
       <div className="flex flex-col gap-3 z-10 w-1/2">
         <h2 className="font-display text-xl font-semibold text-brand-container leading-tight">
-          Readiness
+          Prontezza
         </h2>
 
-        <MetricRow
-          label="Sleep Quality"
-          indicator={
-            <div
-              aria-hidden="true"
-              className="h-2 w-2 rounded-full bg-brand-container shadow-[0_0_8px_rgba(34,111,163,0.55)]"
-            />
-          }
-        />
-
-        <MetricRow
-          label="HRV Baseline"
-          indicator={
-            <svg
-              width="40"
-              height="12"
-              viewBox="0 0 40 12"
-              fill="none"
-              aria-hidden="true"
-              className="text-brand-container"
-            >
-              <path
-                d="M1 9.5C6 9.5 7.5 2 12.5 2C17.5 2 19 10 24 10C29 10 32 4 39 4"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          }
-        />
-
-        <MetricRow
-          label="Muscle Soreness"
-          indicator={
-            <div
-              aria-hidden="true"
-              className="h-2 w-2 rounded-full bg-transparent border border-brand-container/50"
-            />
-          }
-        />
+        {selectedDashboardMetrics.map((key) => (
+          <MetricTrendRow key={key} metric={key} snapshot={metrics[key]} />
+        ))}
       </div>
 
-      {/* Right half: circular gauge */}
-      <ReadinessRing value={MOCK.readiness.score} />
-    </button>
+      {/* Right half: circular gauge — value bound to the store */}
+      <ReadinessRing value={ringValue} />
+    </div>
   );
 }
 
@@ -337,19 +420,53 @@ function Header() {
 // =============================================================================
 export default function AthleteDashboard() {
   const navigate = useNavigate();
-  // Atomic selector — we only fire the action, never read state here.
+  // Atomic selectors — read state primitives only, never an object that
+  // would force re-renders on every store mutation.
   const startSession = useAthleteWorkoutStore((s) => s.startSession);
+  const isReadinessCompletedToday = useAthleteReadinessStore(
+    (s) => s.isCompletedToday,
+  );
+  const currentSelectedMetrics = useAthleteReadinessStore(
+    (s) => s.selectedDashboardMetrics,
+  );
+  const setSelectedMetrics = useAthleteReadinessStore(
+    (s) => s.setSelectedMetrics,
+  );
 
-  // Conditional readiness routing — log first, analyse second. The check
-  // here is intentionally a top-level prop chain so when the data layer
-  // lands `MOCK.readiness.isLoggedToday` is the only thing that needs
-  // swapping for a real query result.
+  /**
+   * Readiness card tap — log first, analyse second. The branch reads
+   * `isCompletedToday` straight from the store so a fresh check-in
+   * submitted from /athlete/daily-checkin flips this to true and the
+   * card transparently starts opening the analysis surface.
+   */
   const handleReadinessCardClick = () => {
-    if (MOCK.readiness.isLoggedToday) {
+    if (isReadinessCompletedToday) {
       navigate("/athlete/readiness");
     } else {
       navigate("/athlete/daily-checkin");
     }
+  };
+
+  /**
+   * Settings2 affordance on the Readiness card — opens a native prompt
+   * (per brief: "keep it simple for now"). The user enters three
+   * metric names separated by commas; the store's setSelectedMetrics
+   * sanitises the input (dedups, clamps to 3, drops unknown keys).
+   */
+  const handleEditMetrics = () => {
+    const current = currentSelectedMetrics.join(", ");
+    const input = window.prompt(
+      `Inserisci 3 metriche separate da virgola.\nDisponibili: ${METRIC_KEYS.join(
+        ", ",
+      )}`,
+      current,
+    );
+    if (input === null) return; // cancel
+    const parsed = input
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    setSelectedMetrics(parsed as MetricKey[]);
   };
 
   /** Starts a session in the shared store and hands off to the
@@ -374,7 +491,10 @@ export default function AthleteDashboard() {
         </p>
       </section>
 
-      <ReadinessCard onOpen={handleReadinessCardClick} />
+      <ReadinessCard
+        onOpen={handleReadinessCardClick}
+        onEditMetrics={handleEditMetrics}
+      />
       <NextWorkoutCard onStart={handleStartWorkout} />
     </div>
   );

@@ -51,6 +51,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAthleteWorkoutStore } from "@/stores/useAthleteWorkoutStore";
+import { useAthleteReadinessStore } from "@/stores/useAthleteReadinessStore";
 import type {
   ExerciseType,
   PreviewExercise,
@@ -481,19 +482,53 @@ function HeroWorkoutCard() {
 }
 
 // =============================================================================
-// GlanceCards — 2-col grid: Weekly Load + Readiness.
+// GlanceCards — 2-col grid: Weekly Load + Prontezza. Both cards are
+// now clickable buttons:
+//   - Carico Settimanale → /athlete/analytics (analytics hub)
+//   - Prontezza         → /athlete/readiness (analysis) when the
+//     check-in is already done today, otherwise /athlete/daily-checkin
+//     (logging). The branch matches the dashboard's ReadinessCard so
+//     both entry points stay symmetrical.
 // =============================================================================
 function GlanceCards() {
+  const navigate = useNavigate();
+  const isReadinessCompletedToday = useAthleteReadinessStore(
+    (s) => s.isCompletedToday,
+  );
+  const dailyScore = useAthleteReadinessStore((s) => s.dailyScore);
+
+  // Display values for the Prontezza card. Falls back to the static
+  // READINESS mock until the day's check-in is submitted, so the card
+  // never shows "—%" out of context.
+  const displayScore =
+    isReadinessCompletedToday && dailyScore !== null
+      ? dailyScore
+      : READINESS.scorePercent;
+  const displayLabel = isReadinessCompletedToday
+    ? READINESS.label
+    : "Da registrare";
+
+  const handleOpenAnalytics = () => navigate("/athlete/analytics");
+  const handleOpenReadiness = () => {
+    navigate(
+      isReadinessCompletedToday ? "/athlete/readiness" : "/athlete/daily-checkin",
+    );
+  };
+
   return (
     <div className="grid grid-cols-2 gap-3">
-      {/* Weekly load card with mini bar chart */}
-      <section
-        aria-label="Carico settimanale"
+      {/* Weekly load — whole card now routes to /athlete/analytics */}
+      <button
+        type="button"
+        onClick={handleOpenAnalytics}
+        aria-label="Apri analitiche: carico settimanale"
         className={cn(
-          "rounded-3xl p-5",
+          "rounded-3xl p-5 text-left",
           "bg-white/70 backdrop-blur-xl",
           "border border-[#c0c7d0]/30",
           "flex flex-col justify-between gap-3 min-h-[144px]",
+          "transition-transform active:scale-[0.99]",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-container/40",
         )}
       >
         <div className="flex items-start justify-between">
@@ -526,34 +561,43 @@ function GlanceCards() {
             />
           ))}
         </div>
-      </section>
+      </button>
 
-      {/* Readiness card with mini ring */}
-      <section
-        aria-label="Prontezza"
+      {/* Prontezza — whole card now routes conditionally. Score chip is
+          downgraded from a <Link> to a <span> so we don't nest an
+          interactive element inside the parent button. */}
+      <button
+        type="button"
+        onClick={handleOpenReadiness}
+        aria-label={
+          isReadinessCompletedToday
+            ? "Apri analisi prontezza"
+            : "Registra la prontezza di oggi"
+        }
         className={cn(
-          "rounded-3xl p-5",
+          "rounded-3xl p-5 text-left",
           "bg-white/70 backdrop-blur-xl",
           "border border-[#c0c7d0]/30",
           "flex flex-col justify-between gap-3 min-h-[144px]",
+          "transition-transform active:scale-[0.99]",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-container/40",
         )}
       >
         <div className="flex items-start justify-between">
           <span className="font-sans text-[10px] font-semibold tracking-wider uppercase text-on-surface-variant">
             Prontezza
           </span>
-          <MiniReadinessRing percent={READINESS.scorePercent} />
+          <MiniReadinessRing percent={displayScore} />
         </div>
         <p className="font-display text-xl font-bold text-on-surface leading-none">
-          {READINESS.label}
+          {displayLabel}
         </p>
-        <Link
-          to="/athlete/readiness"
+        <span
           className="self-start px-2 py-0.5 rounded-full bg-brand-container/10 text-brand-container font-sans text-[10px] font-bold tabular-nums"
         >
-          {READINESS.scorePercent}% Score
-        </Link>
-      </section>
+          {displayScore}% Score
+        </span>
+      </button>
     </div>
   );
 }
@@ -752,7 +796,7 @@ function MetricheView() {
           "hover:underline",
         )}
       >
-        Intanto, vedi la Readiness
+        Intanto, vedi la Prontezza
         <ChevronRight className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden="true" />
       </Link>
     </section>

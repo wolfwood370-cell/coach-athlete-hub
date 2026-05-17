@@ -25,6 +25,10 @@ import { useNavigate } from "react-router-dom";
 import { X, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  useAthleteReadinessStore,
+  type MetricKey,
+} from "@/stores/useAthleteReadinessStore";
 
 // -----------------------------------------------------------------------------
 // Domain types
@@ -228,6 +232,11 @@ function IntensityControl({
 // =============================================================================
 export default function DailyCheckin() {
   const navigate = useNavigate();
+  // Atomic selector — we only fire the submit action; we don't read
+  // state here, so the page never re-renders on unrelated mutations.
+  const submitDailyCheckin = useAthleteReadinessStore(
+    (s) => s.submitDailyCheckin,
+  );
 
   // -- State ----------------------------------------------------------------
   // Biofeedback: per-metric 1..5 single select. Partial: a metric is "unset"
@@ -268,12 +277,53 @@ export default function DailyCheckin() {
   };
 
   const handleSave = () => {
-    // No Supabase write yet — log the payload preview so wiring is trivial
-    // in the next commit (the shape here matches daily_readiness columns).
+    // Map the 1..5 biofeedback inputs into the 0..10 scale the store
+    // (and the dashboard ring) expects. "Energia" is inverted into
+    // "Fatica" because the store models the negative axis (lower
+    // fatigue = better). Stress likewise — we store the raw scale and
+    // let the dashboard's trend math decide whether up-is-good.
+    //
+    // The soreness payload aggregates across the picked muscles into a
+    // single 0..10 number: average over (10 - intensityCost) where
+    // mild=2, moderate=5, severe=8. Zero sore muscles = perfect 10.
+    const scale = (n: Score1to5 | undefined): number | null =>
+      typeof n === "number" ? n * 2 : null;
+
+    const soreEntries = Object.entries(soreness);
+    let sorenessScore: number | null = 10;
+    if (soreEntries.length > 0) {
+      const intensityCost: Record<Intensity, number> = {
+        mild: 2,
+        moderate: 5,
+        severe: 8,
+      };
+      const totalCost = soreEntries.reduce(
+        (acc, [, level]) => acc + intensityCost[level as Intensity],
+        0,
+      );
+      const avg = totalCost / soreEntries.length;
+      sorenessScore = Math.max(0, Math.min(10, 10 - avg));
+    }
+
+    const payload: Partial<Record<MetricKey, number | null>> = {
+      Sonno: scale(biofeedback.sleep),
+      Stress: scale(biofeedback.stress),
+      // Fatica = inverted energy. Energy 5 (high) → Fatica 2 (low).
+      Fatica:
+        biofeedback.energy !== undefined
+          ? (6 - biofeedback.energy) * 2
+          : null,
+      Umore: scale(biofeedback.mood),
+      Digestione: scale(biofeedback.digestion),
+      Soreness: sorenessScore,
+    };
+
+    submitDailyCheckin(payload);
+
     // eslint-disable-next-line no-console
-    console.info("[DailyCheckin] payload preview", { biofeedback, soreness });
+    console.info("[DailyCheckin] submitted", payload);
     toast.success("Check-in salvato", {
-      description: "I dati saranno sincronizzati nel prossimo step.",
+      description: "Punteggio Prontezza aggiornato sulla dashboard.",
     });
     navigate("/athlete");
   };
@@ -312,7 +362,7 @@ export default function DailyCheckin() {
             <X className="h-6 w-6" strokeWidth={2} aria-hidden="true" />
           </button>
           <h1 className="font-display text-lg font-bold tracking-tight text-on-surface">
-            Readiness Mattutino
+            Prontezza Mattutina
           </h1>
           {/* Right spacer to keep the title visually centered */}
           <div className="w-10 shrink-0" aria-hidden="true" />
