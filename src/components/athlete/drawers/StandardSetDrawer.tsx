@@ -1,55 +1,45 @@
 // =============================================================================
 // src/components/athlete/drawers/StandardSetDrawer.tsx
 // =============================================================================
-// Phase 8 — Standard sets execution drawer.
+// Phase 8 — Standard sets execution drawer, rewired for the simplified
+// "logSet" contract from useAthleteWorkoutStore.
 //
-// Renders inside <DrawerShell>. Mirrors exercise_execution_drawer.html:
-//   - Header with title, sub-line (phase + RPE), close affordance.
-//   - Coach's protocol card (left brand border).
-//   - Sets table: Set / Previous / kg / reps / RPE / Done.
-//     * Completed rows: brand tint background + checkmark filled.
-//     * Active row: white surface, focused inputs with brand border.
-//   - "Add Set" button at the bottom of the list.
-//   - Sticky footer: "Termina Esercizio" pill.
+// UI model (changed from the previous table-with-checkmarks design):
+//   - Header: title + close.
+//   - Coach's protocol card (kept).
+//   - "Completed sets" list — reads `loggedSets[exerciseId]` from the
+//     store and renders one row per logged set. Empty when nothing has
+//     been logged yet.
+//   - Active input row — bound to local `weight` + `reps` state. Tapping
+//     "Aggiungi Set" calls `logSet(exerciseId, weight, reps)`, clears
+//     the inputs, and refocuses the kg field for the next set.
+//   - Sticky footer: "Termina Esercizio" → closes the drawer.
 //
-// Inputs use type="number" inputMode="decimal" per brief.
-// All state is local React (no Supabase). Mock initial seed reflects
-// a partially completed exercise.
+// Inputs use `type="number" inputMode="decimal"` per the project's
+// established mobile-keyboard convention. Empty / NaN inputs land as 0
+// in the store — honest about what the user actually typed.
 // =============================================================================
 
-import { useState } from "react";
-import { Plus, X, Megaphone, Play, Check } from "lucide-react";
+import { useRef, useState } from "react";
+import { Check, Megaphone, Plus, Play, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DrawerShell } from "./DrawerShell";
 import { useAthleteWorkoutStore } from "@/stores/useAthleteWorkoutStore";
-
-interface SetRow {
-  id: string;
-  /** Previous-session reference shown read-only. */
-  previous: string;
-  kg: string;
-  reps: string;
-  rpe: string;
-  done: boolean;
-}
-
-const INITIAL_SETS: SetRow[] = [
-  { id: "1", previous: "100kg × 8", kg: "100", reps: "8", rpe: "8", done: true },
-  { id: "2", previous: "105kg × 8", kg: "105", reps: "8", rpe: "", done: false },
-];
 
 interface StandardSetDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   /**
    * Unique identifier of the exercise being logged. Used as the key in
-   * `useAthleteWorkoutStore.workoutData.exercises[exerciseId]`. Required
-   * so per-row commits land on the right entry.
+   * `useAthleteWorkoutStore.loggedSets[exerciseId]`. Required so each
+   * commit lands on the right entry.
    */
   exerciseId: string;
   /** Optional override title — defaults to the mock "A1. Barbell Back Squat". */
   exerciseName?: string;
   meta?: string;
+  /** Coach's previous best — surfaced above the input as a reference. */
+  previousReference?: string;
 }
 
 export function StandardSetDrawer({
@@ -58,62 +48,49 @@ export function StandardSetDrawer({
   exerciseId,
   exerciseName = "A1. Barbell Back Squat",
   meta = "Forza Primaria · RPE 8",
+  previousReference = "100kg × 8",
 }: StandardSetDrawerProps) {
-  const [sets, setSets] = useState<SetRow[]>(INITIAL_SETS);
+  // -- Local input state --------------------------------------------------
+  // Strings (not numbers) so an empty field renders as "" rather than 0.
+  const [weight, setWeight] = useState("");
+  const [reps, setReps] = useState("");
 
-  // Atomic selector — we never read state here, only fire the action.
-  // Subscribing this narrowly means the drawer doesn't re-render when
-  // the global elapsedTime ticks (1Hz in ActiveWorkout).
-  const updateSetData = useAthleteWorkoutStore((s) => s.updateSetData);
+  // Ref on the weight input so we can re-focus it after a successful
+  // logSet — keeps the keyboard up and the cursor in the same place
+  // for rapid back-to-back set logging.
+  const weightInputRef = useRef<HTMLInputElement | null>(null);
 
-  const updateField = (id: string, field: keyof SetRow, value: string) => {
-    setSets((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, [field]: value } : s)),
-    );
-  };
+  // -- Store wiring -------------------------------------------------------
+  // Atomic selectors — the drawer should NOT re-render on the 1Hz timer
+  // tick from ActiveWorkout, so we never subscribe to the whole store.
+  const logSet = useAthleteWorkoutStore((s) => s.logSet);
+  const completedSets = useAthleteWorkoutStore(
+    (s) => s.loggedSets[exerciseId] ?? [],
+  );
 
-  /**
-   * Per-row done toggle is the commit gesture: marking a row as done
-   * pushes its kg + reps into the shared workout store keyed by
-   * exerciseId + setIndex. Toggling back to undone is a UI-only revert
-   * (we don't expose a "delete set" store action in this commit).
-   */
-  const toggleDone = (id: string) => {
-    setSets((prev) => {
-      const next = prev.map((s) =>
-        s.id === id ? { ...s, done: !s.done } : s,
-      );
-      const idx = next.findIndex((s) => s.id === id);
-      const row = idx >= 0 ? next[idx] : undefined;
-      if (row && row.done) {
-        // Parse defensively; empty / NaN inputs land as 0 in the store,
-        // which is honest about what the user actually typed.
-        const reps = Number(row.reps) || 0;
-        const weight = Number(row.kg) || 0;
-        updateSetData(exerciseId, idx, reps, weight);
-      }
-      return next;
-    });
-  };
+  // Disabled until at least one of the fields is populated. We don't
+  // require both — coaches sometimes log "BW × N" (bodyweight) which
+  // is weight=0, reps=N. Same for "single rep max" tests where reps=1
+  // is intentional.
+  const canLog = weight.trim().length > 0 || reps.trim().length > 0;
 
-  const addSet = () => {
-    const last = sets[sets.length - 1];
-    setSets((prev) => [
-      ...prev,
-      {
-        id: String(Date.now()),
-        previous: last?.previous ?? "—",
-        kg: last?.kg ?? "",
-        reps: last?.reps ?? "",
-        rpe: "",
-        done: false,
-      },
-    ]);
+  const handleLogSet = () => {
+    if (!canLog) return;
+    const w = Number(weight) || 0;
+    const r = Number(reps) || 0;
+    logSet(exerciseId, w, r);
+    // Clear inputs so the drawer is ready for the next set; refocus
+    // weight for keyboard continuity.
+    setWeight("");
+    setReps("");
+    weightInputRef.current?.focus();
   };
 
   return (
     <DrawerShell open={isOpen} onClose={onClose} ariaLabel={`Esecuzione ${exerciseName}`}>
-      {/* Header */}
+      {/* ------------------------------------------------------------------
+          Header
+          ------------------------------------------------------------------ */}
       <header className="shrink-0 px-6 pb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="font-display text-xl font-bold tracking-tight text-on-surface truncate">
@@ -133,7 +110,9 @@ export function StandardSetDrawer({
         </button>
       </header>
 
-      {/* Body */}
+      {/* ------------------------------------------------------------------
+          Body
+          ------------------------------------------------------------------ */}
       <div className="flex-1 overflow-y-auto px-6 pb-6 flex flex-col gap-5">
         {/* Coach's protocol */}
         <div
@@ -157,51 +136,140 @@ export function StandardSetDrawer({
             Eccentrica controllata di 3 secondi. Esplosivo in concentrica. Non
             sacrificare la profondità per il carico.
           </p>
+          {previousReference && (
+            <p className="mt-3 font-sans text-[11px] text-on-surface-variant">
+              <span className="font-semibold tracking-wider uppercase">
+                Precedente
+              </span>{" "}
+              · {previousReference}
+            </p>
+          )}
         </div>
 
-        {/* Sets table */}
-        <div className="flex flex-col gap-2">
-          {/* Header row */}
-          <div className="grid grid-cols-[24px_minmax(0,2fr)_56px_48px_48px_28px] gap-2 px-2 pb-1 items-end">
-            {["Set", "Precedente", "kg", "reps", "RPE", ""].map((label, i) => (
-              <span
-                key={i}
-                className="font-sans text-[10px] font-semibold tracking-wider uppercase text-on-surface-variant text-center"
-              >
-                {label}
+        {/* Completed sets — derived from the store */}
+        <section aria-label="Serie completate" className="flex flex-col gap-2">
+          <h3 className="font-display text-[11px] font-bold tracking-widest uppercase text-on-surface-variant px-1">
+            Serie Completate ({completedSets.length})
+          </h3>
+          {completedSets.length === 0 ? (
+            <p className="px-1 text-sm italic text-on-surface-variant/70">
+              Nessuna serie ancora loggata. Compila kg + reps qui sotto e
+              tocca "Aggiungi Set".
+            </p>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {completedSets.map((set, idx) => (
+                <li
+                  key={idx}
+                  className={cn(
+                    "grid grid-cols-[28px_minmax(0,1fr)_minmax(0,1fr)_28px] gap-2 items-center",
+                    "rounded-2xl p-3",
+                    "bg-brand-container/10 border border-brand-container/20",
+                  )}
+                >
+                  <span className="font-display text-sm font-bold text-brand-container text-center tabular-nums">
+                    {idx + 1}
+                  </span>
+                  <span className="font-display text-sm font-semibold text-on-surface text-center tabular-nums">
+                    {set.weight}{" "}
+                    <span className="text-on-surface-variant text-xs font-normal">
+                      kg
+                    </span>
+                  </span>
+                  <span className="font-display text-sm font-semibold text-on-surface text-center tabular-nums">
+                    {set.reps}{" "}
+                    <span className="text-on-surface-variant text-xs font-normal">
+                      reps
+                    </span>
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="h-6 w-6 rounded-md bg-brand-container text-white flex items-center justify-center"
+                  >
+                    <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        {/* Active input row */}
+        <section
+          aria-label="Logga la prossima serie"
+          className={cn(
+            "rounded-2xl p-4",
+            "bg-white border-2 border-brand-container/50",
+            "flex flex-col gap-3",
+          )}
+        >
+          <h3 className="font-display text-[11px] font-bold tracking-widest uppercase text-brand-container">
+            Serie {completedSets.length + 1}
+          </h3>
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="font-sans text-[10px] font-semibold tracking-wider uppercase text-on-surface-variant">
+                Peso (kg)
               </span>
-            ))}
+              <input
+                ref={weightInputRef}
+                type="number"
+                inputMode="decimal"
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+                placeholder="0"
+                className={cn(
+                  "w-full h-12 rounded-xl text-center font-display text-lg font-bold tabular-nums",
+                  "bg-surface-container/60 text-on-surface border border-transparent",
+                  "outline-none focus:bg-white focus:border-brand-container focus:ring-2 focus:ring-brand-container/30",
+                  "placeholder:text-on-surface-variant/40",
+                )}
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="font-sans text-[10px] font-semibold tracking-wider uppercase text-on-surface-variant">
+                Ripetizioni
+              </span>
+              <input
+                type="number"
+                inputMode="decimal"
+                value={reps}
+                onChange={(e) => setReps(e.target.value)}
+                placeholder="0"
+                className={cn(
+                  "w-full h-12 rounded-xl text-center font-display text-lg font-bold tabular-nums",
+                  "bg-surface-container/60 text-on-surface border border-transparent",
+                  "outline-none focus:bg-white focus:border-brand-container focus:ring-2 focus:ring-brand-container/30",
+                  "placeholder:text-on-surface-variant/40",
+                )}
+              />
+            </label>
           </div>
-
-          {sets.map((row, idx) => (
-            <SetRowItem
-              key={row.id}
-              row={row}
-              index={idx + 1}
-              onChange={updateField}
-              onToggleDone={toggleDone}
-            />
-          ))}
-
           <button
             type="button"
-            onClick={addSet}
+            onClick={handleLogSet}
+            disabled={!canLog}
             className={cn(
-              "mt-2 py-3 rounded-2xl",
-              "flex items-center justify-center gap-1",
-              "bg-surface-container/60 text-brand-container",
+              "mt-1 py-3 rounded-full",
+              "flex items-center justify-center gap-1.5",
+              "bg-brand-container text-white",
               "font-display text-xs font-bold tracking-widest uppercase",
-              "transition-colors hover:bg-surface-container",
-              "active:scale-[0.98]",
+              "shadow-[0_6px_18px_rgba(34,111,163,0.25)]",
+              "transition-all duration-200",
+              "hover:brightness-110 active:scale-[0.98]",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              "disabled:active:scale-100 disabled:hover:brightness-100",
             )}
           >
             <Plus className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
             Aggiungi Set
           </button>
-        </div>
+        </section>
       </div>
 
-      {/* Sticky footer */}
+      {/* ------------------------------------------------------------------
+          Sticky footer
+          ------------------------------------------------------------------ */}
       <footer className="shrink-0 px-6 pt-3 pb-[max(env(safe-area-inset-bottom),1rem)] border-t border-[#c0c7d0]/30 bg-white/85 backdrop-blur-xl">
         <button
           type="button"
@@ -209,9 +277,9 @@ export function StandardSetDrawer({
           className={cn(
             "w-full h-14 rounded-full",
             "flex items-center justify-center gap-2",
-            "bg-brand-container text-white",
+            "bg-on-surface text-white",
             "font-display text-sm font-bold tracking-widest uppercase",
-            "shadow-[0_8px_20px_rgba(34,111,163,0.3)]",
+            "shadow-[0_8px_20px_rgba(0,30,45,0.25)]",
             "transition-all duration-200",
             "hover:brightness-110 active:scale-[0.98]",
           )}
@@ -225,97 +293,6 @@ export function StandardSetDrawer({
         </button>
       </footer>
     </DrawerShell>
-  );
-}
-
-// =============================================================================
-// SetRowItem — extracted to keep the parent readable. Includes the
-// brand "completed" tint when done, focused brand border on the kg input.
-// =============================================================================
-function SetRowItem({
-  row,
-  index,
-  onChange,
-  onToggleDone,
-}: {
-  row: SetRow;
-  index: number;
-  onChange: (id: string, field: keyof SetRow, value: string) => void;
-  onToggleDone: (id: string) => void;
-}) {
-  return (
-    <div
-      className={cn(
-        "grid grid-cols-[24px_minmax(0,2fr)_56px_48px_48px_28px] gap-2 items-center",
-        "rounded-2xl p-2",
-        row.done
-          ? "bg-brand-container/10 border border-brand-container/20"
-          : "bg-white border border-[#c0c7d0]/30",
-      )}
-    >
-      <span className="font-display text-sm font-semibold text-on-surface text-center tabular-nums">
-        {index}
-      </span>
-      <span className="font-sans text-[11px] text-on-surface-variant truncate">
-        {row.previous}
-      </span>
-      <input
-        type="number"
-        inputMode="decimal"
-        aria-label={`kg set ${index}`}
-        value={row.kg}
-        onChange={(e) => onChange(row.id, "kg", e.target.value)}
-        className={cn(
-          "w-full h-9 rounded-lg text-center font-display text-sm font-semibold tabular-nums",
-          "outline-none transition-colors",
-          row.done
-            ? "bg-white/80 text-on-surface border border-transparent"
-            : "bg-surface text-on-surface border border-brand-container/60 focus:border-brand-container focus:ring-1 focus:ring-brand-container",
-        )}
-      />
-      <input
-        type="number"
-        inputMode="decimal"
-        aria-label={`reps set ${index}`}
-        value={row.reps}
-        onChange={(e) => onChange(row.id, "reps", e.target.value)}
-        className={cn(
-          "w-full h-9 rounded-lg text-center font-display text-sm font-semibold tabular-nums",
-          "outline-none transition-colors",
-          "bg-surface-container/60 text-on-surface border border-transparent",
-          "focus:bg-white focus:border-brand-container focus:ring-1 focus:ring-brand-container",
-        )}
-      />
-      <input
-        type="number"
-        inputMode="decimal"
-        aria-label={`RPE set ${index}`}
-        value={row.rpe}
-        onChange={(e) => onChange(row.id, "rpe", e.target.value)}
-        placeholder="—"
-        className={cn(
-          "w-full h-9 rounded-lg text-center font-display text-sm font-semibold tabular-nums",
-          "outline-none transition-colors",
-          "bg-surface-container/60 text-on-surface border border-transparent",
-          "placeholder:text-on-surface-variant/50",
-          "focus:bg-white focus:border-brand-container focus:ring-1 focus:ring-brand-container",
-        )}
-      />
-      <button
-        type="button"
-        onClick={() => onToggleDone(row.id)}
-        aria-label={row.done ? `Set ${index} completato` : `Segna set ${index} come completato`}
-        aria-pressed={row.done}
-        className={cn(
-          "h-6 w-6 rounded-md flex items-center justify-center transition-colors",
-          row.done
-            ? "bg-brand-container text-white"
-            : "border-2 border-[#c0c7d0] text-transparent hover:border-brand-container",
-        )}
-      >
-        <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
-      </button>
-    </div>
   );
 }
 

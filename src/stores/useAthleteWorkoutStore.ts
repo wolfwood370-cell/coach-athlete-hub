@@ -11,11 +11,13 @@
  * 2. Hold the live elapsed seconds counter (`elapsedTime`), incremented
  *    by an external 1Hz tick (the ActiveWorkout component owns the
  *    setInterval; the store just integrates the ticks).
- * 3. Persist the per-exercise set log the athlete has entered
- *    (`workoutData.exercises[exerciseId].sets[setIndex]`).
+ * 3. Persist a flat append-only log of completed sets per exercise
+ *    (`loggedSets[exerciseId] = [{ weight, reps }, ...]`). Components
+ *    derive "completed count" from `.length`, total volume from a
+ *    reduce, and so on — the store stays dumb.
  * 4. Survive page reloads by persisting to localStorage under the
  *    historical `active-workout-storage` key (the same key that
- *    useAuth.signOut already clears, so logout still wipes everything).
+ *    `useAuth.signOut` already clears, so logout still wipes everything).
  *
  * Non-responsibilities
  * --------------------
@@ -30,6 +32,15 @@
  * - Server persistence. Saving to Supabase happens via a dedicated hook
  *   in the next commit; this store is the offline-safe staging buffer.
  *
+ * Contract changes vs the previous shape
+ * --------------------------------------
+ * Replaced `workoutData.exercises[id].sets[setIndex] = { reps, weight,
+ * loggedAt }` with the flatter `loggedSets[exerciseId] = SetEntry[]`.
+ * The pad-empty-slots dance the old `updateSetData` did is gone — there
+ * are no indices to address, just `push`. The previous filter-by-
+ * loggedAt-greater-than-zero hack in the consumers is also gone because
+ * an entry only exists once it has actually been logged.
+ *
  * Design notes
  * ------------
  * - Zustand 5 + immer middleware (matches useProgramBuilderStore /
@@ -37,8 +48,6 @@
  * - `persist` middleware writes to localStorage. We reuse the key
  *   `active-workout-storage` that already exists in useAuth.signOut, so
  *   a fresh signup-out-sign-in cycle reliably starts clean.
- * - All mutators use immer's draft API so deeply-nested updates
- *   (`workoutData.exercises[id].sets[i]`) stay readable.
  */
 
 import { create } from "zustand";
@@ -49,28 +58,16 @@ import { persist, createJSONStorage } from "zustand/middleware";
 // Domain types
 // ---------------------------------------------------------------------------
 
-/** A single completed set inside the live workout log. */
+/**
+ * A single completed set inside the live workout log. We intentionally
+ * keep this minimal — no timestamp, no rpe, no "was this set logged"
+ * boolean. If it exists in `loggedSets[exerciseId]` it WAS logged.
+ */
 export interface SetEntry {
-  /** Reps actually performed. Integer. */
-  reps: number;
-  /** Weight in kilograms. Decimal (steps of 0.5kg are common). */
+  /** Weight in kilograms. Decimals allowed (0.5kg micro-loading). */
   weight: number;
-  /** Epoch ms when this set was logged — useful for stale-set audits. */
-  loggedAt: number;
-}
-
-/** All sets recorded for one exercise in this session. */
-export interface ExerciseLog {
-  exerciseId: string;
-  sets: SetEntry[];
-}
-
-/** Top-level shape of the session payload. */
-export interface WorkoutData {
-  /** Map of exerciseId → log. Map-of-id rather than array so updates
-   *  by id are O(1) and order is decided by the UI / programme schema,
-   *  not by insertion order. */
-  exercises: Record<string, ExerciseLog>;
+  /** Reps actually performed. Integer in practice. */
+  reps: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -89,8 +86,12 @@ export interface AthleteWorkoutStoreState {
    * (which freeze when the tab is backgrounded on mobile).
    */
   startedAt: number | null;
-  /** Per-exercise sets recorded so far. */
-  workoutData: WorkoutData;
+  /**
+   * Append-only set log keyed by exerciseId. The array length IS the
+   * completed-set count; no filtering or sentinel checks required by
+   * consumers.
+   */
+  loggedSets: Record<string, SetEntry[]>;
 
   // ---- Actions -----------------------------------------------------------
   /** Begin a fresh session — clears any prior state and stamps startedAt. */
@@ -102,16 +103,11 @@ export interface AthleteWorkoutStoreState {
    *  component forgot to clear its interval). */
   tick: () => void;
   /**
-   * Replace the `setIndex` entry for `exerciseId` with the supplied
-   * reps/weight. Auto-creates the exercise log and pads empty sets up
-   * to setIndex so callers can update any set without precondition.
+   * Append a freshly completed set to `loggedSets[exerciseId]`.
+   * Auto-creates the array on first log. Idempotent in the sense that
+   * each call appends exactly one entry — callers control de-dup.
    */
-  updateSetData: (
-    exerciseId: string,
-    setIndex: number,
-    reps: number,
-    weight: number,
-  ) => void;
+  logSet: (exerciseId: string, weight: number, reps: number) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -122,7 +118,7 @@ const EMPTY_SESSION = {
   isSessionActive: false,
   elapsedTime: 0,
   startedAt: null as number | null,
-  workoutData: { exercises: {} as Record<string, ExerciseLog> },
+  loggedSets: {} as Record<string, SetEntry[]>,
 };
 
 // ---------------------------------------------------------------------------
@@ -139,7 +135,7 @@ export const useAthleteWorkoutStore = create<AthleteWorkoutStoreState>()(
           s.isSessionActive = true;
           s.elapsedTime = 0;
           s.startedAt = Date.now();
-          s.workoutData = { exercises: {} };
+          s.loggedSets = {};
         }),
 
       stopSession: () =>
@@ -147,7 +143,7 @@ export const useAthleteWorkoutStore = create<AthleteWorkoutStoreState>()(
           s.isSessionActive = false;
           s.elapsedTime = 0;
           s.startedAt = null;
-          s.workoutData = { exercises: {} };
+          s.loggedSets = {};
         }),
 
       tick: () =>
@@ -159,25 +155,12 @@ export const useAthleteWorkoutStore = create<AthleteWorkoutStoreState>()(
           }
         }),
 
-      updateSetData: (exerciseId, setIndex, reps, weight) =>
+      logSet: (exerciseId, weight, reps) =>
         set((s) => {
-          if (!s.workoutData.exercises[exerciseId]) {
-            s.workoutData.exercises[exerciseId] = {
-              exerciseId,
-              sets: [],
-            };
+          if (!s.loggedSets[exerciseId]) {
+            s.loggedSets[exerciseId] = [];
           }
-          const log = s.workoutData.exercises[exerciseId];
-          // Pad up to and including setIndex so we can write any index
-          // without callers having to pre-add intermediate sets.
-          while (log.sets.length <= setIndex) {
-            log.sets.push({ reps: 0, weight: 0, loggedAt: 0 });
-          }
-          log.sets[setIndex] = {
-            reps,
-            weight,
-            loggedAt: Date.now(),
-          };
+          s.loggedSets[exerciseId].push({ weight, reps });
         }),
     })),
     {
@@ -190,7 +173,7 @@ export const useAthleteWorkoutStore = create<AthleteWorkoutStoreState>()(
         isSessionActive: s.isSessionActive,
         elapsedTime: s.elapsedTime,
         startedAt: s.startedAt,
-        workoutData: s.workoutData,
+        loggedSets: s.loggedSets,
       }),
     },
   ),

@@ -64,15 +64,17 @@ interface UpcomingExercise {
   id: string;
   code: string;
   name: string;
-  totalSets: number;
+  /** Coach-prescribed total sets for the exercise. */
+  targetSets: number;
 }
 
 interface ActiveExercise {
-  /** Stable id used as the key in `workoutData.exercises[id]`. */
+  /** Stable id used as the key in `loggedSets[id]`. */
   id: string;
   code: string;
   name: string;
-  totalSets: number;
+  /** Coach-prescribed total sets for the exercise. */
+  targetSets: number;
   /**
    * Coach-prescribed target for the next set. The current set index is
    * derived live from the store (= completed sets count + 1), so this
@@ -99,13 +101,13 @@ const ACTIVE_EXERCISE: ActiveExercise = {
   id: "a1",
   code: "A1",
   name: "Barbell Back Squat",
-  totalSets: 4,
+  targetSets: 4,
   setTarget: { reps: 8, weightKg: 100 },
 };
 
 const UPCOMING: UpcomingExercise[] = [
-  { id: "b1", code: "B1", name: "Romanian Deadlift", totalSets: 3 },
-  { id: "b2", code: "B2", name: "Weighted Pull-ups", totalSets: 3 },
+  { id: "b1", code: "B1", name: "Romanian Deadlift", targetSets: 3 },
+  { id: "b2", code: "B2", name: "Weighted Pull-ups", targetSets: 3 },
 ];
 
 // Progress bar (% of session completed) — driven from mock for now.
@@ -123,17 +125,12 @@ function formatMMSS(seconds: number): string {
 
 // =============================================================================
 // useCompletedSetCount — atomic selector that returns the number of sets
-// the athlete has actually logged for a given exercise. We count entries
-// with a non-zero `loggedAt` because `updateSetData` pads intermediate
-// slots with `{ reps:0, weight:0, loggedAt:0 }` when a non-sequential
-// setIndex is written — those padding slots must NOT count as completed.
+// the athlete has actually logged for a given exercise. With the new
+// flat `loggedSets[id]: SetEntry[]` shape, an entry only exists in the
+// array if it was actually pushed via `logSet` — no filtering required.
 // =============================================================================
 function useCompletedSetCount(exerciseId: string): number {
-  return useAthleteWorkoutStore((s) => {
-    const log = s.workoutData.exercises[exerciseId];
-    if (!log) return 0;
-    return log.sets.filter((set) => set.loggedAt > 0).length;
-  });
+  return useAthleteWorkoutStore((s) => s.loggedSets[exerciseId]?.length ?? 0);
 }
 
 // =============================================================================
@@ -290,9 +287,9 @@ function ActiveExerciseCard({
   onOpen: (exerciseId: string) => void;
 }) {
   const completedSets = useCompletedSetCount(exercise.id);
-  // Clamp at totalSets so an over-shoot doesn't render bogus state.
-  const safeCompleted = Math.min(completedSets, exercise.totalSets);
-  const currentSetIndex = Math.min(safeCompleted + 1, exercise.totalSets);
+  // Clamp at targetSets so an over-shoot doesn't render bogus state.
+  const safeCompleted = Math.min(completedSets, exercise.targetSets);
+  const currentSetIndex = Math.min(safeCompleted + 1, exercise.targetSets);
 
   return (
     <button
@@ -315,7 +312,7 @@ function ActiveExerciseCard({
             {exercise.name}
           </h3>
           <p className="mt-1 font-sans text-xs font-semibold tracking-wide text-brand-container">
-            {safeCompleted}/{exercise.totalSets} serie completate
+            {safeCompleted}/{exercise.targetSets} serie completate
           </p>
         </div>
         <span
@@ -332,7 +329,7 @@ function ActiveExerciseCard({
         aria-label="Avanzamento serie"
         className="flex gap-2 mb-5"
       >
-        {Array.from({ length: exercise.totalSets }).map((_, i) => {
+        {Array.from({ length: exercise.targetSets }).map((_, i) => {
           const isDone = i < safeCompleted;
           return (
             <div
@@ -391,7 +388,7 @@ function UpcomingExerciseCard({
   onOpen: (exerciseId: string) => void;
 }) {
   const completedSets = useCompletedSetCount(exercise.id);
-  const safeCompleted = Math.min(completedSets, exercise.totalSets);
+  const safeCompleted = Math.min(completedSets, exercise.targetSets);
 
   return (
     <button
@@ -412,7 +409,7 @@ function UpcomingExerciseCard({
           {exercise.name}
         </h3>
         <p className="mt-1 font-sans text-xs text-on-surface-variant">
-          {safeCompleted}/{exercise.totalSets} Set
+          {safeCompleted}/{exercise.targetSets} Set
         </p>
       </div>
       <span

@@ -32,12 +32,15 @@ import { useAthleteWorkoutStore } from "@/stores/useAthleteWorkoutStore";
 // =============================================================================
 // Constants — mock workout stats + RPE label dictionary.
 // =============================================================================
+/**
+ * Mock metadata for the just-finished session. The DERIVED stats —
+ * total volume + total sets completed — are computed live from
+ * `useAthleteWorkoutStore.loggedSets` inside SessionStatsCard, so this
+ * struct only carries the static "what session was this" labels.
+ */
 const WORKOUT_SUMMARY = {
   title: "Lower Body Power",
   duration: "1h 15m",
-  totalVolumeKg: 8_450,
-  setsCompleted: 24,
-  setsTotal: 24,
   muscles: ["Quadricipiti", "Glutei", "Femorali", "Core"] as const,
 };
 
@@ -58,9 +61,34 @@ const RPE_LABELS: Record<Rpe, string> = {
 };
 
 // =============================================================================
-// SessionStatsCard — surface with the 4 hero stats.
+// SessionStatsCard — live stats derived from the workout store.
+//
+// `totalSetsCompleted` = sum of all `loggedSets[*].length` across every
+//   exercise touched in this session.
+// `totalVolumeKg`     = Σ weight × reps across every set in every exercise.
+//                       This is the canonical "tonnage" stat coaches use
+//                       to gauge cumulative work; rounding to the nearest
+//                       kg keeps the display tidy.
+//
+// Both are derived inside one selector so the component re-renders
+// exactly once per logSet, not twice (length + reduce).
 // =============================================================================
 function SessionStatsCard() {
+  const { totalSetsCompleted, totalVolumeKg } = useAthleteWorkoutStore((s) => {
+    let sets = 0;
+    let volume = 0;
+    for (const list of Object.values(s.loggedSets)) {
+      sets += list.length;
+      for (const entry of list) {
+        volume += entry.weight * entry.reps;
+      }
+    }
+    return {
+      totalSetsCompleted: sets,
+      totalVolumeKg: Math.round(volume),
+    };
+  });
+
   return (
     <section
       aria-label="Riepilogo sessione"
@@ -77,16 +105,16 @@ function SessionStatsCard() {
         <div>
           <p className="text-sm text-on-surface-variant mb-1">Volume Totale</p>
           <p className="font-display text-2xl font-semibold tabular-nums text-on-surface">
-            {WORKOUT_SUMMARY.totalVolumeKg.toLocaleString("it-IT")} kg
+            {totalVolumeKg.toLocaleString("it-IT")} kg
           </p>
         </div>
         <div>
           <p className="text-sm text-on-surface-variant mb-1">Serie Completate</p>
-          <p className="font-display text-2xl font-semibold tabular-nums text-brand-container">
-            {WORKOUT_SUMMARY.setsCompleted}
-            <span className="text-on-surface-variant text-base font-normal ml-1">
-              / {WORKOUT_SUMMARY.setsTotal}
-            </span>
+          <p
+            aria-live="polite"
+            className="font-display text-2xl font-semibold tabular-nums text-brand-container"
+          >
+            {totalSetsCompleted}
           </p>
         </div>
       </div>
