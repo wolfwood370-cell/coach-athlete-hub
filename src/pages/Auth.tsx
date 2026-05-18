@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,6 +15,21 @@ import { lovable } from "@/integrations/lovable";
 import { MetaHead } from "@/components/MetaHead";
 import { Footer } from "@/components/layout/Footer";
 
+/** Resolve where to send an authenticated user based on their profile role. */
+async function resolveHomePath(): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return "/auth";
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profile?.role === "coach") return "/coach";
+  if (profile?.role === "athlete") return "/athlete";
+  // No role yet → onboarding wizard picks the role.
+  return "/onboarding";
+}
+
 const GoogleIcon = () => (
   <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24" aria-hidden="true">
     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -26,7 +41,9 @@ const GoogleIcon = () => (
 
 export default function Auth() {
   const navigate = useNavigate();
-  const { signIn, signUp } = useAuth();
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get("token");
+  const { signIn, signUp, user } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const [loginEmail, setLoginEmail] = useState("");
@@ -37,11 +54,62 @@ export default function Auth() {
   const [signupName, setSignupName] = useState("");
   const [signupRole, setSignupRole] = useState<"coach" | "athlete">("athlete");
 
+  // Invite-flow state. `prefillReady === true` switches the visible tab to
+  // "signup" and locks the role to athlete; `inviteCoachId` is captured at
+  // prefill time so we can pass it to the post-signup RPC even if the row
+  // gets marked-used between prefill and submit.
+  const [prefillReady, setPrefillReady] = useState(false);
+  const [inviteCoachId, setInviteCoachId] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+
+  // Already authenticated? Skip the form entirely — route to the role home.
+  useEffect(() => {
+    if (!user) return;
+    resolveHomePath().then((path) => navigate(path, { replace: true }));
+  }, [user, navigate]);
+
+  // Prefill signup fields from the invite token. Runs once on mount when a
+  // token is present. The query is allowed on `anon` role by the RLS
+  // policy `Anonymous can validate invite token` (only unused rows).
+  useEffect(() => {
+    if (!inviteToken) return;
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("athlete_onboarding_links")
+        .select("coach_id, email, full_name, is_used")
+        .eq("unique_token", inviteToken)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (error || !data) {
+        setInviteError("Invito non valido o già utilizzato.");
+        return;
+      }
+      if (data.is_used) {
+        setInviteError("Questo invito è già stato utilizzato.");
+        return;
+      }
+      setSignupEmail(data.email);
+      setSignupName(data.full_name);
+      setSignupRole("athlete");
+      setInviteCoachId(data.coach_id);
+      setPrefillReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [inviteToken]);
+
   const handleGoogle = async () => {
     setLoading(true);
     try {
       const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin,
+        // Bring the user back to /auth so the `useEffect` above can route
+        // them to the role-appropriate home. Going to `/` would trigger
+        // the bare-root redirect back to /auth, causing a loop.
+        redirect_uri: `${window.location.origin}/auth`,
         // Forza la scelta dell'account anche se l'utente è già loggato in Google
         extraParams: { prompt: "select_account" },
       });
@@ -51,7 +119,8 @@ export default function Auth() {
         return;
       }
       if (result.redirected) return; // Browser is redirecting to Google
-      window.location.href = "/";
+      const path = await resolveHomePath();
+      navigate(path, { replace: true });
     } catch (error: unknown) {
       toast.error(mapSupabaseError(error));
       setLoading(false);
@@ -86,11 +155,32 @@ export default function Auth() {
     try {
       await signIn(loginEmail, loginPassword);
       toast.success("Login effettuato!");
-      navigate("/");
+      const path = await resolveHomePath();
+      navigate(path, { replace: true });
     } catch (error: unknown) {
       toast.error(mapSupabaseError(error));
     } finally {
       setLoading(false);
+    }
+  };
+
+  /**
+   * After a successful athlete signup that used an invite token, atomically
+   * redeem the token (marks it as used + attaches the new profile to the
+   * inviting coach). Failures are surfaced but non-blocking — the account
+   * exists, the user can be re-linked manually if redemption hiccups.
+   */
+  const redeemInviteIfPresent = async () => {
+    if (!inviteToken || !inviteCoachId) return;
+    const { error } = await supabase.rpc("redeem_athlete_onboarding_link", {
+      p_token: inviteToken,
+    });
+    if (error) {
+      // eslint-disable-next-line no-console
+      console.warn("[Auth] invite redemption failed:", error.message);
+      toast.error("Account creato, ma il link al coach non è stato applicato.", {
+        description: "Contatta il tuo coach per essere associato.",
+      });
     }
   };
 
@@ -99,8 +189,18 @@ export default function Auth() {
     setLoading(true);
     try {
       await signUp(signupEmail, signupPassword, signupName, signupRole);
+      await redeemInviteIfPresent();
       toast.success("Account creato! Benvenuto!");
-      navigate(signupRole === "coach" ? "/coach" : "/onboarding");
+      // Invite-flow signups go straight to /athlete because the coach
+      // already prefilled the relationship; non-invite athlete signups
+      // still pass through /onboarding to capture profile data.
+      if (inviteToken && signupRole === "athlete") {
+        navigate("/athlete", { replace: true });
+      } else {
+        navigate(signupRole === "coach" ? "/coach" : "/onboarding", {
+          replace: true,
+        });
+      }
     } catch (error: unknown) {
       toast.error(mapSupabaseError(error));
     } finally {
@@ -121,7 +221,27 @@ export default function Auth() {
             <CardDescription>Piattaforma per coaching ibrido</CardDescription>
           </CardHeader>
           <CardContent>
-            <Tabs defaultValue="login" className="w-full">
+            {inviteError && (
+              <div
+                role="alert"
+                className="mb-4 rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive"
+              >
+                {inviteError}
+              </div>
+            )}
+            {prefillReady && !inviteError && (
+              <div
+                role="status"
+                className="mb-4 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-sm text-primary"
+              >
+                Sei stato invitato dal tuo coach. Completa la registrazione per
+                iniziare.
+              </div>
+            )}
+            <Tabs
+              defaultValue={inviteToken ? "signup" : "login"}
+              className="w-full"
+            >
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="login">Accedi</TabsTrigger>
                 <TabsTrigger value="signup">Registrati</TabsTrigger>
@@ -212,6 +332,8 @@ export default function Auth() {
                       value={signupName}
                       onChange={(e) => setSignupName(e.target.value)}
                       required
+                      readOnly={prefillReady}
+                      aria-readonly={prefillReady}
                     />
                   </div>
                   <div className="space-y-2">
@@ -223,6 +345,8 @@ export default function Auth() {
                       value={signupEmail}
                       onChange={(e) => setSignupEmail(e.target.value)}
                       required
+                      readOnly={prefillReady}
+                      aria-readonly={prefillReady}
                     />
                   </div>
                   <div className="space-y-2">
@@ -238,7 +362,10 @@ export default function Auth() {
                     />
                   </div>
 
-                  <div className="space-y-3">
+                  <div
+                    className={`space-y-3 ${prefillReady ? "hidden" : ""}`}
+                    aria-hidden={prefillReady}
+                  >
                     <Label>Sono un...</Label>
                     <RadioGroup
                       value={signupRole}

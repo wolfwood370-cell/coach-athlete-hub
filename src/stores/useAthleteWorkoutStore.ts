@@ -99,8 +99,24 @@ export const useAthleteWorkoutStore = create<AthleteWorkoutStoreState>()(
 
       startSession: (sessionId) =>
         set((s) => {
+          // ---- Strict clean-slate guarantee ----------------------------
+          // Every field is reset to its empty default before the freshly
+          // started ones are overwritten. No mock data is loaded, no
+          // residue from a previous session (paused timer, leftover
+          // elapsed seconds, stale `activeSessionId`) can leak in.
+          //
+          // The per-set ledger has been removed from this store: sets
+          // live in the `exercise_logs` table and are read via
+          // `useSessionSetsQuery(activeSessionId)`. A fresh `sessionId`
+          // implicitly produces an empty result set for that query —
+          // exactly the "loggedSets: {}" semantic the legacy store had.
+          s.isSessionActive = EMPTY_SESSION.isSessionActive;
+          s.elapsedTime = EMPTY_SESSION.elapsedTime;
+          s.startedAt = EMPTY_SESSION.startedAt;
+          s.activeSessionId = EMPTY_SESSION.activeSessionId;
+
+          // Apply only the fields that distinguish a started session.
           s.isSessionActive = true;
-          s.elapsedTime = 0;
           s.startedAt = Date.now();
           s.activeSessionId = sessionId;
         }),

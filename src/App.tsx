@@ -2,7 +2,7 @@ import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { SunThemeSync } from "@/components/logic/SunThemeSync";
 import { OfflineSyncProvider } from "@/providers/OfflineSyncProvider";
@@ -16,7 +16,6 @@ import { CelebrationOverlay } from "@/components/celebration/Confetti";
 
 
 // Lazy-loaded pages
-const Index = lazy(() => import("./pages/Index"));
 const Auth = lazy(() => import("./pages/Auth"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const CoachHome = lazy(() => import("./pages/coach/CoachHome"));
@@ -69,7 +68,10 @@ const App = () => (
         <BrowserRouter>
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>
-              <Route path="/" element={<Index />} />
+              {/* Root path: redirect to the auth gate (login/signup).
+                  Any deep link (`/auth?token=XYZ`) is preserved by routing
+                  directly to /auth; this redirect only catches bare `/`. */}
+              <Route path="/" element={<Navigate to="/auth" replace />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               

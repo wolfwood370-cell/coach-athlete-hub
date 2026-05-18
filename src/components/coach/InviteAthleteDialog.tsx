@@ -1,8 +1,32 @@
+// =============================================================================
+// src/components/coach/InviteAthleteDialog.tsx
+// =============================================================================
+// Coach-facing modal: generate a one-time onboarding link for an athlete.
+//
+// Replaces the previous email-based flow (Edge Function `invite-athlete`)
+// with a manual-share flow:
+//   1. Coach fills in first name, last name, email.
+//   2. "Genera link" → INSERT into `athlete_onboarding_links` with a
+//      fresh `unique_token` (UUID). RLS guard: only authenticated coaches
+//      with `coach_id = auth.uid()` can insert.
+//   3. On success, display the public URL `{origin}/auth?token=<...>` +
+//      a copy-to-clipboard button so the coach can share it via WhatsApp,
+//      email, or any other channel.
+//   4. The athlete opens the URL → Auth.tsx prefills the signup form →
+//      successful signup atomically calls `redeem_athlete_onboarding_link`
+//      RPC and links the new athlete profile to this coach.
+//
+// Prop API preserved from the previous implementation:
+//   - `trigger`: optional custom button (defaults to "Invita atleta" CTA)
+//   - `onAthleteInvited`: optional callback fired after a link is created
+//     (parent pages can refresh their athlete list / counters).
+// =============================================================================
+
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { UserPlus, Loader2 } from "lucide-react";
+import { UserPlus, Loader2, Copy, Check, RefreshCcw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,6 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Form,
   FormControl,
@@ -44,35 +69,10 @@ interface InviteAthleteDialogProps {
   trigger?: React.ReactNode;
 }
 
-function describeInviteError(error: unknown): string {
-  if (!error) return "Impossibile invitare l'atleta. Riprova.";
-
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "string"
-      ? error
-      : "Impossibile invitare l'atleta. Riprova.";
-
-  const lower = message.toLowerCase();
-
-  if (
-    lower.includes("already exists") ||
-    lower.includes("user_already_exists") ||
-    lower.includes("already been registered")
-  ) {
-    return "Esiste già un account con questa email.";
-  }
-
-  if (lower.includes("rate") && lower.includes("limit")) {
-    return "Troppi inviti inviati. Riprova tra qualche minuto.";
-  }
-
-  if (lower.includes("only coaches")) {
-    return "Solo i coach possono invitare atleti.";
-  }
-
-  return message;
+interface GeneratedInvite {
+  url: string;
+  fullName: string;
+  email: string;
 }
 
 export function InviteAthleteDialog({
@@ -81,6 +81,8 @@ export function InviteAthleteDialog({
 }: InviteAthleteDialogProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [generated, setGenerated] = useState<GeneratedInvite | null>(null);
+  const [copied, setCopied] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
 
@@ -94,7 +96,7 @@ export function InviteAthleteDialog({
   });
 
   const onSubmit = async (data: InviteFormData) => {
-    if (!user) {
+    if (!user?.id) {
       toast({
         variant: "destructive",
         title: "Errore",
@@ -104,65 +106,86 @@ export function InviteAthleteDialog({
     }
 
     setIsSubmitting(true);
-
     try {
       const athleteEmail = data.email.toLowerCase().trim();
-      const firstName = data.firstName.trim();
-      const lastName = data.lastName.trim();
+      const fullName = `${data.firstName.trim()} ${data.lastName.trim()}`.trim();
+      const token = crypto.randomUUID();
 
-      const { data: result, error } = await supabase.functions.invoke(
-        "invite-athlete",
-        {
-          body: {
-            athleteEmail,
-            firstName,
-            lastName,
-          },
-        },
-      );
+      const { error } = await supabase
+        .from("athlete_onboarding_links")
+        .insert({
+          coach_id: user.id,
+          email: athleteEmail,
+          full_name: fullName,
+          unique_token: token,
+        });
 
       if (error) {
-        let serverMessage: string | undefined;
-        try {
-          const ctx = (error as { context?: Response }).context;
-          if (ctx && typeof ctx.json === "function") {
-            const body = await ctx.json();
-            if (body && typeof body.error === "string") {
-              serverMessage = body.error;
-            }
-          }
-        } catch {
-          /* fall through to error.message */
-        }
-        throw new Error(serverMessage ?? error.message);
+        // Unique-token collision is astronomically unlikely with UUIDv4
+        // but we surface a clean message just in case.
+        const message =
+          error.code === "23505"
+            ? "Esiste già un invito attivo per questa email."
+            : error.message || "Errore nella generazione del link.";
+        throw new Error(message);
       }
 
-      if (result && typeof result === "object" && "error" in result) {
-        throw new Error(String((result as { error: unknown }).error));
-      }
+      const url = `${window.location.origin}/auth?token=${token}`;
+      setGenerated({ url, fullName, email: athleteEmail });
 
       toast({
-        title: "Invito inviato con successo",
-        description: `Email di invito inviata a ${athleteEmail}.`,
+        title: "Invito creato",
+        description: "Copia il link e mandalo all'atleta.",
       });
 
-      form.reset();
-      setOpen(false);
       onAthleteInvited?.();
     } catch (error: unknown) {
-      console.error("Error inviting athlete:", error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Impossibile generare l'invito. Riprova.";
       toast({
         variant: "destructive",
         title: "Errore",
-        description: describeInviteError(error),
+        description: message,
       });
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleCopy = async () => {
+    if (!generated) return;
+    try {
+      await navigator.clipboard.writeText(generated.url);
+      setCopied(true);
+      toast({
+        title: "Link copiato",
+        description: "Incollalo nella chat con l'atleta.",
+      });
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Clipboard non disponibile",
+        description: "Seleziona il link e copialo manualmente.",
+      });
+    }
+  };
+
+  const handleGenerateAnother = () => {
+    form.reset();
+    setGenerated(null);
+    setCopied(false);
+  };
+
   const handleOpenChange = (next: boolean) => {
     if (isSubmitting && !next) return;
+    if (!next) {
+      form.reset();
+      setGenerated(null);
+      setCopied(false);
+    }
     setOpen(next);
   };
 
@@ -176,109 +199,173 @@ export function InviteAthleteDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[460px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <UserPlus className="h-5 w-5 text-primary" />
             Invita Atleta
           </DialogTitle>
           <DialogDescription>
-            Invia un invito a un nuovo atleta per unirsi al tuo programma di
-            coaching.
+            Genera un link di registrazione unico. L'atleta apre il link e
+            completa il signup con nome ed email già compilati.
           </DialogDescription>
         </DialogHeader>
-        <Form {...form}>
-          <form
-            onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-4 pt-4"
-          >
-            <FormField
-              control={form.control}
-              name="firstName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nome</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Mario"
-                      autoComplete="given-name"
-                      maxLength={60}
-                      disabled={isSubmitting}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="lastName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cognome</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Rossi"
-                      autoComplete="family-name"
-                      maxLength={60}
-                      disabled={isSubmitting}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Email</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="email"
-                      placeholder="mario.rossi@email.com"
-                      autoComplete="email"
-                      disabled={isSubmitting}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <div className="flex justify-end gap-3 pt-4">
+
+        {!generated ? (
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="space-y-4 pt-2"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <FormField
+                  control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nome</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Mario"
+                          autoComplete="given-name"
+                          maxLength={60}
+                          disabled={isSubmitting}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cognome</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Rossi"
+                          autoComplete="family-name"
+                          maxLength={60}
+                          disabled={isSubmitting}
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="mario.rossi@email.com"
+                        autoComplete="email"
+                        disabled={isSubmitting}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="flex justify-end gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleOpenChange(false)}
+                  disabled={isSubmitting}
+                >
+                  Annulla
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="gradient-primary"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Generazione…
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus className="h-4 w-4 mr-2" />
+                      Genera link
+                    </>
+                  )}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        ) : (
+          <div className="space-y-4 pt-2">
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+              <p className="font-medium text-primary mb-0.5">
+                {generated.fullName}
+              </p>
+              <p className="text-muted-foreground text-xs">{generated.email}</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="invite-url">URL di registrazione</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="invite-url"
+                  type="text"
+                  value={generated.url}
+                  readOnly
+                  className="font-mono text-xs"
+                  onFocus={(e) => e.currentTarget.select()}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={handleCopy}
+                  aria-label="Copia link negli appunti"
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4 text-primary" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Il link è valido fino al primo utilizzo.
+              </p>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpen(false)}
-                disabled={isSubmitting}
+                onClick={handleGenerateAnother}
               >
-                Annulla
+                <RefreshCcw className="h-4 w-4 mr-2" />
+                Genera altro
               </Button>
               <Button
-                type="submit"
-                disabled={isSubmitting}
+                type="button"
+                onClick={() => handleOpenChange(false)}
                 className="gradient-primary"
               >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Invio...
-                  </>
-                ) : (
-                  <>
-                    <UserPlus className="h-4 w-4 mr-2" />
-                    Invia Invito
-                  </>
-                )}
+                Chiudi
               </Button>
             </div>
-          </form>
-        </Form>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
 }
+
+export default InviteAthleteDialog;

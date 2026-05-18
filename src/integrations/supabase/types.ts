@@ -183,6 +183,47 @@ export type Database = {
           },
         ]
       }
+      athlete_onboarding_links: {
+        Row: {
+          coach_id: string
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          is_used: boolean
+          unique_token: string
+          used_at: string | null
+        }
+        Insert: {
+          coach_id: string
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          is_used?: boolean
+          unique_token: string
+          used_at?: string | null
+        }
+        Update: {
+          coach_id?: string
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          is_used?: boolean
+          unique_token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "athlete_onboarding_links_coach_id_fkey"
+            columns: ["coach_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       athlete_subscriptions: {
         Row: {
           athlete_id: string
@@ -2804,6 +2845,19 @@ export type Database = {
           id: string
           similarity: number
         }[]
+      }
+      redeem_athlete_onboarding_link: {
+        Args: { p_token: string }
+        Returns: {
+          coach_id: string
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          is_used: boolean
+          unique_token: string
+          used_at: string | null
+        }
       }
       schedule_program_week: {
         Args: { p_athlete_id: string; p_start_date: string; p_week_id: string }
