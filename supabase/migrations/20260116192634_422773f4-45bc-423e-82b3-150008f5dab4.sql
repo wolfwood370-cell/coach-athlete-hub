@@ -26,7 +26,8 @@ BEGIN
   LIMIT 1;
   
   IF v_coach_id IS NULL THEN
-    RAISE EXCEPTION 'No coach found in the system. Please create a coach account first.';
+    RAISE NOTICE 'No coach found — skipping demo data seed (fresh local DB).';
+    RETURN;
   END IF;
 
   -- ============================================

@@ -64,7 +64,7 @@ REVOKE ALL ON FUNCTION public.get_chat_partner_profiles(uuid[]) FROM public, ano
 GRANT EXECUTE ON FUNCTION public.get_chat_partner_profiles(uuid[]) TO authenticated;
 
 COMMENT ON FUNCTION public.get_chat_partner_profiles(uuid[]) IS
-  'Returns id/full_name/avatar_url for chat partners only. Replaces the unsafe ' ||
-  '"Read profiles of shared chat rooms" RLS policy (C4 audit finding). Sensitive ' ||
-  'columns (onboarding_data, red_flags, medical_clearance_required, neurotype) ' ||
+  'Returns id/full_name/avatar_url for chat partners only. Replaces the unsafe '
+  '"Read profiles of shared chat rooms" RLS policy (C4 audit finding). Sensitive '
+  'columns (onboarding_data, red_flags, medical_clearance_required, neurotype) '
   'cannot leak through this function — they are not in the projection.';

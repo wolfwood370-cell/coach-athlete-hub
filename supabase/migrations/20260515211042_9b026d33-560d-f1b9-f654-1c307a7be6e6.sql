@@ -68,6 +68,6 @@ REVOKE ALL ON FUNCTION public.archive_athlete(uuid) FROM public, anon;
 GRANT EXECUTE ON FUNCTION public.archive_athlete(uuid) TO authenticated;
 
 COMMENT ON FUNCTION public.archive_athlete(uuid) IS
-  'Atomically marks a profile as archived (settings.archived=true, ' ||
-  'settings.archived_at=now). Coach-of-athlete or self only. Replaces the ' ||
+  'Atomically marks a profile as archived (settings.archived=true, '
+  'settings.archived_at=now). Coach-of-athlete or self only. Replaces the '
   'previous client-side read-modify-write JSONB patch (C8 audit finding).';
