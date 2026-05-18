@@ -50,15 +50,21 @@ export interface StartSessionInput {
 /**
  * Build a synthetic, local-only `workout_logs` row used when no Supabase
  * session is available (typically: dev / local testing without auth).
- * The id is prefixed with `local-` so downstream consumers can detect
- * "this session never made it to the DB" if they need to (e.g. set
- * logging will fail with FK violations and surface a toast).
+ *
+ * Both `id` and `athlete_id` MUST be valid UUIDs (not prefixed strings)
+ * because their TS types are `string` but the underlying Postgres
+ * columns are `uuid`. Any downstream `.eq("id", row.id)` query would
+ * otherwise fail with "invalid input syntax for type uuid".
+ *
+ * No DB INSERT happens here — the caller just uses the synthetic id
+ * locally; set-logging mutations will FK-fail against `exercise_logs`
+ * (no parent workout_logs row in DB) and surface a toast.
  */
 function makeLocalSessionRow(workoutId: string | null): WorkoutLogRow {
   const now = new Date().toISOString();
   return {
-    id: `local-${crypto.randomUUID()}`,
-    athlete_id: "local",
+    id: crypto.randomUUID(),
+    athlete_id: crypto.randomUUID(),
     workout_id: workoutId,
     started_at: now,
     completed_at: null,

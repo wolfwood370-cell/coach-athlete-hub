@@ -9,21 +9,28 @@
  *
  *   1. `isSessionActive` + `elapsedTime` + `startedAt` — the visible
  *      stopwatch driven by ActiveWorkout's 1Hz tick.
- *   2. `activeSessionId` — local handle to the `workout_logs.id` we
- *      INSERTed at session start. Persisted so a page reload doesn't
- *      orphan the in-progress session.
+ *   2. `activeSessionId` — in-memory handle to the `workout_logs.id`
+ *      we INSERTed at session start. NOT persisted (see Persistence
+ *      below) — that would leak stale ids across page reloads and
+ *      make exercises appear pre-completed before the mount effect
+ *      could reset them.
  *
  * What moved OUT of this store
  * ----------------------------
  *   - `loggedSets` + `logSet`: per-set data now lives in the
  *     `exercise_logs` table. Reads use `useSessionSetsQuery(sessionId)`
  *     and writes use `useLogSetMutation()` from
- *     `src/hooks/athlete/useAthleteWorkoutHooks.ts`.
+ *     `src/hooks/athlete/useAthleteWorkoutHooks.ts`. Because the DB
+ *     is the source of truth, the equivalent of "reset loggedSets to
+ *     {}" on startSession is naturally guaranteed: a fresh
+ *     `activeSessionId` means `useSessionSetsQuery` returns an empty
+ *     array until sets are logged through `useLogSetMutation`.
  *
- * Design notes
- * ------------
- * - The interval lives in the component that owns the visible timer
- *   (ActiveWorkout); the store just integrates the ticks.
+ * Persistence
+ * -----------
+ * - `partialize` deliberately EXCLUDES `activeSessionId` so a refresh
+ *   never reanimates a previous session's id. The ActiveWorkout mount
+ *   effect always issues a fresh `useStartSessionMutation`.
  * - `persist` middleware writes to localStorage under the historical
  *   `active-workout-storage` key (still cleared by useAuth.signOut).
  */
@@ -120,7 +127,9 @@ export const useAthleteWorkoutStore = create<AthleteWorkoutStoreState>()(
         isSessionActive: s.isSessionActive,
         elapsedTime: s.elapsedTime,
         startedAt: s.startedAt,
-        activeSessionId: s.activeSessionId,
+        // activeSessionId intentionally NOT persisted — see header
+        // docblock. Stale session ids leaking across reloads were the
+        // root cause of the "Phase 1 pre-completed" bug.
       }),
     },
   ),
