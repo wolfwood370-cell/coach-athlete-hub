@@ -68,39 +68,9 @@ export default function Auth() {
     resolveHomePath().then((path) => navigate(path, { replace: true }));
   }, [user, navigate]);
 
-  // Prefill signup fields from the invite token. Runs once on mount when a
-  // token is present. The query is allowed on `anon` role by the RLS
-  // policy `Anonymous can validate invite token` (only unused rows).
-  useEffect(() => {
-    if (!inviteToken) return;
-    let cancelled = false;
-    (async () => {
-      const { data, error } = await supabase
-        .from("athlete_onboarding_links")
-        .select("coach_id, email, full_name, is_used")
-        .eq("unique_token", inviteToken)
-        .maybeSingle();
+  // Invite tokens are redeemed automatically by the `handle_new_user` DB
+  // trigger via email match against `invite_tokens`. No client prefill needed.
 
-      if (cancelled) return;
-
-      if (error || !data) {
-        setInviteError("Invito non valido o già utilizzato.");
-        return;
-      }
-      if (data.is_used) {
-        setInviteError("Questo invito è già stato utilizzato.");
-        return;
-      }
-      setSignupEmail(data.email);
-      setSignupName(data.full_name);
-      setSignupRole("athlete");
-      setInviteCoachId(data.coach_id);
-      setPrefillReady(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [inviteToken]);
 
   const handleGoogle = async () => {
     setLoading(true);
