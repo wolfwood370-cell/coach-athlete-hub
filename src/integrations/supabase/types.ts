@@ -833,7 +833,6 @@ export type Database = {
           date: string
           digestion: number | null
           energy: number | null
-          fatigue_score: number | null
           has_pain: boolean | null
           id: string
           mood: number | null
@@ -851,7 +850,6 @@ export type Database = {
           date?: string
           digestion?: number | null
           energy?: number | null
-          fatigue_score?: number | null
           has_pain?: boolean | null
           id?: string
           mood?: number | null
@@ -869,7 +867,6 @@ export type Database = {
           date?: string
           digestion?: number | null
           energy?: number | null
-          fatigue_score?: number | null
           has_pain?: boolean | null
           id?: string
           mood?: number | null
@@ -893,54 +890,6 @@ export type Database = {
             columns: ["athlete_id"]
             isOneToOne: false
             referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      exercise_logs: {
-        Row: {
-          created_at: string
-          exercise_id: string
-          id: string
-          is_completed: boolean
-          reps: number
-          session_id: string
-          set_number: number
-          weight: number
-        }
-        Insert: {
-          created_at?: string
-          exercise_id: string
-          id?: string
-          is_completed?: boolean
-          reps: number
-          session_id: string
-          set_number: number
-          weight: number
-        }
-        Update: {
-          created_at?: string
-          exercise_id?: string
-          id?: string
-          is_completed?: boolean
-          reps?: number
-          session_id?: string
-          set_number?: number
-          weight?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "exercise_logs_session_id_fkey"
-            columns: ["session_id"]
-            isOneToOne: false
-            referencedRelation: "workout_logs"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "exercise_logs_exercise_id_fkey"
-            columns: ["exercise_id"]
-            isOneToOne: false
-            referencedRelation: "exercises"
             referencedColumns: ["id"]
           },
         ]
@@ -2497,7 +2446,7 @@ export type Database = {
           status: Database["public"]["Enums"]["workout_log_status"]
           sync_status: string
           total_load_au: number | null
-          workout_id: string | null
+          workout_id: string
         }
         Insert: {
           athlete_id: string
@@ -2522,7 +2471,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["workout_log_status"]
           sync_status?: string
           total_load_au?: number | null
-          workout_id?: string | null
+          workout_id: string
         }
         Update: {
           athlete_id?: string
@@ -2547,7 +2496,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["workout_log_status"]
           sync_status?: string
           total_load_au?: number | null
-          workout_id?: string | null
+          workout_id?: string
         }
         Relationships: [
           {
