@@ -96,13 +96,9 @@
 - **Impatto**: dopo qualsiasi workout (Upper, HIIT, mobility) l'atleta vede "Lower Body Power" e i 4 stessi muscoli. Disconnessione totale dai dati reali.
 - **Fix**: idem H8 — passare il workout id come route state, fetchare titolo/muscoli dal DB.
 
-### H10. Race: RPC `redeem_athlete_onboarding_link` chiamata prima che la sessione sia stabilita _[aggiunta dopo commit `3037f15`]_
+### ~~H10. Race: RPC `redeem_athlete_onboarding_link` chiamata prima che la sessione sia stabilita~~ — **RISOLTO**
 
-- **Dove**: [`src/pages/Auth.tsx:175`](src/pages/Auth.tsx) — `redeemInviteIfPresent` chiama `supabase.rpc("redeem_athlete_onboarding_link", { p_token })` immediatamente dopo `await signUp(...)`. La RPC è SECURITY DEFINER ma richiede `auth.uid() IS NOT NULL` come prima istruzione.
-- **Impatto**: Supabase signUp di solito stabilisce la session subito, ma se la conferma email è attiva o se il client non ha ancora propagato il JWT al supabase client globale, la RPC fallisce con `28000 — Not authenticated`. L'account dell'atleta esiste ma `profiles.coach_id` resta `NULL` — il link al coach è perso. Il toast lo segnala ("Account creato, ma il link al coach non è stato applicato"), ma è UX rotta e richiede intervento manuale del coach.
-- **Fix**:
-  1. Prima della RPC fare `await supabase.auth.getSession()` con retry breve (max 3 tentativi a 200ms).
-  2. Oppure: trasferire la logica di redemption in un Postgres trigger `AFTER INSERT ON profiles` che cerca un `athlete_onboarding_links` row matching `email = NEW.email AND NOT is_used` e lo redimisce. Single transaction, zero race.
+- **Status**: ✅ Eliminato dal merge upstream `5df5e25`. L'intero approccio client-side-RPC è stato sostituito da un trigger DB `handle_new_user` (vedi migrazione `20260518112908_*`) che redime gli inviti automaticamente al primo INSERT di un profile, by-passando completamente la race condition. Lasciato in audit per traceability storica.
 
 ---
 
@@ -173,22 +169,13 @@
 - **Impatto**: stesso problema di H3 ma con scope readiness anziché workout.
 - **Suggerimento**: `disabled={!canSubmit || submitReadiness.isPending}` + spinner inline.
 
-### M11. Anon SELECT su `athlete_onboarding_links` espone `coach_id` _[aggiunta dopo commit `3037f15`]_
+### ~~M11. Anon SELECT su `athlete_onboarding_links` espone `coach_id`~~ — **RISOLTO**
 
-- **Dove**: migrazione [`supabase/migrations/20260518110000_athlete_onboarding_links.sql`](supabase/migrations/20260518110000_athlete_onboarding_links.sql) — policy `Anonymous can validate invite token` restituisce TUTTE le colonne (id, coach_id, email, full_name, unique_token, is_used, created_at, used_at).
-- **Impatto**: Auth.tsx (prefill) ha bisogno solo di `email`, `full_name`, `is_used`. Esporre `coach_id` a chiunque conosca un token in più dei dati necessari viola principio "least privilege". Mitigazione: il token è UUID v4 con 122-bit di entropia, brute-force impossibile. Ma se un coach inoltra per errore il link su un canale pubblico (es. Twitter), si rivela anche l'identità del coach.
-- **Suggerimento**: creare una RPC `validate_invite_token(p_token TEXT) RETURNS TABLE(email TEXT, full_name TEXT)` SECURITY DEFINER che proietta solo i campi necessari, e rimuovere la policy SELECT su `anon`. Auth.tsx chiama la RPC invece di `.from("athlete_onboarding_links").select(...)`.
+- **Status**: ✅ Eliminato dal merge upstream `5df5e25`. La tabella `athlete_onboarding_links` non è più consultata da client (nuovo flusso `invite_tokens` + trigger DB). Migrazione di drop dell'oggetto: [`20260518120000_drop_athlete_onboarding_links.sql`](supabase/migrations/20260518120000_drop_athlete_onboarding_links.sql).
 
-### M12. La RPC `redeem_athlete_onboarding_link` non valida che il caller sia un atleta _[aggiunta dopo commit `3037f15`]_
+### ~~M12. La RPC `redeem_athlete_onboarding_link` non valida che il caller sia un atleta~~ — **RISOLTO**
 
-- **Dove**: migrazione [`supabase/migrations/20260518110000_athlete_onboarding_links.sql`](supabase/migrations/20260518110000_athlete_onboarding_links.sql) — la RPC controlla solo che `auth.uid() IS NOT NULL`, non il `role` del profilo chiamante.
-- **Impatto**: un coach autenticato che apre per curiosità `https://app/auth?token=XYZ` può chiamare la RPC (es. da console DevTools) e ottenere `profiles.coach_id = <inviter>` sulla SUA riga, snaturando il proprio profilo coach. Improbabile via UI normale (Auth.tsx forza il signup role a athlete su prefill), ma la RPC è pubblicamente eseguibile via SQL/cURL.
-- **Suggerimento**: dentro la RPC, dopo il check `v_caller IS NULL`, aggiungere:
-  ```sql
-  IF (SELECT role FROM public.profiles WHERE id = v_caller) <> 'athlete' THEN
-    RAISE EXCEPTION 'Only athletes can redeem invite links' USING ERRCODE = '42501';
-  END IF;
-  ```
+- **Status**: ✅ Eliminato dal merge upstream `5df5e25` + drop migration `20260518120000`. La RPC è stata rimossa; la redenzione ora avviene esclusivamente nel trigger `handle_new_user` (lato DB, niente entrypoint pubblico).
 
 ---
 
@@ -256,38 +243,31 @@
 - **Impatto**: identico a H5. Oggi safe (Vite + React = client only, contesto secure su localhost/HTTPS). Diventa rotto se si introduce SSR o si serve l'app su HTTP non-secure.
 - **Improvement**: stessa soluzione di H5 — polyfill `uuid` package (probabilmente già in deps) oppure feature-detect.
 
-### L11. `eslint-disable-next-line no-console` potenzialmente orfana in Auth.tsx _[aggiunta dopo commit `3037f15`]_
+### ~~L11. `eslint-disable-next-line no-console` potenzialmente orfana in Auth.tsx~~ — **RISOLTO**
 
-- **Dove**: [`src/pages/Auth.tsx:179-180`](src/pages/Auth.tsx)
-  ```ts
-  // eslint-disable-next-line no-console
-  console.warn("[Auth] invite redemption failed:", error.message);
-  ```
-- **Impatto**: la lint config corrente flagga solo `console.log/info` (vedi L9 sullo stesso pattern). `console.warn` è permesso. La directive risulta unused e produce un warning ESLint.
-- **Improvement**: rimuovere `// eslint-disable-next-line no-console`. Il `console.warn` resta — è utile per il diagnostic della redemption fallita.
+- **Status**: ✅ Eliminato dal merge upstream `5df5e25`. Il blocco `redeemInviteIfPresent` che conteneva la directive è stato rimosso (la redenzione ora avviene server-side via trigger DB).
 
 ---
 
 ## Sommario
 
-| Severità | Count | Tema principale |
-|---|---|---|
-| 🔴 High | 10 | Data layer incompleto (mock IDs, hardcoded session, no rollback), 1 bug runtime (`crypto`), 1 race condition (auth signup→RPC) |
-| 🟡 Medium | 12 | UX (loading/empty/focus), perf marginali, design tokens, error boundary, weekly check-in non persistito, 2 issue di onboarding RLS/RPC |
-| 🔵 Low | 11 | Cleanup commenti, lint orfani (2), semantica radius/shadow, crypto wraparound |
+| Severità | Count attivi | Risolti | Tema principale |
+|---|---|---|---|
+| 🔴 High | **9** | 1 (H10) | Data layer incompleto (mock IDs, hardcoded session, no rollback), 1 bug runtime (`crypto`) |
+| 🟡 Medium | **10** | 2 (M11, M12) | UX (loading/empty/focus), perf marginali, design tokens, error boundary, weekly check-in non persistito |
+| 🔵 Low | **10** | 1 (L11) | Cleanup commenti, lint orfani, semantica radius/shadow, crypto wraparound |
+| **Totale attivi** | **29** | 4 risolti | — |
 
 **Dove l'app fallirà in produzione (in ordine di probabilità)**:
 
 1. **Subito**: il primo atleta che apre un esercizio + tappa "Aggiungi Set" → FK violation, set non salvato (H1).
 2. **Subito**: l'atleta che fa il check-in vede sempre `dailyScore = 85` indipendentemente dai suoi numeri (H6).
-3. **Su signup via invito con email-confirm attivo**: l'account viene creato ma `profiles.coach_id` resta NULL (H10).
-4. **Quando un drawer non-Standard viene aperto**: dati persi al close (H2).
-5. **Su rete lenta**: doppi insert / mutazioni duplicate da bottoni non disabilitati (H3, M10).
-6. **Su errori di rete**: store locale e DB divergono fino al refresh (H4).
-7. **Quando il PostWorkoutDebrief contiene dati anomali**: "NaN kg" mostrato (H7).
-8. **Se un coach autenticato apre un link di invito** (test, errore, malizia): può accidentalmente smarcarsi come coach del suo stesso inviter (M12).
+3. **Quando un drawer non-Standard viene aperto**: dati persi al close (H2).
+4. **Su rete lenta**: doppi insert / mutazioni duplicate da bottoni non disabilitati (H3, M10).
+5. **Su errori di rete**: store locale e DB divergono fino al refresh (H4).
+6. **Quando il PostWorkoutDebrief contiene dati anomali**: "NaN kg" mostrato (H7).
 
-**Prima di considerare la app "production-ready" lato Athlete**, le 10 voci High vanno tutte risolte. Le Medium sono tutte improvement, ma M5 (WeeklyCheckin che logga su console invece di salvare) e M12 (RPC senza role-check) sono bug funzionali / di sicurezza travestiti da medium.
+**Prima di considerare la app "production-ready" lato Athlete**, le 9 voci High attive vanno tutte risolte. Le Medium sono tutte improvement, ma M5 (WeeklyCheckin che logga su console invece di salvare) è un bug funzionale travestito da medium.
 
 ---
 
@@ -297,3 +277,4 @@
 |---|---|---|
 | 2026-05-18 | `00d1746` | Audit iniziale — 28 issue (9 H + 10 M + 9 L) |
 | 2026-05-18 | (post `3037f15`) | Verifica line numbers (H4/H6/M9 ricalibrate) + 5 nuove issue (H10, M11, M12, L10, L11) introdotte dal refactor onboarding |
+| 2026-05-18 | (post `5df5e25`) | Upstream ha sostituito l'onboarding RPC-based con trigger DB. **4 findings marcate risolte** (H10, M11, M12, L11). Aggiunta migrazione [`20260518120000_drop_athlete_onboarding_links.sql`](supabase/migrations/20260518120000_drop_athlete_onboarding_links.sql) per rimuovere gli oggetti DB orfani. **L10 resta valido** perché il nuovo `InviteAthleteDialog` continua a usare `crypto.randomUUID()`. |
