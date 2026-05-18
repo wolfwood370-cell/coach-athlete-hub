@@ -134,32 +134,13 @@ export default function Auth() {
     }
   };
 
-  /**
-   * After a successful athlete signup that used an invite token, atomically
-   * redeem the token (marks it as used + attaches the new profile to the
-   * inviting coach). Failures are surfaced but non-blocking — the account
-   * exists, the user can be re-linked manually if redemption hiccups.
-   */
-  const redeemInviteIfPresent = async () => {
-    if (!inviteToken || !inviteCoachId) return;
-    const { error } = await supabase.rpc("redeem_athlete_onboarding_link", {
-      p_token: inviteToken,
-    });
-    if (error) {
-      // eslint-disable-next-line no-console
-      console.warn("[Auth] invite redemption failed:", error.message);
-      toast.error("Account creato, ma il link al coach non è stato applicato.", {
-        description: "Contatta il tuo coach per essere associato.",
-      });
-    }
-  };
-
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
       await signUp(signupEmail, signupPassword, signupName, signupRole);
-      await redeemInviteIfPresent();
+      // Invite tokens are auto-redeemed by the `handle_new_user` DB trigger
+      // (email match against `invite_tokens`). No client-side RPC needed.
       toast.success("Account creato! Benvenuto!");
       // Invite-flow signups go straight to /athlete because the coach
       // already prefilled the relationship; non-invite athlete signups
