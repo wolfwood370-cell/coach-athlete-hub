@@ -581,13 +581,14 @@ export default function ActiveWorkout() {
     null,
   );
 
-  // Defensive boot: if the user lands on /athlete/active-workout directly
-  // (deep link, share, or refresh after losing the persisted session id)
-  // INSERT a fresh workout_logs row and stash its id in the store. Skip
-  // if the persisted store already has an active session (resume path).
+  // Always start a fresh session on mount. Discarding any persisted
+  // `activeSessionId` FIRST means the `useSessionSetsQuery(activeSessionId)`
+  // that drives per-exercise completed counts can never return rows
+  // from a previous workout — so exercises always render at 0/X sets
+  // on entry. (Previously, a leftover persisted id leaked stale set
+  // history and made exercises appear pre-completed.)
   useEffect(() => {
-    const state = useAthleteWorkoutStore.getState();
-    if (state.activeSessionId && state.isSessionActive) return;
+    useAthleteWorkoutStore.getState().stopSession();
     startSessionMutation.mutate(
       {},
       {

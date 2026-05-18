@@ -28,6 +28,7 @@
 // query) lands in the follow-up commit.
 // =============================================================================
 
+import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Activity,
@@ -41,12 +42,22 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
+  computeWorstMetrics,
   METRIC_KEYS,
   useAthleteReadinessStore,
   type MetricKey,
   type MetricSnapshot,
 } from "@/stores/useAthleteReadinessStore";
 import { useDailyReadinessQuery } from "@/hooks/athlete/useAthleteReadinessHooks";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 /** Today's date as ISO `YYYY-MM-DD` — used as the `daily_readiness.date` key. */
 function todayIso(): string {
@@ -240,6 +251,19 @@ function ReadinessCard({
   const selectedDashboardMetrics = useAthleteReadinessStore(
     (s) => s.selectedDashboardMetrics,
   );
+  const isCustomMetricsPinned = useAthleteReadinessStore(
+    (s) => s.isCustomMetricsPinned,
+  );
+
+  // When the user has NOT pinned a custom selection, surface the three
+  // worst-scoring metrics from today's checkin so the dashboard draws
+  // attention to what needs work. Falls back to the pinned default when
+  // no submission exists yet (empty worst list).
+  const worstMetrics = computeWorstMetrics(metrics, 3);
+  const displayedMetricKeys =
+    isCustomMetricsPinned || worstMetrics.length === 0
+      ? selectedDashboardMetrics
+      : worstMetrics;
 
   const ringValue = isCompletedToday && dailyScore !== null ? dailyScore : 0;
   const ariaLabel = isCompletedToday
@@ -304,7 +328,7 @@ function ReadinessCard({
           Prontezza
         </h2>
 
-        {selectedDashboardMetrics.map((key) => (
+        {displayedMetricKeys.map((key) => (
           <MetricTrendRow key={key} metric={key} snapshot={metrics[key]} />
         ))}
       </div>
@@ -423,23 +447,195 @@ function Header() {
 }
 
 // =============================================================================
+// MetricsSettingsDialog — Settings2 → opens this Dialog. Replaces the
+// prior `window.prompt` flow.
+//
+// UX contract:
+//   - Toggle "Personalizza metriche": when off, the Prontezza card
+//     auto-surfaces the 3 worst metrics (via `computeWorstMetrics`).
+//     When on, the card pins the three checkbox-selected metrics.
+//   - 6 checkboxes (one per METRIC_KEY). Disabled while the toggle is
+//     off so the affordance reads as "Auto" mode.
+//   - The Save button enforces exactly 3 picks when pinned mode is on;
+//     it's disabled otherwise with a hint underneath.
+// =============================================================================
+function MetricsSettingsDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const persistedPinned = useAthleteReadinessStore(
+    (s) => s.isCustomMetricsPinned,
+  );
+  const persistedSelected = useAthleteReadinessStore(
+    (s) => s.selectedDashboardMetrics,
+  );
+  const setCustomMetricsPinned = useAthleteReadinessStore(
+    (s) => s.setCustomMetricsPinned,
+  );
+  const setSelectedMetrics = useAthleteReadinessStore(
+    (s) => s.setSelectedMetrics,
+  );
+
+  // Local draft state — only commits to the store on Save so the user
+  // can cancel without side effects. Reseeds from persisted state when
+  // the dialog opens (key trick: derive from `open` prop in useState).
+  const [draftPinned, setDraftPinned] = useState(persistedPinned);
+  const [draftSelected, setDraftSelected] =
+    useState<MetricKey[]>(persistedSelected);
+
+  // Re-sync drafts whenever the dialog opens, so a previous Cancel
+  // doesn't leak stale local state into the next open.
+  const [lastOpen, setLastOpen] = useState(open);
+  if (lastOpen !== open) {
+    setLastOpen(open);
+    if (open) {
+      setDraftPinned(persistedPinned);
+      setDraftSelected(persistedSelected);
+    }
+  }
+
+  const toggleMetric = (key: MetricKey, checked: boolean) => {
+    setDraftSelected((prev) => {
+      const set = new Set(prev);
+      if (checked) {
+        set.add(key);
+      } else {
+        set.delete(key);
+      }
+      return Array.from(set);
+    });
+  };
+
+  const canSave = !draftPinned || draftSelected.length === 3;
+
+  const handleSave = () => {
+    setCustomMetricsPinned(draftPinned);
+    if (draftPinned) {
+      setSelectedMetrics(draftSelected);
+    }
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Metriche dashboard</DialogTitle>
+          <DialogDescription>
+            Scegli se mostrare automaticamente le 3 metriche peggiori
+            (default) o pinnare 3 metriche fisse.
+          </DialogDescription>
+        </DialogHeader>
+
+        {/* Pin / auto toggle — inline because Switch isn't pulled in
+            elsewhere on this page; a styled checkbox covers the same
+            semantic without dragging another primitive. */}
+        <label className="flex items-center justify-between gap-3 rounded-2xl border border-[#c0c7d0]/30 bg-surface-container/40 px-4 py-3 cursor-pointer">
+          <span className="flex flex-col">
+            <span className="font-sans text-sm font-semibold text-on-surface">
+              Personalizza metriche
+            </span>
+            <span className="font-sans text-xs text-on-surface-variant">
+              {draftPinned ? "Pin manuale" : "Auto · 3 peggiori"}
+            </span>
+          </span>
+          <Checkbox
+            checked={draftPinned}
+            onCheckedChange={(v) => setDraftPinned(v === true)}
+            aria-label="Attiva personalizzazione metriche"
+          />
+        </label>
+
+        <fieldset
+          className="flex flex-col gap-2"
+          disabled={!draftPinned}
+          aria-label="Selezione metriche dashboard"
+        >
+          {METRIC_KEYS.map((key) => {
+            const checked = draftSelected.includes(key);
+            return (
+              <label
+                key={key}
+                className={cn(
+                  "flex items-center justify-between gap-3 rounded-xl px-3 py-2",
+                  "border border-transparent",
+                  draftPinned
+                    ? "bg-white hover:bg-surface-container/40 cursor-pointer"
+                    : "bg-surface-container/30 cursor-not-allowed opacity-60",
+                )}
+              >
+                <span className="font-sans text-sm text-on-surface">
+                  {key}
+                </span>
+                <Checkbox
+                  checked={checked}
+                  disabled={!draftPinned}
+                  onCheckedChange={(v) => toggleMetric(key, v === true)}
+                  aria-label={`Metrica ${key}`}
+                />
+              </label>
+            );
+          })}
+        </fieldset>
+
+        {draftPinned && draftSelected.length !== 3 && (
+          <p
+            role="alert"
+            className="text-xs font-medium text-amber-600 -mt-1"
+          >
+            Seleziona esattamente 3 metriche ({draftSelected.length}/3
+            selezionate).
+          </p>
+        )}
+
+        <DialogFooter className="gap-2">
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className={cn(
+              "h-10 px-5 rounded-full",
+              "font-sans text-sm font-semibold",
+              "border border-[#c0c7d0]/40 text-on-surface",
+              "hover:bg-surface-container/60 transition-colors",
+            )}
+          >
+            Annulla
+          </button>
+          <button
+            type="button"
+            onClick={handleSave}
+            disabled={!canSave}
+            className={cn(
+              "h-10 px-5 rounded-full",
+              "font-sans text-sm font-semibold text-white",
+              "bg-brand-container hover:brightness-110 transition-all",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+            )}
+          >
+            Salva
+          </button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// =============================================================================
 // AthleteDashboard — composition only. All visual work lives in the
 // inline sub-components above.
 // =============================================================================
 export default function AthleteDashboard() {
   const navigate = useNavigate();
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   // Atomic selectors — read state primitives only, never an object that
   // would force re-renders on every store mutation.
   // DB-backed "did the athlete check in today" — used to pick whether
   // the Prontezza card opens the analysis page or the logging flow.
   const todayReadinessQuery = useDailyReadinessQuery(todayIso());
   const isReadinessCompletedToday = Boolean(todayReadinessQuery.data);
-  const currentSelectedMetrics = useAthleteReadinessStore(
-    (s) => s.selectedDashboardMetrics,
-  );
-  const setSelectedMetrics = useAthleteReadinessStore(
-    (s) => s.setSelectedMetrics,
-  );
 
   /**
    * Readiness card tap — log first, analyse second. The branch reads
@@ -455,26 +651,10 @@ export default function AthleteDashboard() {
     }
   };
 
-  /**
-   * Settings2 affordance on the Readiness card — opens a native prompt
-   * (per brief: "keep it simple for now"). The user enters three
-   * metric names separated by commas; the store's setSelectedMetrics
-   * sanitises the input (dedups, clamps to 3, drops unknown keys).
-   */
+  /** Settings2 affordance on the Readiness card opens the settings
+   *  dialog (replaces the prior `window.prompt` flow). */
   const handleEditMetrics = () => {
-    const current = currentSelectedMetrics.join(", ");
-    const input = window.prompt(
-      `Inserisci 3 metriche separate da virgola.\nDisponibili: ${METRIC_KEYS.join(
-        ", ",
-      )}`,
-      current,
-    );
-    if (input === null) return; // cancel
-    const parsed = input
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    setSelectedMetrics(parsed as MetricKey[]);
+    setIsSettingsOpen(true);
   };
 
   /** Starts a session in the shared store and hands off to the
@@ -505,6 +685,11 @@ export default function AthleteDashboard() {
         onEditMetrics={handleEditMetrics}
       />
       <NextWorkoutCard onStart={handleStartWorkout} />
+
+      <MetricsSettingsDialog
+        open={isSettingsOpen}
+        onOpenChange={setIsSettingsOpen}
+      />
     </div>
   );
 }

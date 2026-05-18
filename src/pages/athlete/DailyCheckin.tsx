@@ -92,6 +92,17 @@ const INTENSITY_OPTIONS: readonly { value: Intensity; label: string }[] = [
   { value: "severe", label: "Forte" },
 ] as const;
 
+/**
+ * Classes applied to the *active* intensity button. Mild → yellow,
+ * moderate → orange, severe → red — escalating warning palette so the
+ * coach can see soreness intensity at a glance on the dashboard.
+ */
+const ACTIVE_INTENSITY_CLASSES: Record<Intensity, string> = {
+  mild: "bg-yellow-500 text-white shadow-inner",
+  moderate: "bg-orange-500 text-white shadow-inner",
+  severe: "bg-red-500 text-white shadow-inner",
+};
+
 const SCORES: readonly Score1to5[] = [1, 2, 3, 4, 5] as const;
 
 // =============================================================================
@@ -108,14 +119,14 @@ function ScoreScaleRow({
   onChange: (next: Score1to5) => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="font-sans text-xs font-semibold tracking-wider uppercase text-on-surface-variant w-24 shrink-0">
+    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 min-w-0">
+      <span className="font-sans text-xs font-semibold tracking-wider uppercase text-on-surface-variant min-w-0 truncate">
         {label}
       </span>
       <div
         role="radiogroup"
         aria-label={label}
-        className="flex gap-2"
+        className="flex gap-2 shrink-0"
       >
         {SCORES.map((n) => {
           const isActive = value === n;
@@ -212,11 +223,11 @@ function IntensityControl({
               className={cn(
                 "flex-1 py-2.5",
                 "font-sans text-xs font-semibold tracking-wide",
-                "transition-colors active:bg-brand-container/10",
+                "transition-colors active:brightness-95",
                 !isLast && "border-r border-surface-container",
                 isActive
-                  ? "bg-brand-container text-white shadow-inner"
-                  : "bg-white text-on-surface-variant hover:bg-surface-variant/40",
+                  ? ACTIVE_INTENSITY_CLASSES[opt.value]
+                  : "bg-surface-container text-on-surface-variant hover:bg-surface-variant/40",
               )}
             >
               {opt.label}

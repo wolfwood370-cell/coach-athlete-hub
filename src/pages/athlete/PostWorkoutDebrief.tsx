@@ -156,7 +156,7 @@ function RpeSelector({
       <div
         role="radiogroup"
         aria-label="Scala RPE da 1 a 10"
-        className="flex items-center justify-between gap-1 overflow-x-auto pb-1"
+        className="flex flex-wrap justify-center gap-2 pb-1"
       >
         {RPE_VALUES.map((n) => {
           const isActive = value === n;
@@ -168,12 +168,12 @@ function RpeSelector({
               type="button"
               onClick={() => onChange(n)}
               className={cn(
-                "shrink-0 rounded-xl flex items-center justify-center",
-                "font-display font-semibold tabular-nums",
+                "w-11 h-11 rounded-xl flex items-center justify-center",
+                "font-display font-semibold tabular-nums text-sm",
                 "transition-all duration-200 active:scale-95",
                 isActive
-                  ? "h-12 w-12 text-base bg-brand-container text-white shadow-[0_8px_18px_rgba(34,111,163,0.35)] scale-110"
-                  : "h-10 w-10 text-sm bg-surface-container text-on-surface-variant hover:bg-surface-variant/60",
+                  ? "bg-brand-container text-white shadow-[0_8px_18px_rgba(34,111,163,0.35)]"
+                  : "bg-surface-container text-on-surface-variant hover:bg-surface-variant/60",
               )}
             >
               {n}

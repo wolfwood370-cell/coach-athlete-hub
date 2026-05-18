@@ -66,6 +66,10 @@ export interface PreviewExercise {
   weightKg?: number;
   /** Target RPE 1..10. */
   rpe?: number;
+  /** Tempo Under Tension descriptor ("3-0-1-0", "controlled", ...). */
+  tut?: string;
+  /** Rest period between sets, in seconds. Drives the rest-timer button. */
+  restSeconds?: number;
   /** Optional sub-line (phase or protocol descriptor). */
   meta?: string;
 }
@@ -182,6 +186,90 @@ function CoachNoteCard({ text }: { text: string }) {
 }
 
 // =============================================================================
+// VariablesRow — compact 5-cell grid for the canonical training
+// variables (Sets, Reps, Weight, TUT, RPE). Adapts from 2 columns on
+// mobile to 3 on small+ viewports so labels never overflow.
+// Missing values render as "—" (no field) without breaking the grid.
+// =============================================================================
+function VariablesRow({ exercise }: { exercise: PreviewExercise }) {
+  const cells: { label: string; value: string }[] = [
+    { label: "Sets", value: exercise.sets !== undefined ? String(exercise.sets) : "—" },
+    { label: "Reps", value: exercise.reps ?? "—" },
+    {
+      label: "Peso",
+      value:
+        exercise.weightKg !== undefined && exercise.weightKg > 0
+          ? `${exercise.weightKg} kg`
+          : "BW",
+    },
+    { label: "TUT", value: exercise.tut ?? "—" },
+    { label: "RPE", value: exercise.rpe !== undefined ? String(exercise.rpe) : "—" },
+  ];
+  return (
+    <section
+      aria-label="Variabili dell'esercizio"
+      className="grid grid-cols-2 sm:grid-cols-3 gap-2"
+    >
+      {cells.map(({ label, value }) => (
+        <div
+          key={label}
+          className={cn(
+            "rounded-2xl px-3 py-2",
+            "bg-white/70 backdrop-blur-xl",
+            "border border-[#c0c7d0]/30",
+            "flex flex-col items-start",
+          )}
+        >
+          <span className="font-sans text-[10px] font-semibold tracking-widest uppercase text-on-surface-variant">
+            {label}
+          </span>
+          <span className="font-display text-base font-bold text-on-surface tabular-nums">
+            {value}
+          </span>
+        </div>
+      ))}
+    </section>
+  );
+}
+
+// =============================================================================
+// RestTimerButton — prominent CTA showing the rest period between sets.
+// Visible in both Preview and Execution Drawer. The click action is a
+// soft placeholder (toast) until a full countdown widget lands; the
+// surface itself is the contract — coaches and athletes can scan it
+// at a glance.
+// =============================================================================
+function RestTimerButton({ seconds }: { seconds?: number }) {
+  const display = seconds !== undefined ? `${seconds}s` : "—";
+  const onClick = () => {
+    toast("Timer recupero", {
+      description:
+        seconds !== undefined
+          ? `Conto alla rovescia di ${seconds} secondi (placeholder).`
+          : "Periodo di recupero non specificato.",
+    });
+  };
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={`Timer recupero ${display}`}
+      className={cn(
+        "w-full inline-flex items-center justify-center gap-2 rounded-2xl",
+        "px-4 py-3",
+        "bg-brand-container text-white",
+        "font-sans text-sm font-bold tracking-wide uppercase",
+        "shadow-[0_8px_18px_rgba(34,111,163,0.25)]",
+        "transition-all duration-150 active:scale-[0.98] hover:brightness-110",
+      )}
+    >
+      <Timer className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
+      Recupero · {display}
+    </button>
+  );
+}
+
+// =============================================================================
 // VARIANT 1 — Standard / Locked
 //   Video + title + coach note + lock banner + disabled logging table.
 //   Title, set count, reps target and weight all come from the prop so
@@ -212,6 +300,12 @@ function StandardVariant({ exercise }: { exercise: PreviewExercise }) {
         </h2>
         <CoachNoteCard text="Concentrati sulla profondità e su una concentrica esplosiva." />
       </section>
+
+      {/* 5-variable summary grid (Sets / Reps / Peso / TUT / RPE). */}
+      <VariablesRow exercise={exercise} />
+
+      {/* Prominent Rest Timer entry point. */}
+      <RestTimerButton seconds={exercise.restSeconds ?? 90} />
 
       {/* Preview / lock banner */}
       <div
@@ -257,9 +351,20 @@ function StandardVariant({ exercise }: { exercise: PreviewExercise }) {
             <span className="text-sm text-on-surface-variant text-center">
               {repsTarget} reps
             </span>
-            <span className="text-sm text-on-surface-variant text-center">
-              {previousLabel}
-            </span>
+            {/* Horizontal-scroll wrapper: long previous-session strings
+                (e.g. "100kg × 8") would otherwise wrap to a second
+                line and break the row alignment. */}
+            <div
+              className={cn(
+                "flex overflow-x-auto whitespace-nowrap gap-2 justify-center",
+                "[scrollbar-width:none] [-ms-overflow-style:none]",
+                "[&::-webkit-scrollbar]:hidden",
+              )}
+            >
+              <span className="text-sm text-on-surface-variant">
+                {previousLabel}
+              </span>
+            </div>
             <div
               aria-disabled="true"
               className="bg-surface-container/40 rounded-lg p-2 text-center border border-dashed border-[#c0c7d0]/60"

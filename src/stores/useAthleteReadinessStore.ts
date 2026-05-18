@@ -78,6 +78,30 @@ const buildInitialMetrics = (): MetricsMap => {
 
 const DEFAULT_DASHBOARD_METRICS: MetricKey[] = ["Sonno", "Stress", "Fatica"];
 
+/**
+ * Compute the `count` "worst" metrics from a `MetricsMap` — lowest
+ * `today` values rank worst. Metrics with `today === null` (not yet
+ * submitted) are excluded so they don't dominate the worst list.
+ *
+ * Used by the dashboard when `isCustomMetricsPinned === false` to
+ * surface the metrics that most need the athlete's attention today.
+ * If fewer than `count` metrics have values, returns whatever's
+ * available; ties are broken by the order in `METRIC_KEYS`.
+ */
+export function computeWorstMetrics(
+  metrics: MetricsMap,
+  count = 3,
+): MetricKey[] {
+  return (METRIC_KEYS as readonly MetricKey[])
+    .filter((k) => metrics[k].today !== null)
+    .sort((a, b) => {
+      const aVal = metrics[a].today ?? Number.POSITIVE_INFINITY;
+      const bVal = metrics[b].today ?? Number.POSITIVE_INFINITY;
+      return aVal - bVal;
+    })
+    .slice(0, count);
+}
+
 // ---------------------------------------------------------------------------
 // Store contract
 // ---------------------------------------------------------------------------
@@ -86,12 +110,17 @@ export interface AthleteReadinessStoreState {
   /** Per-metric today/yesterday values for the dashboard trend rows. */
   metrics: MetricsMap;
   /**
-   * Three metric keys to render on the dashboard Prontezza card.
-   * Length is intentionally NOT enforced at the type level (a future
-   * "show 5" mode is plausible) but `setSelectedMetrics` clamps to 3
-   * to match the current dashboard surface.
+   * Three metric keys to render on the dashboard Prontezza card when
+   * `isCustomMetricsPinned === true`. When false, the dashboard
+   * dynamically picks the 3 worst metrics via `computeWorstMetrics`.
    */
   selectedDashboardMetrics: MetricKey[];
+  /**
+   * When true, the dashboard pins `selectedDashboardMetrics` regardless
+   * of today's values. When false (default), it auto-surfaces the 3
+   * lowest-scoring metrics so the worst signals get attention.
+   */
+  isCustomMetricsPinned: boolean;
 
   // ---- Actions -----------------------------------------------------------
   /**
@@ -107,6 +136,8 @@ export interface AthleteReadinessStoreState {
   ) => void;
   /** Replace the three metrics to surface on the dashboard card. */
   setSelectedMetrics: (next: MetricKey[]) => void;
+  /** Toggle the "pin user choice" mode on the dashboard Prontezza card. */
+  setCustomMetricsPinned: (pinned: boolean) => void;
   /** Reset the local today snapshots — used by QA and on manual logout. */
   resetDay: () => void;
 }
@@ -120,6 +151,7 @@ export const useAthleteReadinessStore = create<AthleteReadinessStoreState>()(
     immer((set) => ({
       metrics: buildInitialMetrics(),
       selectedDashboardMetrics: DEFAULT_DASHBOARD_METRICS,
+      isCustomMetricsPinned: false,
 
       submitDailyCheckin: (payload) =>
         set((s) => {
@@ -152,6 +184,11 @@ export const useAthleteReadinessStore = create<AthleteReadinessStoreState>()(
           }
         }),
 
+      setCustomMetricsPinned: (pinned) =>
+        set((s) => {
+          s.isCustomMetricsPinned = pinned;
+        }),
+
       resetDay: () =>
         set((s) => {
           s.metrics = buildInitialMetrics();
@@ -163,6 +200,7 @@ export const useAthleteReadinessStore = create<AthleteReadinessStoreState>()(
       partialize: (s) => ({
         metrics: s.metrics,
         selectedDashboardMetrics: s.selectedDashboardMetrics,
+        isCustomMetricsPinned: s.isCustomMetricsPinned,
       }),
     },
   ),

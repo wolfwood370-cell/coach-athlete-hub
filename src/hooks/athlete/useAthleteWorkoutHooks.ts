@@ -48,16 +48,62 @@ export interface StartSessionInput {
 }
 
 /**
+ * Build a synthetic, local-only `workout_logs` row used when no Supabase
+ * session is available (typically: dev / local testing without auth).
+ * The id is prefixed with `local-` so downstream consumers can detect
+ * "this session never made it to the DB" if they need to (e.g. set
+ * logging will fail with FK violations and surface a toast).
+ */
+function makeLocalSessionRow(workoutId: string | null): WorkoutLogRow {
+  const now = new Date().toISOString();
+  return {
+    id: `local-${crypto.randomUUID()}`,
+    athlete_id: "local",
+    workout_id: workoutId,
+    started_at: now,
+    completed_at: null,
+    created_at: now,
+    duration_minutes: null,
+    duration_seconds: null,
+    exercises_data: [],
+    google_event_id: null,
+    local_id: null,
+    notes: null,
+    program_id: null,
+    program_workout_id: null,
+    rpe_global: null,
+    scheduled_date: null,
+    scheduled_start_time: null,
+    srpe: null,
+    coach_feedback: null,
+    coach_feedback_at: null,
+    status: "in_progress",
+    sync_status: "pending",
+    total_load_au: null,
+  };
+}
+
+/**
  * Insert a new `workout_logs` row in `in_progress` state, stamped with
  * `started_at = now()`. Returns the new row so the caller can stash the
  * session id (used as the FK target for `exercise_logs`).
+ *
+ * Local-only fallback: when no authenticated user is present, returns a
+ * synthetic row instead of throwing. This lets the local Zustand state
+ * boot a visible session for QA / dev without backend, without firing
+ * a blocking error toast on every cold start.
  */
 export function useStartSessionMutation() {
   const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (input: StartSessionInput = {}): Promise<WorkoutLogRow> => {
-      if (!user?.id) throw new Error("Non autenticato.");
+      if (!user?.id) {
+        console.warn(
+          "[useStartSessionMutation] No authenticated user — falling back to local-only session.",
+        );
+        return makeLocalSessionRow(input.workout_id ?? null);
+      }
       const payload: TablesInsert<"workout_logs"> = {
         athlete_id: user.id,
         workout_id: input.workout_id ?? null,

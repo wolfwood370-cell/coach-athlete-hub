@@ -19,7 +19,8 @@
 // =============================================================================
 
 import { useRef, useState } from "react";
-import { Check, Megaphone, Plus, Play, X } from "lucide-react";
+import { Check, Megaphone, Plus, Play, Timer, X } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { DrawerShell } from "./DrawerShell";
 import { useAthleteWorkoutStore } from "@/stores/useAthleteWorkoutStore";
@@ -38,9 +39,8 @@ interface StandardSetDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   /**
-   * Unique identifier of the exercise being logged. Used as the key in
-   * `useAthleteWorkoutStore.loggedSets[exerciseId]`. Required so each
-   * commit lands on the right entry.
+   * Unique identifier of the exercise being logged. Required so each
+   * commit lands on the right `exercise_logs` row.
    */
   exerciseId: string;
   /** Optional override title — defaults to the mock "A1. Barbell Back Squat". */
@@ -48,6 +48,8 @@ interface StandardSetDrawerProps {
   meta?: string;
   /** Coach's previous best — surfaced above the input as a reference. */
   previousReference?: string;
+  /** Rest period between sets, in seconds. Drives the timer button. */
+  restSeconds?: number;
 }
 
 export function StandardSetDrawer({
@@ -57,6 +59,7 @@ export function StandardSetDrawer({
   exerciseName = "A1. Barbell Back Squat",
   meta = "Forza Primaria · RPE 8",
   previousReference = "100kg × 8",
+  restSeconds = 90,
 }: StandardSetDrawerProps) {
   // -- Local input state --------------------------------------------------
   // Strings (not numbers) so an empty field renders as "" rather than 0.
@@ -218,6 +221,29 @@ export function StandardSetDrawer({
             </ul>
           )}
         </section>
+
+        {/* Prominent rest-timer entry point — placeholder action until
+            the full countdown widget lands. */}
+        <button
+          type="button"
+          onClick={() =>
+            toast("Timer recupero", {
+              description: `Conto alla rovescia di ${restSeconds} secondi (placeholder).`,
+            })
+          }
+          aria-label={`Timer recupero ${restSeconds} secondi`}
+          className={cn(
+            "w-full inline-flex items-center justify-center gap-2 rounded-2xl",
+            "px-4 py-3",
+            "bg-brand-container text-white",
+            "font-sans text-sm font-bold tracking-wide uppercase",
+            "shadow-[0_8px_18px_rgba(34,111,163,0.25)]",
+            "transition-all duration-150 active:scale-[0.98] hover:brightness-110",
+          )}
+        >
+          <Timer className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
+          Recupero · {restSeconds}s
+        </button>
 
         {/* Active input row */}
         <section
