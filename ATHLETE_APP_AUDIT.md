@@ -51,7 +51,7 @@
 
 ### H4. `DailyCheckin` aggiorna lo store locale PRIMA della mutation, senza rollback su errore
 
-- **Dove**: [`src/pages/athlete/DailyCheckin.tsx:325-349`](src/pages/athlete/DailyCheckin.tsx) — chiama `submitDailyCheckin(payload)` (Zustand) → poi `submitReadiness.mutate(...)`. Solo `onSuccess` gestito; `onError` non rolla indietro il cambio locale.
+- **Dove**: [`src/pages/athlete/DailyCheckin.tsx:336-353`](src/pages/athlete/DailyCheckin.tsx) — chiama `submitDailyCheckin(payload)` (Zustand, riga 336) → poi `submitReadiness.mutate(...)` (riga 342). Solo `onSuccess` gestito; `onError` non rolla indietro il cambio locale.
 - **Impatto**: l'atleta vede il dashboard aggiornato istantaneamente (Sonno passa da `null` a `8`), poi la mutation fallisce (RLS, network, ecc.), un toast errore appare, ma il dashboard mantiene il valore ottimistico. Al refresh successivo il valore sparisce (la query DB ritorna `null`), creando inconsistenza visibile.
 - **Fix**: salvare il valore previo prima del local update; in `onError` ripristinarlo. Oppure: invertire l'ordine — fare prima `mutate`, sull'`onSuccess` chiamare `submitDailyCheckin` (perdi la snappiness ma elimini il drift).
 
@@ -63,7 +63,7 @@
 
 ### H6. `daily_readiness.score` è hardcoded a 85 in submit
 
-- **Dove**: [`src/pages/athlete/DailyCheckin.tsx:339`](src/pages/athlete/DailyCheckin.tsx) — `score: 85` literal nella `submitReadiness.mutate({...})`.
+- **Dove**: [`src/pages/athlete/DailyCheckin.tsx:350`](src/pages/athlete/DailyCheckin.tsx) — `score: 85` literal nella `submitReadiness.mutate({...})`.
 - **Impatto**: ogni atleta che fa check-in vede `dailyScore = 85` sul dashboard, indipendentemente dai valori reali di sleep/fatigue/stress. La metrica principale del prodotto è una costante.
 - **Fix**: trigger Postgres `BEFORE INSERT/UPDATE` su `daily_readiness` che computa lo score da `sleep_quality`, `fatigue_score`, `stress_level`, `mood`, `soreness_map`. La logica matematica esiste già in [`src/lib/math/readinessMath.ts`](src/lib/math/readinessMath.ts) — portarla a SQL o chiamarla client-side prima del mutate.
 
@@ -95,6 +95,14 @@
 - **Dove**: [`src/pages/athlete/PostWorkoutDebrief.tsx:45-49`](src/pages/athlete/PostWorkoutDebrief.tsx) — `WORKOUT_SUMMARY.title = "Lower Body Power"`, `muscles = [...]`.
 - **Impatto**: dopo qualsiasi workout (Upper, HIIT, mobility) l'atleta vede "Lower Body Power" e i 4 stessi muscoli. Disconnessione totale dai dati reali.
 - **Fix**: idem H8 — passare il workout id come route state, fetchare titolo/muscoli dal DB.
+
+### H10. Race: RPC `redeem_athlete_onboarding_link` chiamata prima che la sessione sia stabilita _[aggiunta dopo commit `3037f15`]_
+
+- **Dove**: [`src/pages/Auth.tsx:175`](src/pages/Auth.tsx) — `redeemInviteIfPresent` chiama `supabase.rpc("redeem_athlete_onboarding_link", { p_token })` immediatamente dopo `await signUp(...)`. La RPC è SECURITY DEFINER ma richiede `auth.uid() IS NOT NULL` come prima istruzione.
+- **Impatto**: Supabase signUp di solito stabilisce la session subito, ma se la conferma email è attiva o se il client non ha ancora propagato il JWT al supabase client globale, la RPC fallisce con `28000 — Not authenticated`. L'account dell'atleta esiste ma `profiles.coach_id` resta `NULL` — il link al coach è perso. Il toast lo segnala ("Account creato, ma il link al coach non è stato applicato"), ma è UX rotta e richiede intervento manuale del coach.
+- **Fix**:
+  1. Prima della RPC fare `await supabase.auth.getSession()` con retry breve (max 3 tentativi a 200ms).
+  2. Oppure: trasferire la logica di redemption in un Postgres trigger `AFTER INSERT ON profiles` che cerca un `athlete_onboarding_links` row matching `email = NEW.email AND NOT is_used` e lo redimisce. Single transaction, zero race.
 
 ---
 
@@ -155,7 +163,7 @@
 
 ### M9. Touch target sotto 44px sui pulsanti score (1-5)
 
-- **Dove**: [`src/pages/athlete/DailyCheckin.tsx:131-137`](src/pages/athlete/DailyCheckin.tsx) — pulsanti `ScoreScaleRow` sono `h-10 w-10` (40px). Apple HIG e WCAG 2.5.5 raccomandano minimo 44px.
+- **Dove**: [`src/pages/athlete/DailyCheckin.tsx:142`](src/pages/athlete/DailyCheckin.tsx) — `ScoreScaleRow` (definito a partire da riga 112) renderizza i pulsanti score con `h-10 w-10` (40px) a riga 142. Apple HIG e WCAG 2.5.5 raccomandano minimo 44px.
 - **Impatto**: utenti con dita grosse o motor impairment hanno difficoltà a centrare i pulsanti. Mistapping frequente.
 - **Suggerimento**: `h-11 w-11` (44px) o `min-h-[44px] min-w-[44px]`. Già fatto nel `PostWorkoutDebrief` RPE scale dopo la fix recente — replicare lo stesso pattern qui.
 
@@ -164,6 +172,23 @@
 - **Dove**: il button "Salva" in `DailyCheckin.tsx` (cerca per `handleSave`) — verificare se `submitReadiness.isPending` è cablato a `disabled`. Dal codice letto: no.
 - **Impatto**: stesso problema di H3 ma con scope readiness anziché workout.
 - **Suggerimento**: `disabled={!canSubmit || submitReadiness.isPending}` + spinner inline.
+
+### M11. Anon SELECT su `athlete_onboarding_links` espone `coach_id` _[aggiunta dopo commit `3037f15`]_
+
+- **Dove**: migrazione [`supabase/migrations/20260518110000_athlete_onboarding_links.sql`](supabase/migrations/20260518110000_athlete_onboarding_links.sql) — policy `Anonymous can validate invite token` restituisce TUTTE le colonne (id, coach_id, email, full_name, unique_token, is_used, created_at, used_at).
+- **Impatto**: Auth.tsx (prefill) ha bisogno solo di `email`, `full_name`, `is_used`. Esporre `coach_id` a chiunque conosca un token in più dei dati necessari viola principio "least privilege". Mitigazione: il token è UUID v4 con 122-bit di entropia, brute-force impossibile. Ma se un coach inoltra per errore il link su un canale pubblico (es. Twitter), si rivela anche l'identità del coach.
+- **Suggerimento**: creare una RPC `validate_invite_token(p_token TEXT) RETURNS TABLE(email TEXT, full_name TEXT)` SECURITY DEFINER che proietta solo i campi necessari, e rimuovere la policy SELECT su `anon`. Auth.tsx chiama la RPC invece di `.from("athlete_onboarding_links").select(...)`.
+
+### M12. La RPC `redeem_athlete_onboarding_link` non valida che il caller sia un atleta _[aggiunta dopo commit `3037f15`]_
+
+- **Dove**: migrazione [`supabase/migrations/20260518110000_athlete_onboarding_links.sql`](supabase/migrations/20260518110000_athlete_onboarding_links.sql) — la RPC controlla solo che `auth.uid() IS NOT NULL`, non il `role` del profilo chiamante.
+- **Impatto**: un coach autenticato che apre per curiosità `https://app/auth?token=XYZ` può chiamare la RPC (es. da console DevTools) e ottenere `profiles.coach_id = <inviter>` sulla SUA riga, snaturando il proprio profilo coach. Improbabile via UI normale (Auth.tsx forza il signup role a athlete su prefill), ma la RPC è pubblicamente eseguibile via SQL/cURL.
+- **Suggerimento**: dentro la RPC, dopo il check `v_caller IS NULL`, aggiungere:
+  ```sql
+  IF (SELECT role FROM public.profiles WHERE id = v_caller) <> 'athlete' THEN
+    RAISE EXCEPTION 'Only athletes can redeem invite links' USING ERRCODE = '42501';
+  END IF;
+  ```
 
 ---
 
@@ -225,23 +250,50 @@
 - **Dove**: [`src/pages/athlete/WeeklyCheckin.tsx:60`](src/pages/athlete/WeeklyCheckin.tsx) — la directive è attaccata al `console.info` ma il lint config probabilmente non flagga `console.info` (solo `log`), quindi la disable è inutile.
 - **Improvement**: rimuovere la riga `// eslint-disable-next-line no-console` (è il warning preesistente al baseline lint).
 
+### L10. `InviteAthleteDialog` usa `crypto.randomUUID()` — stesso caveat di H5 _[aggiunta dopo commit `3037f15`]_
+
+- **Dove**: [`src/components/coach/InviteAthleteDialog.tsx:112`](src/components/coach/InviteAthleteDialog.tsx) — `const token = crypto.randomUUID();` durante il submit della form di invito.
+- **Impatto**: identico a H5. Oggi safe (Vite + React = client only, contesto secure su localhost/HTTPS). Diventa rotto se si introduce SSR o si serve l'app su HTTP non-secure.
+- **Improvement**: stessa soluzione di H5 — polyfill `uuid` package (probabilmente già in deps) oppure feature-detect.
+
+### L11. `eslint-disable-next-line no-console` potenzialmente orfana in Auth.tsx _[aggiunta dopo commit `3037f15`]_
+
+- **Dove**: [`src/pages/Auth.tsx:179-180`](src/pages/Auth.tsx)
+  ```ts
+  // eslint-disable-next-line no-console
+  console.warn("[Auth] invite redemption failed:", error.message);
+  ```
+- **Impatto**: la lint config corrente flagga solo `console.log/info` (vedi L9 sullo stesso pattern). `console.warn` è permesso. La directive risulta unused e produce un warning ESLint.
+- **Improvement**: rimuovere `// eslint-disable-next-line no-console`. Il `console.warn` resta — è utile per il diagnostic della redemption fallita.
+
 ---
 
 ## Sommario
 
 | Severità | Count | Tema principale |
 |---|---|---|
-| 🔴 High | 9 | Data layer incompleto (mock IDs, hardcoded session, no rollback), 1 bug runtime (`crypto`) |
-| 🟡 Medium | 10 | UX (loading/empty/focus), perf marginali, design tokens, error boundary, weekly check-in non persistito |
-| 🔵 Low | 9 | Cleanup commenti, lint orfani, semantica radius/shadow |
+| 🔴 High | 10 | Data layer incompleto (mock IDs, hardcoded session, no rollback), 1 bug runtime (`crypto`), 1 race condition (auth signup→RPC) |
+| 🟡 Medium | 12 | UX (loading/empty/focus), perf marginali, design tokens, error boundary, weekly check-in non persistito, 2 issue di onboarding RLS/RPC |
+| 🔵 Low | 11 | Cleanup commenti, lint orfani (2), semantica radius/shadow, crypto wraparound |
 
 **Dove l'app fallirà in produzione (in ordine di probabilità)**:
 
 1. **Subito**: il primo atleta che apre un esercizio + tappa "Aggiungi Set" → FK violation, set non salvato (H1).
 2. **Subito**: l'atleta che fa il check-in vede sempre `dailyScore = 85` indipendentemente dai suoi numeri (H6).
-3. **Quando un drawer non-Standard viene aperto**: dati persi al close (H2).
-4. **Su rete lenta**: doppi insert / mutazioni duplicate da bottoni non disabilitati (H3, M10).
-5. **Su errori di rete**: store locale e DB divergono fino al refresh (H4).
-6. **Quando il PostWorkoutDebrief contiene dati anomali**: "NaN kg" mostrato (H7).
+3. **Su signup via invito con email-confirm attivo**: l'account viene creato ma `profiles.coach_id` resta NULL (H10).
+4. **Quando un drawer non-Standard viene aperto**: dati persi al close (H2).
+5. **Su rete lenta**: doppi insert / mutazioni duplicate da bottoni non disabilitati (H3, M10).
+6. **Su errori di rete**: store locale e DB divergono fino al refresh (H4).
+7. **Quando il PostWorkoutDebrief contiene dati anomali**: "NaN kg" mostrato (H7).
+8. **Se un coach autenticato apre un link di invito** (test, errore, malizia): può accidentalmente smarcarsi come coach del suo stesso inviter (M12).
 
-**Prima di considerare la app "production-ready" lato Athlete**, le 9 voci High vanno tutte risolte. Le Medium sono tutte improvement, ma M5 (WeeklyCheckin che logga su console invece di salvare) è effettivamente un bug funzionale travestito da medium.
+**Prima di considerare la app "production-ready" lato Athlete**, le 10 voci High vanno tutte risolte. Le Medium sono tutte improvement, ma M5 (WeeklyCheckin che logga su console invece di salvare) e M12 (RPC senza role-check) sono bug funzionali / di sicurezza travestiti da medium.
+
+---
+
+## Changelog dell'audit
+
+| Data | Commit | Modifica |
+|---|---|---|
+| 2026-05-18 | `00d1746` | Audit iniziale — 28 issue (9 H + 10 M + 9 L) |
+| 2026-05-18 | (post `3037f15`) | Verifica line numbers (H4/H6/M9 ricalibrate) + 5 nuove issue (H10, M11, M12, L10, L11) introdotte dal refactor onboarding |
