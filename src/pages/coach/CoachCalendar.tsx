@@ -24,6 +24,7 @@ import { ScheduleConfirmDialog } from "@/components/coach/calendar/ScheduleConfi
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -589,9 +590,21 @@ export default function CoachCalendar() {
                     </div>
                   </div>
                 ) : logsLoading ? (
-                  <div className="h-full flex items-center justify-center">
-                    <div className="animate-pulse text-sm text-muted-foreground">
-                      Caricamento calendario...
+                  <div className="h-full p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-7 w-40" />
+                      <div className="flex gap-2">
+                        <Skeleton className="h-8 w-20" />
+                        <Skeleton className="h-8 w-20" />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-7 gap-1.5">
+                      {Array.from({ length: 7 }).map((_, i) => (
+                        <Skeleton key={`hdr-${i}`} className="h-6 w-full" />
+                      ))}
+                      {Array.from({ length: 35 }).map((_, i) => (
+                        <Skeleton key={`cell-${i}`} className="h-20 w-full" />
+                      ))}
                     </div>
                   </div>
                 ) : (

@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Zap,
   Send,
@@ -284,8 +285,23 @@ export default function CoachCheckinInbox() {
 
             <TabsContent value="pending" className="mt-4">
               {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Card key={i} className="p-5 space-y-4">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                        <div className="flex-1 space-y-2">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-20" />
+                        </div>
+                      </div>
+                      <Skeleton className="h-24 w-full" />
+                      <div className="flex gap-2">
+                        <Skeleton className="h-9 flex-1" />
+                        <Skeleton className="h-9 flex-1" />
+                      </div>
+                    </Card>
+                  ))}
                 </div>
               ) : pendingCheckins.length === 0 ? (
                 <Card className="py-12">

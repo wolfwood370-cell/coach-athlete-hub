@@ -59,9 +59,9 @@ Sessione di cleanup eseguita sul branch `claude/flamboyant-hertz-937c2d`. Lo sta
 | --------------- | ------------------------------------------------------------------------------ | ------------- | ----------- |
 | 🔴 Critical (4) | **C1, C2, C4**                                                                 | —             | C3          |
 | 🟡 Medium (13)  | **M1, M2, M4, M5, M6, M7, M8, M9, M10, M11, M12, M13** (de-facto chiuso da C2) | M3 (1/6 zone) | —           |
-| 🔵 Low (9)      | **B2, B3, B4, B5, B6, B7, B8**                                                 | —             | B1, B9      |
+| 🔵 Low (9)      | **B2, B3, B4, B5, B6, B7, B8, B9**                                             | —             | B1          |
 
-**Totale**: **22/26 finding completamente chiusi (85%)**, 1 parziale, 3 pendenti.
+**Totale**: **23/26 finding completamente chiusi (88%)**, 1 parziale, 2 pendenti.
 
 ### Mappa commit → finding
 
@@ -110,7 +110,6 @@ Sessione di cleanup eseguita sul branch `claude/flamboyant-hertz-937c2d`. Lo sta
 | **C3**                | ❌ pendente       | ~1 settimana, 6+ PR   | Estrazione tab-by-tab di `AthleteDetail.tsx` (4037 righe → 6 sotto-file). Il file ha resistito a 4 modifiche significative (C4, M1, C2, M7) senza instabilità — segno positivo per il refactor.                |
 | **M3** zone rimanenti | 🟡 parziale (1/6) | 1-2 giorni l'una      | MOCK_GOOGLE_BUSY_SLOTS (Google Calendar API), MOCK_APPOINTMENTS (tabella `appointments`), MOCK_BLOCKS (tabella `training_blocks`), Stripe placeholder (integrazione esterna), BarPathGallery (video pipeline). |
 | **B1**                | ❌ pendente       | Decisione di prodotto | PDF extraction in KnowledgeBase: pdfjs lato client o edge function.                                                                                                                                            |
-| **B9**                | ❌ pendente       | ~1 giorno             | Skeleton loader pattern uniforme per i widget dashboard coach.                                                                                                                                                 |
 
 ---
 
@@ -314,7 +313,7 @@ Sessione di cleanup eseguita sul branch `claude/flamboyant-hertz-937c2d`. Lo sta
 - **Dove**: `App.tsx` non wrappa `<SubscriptionGuard>` né `CoachLayout` in un ErrorBoundary.
 - **Improvement**: aggiungere `<CoachErrorBoundary>` per evitare schermo bianco su throw in qualsiasi child.
 
-### B9. ❌ Mancanza di skeleton loader sui dashboard widgets _(pendente — pattern uniforme shadcn `<Skeleton />`)_
+### B9. ✅ Mancanza di skeleton loader sui dashboard widgets _(chiuso — 5 widget chiave dashboard ora con skeleton uniforme che preserva geometria: CoachCalendar grid 7×6, CoachCheckinInbox 3-card grid, ExerciseLibrarySidebar 6 row, TemplatesSidebar 4 card, PeriodizationHeader month+phase row)_
 
 - **Dove**: tutte le pages coach che consumano React Query — `query.isLoading` non guida lo skeleton, ma viene reso `null` o "nessun dato".
 - **Improvement**: pattern standard con shadcn `<Skeleton />` per evitare layout shift.

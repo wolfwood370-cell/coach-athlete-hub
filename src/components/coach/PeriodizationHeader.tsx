@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -525,8 +526,15 @@ export function PeriodizationHeader({
 
         <CollapsibleContent>
           {isLoading ? (
-            <div className="flex items-center justify-center py-4">
-              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            <div className="p-2 space-y-2">
+              <div className="flex gap-2">
+                <Skeleton className="h-6 w-[60px]" />
+                <Skeleton className="h-6 flex-1" />
+              </div>
+              <div className="flex gap-2">
+                <Skeleton className="h-10 w-[60px]" />
+                <Skeleton className="h-10 flex-1" />
+              </div>
             </div>
           ) : (
             <Card className="border-0 rounded-none overflow-hidden">

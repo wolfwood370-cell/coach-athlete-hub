@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -141,8 +142,20 @@ export function TemplatesSidebar({
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-2">
               {isLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                <div className="space-y-2">
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="p-3 rounded-lg border space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-4 w-12" />
+                      </div>
+                      <Skeleton className="h-3 w-full" />
+                      <div className="flex gap-1.5">
+                        <Skeleton className="h-4 w-14" />
+                        <Skeleton className="h-4 w-14" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : filteredTemplates.length === 0 ? (
                 <div className="text-center py-12">
