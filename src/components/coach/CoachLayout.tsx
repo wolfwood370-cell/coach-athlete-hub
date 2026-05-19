@@ -1,12 +1,35 @@
 import { SidebarProvider, SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { CoachSidebar } from "./CoachSidebar";
 import { CoachBottomNav } from "./CoachBottomNav";
-import { Search, ChevronRight, Settings } from "lucide-react";
+import { AlertTriangle, Search, ChevronRight, Settings } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SunThemeToggle } from "@/components/SunThemeToggle";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+
+/** Compact fallback for the coach content area. Keeps the sidebar +
+ *  header chrome usable so the user can navigate to a different
+ *  coach page without losing the entire app shell. */
+function CoachSectionErrorFallback({ error }: { error: Error }) {
+  return (
+    <div className="flex flex-col items-center justify-center text-center p-8 rounded-lg border border-destructive/30 bg-destructive/5 my-6">
+      <AlertTriangle className="h-10 w-10 text-destructive mb-3" />
+      <h2 className="text-lg font-semibold text-foreground">Errore nella pagina</h2>
+      <p className="text-sm text-muted-foreground mt-1 max-w-md">
+        Si è verificato un problema nel caricamento di questa sezione. Usa la barra laterale per
+        spostarti altrove o ricarica.
+      </p>
+      <pre className="mt-3 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground overflow-auto max-h-24 max-w-md text-left">
+        {error.message}
+      </pre>
+      <Button variant="outline" className="mt-4" onClick={() => window.location.reload()}>
+        Ricarica
+      </Button>
+    </div>
+  );
+}
 
 interface CoachLayoutProps {
   children: React.ReactNode;
@@ -92,12 +115,12 @@ export function CoachLayout({ children, title, subtitle }: CoachLayoutProps) {
                       {title}
                     </h1>
                   )}
-                  {subtitle && (
-                    <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>
-                  )}
+                  {subtitle && <p className="text-sm text-muted-foreground mt-0.5">{subtitle}</p>}
                 </div>
               )}
-              {children}
+              <ErrorBoundary fallback={(error) => <CoachSectionErrorFallback error={error} />}>
+                {children}
+              </ErrorBoundary>
             </main>
           </div>
 
