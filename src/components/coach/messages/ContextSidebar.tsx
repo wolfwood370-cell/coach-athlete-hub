@@ -108,7 +108,13 @@ export function ContextSidebar({ conversation, isOpen, onClose }: ContextSidebar
       <CardHeader className="flex-shrink-0 border-b pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-semibold">Contesto Atleta</CardTitle>
-          <Button variant="ghost" size="icon" className="h-7 w-7 lg:hidden" onClick={onClose}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Chiudi"
+            className="h-7 w-7 lg:hidden"
+            onClick={onClose}
+          >
             <X className="h-4 w-4" />
           </Button>
         </div>

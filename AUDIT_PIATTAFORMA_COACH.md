@@ -55,13 +55,13 @@ Sessione di cleanup eseguita sul branch `claude/flamboyant-hertz-937c2d`. Lo sta
 
 ### Tabella riassuntiva post-sessione
 
-| Severità        | Chiusi ✅                                                                 | Parziali 🟡                 | Pendenti ❌ |
-| --------------- | ------------------------------------------------------------------------- | --------------------------- | ----------- |
-| 🔴 Critical (4) | **C1, C2, C4**                                                            | —                           | C3          |
-| 🟡 Medium (13)  | **M1, M2, M4, M5, M6, M7, M8, M9, M10, M12, M13** (de-facto chiuso da C2) | M3 (1/6 zone), M11 (3 spot) | —           |
-| 🔵 Low (9)      | **B2, B3, B4, B5, B6, B7, B8**                                            | —                           | B1, B9      |
+| Severità        | Chiusi ✅                                                                      | Parziali 🟡   | Pendenti ❌ |
+| --------------- | ------------------------------------------------------------------------------ | ------------- | ----------- |
+| 🔴 Critical (4) | **C1, C2, C4**                                                                 | —             | C3          |
+| 🟡 Medium (13)  | **M1, M2, M4, M5, M6, M7, M8, M9, M10, M11, M12, M13** (de-facto chiuso da C2) | M3 (1/6 zone) | —           |
+| 🔵 Low (9)      | **B2, B3, B4, B5, B6, B7, B8**                                                 | —             | B1, B9      |
 
-**Totale**: **21/26 finding completamente chiusi (81%)**, 2 parziali, 3 pendenti.
+**Totale**: **22/26 finding completamente chiusi (85%)**, 1 parziale, 3 pendenti.
 
 ### Mappa commit → finding
 
@@ -105,13 +105,12 @@ Sessione di cleanup eseguita sul branch `claude/flamboyant-hertz-937c2d`. Lo sta
 
 ### Cosa rimane di sostanziale
 
-| Item                       | Stato             | Effort                | Note                                                                                                                                                                                                           |
-| -------------------------- | ----------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **C3**                     | ❌ pendente       | ~1 settimana, 6+ PR   | Estrazione tab-by-tab di `AthleteDetail.tsx` (4037 righe → 6 sotto-file). Il file ha resistito a 4 modifiche significative (C4, M1, C2, M7) senza instabilità — segno positivo per il refactor.                |
-| **M3** zone rimanenti      | 🟡 parziale (1/6) | 1-2 giorni l'una      | MOCK_GOOGLE_BUSY_SLOTS (Google Calendar API), MOCK_APPOINTMENTS (tabella `appointments`), MOCK_BLOCKS (tabella `training_blocks`), Stripe placeholder (integrazione esterna), BarPathGallery (video pipeline). |
-| **M11** touch-area globale | 🟡 parziale       | 2-4 ore               | Aria-label aggiunti dove serviva; resta da fare un audit sistematico dei `size="icon"` con `Button` shadcn.                                                                                                    |
-| **B1**                     | ❌ pendente       | Decisione di prodotto | PDF extraction in KnowledgeBase: pdfjs lato client o edge function.                                                                                                                                            |
-| **B9**                     | ❌ pendente       | ~1 giorno             | Skeleton loader pattern uniforme per i widget dashboard coach.                                                                                                                                                 |
+| Item                  | Stato             | Effort                | Note                                                                                                                                                                                                           |
+| --------------------- | ----------------- | --------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **C3**                | ❌ pendente       | ~1 settimana, 6+ PR   | Estrazione tab-by-tab di `AthleteDetail.tsx` (4037 righe → 6 sotto-file). Il file ha resistito a 4 modifiche significative (C4, M1, C2, M7) senza instabilità — segno positivo per il refactor.                |
+| **M3** zone rimanenti | 🟡 parziale (1/6) | 1-2 giorni l'una      | MOCK_GOOGLE_BUSY_SLOTS (Google Calendar API), MOCK_APPOINTMENTS (tabella `appointments`), MOCK_BLOCKS (tabella `training_blocks`), Stripe placeholder (integrazione esterna), BarPathGallery (video pipeline). |
+| **B1**                | ❌ pendente       | Decisione di prodotto | PDF extraction in KnowledgeBase: pdfjs lato client o edge function.                                                                                                                                            |
+| **B9**                | ❌ pendente       | ~1 giorno             | Skeleton loader pattern uniforme per i widget dashboard coach.                                                                                                                                                 |
 
 ---
 
@@ -254,7 +253,7 @@ Sessione di cleanup eseguita sul branch `claude/flamboyant-hertz-937c2d`. Lo sta
 - **Impatto**: design tokens disallineati. Cambio palette → fix manuale in N file. Inoltre non risponde a dark mode.
 - **Fix**: estrarre token CSS (`var(--chart-grid)`, `var(--chart-axis)`) e usarli inline.
 
-### M11. 🟡 Touch target sotto i 44px nei button-icon di ChatPane _(parziale: 3 aria-label aggiunti in `9b09654` + `d53f433`; revisione touch-area globale aperta)_
+### M11. ✅ Touch target sotto i 44px nei button-icon di ChatPane _(chiuso — audit sistematico del coach tree: 65 `Button size="icon"` totali, 7 già coperti da PR precedenti, 58 patchati con aria-label descrittivo italiano; 0 residui)_
 
 - **Dove**: [`components/coach/messages/ChatPane.tsx:252, 270`](src/components/coach/messages/ChatPane.tsx) — `<Button size="icon">` con `ArrowLeft` / `Info` senza `aria-label` esplicito.
 - **Impatto**: doppio: (a) touch target probabilmente sotto 44px se size="icon" è 36px; (b) screen reader sente "button" senza descrizione → WCAG 4.1.2 fail.

@@ -144,7 +144,13 @@ export function ExerciseContextEditor({
               </div>
             </div>
           </div>
-          <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={onClose}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Chiudi"
+            className="h-7 w-7 flex-shrink-0"
+            onClick={onClose}
+          >
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -409,6 +415,7 @@ export function ExerciseContextEditor({
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label="Elimina regola"
                       className="h-6 w-6 text-destructive hover:text-destructive flex-shrink-0"
                       onClick={() => {
                         const newRules = (exercise.progression?.rules || []).filter(

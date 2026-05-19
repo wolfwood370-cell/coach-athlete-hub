@@ -48,6 +48,7 @@ function CoachHeader({ title }: { title?: string; subtitle?: string }) {
           <Button
             variant="ghost"
             size="icon"
+            aria-label="Apri menu laterale"
             onClick={toggleSidebar}
             className="hidden md:inline-flex h-8 w-8 text-muted-foreground hover:text-foreground"
           >
@@ -75,7 +76,7 @@ function CoachHeader({ title }: { title?: string; subtitle?: string }) {
       <div className="flex items-center gap-2">
         <Popover>
           <PopoverTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-9 w-9">
+            <Button variant="ghost" size="icon" aria-label="Impostazioni" className="h-9 w-9">
               <Settings className="h-[18px] w-[18px] text-muted-foreground" />
             </Button>
           </PopoverTrigger>

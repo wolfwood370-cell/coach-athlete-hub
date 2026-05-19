@@ -114,7 +114,13 @@ export function RoomList({
       <div className="p-4 border-b space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold text-lg">Messaggi</h2>
-          <Button variant="ghost" size="icon" onClick={onNewChat} className="h-8 w-8">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Nuova chat"
+            onClick={onNewChat}
+            className="h-8 w-8"
+          >
             <MessageSquarePlus className="h-4 w-4" />
           </Button>
         </div>

@@ -232,7 +232,7 @@ export function TelestrationPlayer({ url, title, onClose, onSave }: Telestration
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-lg truncate">{title ?? "Video Telestration"}</h3>
         {onClose && (
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button variant="ghost" size="icon" aria-label="Chiudi" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         )}
@@ -290,6 +290,7 @@ export function TelestrationPlayer({ url, title, onClose, onSave }: Telestration
         <Button
           variant="outline"
           size="icon"
+          aria-label="Riproduci o metti in pausa"
           onClick={() => {
             const vid = playerRef.current;
             if (!vid) return;

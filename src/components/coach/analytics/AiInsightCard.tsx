@@ -189,6 +189,7 @@ export function AiInsightCard({ athleteId }: AiInsightCardProps) {
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label="Copia insight"
                 className="absolute top-0 right-0 h-7 w-7 opacity-50 hover:opacity-100"
                 onClick={() => copyToClipboard(insight.insight_text)}
               >

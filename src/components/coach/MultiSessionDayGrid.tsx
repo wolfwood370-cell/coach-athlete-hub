@@ -147,6 +147,7 @@ function SortableExercise({
             <Button
               variant="ghost"
               size="icon"
+              aria-label={isInSuperset ? "Rimuovi dal superset" : "Collega in superset"}
               className={cn(
                 "h-5 w-5",
                 isInSuperset
@@ -166,6 +167,7 @@ function SortableExercise({
         <Button
           variant="ghost"
           size="icon"
+          aria-label="Rimuovi esercizio"
           className="h-5 w-5 text-destructive opacity-0 group-hover:opacity-100 hover:text-destructive"
           onClick={onRemove}
         >
@@ -350,7 +352,7 @@ function WorkoutSessionContainer({
         {totalSessions > 1 && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-5 w-5">
+              <Button variant="ghost" size="icon" aria-label="Altre opzioni" className="h-5 w-5">
                 <MoreVertical className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>

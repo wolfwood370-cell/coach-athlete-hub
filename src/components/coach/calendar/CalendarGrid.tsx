@@ -496,11 +496,23 @@ export function CalendarGrid({
       {/* Header */}
       <div className="flex items-center justify-between pb-4 border-b border-border/50">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handlePrev}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Periodo precedente"
+            className="h-9 w-9"
+            onClick={handlePrev}
+          >
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <h2 className="text-lg font-bold capitalize min-w-[220px] text-center">{title}</h2>
-          <Button variant="ghost" size="icon" className="h-9 w-9" onClick={handleNext}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Periodo successivo"
+            className="h-9 w-9"
+            onClick={handleNext}
+          >
             <ChevronRight className="h-4 w-4" />
           </Button>
           <Button variant="outline" size="sm" onClick={handleToday} className="ml-2">

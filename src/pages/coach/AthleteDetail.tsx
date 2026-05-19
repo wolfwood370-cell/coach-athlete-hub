@@ -681,7 +681,7 @@ function AdvancedStatsContent({ athleteId }: { athleteId: string | undefined }) 
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Button variant="ghost" size="icon" aria-label="Informazioni" className="h-8 w-8">
                     <Info className="h-4 w-4 text-muted-foreground" />
                   </Button>
                 </TooltipTrigger>
@@ -1401,7 +1401,12 @@ function BodyMetricsContent({ athleteId }: { athleteId: string | undefined }) {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Informazioni"
+                      className="h-8 w-8"
+                    >
                       <Info className="h-4 w-4 text-muted-foreground" />
                     </Button>
                   </TooltipTrigger>
@@ -3032,7 +3037,12 @@ export default function AthleteDetail() {
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button variant="outline" size="icon" onClick={() => setGodModeOpen(true)}>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        aria-label="Visualizza come Atleta"
+                        onClick={() => setGodModeOpen(true)}
+                      >
                         <Smartphone className="h-5 w-5" />
                       </Button>
                     </TooltipTrigger>
@@ -3042,7 +3052,7 @@ export default function AthleteDetail() {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon">
+                    <Button variant="outline" size="icon" aria-label="Altre opzioni">
                       <MoreHorizontal className="h-5 w-5" />
                     </Button>
                   </DropdownMenuTrigger>

@@ -121,6 +121,7 @@ export default function CoachAthletes() {
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label="Vista griglia"
                 className={cn("h-8 w-8", viewMode === "grid" && "bg-background shadow-sm")}
                 onClick={() => setViewMode("grid")}
               >
@@ -129,6 +130,7 @@ export default function CoachAthletes() {
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label="Vista elenco"
                 className={cn("h-8 w-8", viewMode === "list" && "bg-background shadow-sm")}
                 onClick={() => setViewMode("list")}
               >

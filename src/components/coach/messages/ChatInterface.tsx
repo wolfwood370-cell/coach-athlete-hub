@@ -72,6 +72,7 @@ function AudioPlayer({ waveform, duration }: { waveform: number[]; duration: str
       <Button
         size="icon"
         variant="ghost"
+        aria-label={isPlaying ? "Pausa audio" : "Riproduci audio"}
         className="h-8 w-8 shrink-0"
         onClick={() => setIsPlaying(!isPlaying)}
       >
@@ -366,7 +367,13 @@ export function ChatInterface({
       >
         <div className="flex items-center gap-3">
           {/* Mobile Back Button */}
-          <Button variant="ghost" size="icon" className="lg:hidden h-8 w-8 -ml-2" onClick={onBack}>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Indietro"
+            className="lg:hidden h-8 w-8 -ml-2"
+            onClick={onBack}
+          >
             <ArrowLeft className="h-4 w-4" />
           </Button>
 
@@ -447,7 +454,12 @@ export function ChatInterface({
 
           {/* Context Toggle (Mobile) */}
           {showContextButton && !isAiMode && (
-            <Button variant="ghost" size="icon" onClick={onToggleContext}>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label="Informazioni atleta"
+              onClick={onToggleContext}
+            >
               <Info className="h-4 w-4" />
             </Button>
           )}
@@ -589,13 +601,13 @@ export function ChatInterface({
           {/* Action Buttons - hidden in AI mode */}
           {!isAiMode && (
             <div className="flex items-center gap-1 shrink-0">
-              <Button variant="ghost" size="icon" className="h-9 w-9">
+              <Button variant="ghost" size="icon" aria-label="Registra audio" className="h-9 w-9">
                 <Mic className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9">
+              <Button variant="ghost" size="icon" aria-label="Allega immagine" className="h-9 w-9">
                 <Image className="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" className="h-9 w-9">
+              <Button variant="ghost" size="icon" aria-label="Allega link" className="h-9 w-9">
                 <Link2 className="h-4 w-4" />
               </Button>
             </div>
@@ -630,6 +642,7 @@ export function ChatInterface({
           {/* Send Button */}
           <Button
             size="icon"
+            aria-label="Invia messaggio"
             className={cn(
               "h-10 w-10 shrink-0",
               isAiMode &&

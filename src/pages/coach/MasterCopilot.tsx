@@ -128,6 +128,7 @@ export default function MasterCopilot() {
               <Button
                 type="submit"
                 size="icon"
+                aria-label="Invia messaggio"
                 disabled={!input.trim() || isLoading}
                 className="h-9 w-9 shrink-0 rounded-xl"
               >

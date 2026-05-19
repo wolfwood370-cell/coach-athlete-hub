@@ -361,6 +361,7 @@ export function ChatPane({
           <Button
             variant="ghost"
             size="icon"
+            aria-label="Ignora avviso"
             className="h-6 w-6 text-muted-foreground"
             onClick={() => setShowAlertBanner(false)}
           >
@@ -376,6 +377,7 @@ export function ChatPane({
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Registra audio"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
               onClick={() => handleMediaClick("audio")}
               disabled={isUploadingVideo}
@@ -385,6 +387,7 @@ export function ChatPane({
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Allega immagine"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
               onClick={() => handleMediaClick("image")}
               disabled={isUploadingVideo}
@@ -394,6 +397,7 @@ export function ChatPane({
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Video Clip (max 50MB)"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
               onClick={() => handleMediaClick("video")}
               disabled={isUploadingVideo}
@@ -408,6 +412,7 @@ export function ChatPane({
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Allega link"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
               onClick={() => handleMediaClick("link")}
               disabled={isUploadingVideo}
@@ -428,6 +433,7 @@ export function ChatPane({
 
           <Button
             size="icon"
+            aria-label="Invia messaggio"
             className="h-9 w-9 shrink-0"
             disabled={!inputValue.trim() || isSending}
             onClick={handleSend}

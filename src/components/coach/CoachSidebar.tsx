@@ -95,6 +95,7 @@ export function CoachSidebar() {
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Chiudi menu laterale"
               onClick={toggleSidebar}
               className="h-8 w-8 text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent"
             >

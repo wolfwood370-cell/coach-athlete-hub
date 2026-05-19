@@ -18,7 +18,7 @@ export const TRACKING_METRICS = [
   { value: "tempo", label: "TEMPO (xxxx)" },
 ] as const;
 
-export type TrackingMetricValue = typeof TRACKING_METRICS[number]["value"];
+export type TrackingMetricValue = (typeof TRACKING_METRICS)[number]["value"];
 
 interface TrackingMetricBuilderProps {
   value: string[];
@@ -76,9 +76,9 @@ export function TrackingMetricBuilder({ value, onChange }: TrackingMetricBuilder
                 variant={isSelected ? "secondary" : "outline"}
                 className={cn(
                   "cursor-pointer transition-all select-none",
-                  isSelected 
-                    ? "opacity-50 cursor-not-allowed" 
-                    : "hover:bg-primary hover:text-primary-foreground hover:border-primary"
+                  isSelected
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:bg-primary hover:text-primary-foreground hover:border-primary",
                 )}
                 onClick={() => !isSelected && addMetric(metric.value)}
               >
@@ -122,6 +122,7 @@ export function TrackingMetricBuilder({ value, onChange }: TrackingMetricBuilder
                       type="button"
                       variant="ghost"
                       size="icon"
+                      aria-label="Sposta su"
                       className="h-7 w-7"
                       onClick={() => moveMetric(index, "up")}
                       disabled={index === 0}
@@ -132,6 +133,7 @@ export function TrackingMetricBuilder({ value, onChange }: TrackingMetricBuilder
                       type="button"
                       variant="ghost"
                       size="icon"
+                      aria-label="Sposta giù"
                       className="h-7 w-7"
                       onClick={() => moveMetric(index, "down")}
                       disabled={index === selectedMetrics.length - 1}
@@ -145,6 +147,7 @@ export function TrackingMetricBuilder({ value, onChange }: TrackingMetricBuilder
                     type="button"
                     variant="ghost"
                     size="icon"
+                    aria-label="Rimuovi metrica"
                     className="h-7 w-7 text-muted-foreground hover:text-destructive flex-shrink-0"
                     onClick={() => removeMetric(metricValue)}
                   >
@@ -159,7 +162,8 @@ export function TrackingMetricBuilder({ value, onChange }: TrackingMetricBuilder
 
       {/* Helper text */}
       <p className="text-xs text-muted-foreground">
-        L'ordine delle metriche determinerà come verranno visualizzate durante il log dell'allenamento.
+        L'ordine delle metriche determinerà come verranno visualizzate durante il log
+        dell'allenamento.
       </p>
     </div>
   );

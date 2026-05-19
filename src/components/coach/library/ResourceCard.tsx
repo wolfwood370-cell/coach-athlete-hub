@@ -161,6 +161,7 @@ export function ResourceCard({ resource, onDelete, onOpenVideo }: ResourceCardPr
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label="Altre opzioni"
                 className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <MoreVertical className="h-4 w-4" />

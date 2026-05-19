@@ -58,6 +58,7 @@ function AudioPlayer({ url }: { url?: string }) {
       <Button
         variant="ghost"
         size="icon"
+        aria-label={isPlaying ? "Pausa audio" : "Riproduci audio"}
         className="h-8 w-8 shrink-0"
         onClick={() => setIsPlaying(!isPlaying)}
       >

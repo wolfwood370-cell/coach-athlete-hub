@@ -73,7 +73,7 @@ export function ChatList({
     >
       {/* Mobile Back Button */}
       <div className="lg:hidden flex items-center gap-2 p-3 border-b">
-        <Button variant="ghost" size="icon" onClick={onClose}>
+        <Button variant="ghost" size="icon" aria-label="Indietro" onClick={onClose}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <span className="font-medium">Conversazioni</span>
@@ -201,7 +201,11 @@ export function ChatList({
         </ScrollArea>
 
         {/* Floating Broadcast Button */}
-        <Button size="icon" className="absolute bottom-4 right-4 h-12 w-12 rounded-full shadow-lg">
+        <Button
+          size="icon"
+          aria-label="Trasmetti messaggio broadcast"
+          className="absolute bottom-4 right-4 h-12 w-12 rounded-full shadow-lg"
+        >
           <Radio className="h-5 w-5" />
         </Button>
       </CardContent>

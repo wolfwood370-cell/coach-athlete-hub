@@ -41,6 +41,7 @@ function EmptySlot({
       <Button
         variant="ghost"
         size="icon"
+        aria-label="Rimuovi slot"
         className="absolute top-0.5 right-0.5 h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100"
         onClick={onRemove}
       >
@@ -178,6 +179,7 @@ function SortableExercise({
                   <Button
                     variant="ghost"
                     size="icon"
+                    aria-label={isInSuperset ? "Rimuovi dal superset" : "Collega in superset"}
                     className={cn(
                       "h-5 w-5 flex-shrink-0",
                       isInSuperset && "text-primary opacity-100",
@@ -195,6 +197,7 @@ function SortableExercise({
               <Button
                 variant="ghost"
                 size="icon"
+                aria-label="Rimuovi esercizio"
                 className="h-5 w-5 text-destructive hover:text-destructive flex-shrink-0"
                 onClick={onRemove}
               >
@@ -271,6 +274,7 @@ export const DayBuilderCard = memo(function DayBuilderCard({
                   <Button
                     variant="ghost"
                     size="icon"
+                    aria-label="Salva come template"
                     className="h-5 w-5 opacity-0 group-hover:opacity-100"
                     onClick={onSaveAsTemplate}
                   >
@@ -284,6 +288,7 @@ export const DayBuilderCard = memo(function DayBuilderCard({
                   <Button
                     variant="ghost"
                     size="icon"
+                    aria-label="Copia allenamento"
                     className="h-5 w-5 opacity-0 group-hover:opacity-100"
                     onClick={onCopyDay}
                   >

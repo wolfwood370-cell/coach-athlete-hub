@@ -162,7 +162,13 @@ export function AthleteContextPane({ room, isOpen, onClose }: AthleteContextPane
       {/* Header */}
       <div className="h-14 shrink-0 border-b flex items-center justify-between px-4">
         <h3 className="font-semibold">Contesto Atleta</h3>
-        <Button variant="ghost" size="icon" className="h-8 w-8 lg:hidden" onClick={onClose}>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Chiudi"
+          className="h-8 w-8 lg:hidden"
+          onClick={onClose}
+        >
           <X className="h-4 w-4" />
         </Button>
       </div>

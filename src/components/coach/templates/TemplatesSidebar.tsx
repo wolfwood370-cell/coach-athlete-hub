@@ -271,6 +271,7 @@ function TemplateCard({
         <Button
           variant="ghost"
           size="icon"
+          aria-label="Elimina template"
           className="h-7 w-7 opacity-0 group-hover:opacity-100 text-destructive hover:text-destructive shrink-0"
           onClick={(e) => {
             e.stopPropagation();

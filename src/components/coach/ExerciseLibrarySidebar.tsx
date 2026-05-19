@@ -154,6 +154,7 @@ function DraggableExercise({ exercise, onEdit, onArchive, isArchiving }: Draggab
           <Button
             variant="ghost"
             size="icon"
+            aria-label="Altre opzioni"
             className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
             onClick={(e) => e.stopPropagation()}
           >
@@ -427,7 +428,12 @@ export function ExerciseLibrarySidebar({ className }: ExerciseLibrarySidebarProp
             }}
           >
             <DialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Aggiungi esercizio"
+                className="h-7 w-7"
+              >
                 <Plus className="h-4 w-4" />
               </Button>
             </DialogTrigger>

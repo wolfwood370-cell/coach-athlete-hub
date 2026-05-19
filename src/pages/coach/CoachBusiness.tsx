@@ -70,13 +70,21 @@ function getInitials(name: string | null): string {
 function getStatusBadge(status: string) {
   switch (status) {
     case "active":
-      return <Badge variant="default" className="bg-primary/20 text-primary border-primary/30">Attivo</Badge>;
+      return (
+        <Badge variant="default" className="bg-primary/20 text-primary border-primary/30">
+          Attivo
+        </Badge>
+      );
     case "trial":
       return <Badge variant="secondary">Prova</Badge>;
     case "past_due":
       return <Badge variant="destructive">Scaduto</Badge>;
     case "canceled":
-      return <Badge variant="outline" className="text-muted-foreground">Cancellato</Badge>;
+      return (
+        <Badge variant="outline" className="text-muted-foreground">
+          Cancellato
+        </Badge>
+      );
     default:
       return <Badge variant="outline">Nessuno</Badge>;
   }
@@ -126,7 +134,7 @@ export default function CoachBusiness() {
           setIsCreateDialogOpen(false);
           setNewPlan({ name: "", price: "", billing_interval: "month", description: "" });
         },
-      }
+      },
     );
   };
 
@@ -242,7 +250,9 @@ export default function CoachBusiness() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="border-primary/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">MRR Stimato</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                MRR Stimato
+              </CardTitle>
               <TrendingUp className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
@@ -255,23 +265,35 @@ export default function CoachBusiness() {
 
           <Card className="border-secondary/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Clienti Attivi</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Clienti Attivi
+              </CardTitle>
               <Users className="h-4 w-4 text-secondary-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">{businessMetrics.activeClients}</div>
-              <p className="text-xs text-muted-foreground mt-1">su {athleteSubscriptions.length} atleti totali</p>
+              <div className="text-3xl font-bold text-foreground">
+                {businessMetrics.activeClients}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                su {athleteSubscriptions.length} atleti totali
+              </p>
             </CardContent>
           </Card>
 
           <Card className="border-accent/20">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">In Sospeso</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                In Sospeso
+              </CardTitle>
               <Clock className="h-4 w-4 text-accent-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold text-foreground">{businessMetrics.pendingPayments}</div>
-              <p className="text-xs text-muted-foreground mt-1">€{businessMetrics.pendingAmount.toFixed(2)} in sospeso</p>
+              <div className="text-3xl font-bold text-foreground">
+                {businessMetrics.pendingPayments}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                €{businessMetrics.pendingAmount.toFixed(2)} in sospeso
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -300,17 +322,29 @@ export default function CoachBusiness() {
                         <div>
                           <CardTitle className="text-base">{plan.name}</CardTitle>
                           <CardDescription className="text-xs capitalize">
-                            {plan.billing_interval === "month" ? "Mensile" : plan.billing_interval === "year" ? "Annuale" : "Una Tantum"}
+                            {plan.billing_interval === "month"
+                              ? "Mensile"
+                              : plan.billing_interval === "year"
+                                ? "Annuale"
+                                : "Una Tantum"}
                           </CardDescription>
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              aria-label="Altre opzioni"
+                              className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem className="text-destructive" onClick={() => deletePlan(plan.id)}>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => deletePlan(plan.id)}
+                            >
                               <Trash2 className="h-4 w-4 mr-2" />
                               Archivia Piano
                             </DropdownMenuItem>
@@ -322,7 +356,12 @@ export default function CoachBusiness() {
                       <div className="text-2xl font-bold">
                         €{(plan.price_amount / 100).toFixed(2)}
                         <span className="text-sm font-normal text-muted-foreground">
-                          /{plan.billing_interval === "month" ? "mese" : plan.billing_interval === "year" ? "anno" : ""}
+                          /
+                          {plan.billing_interval === "month"
+                            ? "mese"
+                            : plan.billing_interval === "year"
+                              ? "anno"
+                              : ""}
                         </span>
                       </div>
                       {plan.stripe_price_id && (
@@ -332,7 +371,9 @@ export default function CoachBusiness() {
                         </Badge>
                       )}
                       {plan.description && (
-                        <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{plan.description}</p>
+                        <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                          {plan.description}
+                        </p>
                       )}
                     </CardContent>
                   </Card>
@@ -385,12 +426,16 @@ export default function CoachBusiness() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <span className="text-muted-foreground">{athlete.subscription_tier || "—"}</span>
+                          <span className="text-muted-foreground">
+                            {athlete.subscription_tier || "—"}
+                          </span>
                         </TableCell>
                         <TableCell>{getStatusBadge(athlete.subscription_status)}</TableCell>
                         <TableCell>
                           {athlete.current_period_end
-                            ? format(new Date(athlete.current_period_end), "d MMM yyyy", { locale: it })
+                            ? format(new Date(athlete.current_period_end), "d MMM yyyy", {
+                                locale: it,
+                              })
                             : "—"}
                         </TableCell>
                         <TableCell className="text-right">
@@ -398,7 +443,9 @@ export default function CoachBusiness() {
                             variant="outline"
                             size="sm"
                             className="gap-1.5"
-                            onClick={() => openPaymentDialog(athlete.id, athlete.full_name || "Atleta")}
+                            onClick={() =>
+                              openPaymentDialog(athlete.id, athlete.full_name || "Atleta")
+                            }
                             disabled={plans.length === 0}
                           >
                             <Euro className="h-3.5 w-3.5" />

@@ -421,6 +421,7 @@ export default function KnowledgeBase() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label="Rimuovi documento"
                       onClick={() => removePending(item.id)}
                       disabled={isTraining}
                       className="h-8 w-8"
@@ -550,6 +551,7 @@ export default function KnowledgeBase() {
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label="Elimina documento"
                         onClick={() => handleDelete(doc.id, doc.title)}
                         className="h-8 w-8 text-muted-foreground hover:text-rose-400"
                       >
