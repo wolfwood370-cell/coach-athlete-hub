@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -2008,6 +2008,24 @@ function SettingsContent({
   );
   const [fullName, setFullName] = useState(profile?.full_name || "");
   const [coachNotes, setCoachNotes] = useState(settings.coach_notes ?? "");
+
+  // Re-sync local form state when `profile` is refetched (e.g. after the
+  // save mutation invalidates the cache). Without this, useState's
+  // initialiser only fires on first mount so the form keeps the stale
+  // values after a successful save — the user sees the old data until
+  // a manual refresh. Each setter is a primitive so equality is cheap.
+  // We deliberately key on the specific fields (not the whole profile
+  // object) so unrelated profile updates don't reset the form mid-edit.
+  useEffect(() => {
+    setNeurotype(profile?.neurotype || "");
+    setFullName(profile?.full_name || "");
+    setTrainingStatus(settings.training_status ?? "active");
+    setExperienceLevel(settings.experience_level ?? "intermediate");
+    setCoachNotes(settings.coach_notes ?? "");
+    // `settings` is derived from profile?.settings on every render but is
+    // a fresh object reference each time — depend on the source fields.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.neurotype, profile?.full_name, profile?.settings]);
 
   // Get status badge config
   const getStatusConfig = (status: string) => {
