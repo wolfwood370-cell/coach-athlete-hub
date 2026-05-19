@@ -59,9 +59,9 @@ Sessione di cleanup eseguita sul branch `claude/flamboyant-hertz-937c2d`. Lo sta
 | --------------- | ------------------------------------------------------------------------------ | ------------- | ----------- |
 | 🔴 Critical (4) | **C1, C2, C4**                                                                 | —             | C3          |
 | 🟡 Medium (13)  | **M1, M2, M4, M5, M6, M7, M8, M9, M10, M11, M12, M13** (de-facto chiuso da C2) | M3 (1/6 zone) | —           |
-| 🔵 Low (9)      | **B2, B3, B4, B5, B6, B7, B8, B9**                                             | —             | B1          |
+| 🔵 Low (9)      | **B1, B2, B3, B4, B5, B6, B7, B8, B9**                                         | —             | —           |
 
-**Totale**: **23/26 finding completamente chiusi (88%)**, 1 parziale, 2 pendenti.
+**Totale**: **24/26 finding completamente chiusi (92%)**, 1 parziale, 1 pendente.
 
 ### Mappa commit → finding
 
@@ -272,7 +272,7 @@ Sessione di cleanup eseguita sul branch `claude/flamboyant-hertz-937c2d`. Lo sta
 
 ## 🔵 Low (cleanup e robustezza)
 
-### B1. ❌ TODO in `KnowledgeBase.tsx` _(pendente — decisione di prodotto su pdfjs lato client vs edge function)_
+### B1. ✅ TODO in `KnowledgeBase.tsx` _(chiuso — `pdfjs-dist` lato client; helper `src/lib/pdf.ts` con worker registrato via Vite ?url import; estrazione page-by-page con doppia newline tra pagine per chunker LLM)_
 
 - **Dove**: [`KnowledgeBase.tsx:164`](src/pages/coach/KnowledgeBase.tsx) — `// TODO: integrate pdfjs-dist or upload to Storage and let edge function extract.`
 - **Impatto**: estrazione PDF non implementata. La feature dichiarata come "PDF knowledge base" è incompleta.

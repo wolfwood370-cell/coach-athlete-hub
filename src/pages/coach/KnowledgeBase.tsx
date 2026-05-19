@@ -27,6 +27,7 @@ import { formatDistanceToNow } from "date-fns";
 import { it } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { log } from "@/lib/logger";
+import { extractPdfText } from "@/lib/pdf";
 
 type DocStatus = "pending" | "processing" | "processed" | "failed";
 
@@ -160,10 +161,25 @@ export default function KnowledgeBase() {
           } catch {
             entry.error = "Lettura file fallita";
           }
+        } else if (ext === ".pdf") {
+          // Client-side extraction via pdfjs-dist (no upload required).
+          // Audit B1 closure — see src/lib/pdf.ts for worker setup.
+          try {
+            const text = await extractPdfText(file);
+            if (!text.trim()) {
+              entry.error = "PDF senza testo estraibile (forse scansione/immagine).";
+            } else {
+              entry.textContent = text;
+            }
+          } catch (err) {
+            log.error("PDF extraction failed:", err);
+            entry.error =
+              err instanceof Error
+                ? `Estrazione PDF fallita: ${err.message}`
+                : "Estrazione PDF fallita";
+          }
         } else {
-          // PDF: extraction not yet wired (would require pdfjs-dist).
-          // TODO: integrate pdfjs-dist or upload to Storage and let edge function extract.
-          entry.error = "Estrazione PDF non disponibile in MVP — usa .txt";
+          entry.error = `Estensione ${ext} non supportata`;
         }
 
         next.push(entry);
