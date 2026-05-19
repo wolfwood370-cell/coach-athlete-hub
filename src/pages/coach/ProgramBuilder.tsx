@@ -35,7 +35,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { Plus, Calendar, Target, Layers, Dumbbell, Save, Loader2, Copy, Send, User } from "lucide-react";
+import {
+  Plus,
+  Calendar,
+  Target,
+  Layers,
+  Dumbbell,
+  Save,
+  Loader2,
+  Copy,
+  Send,
+  User,
+} from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -50,22 +61,12 @@ import { toast } from "sonner";
 import { useAdvancedProgramStore } from "@/stores/useAdvancedProgramStore";
 import { ExerciseLibraryDrawer } from "@/components/coach/program/ExerciseLibraryDrawer";
 import { ProgrammedExerciseCard } from "@/components/coach/program/ProgrammedExerciseCard";
-import {
-  useSaveProgramBlock,
-  SaveProgramBlockError,
-} from "@/hooks/useSaveProgramBlock";
+import { useSaveProgramBlock, SaveProgramBlockError } from "@/hooks/useSaveProgramBlock";
 import { useAuth } from "@/hooks/useAuth";
 import { useAthleteRiskAnalysis } from "@/hooks/useAthleteRiskAnalysis";
 import { supabase } from "@/integrations/supabase/client";
 import type { ExerciseInfo, ExerciseRiskAssessment } from "@/lib/math/fmsRiskEngine";
-import type {
-  Microcycle,
-  Session,
-  ProgrammedExercise,
-  ProgrammedSet,
-  NewProgrammedExercise,
-  UUID,
-} from "@/types/training";
+import type { Microcycle, Session, ProgrammedExercise, UUID } from "@/types/training";
 
 // ---------------------------------------------------------------------------
 // Constants & helpers
@@ -88,12 +89,7 @@ const DEFAULT_BLOCK = {
  * purely cosmetic — the underlying data has no notion of accumulation /
  * intensification (yet); that lives in the coach's mental model.
  */
-const WEEK_PHASE_LABELS = [
-  "Accumulation",
-  "Intensification",
-  "Realization",
-  "Deload",
-] as const;
+const WEEK_PHASE_LABELS = ["Accumulation", "Intensification", "Realization", "Deload"] as const;
 
 /**
  * Inline hook: fetch the authenticated coach's athletes from the
@@ -128,39 +124,11 @@ const weekPhaseLabel = (week: Microcycle): string => {
   return WEEK_PHASE_LABELS[idx] ?? `Week ${week.order}`;
 };
 
-/**
- * Builds a placeholder exercise with one working set so the grid has
- * something visible to render. This will be replaced by the real exercise
- * library selector in the next slice.
- *
- * Each call generates fresh names so coaches can distinguish multiple mock
- * adds during smoke-testing.
- */
-const mockExerciseCounter = { value: 0 };
-
-const buildMockExercise = (): NewProgrammedExercise => {
-  mockExerciseCounter.value += 1;
-  const n = mockExerciseCounter.value;
-
-  // A single working set @ RPE 8 / 8-10 reps — sane hypertrophy default.
-  // The store will re-stamp set ids defensively, but we provide one here
-  // so the payload satisfies `ProgrammedSet` as written.
-  const set: ProgrammedSet = {
-    id: crypto.randomUUID(),
-    set_number: 1,
-    reps_target: "8-10",
-    rpe_target: 8,
-    rir_target: 2,
-    rest_seconds: 90,
-  };
-
-  return {
-    // The store fills in `id` and `order` on the exercise itself.
-    exercise_id: "mock-library-id",
-    exercise_name: `Placeholder Exercise ${n}`,
-    sets: [set],
-  };
-};
+// Note: a previous scaffold defined `buildMockExercise` here (with a
+// `mockExerciseCounter` module-scope counter) for early smoke-testing
+// of the program builder grid. The function was never wired into any
+// call site once the real ExerciseLibraryDrawer landed, so it sat as
+// dead code surfaced by the audit (B7 / M3 zone). Removed in PR17.
 
 // ---------------------------------------------------------------------------
 // Subcomponent: WeekTimelineCard
@@ -182,7 +150,7 @@ function WeekTimelineCard({ week, isActive, onSelect }: WeekTimelineCardProps) {
   // a glance metric: empty weeks visually fade vs. populated ones.
   const exerciseCount = useMemo(
     () => week.sessions.reduce((sum, s) => sum + s.exercises.length, 0),
-    [week.sessions]
+    [week.sessions],
   );
 
   return (
@@ -197,7 +165,7 @@ function WeekTimelineCard({ week, isActive, onSelect }: WeekTimelineCardProps) {
           : "border-border/60 bg-card",
         // Visually muted state for empty weeks — coach attention should
         // gravitate toward weeks that already have prescribed work.
-        exerciseCount === 0 && !isActive && "opacity-70"
+        exerciseCount === 0 && !isActive && "opacity-70",
       )}
       aria-pressed={isActive}
       aria-label={`Week ${week.order}: ${weekPhaseLabel(week)}`}
@@ -268,8 +236,7 @@ function ExerciseCard({ exercise }: ExerciseCardProps) {
       return {
         label: `RPE ${firstSet.rpe_target}`,
         // Amber: signals subjective autoregulation.
-        className:
-          "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+        className: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
       };
     }
     if (firstSet.rir_target != null) {
@@ -277,16 +244,14 @@ function ExerciseCard({ exercise }: ExerciseCardProps) {
         label: `RIR ${firstSet.rir_target}`,
         // Emerald: RIR is essentially RPE inverted; using a sibling hue
         // keeps the autoregulation family visually grouped.
-        className:
-          "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+        className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
       };
     }
     if (firstSet.percent_1rm_target != null) {
       return {
         label: `${firstSet.percent_1rm_target}% 1RM`,
         // Indigo: signals objective load prescription.
-        className:
-          "border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
+        className: "border-indigo-500/40 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300",
       };
     }
     return null;
@@ -302,13 +267,9 @@ function ExerciseCard({ exercise }: ExerciseCardProps) {
 
         {/* Volume row: sets × reps */}
         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span className="tabular-nums font-medium text-foreground">
-            {totalSets}
-          </span>
+          <span className="tabular-nums font-medium text-foreground">{totalSets}</span>
           <span>×</span>
-          <span className="tabular-nums">
-            {firstSet?.reps_target ?? "—"}
-          </span>
+          <span className="tabular-nums">{firstSet?.reps_target ?? "—"}</span>
           {firstSet?.rest_seconds != null && (
             <>
               <span className="text-muted-foreground/50">·</span>
@@ -362,19 +323,14 @@ function SessionColumn({ weekId, session, checkExercise }: SessionColumnProps) {
       {/* Column header */}
       <div className="flex items-baseline justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold leading-tight">
-            {session.name}
-          </p>
+          <p className="truncate text-sm font-semibold leading-tight">{session.name}</p>
           {session.focus && (
             <p className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">
               {session.focus}
             </p>
           )}
         </div>
-        <Badge
-          variant="secondary"
-          className="h-4 shrink-0 px-1.5 text-[10px] tabular-nums"
-        >
+        <Badge variant="secondary" className="h-4 shrink-0 px-1.5 text-[10px] tabular-nums">
           {session.exercises.length}
         </Badge>
       </div>
@@ -441,15 +397,14 @@ export default function ProgramBuilder() {
   const { initializeBlock } = useAdvancedProgramStore(
     useShallow((s) => ({
       initializeBlock: s.initializeBlock,
-    }))
+    })),
   );
 
   // -------------------------------------------------------------------------
   // Live coach roster + FMS risk hook for the assigned athlete.
   // -------------------------------------------------------------------------
 
-  const { data: athletesRoster = [], isLoading: athletesLoading } =
-    useCoachAthletes();
+  const { data: athletesRoster = [], isLoading: athletesLoading } = useCoachAthletes();
 
   const assignedAthleteId = block?.athlete_id ?? null;
   const { checkExercise } = useAthleteRiskAnalysis(assignedAthleteId);
@@ -497,7 +452,7 @@ export default function ProgramBuilder() {
 
   const selectedWeek: Microcycle | undefined = useMemo(
     () => block?.weeks.find((w) => w.id === selectedWeekId),
-    [block, selectedWeekId]
+    [block, selectedWeekId],
   );
 
   // -------------------------------------------------------------------------
@@ -525,13 +480,12 @@ export default function ProgramBuilder() {
           e instanceof SaveProgramBlockError
             ? e.message
             : "Unexpected error while saving the program.";
-        toast.error(
-          status === "published" ? "Publish failed" : "Save failed",
-          { description: message }
-        );
+        toast.error(status === "published" ? "Publish failed" : "Save failed", {
+          description: message,
+        });
       }
     },
-    [block, saveBlock]
+    [block, saveBlock],
   );
 
   const handleSave = useCallback(() => runSave("draft"), [runSave]);
@@ -594,10 +548,7 @@ export default function ProgramBuilder() {
   }
 
   return (
-    <CoachLayout
-      title="Program Builder"
-      subtitle="Design periodized training blocks"
-    >
+    <CoachLayout title="Program Builder" subtitle="Design periodized training blocks">
       <div className="flex h-[calc(100vh-9rem)] flex-col gap-4">
         {/* ───────────────────────────────────────────────────────────────
             Block header — name, goal, structural meta. Compact: two rows
@@ -605,9 +556,7 @@ export default function ProgramBuilder() {
            ─────────────────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between gap-4 px-1">
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-bold leading-tight">
-              {block.name}
-            </h1>
+            <h1 className="truncate text-xl font-bold leading-tight">{block.name}</h1>
             <div className="mt-1 flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Target className="h-3 w-3" />
@@ -634,9 +583,7 @@ export default function ProgramBuilder() {
               >
                 <SelectTrigger className="h-9 w-[200px] text-xs">
                   <SelectValue
-                    placeholder={
-                      athletesLoading ? "Loading athletes…" : "Assign athlete…"
-                    }
+                    placeholder={athletesLoading ? "Loading athletes…" : "Assign athlete…"}
                   />
                 </SelectTrigger>
                 <SelectContent>
@@ -680,9 +627,7 @@ export default function ProgramBuilder() {
               disabled={isSaving || !block.athlete_id}
               className="gap-2"
               title={
-                !block.athlete_id
-                  ? "Assign an athlete before publishing"
-                  : "Publish this program"
+                !block.athlete_id ? "Assign an athlete before publishing" : "Publish this program"
               }
             >
               <Send className="h-4 w-4" />
@@ -735,9 +680,7 @@ export default function ProgramBuilder() {
         >
           <div className="flex items-center justify-between gap-3 px-3 py-2">
             <div className="flex items-baseline gap-2">
-              <h2 className="text-sm font-semibold">
-                Week {selectedWeek?.order ?? "—"}
-              </h2>
+              <h2 className="text-sm font-semibold">Week {selectedWeek?.order ?? "—"}</h2>
               {selectedWeek && (
                 <span className="text-xs text-muted-foreground">
                   · {weekPhaseLabel(selectedWeek)}
