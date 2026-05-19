@@ -1,7 +1,18 @@
 import { useState, useRef, useEffect } from "react";
 import { format, isToday, isYesterday } from "date-fns";
 import { it } from "date-fns/locale";
-import { ArrowLeft, Info, Send, Mic, Image as ImageIcon, Link2, Loader2, Video, AlertTriangle, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Info,
+  Send,
+  Mic,
+  Image as ImageIcon,
+  Link2,
+  Loader2,
+  Video,
+  AlertTriangle,
+  X,
+} from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +25,7 @@ import { ChatRoom, Message, useMessages } from "@/hooks/useChatRooms";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { MessageBubble } from "./MessageBubble";
+import { log } from "@/lib/logger";
 
 const MAX_VIDEO_SIZE_MB = 50;
 const MAX_VIDEO_SIZE_BYTES = MAX_VIDEO_SIZE_MB * 1024 * 1024;
@@ -34,9 +46,9 @@ interface ChatPaneProps {
 }
 
 function DateSeparator({ date }: { date: Date }) {
-  let label = format(date, 'd MMMM yyyy', { locale: it });
-  if (isToday(date)) label = 'Oggi';
-  else if (isYesterday(date)) label = 'Ieri';
+  let label = format(date, "d MMMM yyyy", { locale: it });
+  if (isToday(date)) label = "Oggi";
+  else if (isYesterday(date)) label = "Ieri";
 
   return (
     <div className="flex items-center gap-3 my-4">
@@ -57,7 +69,9 @@ export function ChatPane({
   const { user } = useAuth();
   const { messages, isLoading, sendMessage, subscribeToMessages } = useMessages(room?.id || null);
   const [inputValue, setInputValue] = useState(
-    alertContext ? `Hey, ho visto quella sessione intensa. ${alertContext.message}. Tutto bene?` : ""
+    alertContext
+      ? `Hey, ho visto quella sessione intensa. ${alertContext.message}. Tutto bene?`
+      : "",
   );
   const [showAlertBanner, setShowAlertBanner] = useState(!!alertContext);
   const [isSending, setIsSending] = useState(false);
@@ -66,7 +80,7 @@ export function ChatPane({
   const inputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
 
-  const otherParticipant = room?.participants.find(p => p.user_id !== user?.id)?.profile;
+  const otherParticipant = room?.participants.find((p) => p.user_id !== user?.id)?.profile;
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -94,10 +108,10 @@ export function ChatPane({
     try {
       // Detect if it's a video link
       const isVideoLink = /loom\.com|youtube\.com|youtu\.be/.test(content);
-      
+
       await sendMessage.mutateAsync({
         content,
-        media_type: isVideoLink ? 'loom' : 'text'
+        media_type: isVideoLink ? "loom" : "text",
       });
     } catch (error) {
       toast.error("Errore nell'invio del messaggio");
@@ -109,21 +123,23 @@ export function ChatPane({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
 
-  const handleMediaClick = (type: 'audio' | 'image' | 'link' | 'video') => {
+  const handleMediaClick = (type: "audio" | "image" | "link" | "video") => {
     switch (type) {
-      case 'audio':
-        toast.info("Registrazione vocale in arrivo...", { description: "Funzionalità in sviluppo" });
+      case "audio":
+        toast.info("Registrazione vocale in arrivo...", {
+          description: "Funzionalità in sviluppo",
+        });
         break;
-      case 'image':
+      case "image":
         toast.info("Caricamento immagine...", { description: "Funzionalità in sviluppo" });
         break;
-      case 'link': {
+      case "link": {
         const url = prompt("Inserisci un link YouTube o Loom:");
         if (url) {
           setInputValue(url);
@@ -131,7 +147,7 @@ export function ChatPane({
         }
         break;
       }
-      case 'video':
+      case "video":
         videoInputRef.current?.click();
         break;
     }
@@ -142,20 +158,20 @@ export function ChatPane({
     if (!file || !user) return;
 
     // Reset input
-    e.target.value = '';
+    e.target.value = "";
 
     // Size check
     if (file.size > MAX_VIDEO_SIZE_BYTES) {
       toast.error("Video troppo grande", {
-        description: "Per favore comprimilo o invia una clip più breve (max 50MB)."
+        description: "Per favore comprimilo o invia una clip più breve (max 50MB).",
       });
       return;
     }
 
     // Duration warning (using video element to get duration)
     const videoDurationPromise = new Promise<number>((resolve) => {
-      const video = document.createElement('video');
-      video.preload = 'metadata';
+      const video = document.createElement("video");
+      video.preload = "metadata";
       video.onloadedmetadata = () => {
         URL.revokeObjectURL(video.src);
         resolve(video.duration);
@@ -165,10 +181,11 @@ export function ChatPane({
     });
 
     const duration = await videoDurationPromise;
-    
-    if (duration > 120) { // More than 2 minutes
+
+    if (duration > 120) {
+      // More than 2 minutes
       const proceed = window.confirm(
-        `Il video dura ${Math.round(duration / 60)} minuti. Vuoi continuare? Per video lunghi, considera di usare Loom.`
+        `Il video dura ${Math.round(duration / 60)} minuti. Vuoi continuare? Per video lunghi, considera di usare Loom.`,
       );
       if (!proceed) return;
     }
@@ -179,36 +196,36 @@ export function ChatPane({
       // Upload to chat-media/videos/{userId}/{timestamp}_{filename}
       const timestamp = Date.now();
       const filePath = `videos/${user.id}/${timestamp}_${file.name}`;
-      
+
       const { error: uploadError } = await supabase.storage
-        .from('chat-media')
+        .from("chat-media")
         .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
+          cacheControl: "3600",
+          upsert: false,
         });
 
       if (uploadError) throw uploadError;
 
       // Get signed URL (bucket is now private for security)
       const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-        .from('chat-media')
+        .from("chat-media")
         .createSignedUrl(filePath, 60 * 60 * 24 * 7); // 7 days expiry
 
       if (signedUrlError || !signedUrlData?.signedUrl) {
-        throw signedUrlError || new Error('Failed to create signed URL');
+        throw signedUrlError || new Error("Failed to create signed URL");
       }
 
       // Send message with video - store the file path for regenerating signed URLs
       // The media_url stores the path, and we regenerate signed URLs when displaying
       await sendMessage.mutateAsync({
         content: `Video: ${file.name}`,
-        media_type: 'video_native' as 'text',
-        media_url: filePath // Store path instead of URL for security
+        media_type: "video_native" as "text",
+        media_url: filePath, // Store path instead of URL for security
       });
 
       toast.success("Video caricato con successo!");
     } catch (error) {
-      console.error('Video upload error:', error);
+      log.error("Video upload error:", error);
       toast.error("Errore nel caricamento del video");
     } finally {
       setIsUploadingVideo(false);
@@ -217,11 +234,11 @@ export function ChatPane({
 
   // Group messages by date
   const groupedMessages: { date: Date; messages: typeof messages }[] = [];
-  messages.forEach(msg => {
+  messages.forEach((msg) => {
     const msgDate = new Date(msg.created_at);
-    const dateKey = format(msgDate, 'yyyy-MM-dd');
-    
-    const existing = groupedMessages.find(g => format(g.date, 'yyyy-MM-dd') === dateKey);
+    const dateKey = format(msgDate, "yyyy-MM-dd");
+
+    const existing = groupedMessages.find((g) => format(g.date, "yyyy-MM-dd") === dateKey);
     if (existing) {
       existing.messages.push(msg);
     } else {
@@ -253,16 +270,21 @@ export function ChatPane({
               <ArrowLeft className="h-4 w-4" />
             </Button>
           )}
-          
+
           <Avatar className="h-9 w-9">
             <AvatarImage src={otherParticipant?.avatar_url || undefined} />
             <AvatarFallback className="bg-primary/10 text-primary text-sm">
-              {otherParticipant?.full_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'U'}
+              {otherParticipant?.full_name
+                ?.split(" ")
+                .map((n) => n[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2) || "U"}
             </AvatarFallback>
           </Avatar>
-          
+
           <div>
-            <h3 className="font-semibold text-sm">{otherParticipant?.full_name || 'Utente'}</h3>
+            <h3 className="font-semibold text-sm">{otherParticipant?.full_name || "Utente"}</h3>
             <p className="text-[11px] text-muted-foreground">Attivo di recente</p>
           </div>
         </div>
@@ -277,7 +299,7 @@ export function ChatPane({
         <div className="py-4">
           {isLoading ? (
             <div className="space-y-4">
-              {[1, 2, 3].map(i => (
+              {[1, 2, 3].map((i) => (
                 <div key={i} className={cn("flex gap-2", i % 2 === 0 ? "flex-row-reverse" : "")}>
                   <Skeleton className="h-8 w-8 rounded-full" />
                   <Skeleton className="h-12 w-48 rounded-2xl" />
@@ -343,7 +365,7 @@ export function ChatPane({
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={() => handleMediaClick('audio')}
+              onClick={() => handleMediaClick("audio")}
               disabled={isUploadingVideo}
             >
               <Mic className="h-4 w-4" />
@@ -352,7 +374,7 @@ export function ChatPane({
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={() => handleMediaClick('image')}
+              onClick={() => handleMediaClick("image")}
               disabled={isUploadingVideo}
             >
               <ImageIcon className="h-4 w-4" />
@@ -361,7 +383,7 @@ export function ChatPane({
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={() => handleMediaClick('video')}
+              onClick={() => handleMediaClick("video")}
               disabled={isUploadingVideo}
               title="Video Clip (max 50MB)"
             >
@@ -375,13 +397,13 @@ export function ChatPane({
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={() => handleMediaClick('link')}
+              onClick={() => handleMediaClick("link")}
               disabled={isUploadingVideo}
             >
               <Link2 className="h-4 w-4" />
             </Button>
           </div>
-          
+
           <Input
             ref={inputRef}
             value={inputValue}
@@ -391,7 +413,7 @@ export function ChatPane({
             className="flex-1 h-9"
             disabled={isSending}
           />
-          
+
           <Button
             size="icon"
             className="h-9 w-9 shrink-0"

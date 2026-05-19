@@ -1,5 +1,6 @@
-import { Component, type ErrorInfo, type ReactNode } from"react";
-import { Button } from"@/components/ui/button";
+import { Component, type ErrorInfo, type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
+import { log } from "@/lib/logger";
 
 interface Props {
   children: ReactNode;
@@ -21,7 +22,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("ErrorBoundary caught:", error, errorInfo);
+    log.error("ErrorBoundary caught:", error, errorInfo);
   }
 
   handleReload = () => {
@@ -33,10 +34,8 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex min-h-screen items-center justify-center bg-background p-6">
           <div className="text-center max-w-md space-y-6">
-            <span className="text-6xl"role="img"aria-label="error"></span>
-            <h1 className="text-2xl font-bold text-foreground">
-              Qualcosa è andato storto
-            </h1>
+            <span className="text-6xl" role="img" aria-label="error"></span>
+            <h1 className="text-2xl font-bold text-foreground">Qualcosa è andato storto</h1>
             <p className="text-muted-foreground">
               Non è colpa tua. Si è verificato un errore imprevisto nell'applicazione.
             </p>

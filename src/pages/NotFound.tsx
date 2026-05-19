@@ -3,13 +3,14 @@ import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { MetaHead } from "@/components/MetaHead";
 import { Home, ArrowLeft } from "lucide-react";
+import { log } from "@/lib/logger";
 
 const NotFound = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+    log.error("404 Error: User attempted to access non-existent route:", location.pathname);
   }, [location.pathname]);
 
   const handleGoHome = () => {
@@ -26,11 +27,13 @@ const NotFound = () => {
             <span className="text-4xl font-bold text-primary tabular-nums">404</span>
           </div>
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-foreground">
-              Pagina non trovata
-            </h1>
+            <h1 className="text-2xl font-bold text-foreground">Pagina non trovata</h1>
             <p className="text-muted-foreground">
-              La pagina <code className="rounded bg-muted px-1.5 py-0.5 text-sm font-mono text-foreground">{location.pathname}</code> non esiste.
+              La pagina{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 text-sm font-mono text-foreground">
+                {location.pathname}
+              </code>{" "}
+              non esiste.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">

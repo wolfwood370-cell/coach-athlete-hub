@@ -2,6 +2,7 @@ import React, { createContext, useContext, useMemo, useEffect, useState, useCall
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { log } from "@/lib/logger";
 
 // ============================================
 // MATERIAL YOU DYNAMIC THEME ENGINE
@@ -15,7 +16,10 @@ import { useAuth } from "@/hooks/useAuth";
 
 export type Neurotype = "1A" | "1B" | "2A" | "2B" | "3";
 
-export const NEUROTYPE_COLORS: Record<Neurotype, { hex: string; label: string; description: string }> = {
+export const NEUROTYPE_COLORS: Record<
+  Neurotype,
+  { hex: string; label: string; description: string }
+> = {
   "1A": { hex: "#D32F2F", label: "Intenso", description: "Intensity & Competitiveness" },
   "1B": { hex: "#0097A7", label: "Preciso", description: "Speed & Precision" },
   "2A": { hex: "#7B1FA2", label: "Adattabile", description: "Variety & Adaptability" },
@@ -146,7 +150,7 @@ function loadPreferences(): ThemePreferences {
       return JSON.parse(stored);
     }
   } catch (e) {
-    console.warn("Failed to load theme preferences:", e);
+    log.warn("Failed to load theme preferences:", e);
   }
   return { isNeuroSyncEnabled: true, manualColor: null };
 }
@@ -155,7 +159,7 @@ function savePreferences(prefs: ThemePreferences) {
   try {
     localStorage.setItem(STORAGE_KEY_PREFERENCES, JSON.stringify(prefs));
   } catch (e) {
-    console.warn("Failed to save theme preferences:", e);
+    log.warn("Failed to save theme preferences:", e);
   }
 }
 
@@ -204,10 +208,9 @@ function generateTonalPalette(hue: number, chroma: number): ColorTones {
 
   tones.forEach((tone) => {
     // Adjust chroma based on tone (less saturated at extremes)
-    const adjustedChroma = tone === 0 || tone === 100 
-      ? 0 
-      : chroma * (1 - Math.abs(tone - 50) / 100);
-    
+    const adjustedChroma =
+      tone === 0 || tone === 100 ? 0 : chroma * (1 - Math.abs(tone - 50) / 100);
+
     palette[tone] = `${hue} ${Math.round(adjustedChroma)}% ${tone}%`;
   });
 
@@ -217,22 +220,22 @@ function generateTonalPalette(hue: number, chroma: number): ColorTones {
 // Generate full Material palette from seed color
 function generateMaterialPalette(seedHex: string): MaterialPalette {
   const [hue, saturation] = hexToHsl(seedHex);
-  
+
   // Primary: Keep the seed color's hue
   const primary = generateTonalPalette(hue, saturation);
-  
+
   // Secondary: Shift hue by 60°, reduce saturation
   const secondary = generateTonalPalette((hue + 60) % 360, saturation * 0.3);
-  
+
   // Tertiary: Shift hue by 120°
   const tertiary = generateTonalPalette((hue + 120) % 360, saturation * 0.6);
-  
+
   // Neutral: Very low saturation, base hue
   const neutral = generateTonalPalette(hue, 4);
-  
+
   // Neutral variant: Slight saturation for surfaces
   const neutralVariant = generateTonalPalette(hue, 8);
-  
+
   // Error: Red with consistent tones
   const error = generateTonalPalette(0, 75);
 
@@ -253,7 +256,7 @@ function generateSurfaces(neutral: ColorTones, isDark: boolean): SurfaceColors {
       surfaceContainerHighest: neutral[30],
     };
   }
-  
+
   return {
     surface: neutral[99],
     surfaceDim: neutral[90],
@@ -368,11 +371,9 @@ interface MaterialYouProviderProps {
   children: React.ReactNode;
 }
 
-export function MaterialYouProvider({ 
-  children, 
-}: MaterialYouProviderProps) {
+export function MaterialYouProvider({ children }: MaterialYouProviderProps) {
   const { user } = useAuth();
-  
+
   // Detect dark mode from document.documentElement .dark class (set by next-themes)
   const [isDark, setIsDark] = useState(() => {
     if (typeof document !== "undefined") {
@@ -392,7 +393,7 @@ export function MaterialYouProvider({
     setIsDark(root.classList.contains("dark"));
     return () => observer.disconnect();
   }, []);
-  
+
   // Load preferences from localStorage
   const [preferences, setPreferences] = useState<ThemePreferences>(() => loadPreferences());
 
@@ -459,7 +460,14 @@ export function MaterialYouProvider({
       return neurotypeSeedColor;
     }
     return preferences.manualColor || coachBranding || DEFAULT_SEED;
-  }, [userProfile?.role, userProfile?.brand_color, preferences.isNeuroSyncEnabled, preferences.manualColor, neurotypeSeedColor, coachBranding]);
+  }, [
+    userProfile?.role,
+    userProfile?.brand_color,
+    preferences.isNeuroSyncEnabled,
+    preferences.manualColor,
+    neurotypeSeedColor,
+    coachBranding,
+  ]);
 
   // Generate theme
   const theme = useMemo(() => {
@@ -561,14 +569,10 @@ export function MaterialYouProvider({
       userNeurotype,
       neurotypeSeedColor,
     }),
-    [theme, preferences, setNeuroSyncEnabled, setManualColor, userNeurotype, neurotypeSeedColor]
+    [theme, preferences, setNeuroSyncEnabled, setManualColor, userNeurotype, neurotypeSeedColor],
   );
 
-  return (
-    <MaterialYouContext.Provider value={value}>
-      {children}
-    </MaterialYouContext.Provider>
-  );
+  return <MaterialYouContext.Provider value={value}>{children}</MaterialYouContext.Provider>;
 }
 
 // ============================================
@@ -593,17 +597,17 @@ export const m3 = {
   surfaceContainer: "bg-[hsl(var(--m3-surface-container))]",
   surfaceContainerHigh: "bg-[hsl(var(--m3-surface-container-high))]",
   surfaceContainerHighest: "bg-[hsl(var(--m3-surface-container-highest))]",
-  
+
   // Primary
   primary: "bg-[hsl(var(--m3-primary))]",
   onPrimary: "text-[hsl(var(--m3-on-primary))]",
   primaryContainer: "bg-[hsl(var(--m3-primary-container))]",
   onPrimaryContainer: "text-[hsl(var(--m3-on-primary-container))]",
-  
+
   // Text colors
   onSurface: "text-[hsl(var(--m3-on-surface))]",
   onSurfaceVariant: "text-[hsl(var(--m3-on-surface-variant))]",
-  
+
   // Outline
   outline: "border-[hsl(var(--m3-outline))]",
   outlineVariant: "border-[hsl(var(--m3-outline-variant))]",

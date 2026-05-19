@@ -36,6 +36,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Dumbbell, Calendar, ExternalLink, Users } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from "date-fns";
+import { log } from "@/lib/logger";
 
 // Types for drag data
 interface DraggedWorkout {
@@ -308,7 +309,7 @@ export default function CoachCalendar() {
       toast.success("Workout programmato con successo");
     },
     onError: (error) => {
-      console.error("Schedule error:", error);
+      log.error("Schedule error:", error);
       toast.error("Errore nella programmazione");
     },
   });
@@ -316,7 +317,15 @@ export default function CoachCalendar() {
   // Handle drag start
   const handleDragStart = useCallback((event: DragStartEvent) => {
     setActiveId(event.active.id as string);
-    setActiveDragData(event.active.data.current);
+    // dnd-kit types `data.current` as a loose record; we narrow to our
+    // discriminated union only when the `type` field matches one of the
+    // two known shapes, otherwise leave the drag-overlay state null.
+    const raw = event.active.data.current as CalendarDragData | undefined;
+    if (raw?.type === "calendar-workout" || raw?.type === "calendar-week") {
+      setActiveDragData(raw);
+    } else {
+      setActiveDragData(null);
+    }
   }, []);
 
   // Handle drag end
@@ -438,7 +447,7 @@ export default function CoachCalendar() {
         `${data} workout programmati per ${week.name || `Settimana ${week.week_order}`}`,
       );
     } catch (error) {
-      console.error("Week schedule error:", error);
+      log.error("Week schedule error:", error);
       toast.error("Errore nella programmazione della settimana");
     }
   }, [pendingWeekSchedule, selectedAthleteId, queryClient]);
@@ -487,7 +496,7 @@ export default function CoachCalendar() {
       toast.success("Workout rimosso dal calendario");
     },
     onError: (error) => {
-      console.error("Delete error:", error);
+      log.error("Delete error:", error);
       toast.error("Errore nella rimozione del workout");
     },
   });

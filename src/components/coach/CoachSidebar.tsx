@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import { 
-  LayoutDashboard, 
-  Users, 
-  Calendar, 
-  Dumbbell, 
-  MessageSquare, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  Users,
+  Calendar,
+  Dumbbell,
+  MessageSquare,
+  BarChart3,
   Settings,
   LogOut,
   Zap,
@@ -37,11 +37,8 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { log } from "@/lib/logger";
 
 const mainNavItems = [
   { title: "Dashboard", url: "/coach", icon: LayoutDashboard },
@@ -59,9 +56,7 @@ const mainNavItems = [
   { title: "Business", url: "/coach/business", icon: CreditCard },
 ];
 
-const secondaryNavItems = [
-  { title: "Impostazioni", url: "/coach/settings", icon: Settings },
-];
+const secondaryNavItems = [{ title: "Impostazioni", url: "/coach/settings", icon: Settings }];
 
 export function CoachSidebar() {
   const { state, toggleSidebar } = useSidebar();
@@ -72,19 +67,16 @@ export function CoachSidebar() {
     try {
       await signOut();
     } catch (e) {
-      console.error("Logout error:", e);
+      log.error("Logout error:", e);
       toast.error("Errore durante il logout");
       window.location.href = "/auth";
     }
   };
 
   return (
-    <Sidebar 
+    <Sidebar
       collapsible="icon"
-      className={cn(
-        "border-r-0 sidebar-transition",
-        isCollapsed ? "w-16" : "w-64"
-      )}
+      className={cn("border-r-0 sidebar-transition", isCollapsed ? "w-16" : "w-64")}
     >
       <SidebarHeader className="p-4">
         <div className="flex items-center justify-between">
@@ -126,12 +118,12 @@ export function CoachSidebar() {
                   <Tooltip delayDuration={0}>
                     <TooltipTrigger asChild>
                       <SidebarMenuButton asChild>
-                        <NavLink 
-                          to={item.url} 
+                        <NavLink
+                          to={item.url}
                           end={item.url === "/coach"}
                           className={cn(
                             "flex items-center gap-3 px-3 py-2 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors",
-                            isCollapsed && "justify-center px-2"
+                            isCollapsed && "justify-center px-2",
                           )}
                           activeClassName="bg-sidebar-accent text-sidebar-foreground font-medium"
                         >
@@ -165,11 +157,11 @@ export function CoachSidebar() {
                   <Tooltip delayDuration={0}>
                     <TooltipTrigger asChild>
                       <SidebarMenuButton asChild>
-                        <NavLink 
+                        <NavLink
                           to={item.url}
                           className={cn(
                             "flex items-center gap-3 px-3 py-2 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors",
-                            isCollapsed && "justify-center px-2"
+                            isCollapsed && "justify-center px-2",
                           )}
                           activeClassName="bg-sidebar-accent text-sidebar-foreground font-medium"
                         >
@@ -195,7 +187,7 @@ export function CoachSidebar() {
                           <button
                             className={cn(
                               "flex items-center gap-3 px-3 py-2 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors w-full",
-                              isCollapsed && "justify-center px-2"
+                              isCollapsed && "justify-center px-2",
                             )}
                           >
                             <LifeBuoy className="h-[18px] w-[18px] flex-shrink-0" />
@@ -218,10 +210,12 @@ export function CoachSidebar() {
       </SidebarContent>
 
       <SidebarFooter className={cn("p-3", isCollapsed && "p-2")}>
-        <div className={cn(
-          "flex items-center gap-3 p-2 rounded-lg hover:bg-sidebar-accent/30 transition-colors cursor-pointer",
-          isCollapsed && "justify-center p-1"
-        )}>
+        <div
+          className={cn(
+            "flex items-center gap-3 p-2 rounded-lg hover:bg-sidebar-accent/30 transition-colors cursor-pointer",
+            isCollapsed && "justify-center p-1",
+          )}
+        >
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
               <div className="h-8 w-8 rounded-full bg-sidebar-accent flex items-center justify-center flex-shrink-0">

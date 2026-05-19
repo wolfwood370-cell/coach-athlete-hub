@@ -3,14 +3,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { format, parseISO, isWithinInterval, areIntervalsOverlapping } from "date-fns";
+import { log } from "@/lib/logger";
 
-export type PhaseFocusType = 
-  | "strength" 
-  | "hypertrophy" 
-  | "endurance" 
-  | "power" 
-  | "recovery" 
-  | "peaking" 
+export type PhaseFocusType =
+  | "strength"
+  | "hypertrophy"
+  | "endurance"
+  | "power"
+  | "recovery"
+  | "peaking"
   | "transition";
 
 export interface TrainingPhase {
@@ -51,7 +52,11 @@ export function usePeriodization(athleteId: string | null) {
   const queryClient = useQueryClient();
 
   // Fetch phases for the selected athlete
-  const { data: phases, isLoading, error } = useQuery({
+  const {
+    data: phases,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["training-phases", athleteId],
     queryFn: async (): Promise<TrainingPhase[]> => {
       if (!athleteId) return [];
@@ -63,7 +68,7 @@ export function usePeriodization(athleteId: string | null) {
         .order("start_date", { ascending: true });
 
       if (error) {
-        console.error("Error fetching training phases:", error);
+        log.error("Error fetching training phases:", error);
         throw error;
       }
 
@@ -75,7 +80,7 @@ export function usePeriodization(athleteId: string | null) {
   // Check for date overlap with existing phases
   const checkOverlap = (
     newPhase: { start_date: string; end_date: string; id?: string },
-    existingPhases: TrainingPhase[] = phases || []
+    existingPhases: TrainingPhase[] = phases || [],
   ): OverlapCheckResult => {
     const newInterval = {
       start: parseISO(newPhase.start_date),
@@ -112,9 +117,7 @@ export function usePeriodization(athleteId: string | null) {
       });
 
       if (overlapResult.hasOverlap) {
-        const conflictNames = overlapResult.conflictingPhases
-          .map((p) => p.name)
-          .join(", ");
+        const conflictNames = overlapResult.conflictingPhases.map((p) => p.name).join(", ");
         throw new Error(`Date in conflitto con: ${conflictNames}`);
       }
 
@@ -134,7 +137,7 @@ export function usePeriodization(athleteId: string | null) {
         .single();
 
       if (error) {
-        console.error("Error creating phase:", error);
+        log.error("Error creating phase:", error);
         throw error;
       }
 
@@ -145,7 +148,7 @@ export function usePeriodization(athleteId: string | null) {
       toast.success("Fase creata con successo");
     },
     onError: (error) => {
-      console.error("Create phase error:", error);
+      log.error("Create phase error:", error);
       toast.error(error.message || "Errore nella creazione della fase");
     },
   });
@@ -164,15 +167,13 @@ export function usePeriodization(athleteId: string | null) {
         });
 
         if (overlapResult.hasOverlap) {
-          const conflictNames = overlapResult.conflictingPhases
-            .map((p) => p.name)
-            .join(", ");
+          const conflictNames = overlapResult.conflictingPhases.map((p) => p.name).join(", ");
           throw new Error(`Date in conflitto con: ${conflictNames}`);
         }
       }
 
       const { id, ...updateData } = input;
-      
+
       const { data, error } = await supabase
         .from("training_phases")
         .update(updateData)
@@ -181,7 +182,7 @@ export function usePeriodization(athleteId: string | null) {
         .single();
 
       if (error) {
-        console.error("Error updating phase:", error);
+        log.error("Error updating phase:", error);
         throw error;
       }
 
@@ -192,7 +193,7 @@ export function usePeriodization(athleteId: string | null) {
       toast.success("Fase aggiornata");
     },
     onError: (error) => {
-      console.error("Update phase error:", error);
+      log.error("Update phase error:", error);
       toast.error(error.message || "Errore nell'aggiornamento della fase");
     },
   });
@@ -202,13 +203,10 @@ export function usePeriodization(athleteId: string | null) {
     mutationFn: async (phaseId: string) => {
       if (!user?.id) throw new Error("User not authenticated");
 
-      const { error } = await supabase
-        .from("training_phases")
-        .delete()
-        .eq("id", phaseId);
+      const { error } = await supabase.from("training_phases").delete().eq("id", phaseId);
 
       if (error) {
-        console.error("Error deleting phase:", error);
+        log.error("Error deleting phase:", error);
         throw error;
       }
     },
@@ -217,7 +215,7 @@ export function usePeriodization(athleteId: string | null) {
       toast.success("Fase eliminata");
     },
     onError: (error) => {
-      console.error("Delete phase error:", error);
+      log.error("Delete phase error:", error);
       toast.error("Errore nell'eliminazione della fase");
     },
   });

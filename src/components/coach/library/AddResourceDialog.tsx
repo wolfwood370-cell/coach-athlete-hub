@@ -20,10 +20,8 @@ import {
 } from "@/components/ui/select";
 import { Plus, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import type {
-  ContentType,
-  CreateContentPayload,
-} from "@/hooks/useContentLibrary";
+import type { ContentType, CreateContentPayload } from "@/hooks/useContentLibrary";
+import { log } from "@/lib/logger";
 
 interface AddResourceDialogProps {
   onAdd: (payload: CreateContentPayload) => void;
@@ -32,10 +30,7 @@ interface AddResourceDialogProps {
 
 const ACCEPTED_FILES = ".pdf,.txt,.md";
 
-export function AddResourceDialog({
-  onAdd,
-  isLoading,
-}: AddResourceDialogProps) {
+export function AddResourceDialog({ onAdd, isLoading }: AddResourceDialogProps) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [type, setType] = useState<ContentType>("link");
@@ -113,7 +108,7 @@ export function AddResourceDialog({
         resetForm();
         setOpen(false);
       } catch (err) {
-        console.error("Upload error:", err);
+        log.error("Upload error:", err);
         setUploading(false);
       }
       return;
@@ -168,10 +163,7 @@ export function AddResourceDialog({
 
           <div className="space-y-2">
             <Label htmlFor="type">Tipo</Label>
-            <Select
-              value={type}
-              onValueChange={(v) => setType(v as ContentType)}
-            >
+            <Select value={type} onValueChange={(v) => setType(v as ContentType)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -195,20 +187,11 @@ export function AddResourceDialog({
                     <SelectValue placeholder="Seleziona categoria..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="tecnica_allenamento">
-                      {" "}
-                      Tecnica & Allenamento
-                    </SelectItem>
-                    <SelectItem value="fisiologia_recupero">
-                      {" "}
-                      Fisiologia & Recupero
-                    </SelectItem>
+                    <SelectItem value="tecnica_allenamento"> Tecnica & Allenamento</SelectItem>
+                    <SelectItem value="fisiologia_recupero"> Fisiologia & Recupero</SelectItem>
                     <SelectItem value="nutrizione"> Nutrizione</SelectItem>
                     <SelectItem value="mindset"> Mindset</SelectItem>
-                    <SelectItem value="admin_policy">
-                      {" "}
-                      Admin & Policy
-                    </SelectItem>
+                    <SelectItem value="admin_policy"> Admin & Policy</SelectItem>
                     <SelectItem value="altro"> Altro</SelectItem>
                   </SelectContent>
                 </Select>
@@ -280,19 +263,13 @@ export function AddResourceDialog({
               value={tagsInput}
               onChange={(e) => setTagsInput(e.target.value)}
               placeholder={
-                isAiKnowledge
-                  ? "ai, regole, infortuni"
-                  : "mobilità, riscaldamento, principiante"
+                isAiKnowledge ? "ai, regole, infortuni" : "mobilità, riscaldamento, principiante"
               }
             />
           </div>
 
           <div className="flex justify-end gap-2 pt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-            >
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Annulla
             </Button>
             <Button type="submit" disabled={!canSubmit}>

@@ -33,6 +33,7 @@ import {
   analyzeOnboarding,
   YesNoIDK,
 } from "@/types/onboarding";
+import { log } from "@/lib/logger";
 
 const STEP_LABELS = [
   "Termini",
@@ -54,7 +55,9 @@ interface SavedDraft {
 }
 
 const allAnswered = (values: Record<string, YesNoIDK | null> | object): boolean =>
-  Object.values(values as Record<string, YesNoIDK | null>).every((v) => v !== null && v !== undefined);
+  Object.values(values as Record<string, YesNoIDK | null>).every(
+    (v) => v !== null && v !== undefined,
+  );
 
 export default function OnboardingWizard() {
   const navigate = useNavigate();
@@ -65,7 +68,13 @@ export default function OnboardingWizard() {
   const [showResult, setShowResult] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dominantType, setDominantType] = useState<NeurotypType | null>(null);
-  const [scores, setScores] = useState<Record<NeurotypType, number>>({ "1A": 0, "1B": 0, "2A": 0, "2B": 0, "3": 0 });
+  const [scores, setScores] = useState<Record<NeurotypType, number>>({
+    "1A": 0,
+    "1B": 0,
+    "2A": 0,
+    "2B": 0,
+    "3": 0,
+  });
   const [showResumeDialog, setShowResumeDialog] = useState(false);
   const [pendingDraft, setPendingDraft] = useState<SavedDraft | null>(null);
   const [initialized, setInitialized] = useState(false);
@@ -76,7 +85,10 @@ export default function OnboardingWizard() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const draft: SavedDraft = JSON.parse(raw);
-        if (draft.currentStep > 1 || JSON.stringify(draft.data) !== JSON.stringify(defaultOnboardingData)) {
+        if (
+          draft.currentStep > 1 ||
+          JSON.stringify(draft.data) !== JSON.stringify(defaultOnboardingData)
+        ) {
           setPendingDraft(draft);
           setShowResumeDialog(true);
           return;
@@ -130,9 +142,9 @@ export default function OnboardingWizard() {
       case 2:
         return Boolean(
           data.biometrics.gender &&
-            data.biometrics.dateOfBirth &&
-            data.biometrics.heightCm &&
-            data.biometrics.weightKg
+          data.biometrics.dateOfBirth &&
+          data.biometrics.heightCm &&
+          data.biometrics.weightKg,
         );
       case 3:
         return allAnswered(data.medical);
@@ -164,7 +176,12 @@ export default function OnboardingWizard() {
 
   // Auto-trigger result when all 15 neurotyping questions are answered on step 8
   useEffect(() => {
-    if (currentStep === TOTAL_STEPS && allAnswered(data.neurotyping) && !showResult && !dominantType) {
+    if (
+      currentStep === TOTAL_STEPS &&
+      allAnswered(data.neurotyping) &&
+      !showResult &&
+      !dominantType
+    ) {
       const result = analyzeOnboarding(data);
       setDominantType(result.dominant_neurotype);
       setScores(result.neurotype_scores);
@@ -282,7 +299,7 @@ export default function OnboardingWizard() {
 
         if (alerts.length > 0) {
           const { error: alertsError } = await supabase.from("coach_alerts").insert(alerts);
-          if (alertsError) console.error("coach_alerts insert error", alertsError);
+          if (alertsError) log.error("coach_alerts insert error", alertsError);
         }
       }
 
@@ -300,8 +317,9 @@ export default function OnboardingWizard() {
         }
       }, 150);
     } catch (error: unknown) {
-      console.error("[Onboarding] handleComplete failed:", error);
-      const message = error instanceof Error ? error.message : "Si è verificato un errore. Riprova.";
+      log.error("[Onboarding] handleComplete failed:", error);
+      const message =
+        error instanceof Error ? error.message : "Si è verificato un errore. Riprova.";
       toast({
         title: "Errore nel salvataggio",
         description: message,
@@ -314,17 +332,27 @@ export default function OnboardingWizard() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Dialog open={showResumeDialog} onOpenChange={(open) => { if (!open) handleStartFresh(); }}>
+      <Dialog
+        open={showResumeDialog}
+        onOpenChange={(open) => {
+          if (!open) handleStartFresh();
+        }}
+      >
         <DialogContent className="bg-card">
           <DialogHeader>
             <DialogTitle>Riprendere da dove eri rimasto?</DialogTitle>
             <DialogDescription>
-              Abbiamo trovato un onboarding in corso (Step {pendingDraft?.currentStep ?? 1}/{TOTAL_STEPS}). Vuoi continuare?
+              Abbiamo trovato un onboarding in corso (Step {pendingDraft?.currentStep ?? 1}/
+              {TOTAL_STEPS}). Vuoi continuare?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={handleStartFresh}>Ricomincia</Button>
-            <Button onClick={handleResume} className="gradient-primary">Riprendi</Button>
+            <Button variant="outline" onClick={handleStartFresh}>
+              Ricomincia
+            </Button>
+            <Button onClick={handleResume} className="gradient-primary">
+              Riprendi
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -341,7 +369,11 @@ export default function OnboardingWizard() {
       <main className="flex-1 p-6 overflow-auto">
         <div className="max-w-4xl mx-auto">
           {!showResult && (
-            <StepIndicator currentStep={currentStep} totalSteps={TOTAL_STEPS} stepLabels={STEP_LABELS} />
+            <StepIndicator
+              currentStep={currentStep}
+              totalSteps={TOTAL_STEPS}
+              stepLabels={STEP_LABELS}
+            />
           )}
 
           <div className="mt-12">
@@ -357,7 +389,10 @@ export default function OnboardingWizard() {
               ) : (
                 <motion.div key={currentStep}>
                   {currentStep === 1 && (
-                    <LegalStep data={data.legal} onUpdate={(legal) => setData({ ...data, legal })} />
+                    <LegalStep
+                      data={data.legal}
+                      onUpdate={(legal) => setData({ ...data, legal })}
+                    />
                   )}
                   {currentStep === 2 && (
                     <BiometricsStep
@@ -436,9 +471,13 @@ export default function OnboardingWizard() {
             </Button>
             <Button onClick={handleNext} disabled={!canProceed()} className="gradient-primary">
               {currentStep === TOTAL_STEPS ? (
-                <>Calcola Neurotipo <ArrowRight className="h-4 w-4 ml-2" /></>
+                <>
+                  Calcola Neurotipo <ArrowRight className="h-4 w-4 ml-2" />
+                </>
               ) : (
-                <>Avanti <ArrowRight className="h-4 w-4 ml-2" /></>
+                <>
+                  Avanti <ArrowRight className="h-4 w-4 ml-2" />
+                </>
               )}
             </Button>
           </div>

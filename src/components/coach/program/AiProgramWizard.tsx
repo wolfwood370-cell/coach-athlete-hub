@@ -21,12 +21,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Sparkles, Loader2, ChevronRight, ChevronLeft, Dumbbell, Check, AlertTriangle } from "lucide-react";
+import {
+  Sparkles,
+  Loader2,
+  ChevronRight,
+  ChevronLeft,
+  Dumbbell,
+  Check,
+  AlertTriangle,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ProgramExercise, ProgramData } from "@/components/coach/WeekGrid";
+import { log } from "@/lib/logger";
 
 interface AiProgramWizardProps {
   open: boolean;
@@ -142,7 +151,7 @@ export function AiProgramWizard({
       setGeneratedProgram(data as GeneratedProgram);
       setStep(2);
     } catch (err) {
-      console.error("Generate error:", err);
+      log.error("Generate error:", err);
       setError(err instanceof Error ? err.message : "Errore durante la generazione");
       setStep(0);
       toast.error("Errore generazione", {
@@ -210,13 +219,18 @@ export function AiProgramWizard({
                   step === i
                     ? "bg-primary text-primary-foreground"
                     : step > i
-                    ? "bg-primary/20 text-primary"
-                    : "bg-muted text-muted-foreground"
+                      ? "bg-primary/20 text-primary"
+                      : "bg-muted text-muted-foreground",
                 )}
               >
                 {step > i ? <Check className="h-3.5 w-3.5" /> : i + 1}
               </div>
-              <span className={cn("text-xs", step === i ? "text-foreground font-medium" : "text-muted-foreground")}>
+              <span
+                className={cn(
+                  "text-xs",
+                  step === i ? "text-foreground font-medium" : "text-muted-foreground",
+                )}
+              >
                 {label}
               </span>
             </div>
@@ -237,30 +251,52 @@ export function AiProgramWizard({
                 {/* Mode */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Tipo di Programma</Label>
-                  <RadioGroup value={mode} onValueChange={(v) => setMode(v as "new" | "continue")} className="grid grid-cols-2 gap-3">
+                  <RadioGroup
+                    value={mode}
+                    onValueChange={(v) => setMode(v as "new" | "continue")}
+                    className="grid grid-cols-2 gap-3"
+                  >
                     <Label
                       htmlFor="mode-new"
                       className={cn(
                         "flex flex-col items-center gap-2 rounded-lg border-2 p-4 cursor-pointer transition-colors",
-                        mode === "new" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                        mode === "new"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50",
                       )}
                     >
                       <RadioGroupItem value="new" id="mode-new" className="sr-only" />
-                      <Sparkles className={cn("h-6 w-6", mode === "new" ? "text-primary" : "text-muted-foreground")} />
+                      <Sparkles
+                        className={cn(
+                          "h-6 w-6",
+                          mode === "new" ? "text-primary" : "text-muted-foreground",
+                        )}
+                      />
                       <span className="text-sm font-medium">Nuova Scheda</span>
-                      <span className="text-[11px] text-muted-foreground text-center">Partenza da zero, assessment iniziale</span>
+                      <span className="text-[11px] text-muted-foreground text-center">
+                        Partenza da zero, assessment iniziale
+                      </span>
                     </Label>
                     <Label
                       htmlFor="mode-continue"
                       className={cn(
                         "flex flex-col items-center gap-2 rounded-lg border-2 p-4 cursor-pointer transition-colors",
-                        mode === "continue" ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                        mode === "continue"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50",
                       )}
                     >
                       <RadioGroupItem value="continue" id="mode-continue" className="sr-only" />
-                      <Dumbbell className={cn("h-6 w-6", mode === "continue" ? "text-primary" : "text-muted-foreground")} />
+                      <Dumbbell
+                        className={cn(
+                          "h-6 w-6",
+                          mode === "continue" ? "text-primary" : "text-muted-foreground",
+                        )}
+                      />
                       <span className="text-sm font-medium">Progressione</span>
-                      <span className="text-[11px] text-muted-foreground text-center">Basata sui log delle ultime 4 settimane</span>
+                      <span className="text-[11px] text-muted-foreground text-center">
+                        Basata sui log delle ultime 4 settimane
+                      </span>
                     </Label>
                   </RadioGroup>
                 </div>
@@ -284,7 +320,9 @@ export function AiProgramWizard({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <Label className="text-sm font-medium">Frequenza Settimanale</Label>
-                    <Badge variant="secondary" className="tabular-nums">{daysPerWeek} giorni</Badge>
+                    <Badge variant="secondary" className="tabular-nums">
+                      {daysPerWeek} giorni
+                    </Badge>
                   </div>
                   <Slider
                     value={[daysPerWeek]}
@@ -295,7 +333,11 @@ export function AiProgramWizard({
                     className="w-full"
                   />
                   <div className="flex justify-between text-[10px] text-muted-foreground px-1">
-                    <span>2</span><span>3</span><span>4</span><span>5</span><span>6</span>
+                    <span>2</span>
+                    <span>3</span>
+                    <span>4</span>
+                    <span>5</span>
+                    <span>6</span>
                   </div>
                 </div>
 
@@ -358,13 +400,18 @@ export function AiProgramWizard({
               >
                 {/* Rationale */}
                 <div className="rounded-lg bg-violet-500/5 border border-violet-500/20 p-3">
-                  <p className="text-xs font-medium text-violet-600 dark:text-violet-400 mb-1">Razionale del Programma</p>
+                  <p className="text-xs font-medium text-violet-600 dark:text-violet-400 mb-1">
+                    Razionale del Programma
+                  </p>
                   <p className="text-sm text-foreground/80">{generatedProgram.rationale}</p>
                 </div>
 
                 {/* Days preview */}
                 {generatedProgram.days.map((day) => (
-                  <div key={day.day_index} className="rounded-lg border border-border bg-card p-3 space-y-2">
+                  <div
+                    key={day.day_index}
+                    className="rounded-lg border border-border bg-card p-3 space-y-2"
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Badge variant="outline" className="text-[10px]">
@@ -372,11 +419,16 @@ export function AiProgramWizard({
                         </Badge>
                         <span className="text-sm font-medium">{day.focus}</span>
                       </div>
-                      <span className="text-xs text-muted-foreground">{day.exercises.length} esercizi</span>
+                      <span className="text-xs text-muted-foreground">
+                        {day.exercises.length} esercizi
+                      </span>
                     </div>
                     <div className="space-y-1">
                       {day.exercises.map((ex, i) => (
-                        <div key={i} className="flex items-center gap-2 text-xs py-1 border-t border-border/30 first:border-0">
+                        <div
+                          key={i}
+                          className="flex items-center gap-2 text-xs py-1 border-t border-border/30 first:border-0"
+                        >
                           <span className="text-muted-foreground w-4 text-right">{i + 1}.</span>
                           <span className="font-medium flex-1 truncate">{ex.name}</span>
                           <span className="text-muted-foreground tabular-nums">

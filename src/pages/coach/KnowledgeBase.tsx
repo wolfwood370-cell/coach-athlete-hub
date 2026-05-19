@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { it } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { log } from "@/lib/logger";
 
 type DocStatus = "pending" | "processing" | "processed" | "failed";
 
@@ -253,7 +254,7 @@ export default function KnowledgeBase() {
 
         succeeded += 1;
       } catch (err) {
-        console.error("Training error:", err);
+        log.error("Training error:", err);
         const msg = err instanceof Error ? err.message : "Errore sconosciuto";
         toast.error(`${item.file.name}: ${msg}`);
       }
@@ -296,14 +297,18 @@ export default function KnowledgeBase() {
           {/* Stats strip */}
           <div className="flex gap-3">
             <div className="px-4 py-2 rounded-lg border border-border/50 bg-card">
-              <div className="text-xs text-muted-foreground uppercase tracking-wider">Documenti</div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wider">
+                Documenti
+              </div>
               <div className="text-lg font-semibold flex items-center gap-2">
                 <Database className="h-4 w-4 text-violet-400" />
                 {processedCount}
               </div>
             </div>
             <div className="px-4 py-2 rounded-lg border border-border/50 bg-card">
-              <div className="text-xs text-muted-foreground uppercase tracking-wider">Vector Chunks</div>
+              <div className="text-xs text-muted-foreground uppercase tracking-wider">
+                Vector Chunks
+              </div>
               <div className="text-lg font-semibold flex items-center gap-2">
                 <Cpu className="h-4 w-4 text-cyan-400" />
                 {totalChunks.toLocaleString("it-IT")}
@@ -320,7 +325,8 @@ export default function KnowledgeBase() {
               Training Console
             </CardTitle>
             <CardDescription>
-              Trascina i file qui sotto. Formati supportati: <code>.txt</code>, <code>.pdf</code> (max {MAX_FILE_SIZE_MB}MB)
+              Trascina i file qui sotto. Formati supportati: <code>.txt</code>, <code>.pdf</code>{" "}
+              (max {MAX_FILE_SIZE_MB}MB)
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -336,7 +342,7 @@ export default function KnowledgeBase() {
                 "p-10 text-center cursor-pointer",
                 isDragging
                   ? "border-violet-500 bg-violet-500/10 scale-[1.01]"
-                  : "border-border/60 hover:border-violet-500/50 hover:bg-violet-500/5"
+                  : "border-border/60 hover:border-violet-500/50 hover:bg-violet-500/5",
               )}
             >
               <input
@@ -351,22 +357,30 @@ export default function KnowledgeBase() {
               {isReading ? (
                 <>
                   <Loader2 className="h-10 w-10 mx-auto mb-3 text-violet-400 animate-spin" />
-                  <p className="text-sm font-medium">{readingLabel || "Lettura del documento... attendi"}</p>
+                  <p className="text-sm font-medium">
+                    {readingLabel || "Lettura del documento... attendi"}
+                  </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    File di grandi dimensioni: il browser sta estraendo il testo. Non chiudere la pagina.
+                    File di grandi dimensioni: il browser sta estraendo il testo. Non chiudere la
+                    pagina.
                   </p>
                 </>
               ) : (
                 <>
-                  <Upload className={cn(
-                    "h-10 w-10 mx-auto mb-3 transition-colors",
-                    isDragging ? "text-violet-400" : "text-muted-foreground"
-                  )} />
+                  <Upload
+                    className={cn(
+                      "h-10 w-10 mx-auto mb-3 transition-colors",
+                      isDragging ? "text-violet-400" : "text-muted-foreground",
+                    )}
+                  />
                   <p className="text-sm font-medium">
-                    {isDragging ? "Rilascia per caricare" : "Trascina i file o clicca per selezionare"}
+                    {isDragging
+                      ? "Rilascia per caricare"
+                      : "Trascina i file o clicca per selezionare"}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    I documenti vengono divisi in chunk vettoriali da 1000 caratteri ed embeddati con OpenAI
+                    I documenti vengono divisi in chunk vettoriali da 1000 caratteri ed embeddati
+                    con OpenAI
                   </p>
                 </>
               )}
@@ -383,13 +397,15 @@ export default function KnowledgeBase() {
                     key={item.id}
                     className={cn(
                       "flex items-center gap-3 p-3 rounded-lg border bg-card",
-                      item.error ? "border-rose-500/30" : "border-border/50"
+                      item.error ? "border-rose-500/30" : "border-border/50",
                     )}
                   >
-                    <FileText className={cn(
-                      "h-5 w-5 flex-shrink-0",
-                      item.error ? "text-rose-400" : "text-violet-400"
-                    )} />
+                    <FileText
+                      className={cn(
+                        "h-5 w-5 flex-shrink-0",
+                        item.error ? "text-rose-400" : "text-violet-400",
+                      )}
+                    />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{item.file.name}</div>
                       <div className="text-xs text-muted-foreground">
@@ -425,7 +441,8 @@ export default function KnowledgeBase() {
                 </div>
                 <Progress value={progress} className="h-1.5" />
                 <p className="text-[11px] text-muted-foreground">
-                  L'embedding può richiedere fino a 60 secondi per documento. Non chiudere la pagina.
+                  L'embedding può richiedere fino a 60 secondi per documento. Non chiudere la
+                  pagina.
                 </p>
               </div>
             )}
@@ -459,9 +476,7 @@ export default function KnowledgeBase() {
               <Database className="h-4 w-4 text-cyan-400" />
               Knowledge Base ({documents.length})
             </CardTitle>
-            <CardDescription>
-              Documenti già appresi dalla copilot
-            </CardDescription>
+            <CardDescription>Documenti già appresi dalla copilot</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -486,23 +501,27 @@ export default function KnowledgeBase() {
                         "flex items-center gap-3 p-3 rounded-lg border transition-colors",
                         doc.status === "failed"
                           ? "border-rose-500/30 bg-rose-500/5"
-                          : "border-border/50 bg-card hover:border-border"
+                          : "border-border/50 bg-card hover:border-border",
                       )}
                     >
-                      <div className={cn(
-                        "h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0",
-                        doc.status === "processed" && "bg-emerald-500/10",
-                        doc.status === "processing" && "bg-violet-500/10",
-                        doc.status === "failed" && "bg-rose-500/10",
-                        doc.status === "pending" && "bg-muted"
-                      )}>
-                        <FileText className={cn(
-                          "h-5 w-5",
-                          doc.status === "processed" && "text-emerald-400",
-                          doc.status === "processing" && "text-violet-400",
-                          doc.status === "failed" && "text-rose-400",
-                          doc.status === "pending" && "text-muted-foreground"
-                        )} />
+                      <div
+                        className={cn(
+                          "h-10 w-10 rounded-lg flex items-center justify-center flex-shrink-0",
+                          doc.status === "processed" && "bg-emerald-500/10",
+                          doc.status === "processing" && "bg-violet-500/10",
+                          doc.status === "failed" && "bg-rose-500/10",
+                          doc.status === "pending" && "bg-muted",
+                        )}
+                      >
+                        <FileText
+                          className={cn(
+                            "h-5 w-5",
+                            doc.status === "processed" && "text-emerald-400",
+                            doc.status === "processing" && "text-violet-400",
+                            doc.status === "failed" && "text-rose-400",
+                            doc.status === "pending" && "text-muted-foreground",
+                          )}
+                        />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="text-sm font-medium truncate">{doc.title}</div>

@@ -15,7 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { 
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -23,13 +23,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { 
-  User, 
-  Palette, 
-  Building2, 
-  Settings, 
-  Upload, 
-  Save, 
+import {
+  User,
+  Palette,
+  Building2,
+  Settings,
+  Upload,
+  Save,
   Loader2,
   ExternalLink,
   CreditCard,
@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { FeedbackDialog } from "@/components/common/FeedbackDialog";
 import { cn } from "@/lib/utils";
+import { log } from "@/lib/logger";
 
 // Type definitions
 interface SocialLinks {
@@ -141,7 +142,7 @@ export default function CoachSettings() {
 
       if (error) throw error;
       if (!data) return null;
-      
+
       // Type-safe access to profile data including new columns
       const profileData = data as unknown as {
         id: string;
@@ -153,7 +154,7 @@ export default function CoachSettings() {
         social_links?: SocialLinks | null;
         preferences?: Partial<Preferences> | null;
       };
-      
+
       return {
         id: profileData.id,
         full_name: profileData.full_name,
@@ -209,7 +210,7 @@ export default function CoachSettings() {
   const fileToCompressedDataURL = async (
     file: File,
     maxSize = 512,
-    quality = 0.82
+    quality = 0.82,
   ): Promise<string> => {
     const dataUrl = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -292,7 +293,7 @@ export default function CoachSettings() {
       toast.success("Impostazioni salvate con successo!");
     },
     onError: (error: Error) => {
-      console.error(error);
+      log.error(error);
       if (error.message === "PROFILE_MISSING") {
         toast.error("Profilo non trovato. Effettua il logout e accedi di nuovo.");
       } else {
@@ -303,14 +304,14 @@ export default function CoachSettings() {
 
   // Update preferences helper (preserves existing data)
   const updatePreferences = (updates: Partial<Preferences>) => {
-    setPreferences(prev => ({
+    setPreferences((prev) => ({
       ...prev,
       ...updates,
     }));
   };
 
   const updateNotifications = (key: keyof NotificationSettings, value: boolean) => {
-    setPreferences(prev => ({
+    setPreferences((prev) => ({
       ...prev,
       notifications: {
         ...prev.notifications,
@@ -405,9 +406,7 @@ export default function CoachSettings() {
                           <Upload className="h-4 w-4 mr-2" />
                           Carica
                         </Button>
-                        <p className="text-xs text-muted-foreground">
-                          JPG, PNG. Max 2MB
-                        </p>
+                        <p className="text-xs text-muted-foreground">JPG, PNG. Max 2MB</p>
                       </div>
                     </div>
                   </div>
@@ -418,7 +417,11 @@ export default function CoachSettings() {
                     <div className="flex items-center gap-4">
                       <div className="h-20 w-20 rounded-lg border-2 border-dashed border-border flex items-center justify-center bg-muted/30 overflow-hidden">
                         {logoPreview ? (
-                          <img src={logoPreview} alt="Logo" className="h-full w-full object-contain" />
+                          <img
+                            src={logoPreview}
+                            alt="Logo"
+                            className="h-full w-full object-contain"
+                          />
                         ) : (
                           <ImageIcon className="h-8 w-8 text-muted-foreground" />
                         )}
@@ -440,9 +443,7 @@ export default function CoachSettings() {
                           <Upload className="h-4 w-4 mr-2" />
                           Carica Logo
                         </Button>
-                        <p className="text-xs text-muted-foreground">
-                          Per l'app atleti
-                        </p>
+                        <p className="text-xs text-muted-foreground">Per l'app atleti</p>
                       </div>
                     </div>
                   </div>
@@ -471,7 +472,7 @@ export default function CoachSettings() {
                             "h-12 rounded-lg border-2 transition-all flex items-center justify-center",
                             brandColor === color.value
                               ? "border-foreground ring-2 ring-foreground ring-offset-2 ring-offset-background"
-                              : "border-transparent hover:scale-105"
+                              : "border-transparent hover:scale-105",
                           )}
                           style={{ backgroundColor: color.value }}
                           title={color.label}
@@ -542,7 +543,9 @@ export default function CoachSettings() {
                     <Input
                       id="instagram"
                       value={socialLinks.instagram || ""}
-                      onChange={(e) => setSocialLinks(prev => ({ ...prev, instagram: e.target.value }))}
+                      onChange={(e) =>
+                        setSocialLinks((prev) => ({ ...prev, instagram: e.target.value }))
+                      }
                       placeholder="@username"
                     />
                   </div>
@@ -554,7 +557,9 @@ export default function CoachSettings() {
                     <Input
                       id="website"
                       value={socialLinks.website || ""}
-                      onChange={(e) => setSocialLinks(prev => ({ ...prev, website: e.target.value }))}
+                      onChange={(e) =>
+                        setSocialLinks((prev) => ({ ...prev, website: e.target.value }))
+                      }
                       placeholder="https://miosito.com"
                     />
                   </div>
@@ -589,7 +594,10 @@ export default function CoachSettings() {
                         <p className="text-sm text-muted-foreground">Stripe Connect attivo</p>
                       </div>
                     </div>
-                    <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/30">
+                    <Badge
+                      variant="outline"
+                      className="bg-green-500/10 text-green-600 border-green-500/30"
+                    >
                       Attivo
                     </Badge>
                   </div>
@@ -619,7 +627,8 @@ export default function CoachSettings() {
                         Prossimamente
                       </p>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Integrazione completa con Stripe per gestire abbonamenti atleti, fatturazione automatica e report finanziari.
+                        Integrazione completa con Stripe per gestire abbonamenti atleti,
+                        fatturazione automatica e report finanziari.
                       </p>
                     </div>
                   </div>
@@ -653,9 +662,9 @@ export default function CoachSettings() {
                     htmlFor="metric"
                     className={cn(
                       "flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all",
-                      preferences.unit === "kg" 
-                        ? "border-primary bg-primary/5" 
-                        : "border-border hover:border-primary/50"
+                      preferences.unit === "kg"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50",
                     )}
                   >
                     <RadioGroupItem value="kg" id="metric" />
@@ -668,9 +677,9 @@ export default function CoachSettings() {
                     htmlFor="imperial"
                     className={cn(
                       "flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all",
-                      preferences.unit === "lbs" 
-                        ? "border-primary bg-primary/5" 
-                        : "border-border hover:border-primary/50"
+                      preferences.unit === "lbs"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50",
                     )}
                   >
                     <RadioGroupItem value="lbs" id="imperial" />
@@ -710,7 +719,9 @@ export default function CoachSettings() {
                 <div className="flex items-center justify-between p-4 rounded-lg border border-border">
                   <div>
                     <p className="font-medium">Allenamento Completato</p>
-                    <p className="text-sm text-muted-foreground">Quando un atleta completa un allenamento</p>
+                    <p className="text-sm text-muted-foreground">
+                      Quando un atleta completa un allenamento
+                    </p>
                   </div>
                   <Switch
                     checked={preferences.notifications?.workout_completed ?? true}
@@ -720,7 +731,9 @@ export default function CoachSettings() {
                 <div className="flex items-center justify-between p-4 rounded-lg border border-border">
                   <div>
                     <p className="font-medium">Allenamento Saltato</p>
-                    <p className="text-sm text-muted-foreground">Quando un atleta manca un allenamento</p>
+                    <p className="text-sm text-muted-foreground">
+                      Quando un atleta manca un allenamento
+                    </p>
                   </div>
                   <Switch
                     checked={preferences.notifications?.missed_workout ?? true}
@@ -773,7 +786,9 @@ export default function CoachSettings() {
               </div>
               <div>
                 <p className="font-medium text-sm">Supporto & Feedback</p>
-                <p className="text-xs text-muted-foreground">Segnala un bug o suggerisci una funzionalità</p>
+                <p className="text-xs text-muted-foreground">
+                  Segnala un bug o suggerisci una funzionalità
+                </p>
               </div>
             </div>
             <FeedbackDialog />
@@ -785,9 +800,7 @@ export default function CoachSettings() {
           <Card className="border-primary/20 bg-card/95 backdrop-blur-sm">
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
-                <p className="text-sm text-muted-foreground">
-                  Ricorda di salvare le modifiche
-                </p>
+                <p className="text-sm text-muted-foreground">Ricorda di salvare le modifiche</p>
                 <Button
                   onClick={() => saveMutation.mutate()}
                   disabled={saveMutation.isPending}

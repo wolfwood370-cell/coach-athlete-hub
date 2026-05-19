@@ -1,8 +1,9 @@
-import { useEffect, useCallback, useRef, useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
-import type { Json } from '@/integrations/supabase/types';
+import { useEffect, useCallback, useRef, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import type { Json } from "@/integrations/supabase/types";
+import { log } from "@/lib/logger";
 
 // ============================================================================
 // TYPES - Strict queue for athlete execution data ONLY
@@ -25,7 +26,7 @@ export interface WorkoutExercise {
 }
 
 export interface WorkoutLogPayload {
-  type: 'workout_log';
+  type: "workout_log";
   local_id: string;
   workout_id: string;
   athlete_id: string;
@@ -40,7 +41,7 @@ export interface WorkoutLogPayload {
 }
 
 export interface DailyReadinessPayload {
-  type: 'daily_readiness';
+  type: "daily_readiness";
   local_id: string;
   athlete_id: string;
   date: string;
@@ -56,7 +57,7 @@ export interface DailyReadinessPayload {
 }
 
 export interface DailyMetricsPayload {
-  type: 'daily_metrics';
+  type: "daily_metrics";
   local_id: string;
   user_id: string;
   date: string;
@@ -70,7 +71,7 @@ export interface DailyMetricsPayload {
   client_updated_at: number;
 }
 
-export type SyncStatus = 'idle' | 'syncing' | 'offline' | 'error';
+export type SyncStatus = "idle" | "syncing" | "offline" | "error";
 
 type AnyPayload = WorkoutLogPayload | DailyReadinessPayload | DailyMetricsPayload;
 
@@ -80,7 +81,7 @@ type QueueItem = {
   timestamp: number;
   retryCount: number;
   nextRetryAt?: number;
-  status?: 'pending' | 'failed';
+  status?: "pending" | "failed";
   lastErrorCode?: number;
 };
 
@@ -88,7 +89,7 @@ type QueueItem = {
 // QUEUE STORAGE - Strict localStorage key for athlete workout data only
 // ============================================================================
 
-const QUEUE_KEY = 'offline_workout_queue';
+const QUEUE_KEY = "offline_workout_queue";
 const MAX_RETRIES = 3;
 const MAX_BACKOFF_MS = 30_000;
 
@@ -109,7 +110,7 @@ function saveQueue(queue: QueueItem[]): void {
   try {
     localStorage.setItem(QUEUE_KEY, JSON.stringify(queue));
   } catch (e) {
-    console.error('[OfflineSync] Failed to save queue:', e);
+    log.error("[OfflineSync] Failed to save queue:", e);
   }
 }
 
@@ -125,26 +126,26 @@ function addToQueue(payload: AnyPayload): void {
 }
 
 function removeFromQueue(id: string): void {
-  const queue = getQueue().filter(item => item.id !== id);
+  const queue = getQueue().filter((item) => item.id !== id);
   saveQueue(queue);
 }
 
 function incrementRetry(id: string): void {
-  const queue = getQueue().map(item =>
+  const queue = getQueue().map((item) =>
     item.id === id
       ? {
           ...item,
           retryCount: item.retryCount + 1,
           nextRetryAt: Date.now() + getBackoffMs(item.retryCount + 1),
         }
-      : item
+      : item,
   );
   saveQueue(queue);
 }
 
 function markFailed(id: string, errorCode?: number): void {
-  const queue = getQueue().map(item =>
-    item.id === id ? { ...item, status: 'failed' as const, lastErrorCode: errorCode } : item
+  const queue = getQueue().map((item) =>
+    item.id === id ? { ...item, status: "failed" as const, lastErrorCode: errorCode } : item,
   );
   saveQueue(queue);
 }
@@ -159,23 +160,23 @@ async function syncWorkoutLog(payload: WorkoutLogPayload): Promise<void> {
 
   if (payload.device_sync_version != null) {
     const { data: serverWorkout } = await supabase
-      .from('workouts')
-      .select('sync_version')
-      .eq('id', payload.workout_id)
+      .from("workouts")
+      .select("sync_version")
+      .eq("id", payload.workout_id)
       .maybeSingle();
 
     if (serverWorkout && (serverWorkout as any).sync_version > payload.device_sync_version) {
       // Coach edited while athlete was offline — flag the log but STILL save athlete data
       conflictDetected = true;
-      console.warn(
-        `[OfflineSync] Conflict: device v${payload.device_sync_version} < server v${(serverWorkout as any).sync_version}. Athlete data saved; coach edits preserved.`
+      log.warn(
+        `[OfflineSync] Conflict: device v${payload.device_sync_version} < server v${(serverWorkout as any).sync_version}. Athlete data saved; coach edits preserved.`,
       );
     }
   }
 
   // Always INSERT into workout_logs (never upsert workouts — preserves coach planning)
   const { data: workoutLog, error: logError } = await supabase
-    .from('workout_logs')
+    .from("workout_logs")
     .insert({
       workout_id: payload.workout_id,
       athlete_id: payload.athlete_id,
@@ -184,13 +185,13 @@ async function syncWorkoutLog(payload: WorkoutLogPayload): Promise<void> {
       srpe: payload.srpe,
       duration_minutes: payload.duration_minutes,
       notes: conflictDetected
-        ? `[SYNC CONFLICT] ${payload.notes || ''} — Versione coach aggiornata durante sessione offline.`
+        ? `[SYNC CONFLICT] ${payload.notes || ""} — Versione coach aggiornata durante sessione offline.`
         : payload.notes,
       local_id: payload.local_id,
-      sync_status: 'synced',
+      sync_status: "synced",
       exercises_data: payload.exercises as unknown as Json,
     })
-    .select('id')
+    .select("id")
     .single();
 
   if (logError) throw logError;
@@ -206,7 +207,7 @@ async function syncWorkoutLog(payload: WorkoutLogPayload): Promise<void> {
     }));
 
     const { error: exercisesError } = await supabase
-      .from('workout_exercises')
+      .from("workout_exercises")
       .insert(exercisesData);
 
     if (exercisesError) throw exercisesError;
@@ -214,30 +215,29 @@ async function syncWorkoutLog(payload: WorkoutLogPayload): Promise<void> {
 
   // Mark the workout as completed (status only — does NOT touch structure/title/description)
   await supabase
-    .from('workouts')
-    .update({ status: 'completed' as any })
-    .eq('id', payload.workout_id);
+    .from("workouts")
+    .update({ status: "completed" as any })
+    .eq("id", payload.workout_id);
 }
 
 async function syncDailyReadiness(payload: DailyReadinessPayload): Promise<void> {
   // Timestamp-based conflict resolution: skip our write if the server row is newer.
   if (payload.client_updated_at) {
     const { data: serverRow } = await supabase
-      .from('daily_readiness')
-      .select('created_at')
-      .eq('athlete_id', payload.athlete_id)
-      .eq('date', payload.date)
+      .from("daily_readiness")
+      .select("created_at")
+      .eq("athlete_id", payload.athlete_id)
+      .eq("date", payload.date)
       .maybeSingle();
     const serverTs = serverRow?.created_at ? new Date(serverRow.created_at).getTime() : 0;
     if (serverTs > payload.client_updated_at) {
-      console.warn('[OfflineSync] Readiness server row newer — keeping server version.');
+      log.warn("[OfflineSync] Readiness server row newer — keeping server version.");
       return;
     }
   }
 
-  const { error } = await supabase
-    .from('daily_readiness')
-    .upsert({
+  const { error } = await supabase.from("daily_readiness").upsert(
+    {
       athlete_id: payload.athlete_id,
       date: payload.date,
       sleep_hours: payload.sleep_hours,
@@ -247,9 +247,11 @@ async function syncDailyReadiness(payload: DailyReadinessPayload): Promise<void>
       stress_level: payload.stress_level,
       soreness_map: payload.soreness_map,
       notes: payload.notes,
-    }, {
-      onConflict: 'athlete_id,date',
-    });
+    },
+    {
+      onConflict: "athlete_id,date",
+    },
+  );
 
   if (error) throw error;
 }
@@ -257,52 +259,50 @@ async function syncDailyReadiness(payload: DailyReadinessPayload): Promise<void>
 async function syncDailyMetrics(payload: DailyMetricsPayload): Promise<void> {
   // Timestamp-based last-write-wins: compare server.updated_at vs client_updated_at.
   const { data: serverRow } = await supabase
-    .from('daily_metrics')
-    .select('updated_at')
-    .eq('user_id', payload.user_id)
-    .eq('date', payload.date)
+    .from("daily_metrics")
+    .select("updated_at")
+    .eq("user_id", payload.user_id)
+    .eq("date", payload.date)
     .maybeSingle();
 
   const serverTs = serverRow?.updated_at ? new Date(serverRow.updated_at).getTime() : 0;
   if (serverTs > payload.client_updated_at) {
-    console.warn(
-      `[OfflineSync] daily_metrics server row newer (server=${serverTs} > client=${payload.client_updated_at}). Skipping write.`
+    log.warn(
+      `[OfflineSync] daily_metrics server row newer (server=${serverTs} > client=${payload.client_updated_at}). Skipping write.`,
     );
     return;
   }
 
-  const { error } = await supabase
-    .from('daily_metrics')
-    .upsert(
-      {
-        user_id: payload.user_id,
-        date: payload.date,
-        readiness_score: payload.readiness_score,
-        sleep_hours: payload.sleep_hours,
-        hrv_ms: payload.hrv_ms,
-        body_weight_kg: payload.body_weight_kg,
-        calories_consumed: payload.calories_consumed,
-        notes: payload.notes,
-      } as any,
-      { onConflict: 'user_id,date' }
-    );
+  const { error } = await supabase.from("daily_metrics").upsert(
+    {
+      user_id: payload.user_id,
+      date: payload.date,
+      readiness_score: payload.readiness_score,
+      sleep_hours: payload.sleep_hours,
+      hrv_ms: payload.hrv_ms,
+      body_weight_kg: payload.body_weight_kg,
+      calories_consumed: payload.calories_consumed,
+      notes: payload.notes,
+    } as any,
+    { onConflict: "user_id,date" },
+  );
 
   if (error) throw error;
 }
 
 async function syncQueueItem(item: QueueItem): Promise<{ ok: boolean; statusCode?: number }> {
   try {
-    if (item.payload.type === 'workout_log') {
+    if (item.payload.type === "workout_log") {
       await syncWorkoutLog(item.payload);
-    } else if (item.payload.type === 'daily_readiness') {
+    } else if (item.payload.type === "daily_readiness") {
       await syncDailyReadiness(item.payload);
-    } else if (item.payload.type === 'daily_metrics') {
+    } else if (item.payload.type === "daily_metrics") {
       await syncDailyMetrics(item.payload);
     }
     return { ok: true };
   } catch (error: any) {
-    const statusCode = error?.code ? Number(error.code) : error?.status ?? undefined;
-    console.error(`[OfflineSync] Failed to sync ${item.id}:`, error);
+    const statusCode = error?.code ? Number(error.code) : (error?.status ?? undefined);
+    log.error(`[OfflineSync] Failed to sync ${item.id}:`, error);
     return { ok: false, statusCode };
   }
 }
@@ -317,10 +317,10 @@ export function useOfflineSync() {
   const syncingRef = useRef(false);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(() =>
-    typeof navigator !== 'undefined' && !navigator.onLine ? 'offline' : 'idle'
+    typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "idle",
   );
   const [isOnline, setIsOnline] = useState(() =>
-    typeof navigator !== 'undefined' ? navigator.onLine : true
+    typeof navigator !== "undefined" ? navigator.onLine : true,
   );
 
   const isServerError = (code?: number) => code != null && code >= 500;
@@ -332,15 +332,15 @@ export function useOfflineSync() {
 
     syncingRef.current = true;
     const queue = getQueue();
-    const pending = queue.filter(i => i.status !== 'failed');
+    const pending = queue.filter((i) => i.status !== "failed");
 
     if (pending.length === 0) {
       syncingRef.current = false;
-      setSyncStatus(queue.some(i => i.status === 'failed') ? 'error' : 'idle');
+      setSyncStatus(queue.some((i) => i.status === "failed") ? "error" : "idle");
       return;
     }
 
-    setSyncStatus('syncing');
+    setSyncStatus("syncing");
 
     let syncedCount = 0;
     let failedCount = 0;
@@ -360,9 +360,9 @@ export function useOfflineSync() {
         syncedCount++;
       } else if (isPermanentError(result.statusCode)) {
         // 4xx client errors → dead letter: discard immediately, never retry
-        console.error(
+        log.error(
           `[OfflineSync] Dead letter: item ${item.id} failed with permanent error ${result.statusCode}. Removing from queue.`,
-          item.payload
+          item.payload,
         );
         removeFromQueue(item.id);
         failedCount++;
@@ -385,16 +385,16 @@ export function useOfflineSync() {
     if (syncedCount > 0) {
       toast({
         title: "Workout offline sincronizzati",
-        description: `${syncedCount} ${syncedCount === 1 ? 'workout salvato' : 'workout salvati'} con successo.`,
+        description: `${syncedCount} ${syncedCount === 1 ? "workout salvato" : "workout salvati"} con successo.`,
       });
-      queryClient.invalidateQueries({ queryKey: ['workout-logs'] });
-      queryClient.invalidateQueries({ queryKey: ['daily-readiness'] });
+      queryClient.invalidateQueries({ queryKey: ["workout-logs"] });
+      queryClient.invalidateQueries({ queryKey: ["daily-readiness"] });
     }
 
     if (failedCount > 0) {
       toast({
         title: "Sincronizzazione fallita",
-        description: `${failedCount} ${failedCount === 1 ? 'elemento perso' : 'elementi persi'} dopo 3 tentativi.`,
+        description: `${failedCount} ${failedCount === 1 ? "elemento perso" : "elementi persi"} dopo 3 tentativi.`,
         variant: "destructive",
       });
     }
@@ -403,15 +403,18 @@ export function useOfflineSync() {
 
     // Schedule next retry pass if items remain with backoff
     if (needsRetry && navigator.onLine) {
-      const remaining = getQueue().filter(i => i.status !== 'failed' && i.nextRetryAt);
-      const nextAt = remaining.reduce((min, i) => Math.min(min, i.nextRetryAt ?? Infinity), Infinity);
+      const remaining = getQueue().filter((i) => i.status !== "failed" && i.nextRetryAt);
+      const nextAt = remaining.reduce(
+        (min, i) => Math.min(min, i.nextRetryAt ?? Infinity),
+        Infinity,
+      );
       const delayMs = Math.max(500, nextAt - Date.now());
-      setSyncStatus('error');
+      setSyncStatus("error");
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
       retryTimerRef.current = setTimeout(() => processQueue(), delayMs);
     } else {
-      const hasErrors = getQueue().some(i => i.status === 'failed');
-      setSyncStatus(hasErrors ? 'error' : 'idle');
+      const hasErrors = getQueue().some((i) => i.status === "failed");
+      setSyncStatus(hasErrors ? "error" : "idle");
     }
   }, [queryClient, toast]);
 
@@ -419,16 +422,16 @@ export function useOfflineSync() {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      setSyncStatus('idle');
+      setSyncStatus("idle");
       processQueue();
     };
     const handleOffline = () => {
       setIsOnline(false);
-      setSyncStatus('offline');
+      setSyncStatus("offline");
     };
 
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
 
     // Initial sync if online and queue has pending items
     if (navigator.onLine && getQueue().length > 0) {
@@ -436,16 +439,16 @@ export function useOfflineSync() {
     }
 
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
     };
   }, [processQueue]);
 
   // Mutation: Log workout (queues if offline)
   const logWorkoutMutation = useMutation({
-    mutationFn: async (payload: Omit<WorkoutLogPayload, 'type'>) => {
-      const fullPayload: WorkoutLogPayload = { ...payload, type: 'workout_log' };
+    mutationFn: async (payload: Omit<WorkoutLogPayload, "type">) => {
+      const fullPayload: WorkoutLogPayload = { ...payload, type: "workout_log" };
 
       if (navigator.onLine) {
         await syncWorkoutLog(fullPayload);
@@ -463,7 +466,7 @@ export function useOfflineSync() {
           : "Verrà sincronizzato quando torni online.",
       });
       if (result.synced) {
-        queryClient.invalidateQueries({ queryKey: ['workout-logs'] });
+        queryClient.invalidateQueries({ queryKey: ["workout-logs"] });
       }
     },
     onError: () => {
@@ -477,8 +480,8 @@ export function useOfflineSync() {
 
   // Mutation: Log daily readiness (queues if offline)
   const logReadinessMutation = useMutation({
-    mutationFn: async (payload: Omit<DailyReadinessPayload, 'type'>) => {
-      const fullPayload: DailyReadinessPayload = { ...payload, type: 'daily_readiness' };
+    mutationFn: async (payload: Omit<DailyReadinessPayload, "type">) => {
+      const fullPayload: DailyReadinessPayload = { ...payload, type: "daily_readiness" };
 
       if (navigator.onLine) {
         await syncDailyReadiness(fullPayload);
@@ -496,7 +499,7 @@ export function useOfflineSync() {
           : "Verrà sincronizzato quando torni online.",
       });
       if (result.synced) {
-        queryClient.invalidateQueries({ queryKey: ['daily-readiness'] });
+        queryClient.invalidateQueries({ queryKey: ["daily-readiness"] });
       }
     },
     onError: () => {
@@ -512,11 +515,13 @@ export function useOfflineSync() {
   // last-write-wins resolution server-side.
   const logMetricsMutation = useMutation({
     mutationFn: async (
-      payload: Omit<DailyMetricsPayload, 'type' | 'client_updated_at'> & { client_updated_at?: number }
+      payload: Omit<DailyMetricsPayload, "type" | "client_updated_at"> & {
+        client_updated_at?: number;
+      },
     ) => {
       const fullPayload: DailyMetricsPayload = {
         ...payload,
-        type: 'daily_metrics',
+        type: "daily_metrics",
         client_updated_at: payload.client_updated_at ?? Date.now(),
       };
 
@@ -536,7 +541,7 @@ export function useOfflineSync() {
     },
     onSuccess: (result) => {
       if (result.synced) {
-        queryClient.invalidateQueries({ queryKey: ['daily-metrics'] });
+        queryClient.invalidateQueries({ queryKey: ["daily-metrics"] });
       }
     },
   });

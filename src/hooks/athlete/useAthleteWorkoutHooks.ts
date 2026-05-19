@@ -22,11 +22,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import type {
-  Tables,
-  TablesInsert,
-  TablesUpdate,
-} from "@/integrations/supabase/types";
+import { log } from "@/lib/logger";
+import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
 export type WorkoutLogRow = Tables<"workout_logs">;
 export type ExerciseLogRow = Tables<"exercise_logs">;
@@ -35,8 +32,7 @@ export type ExerciseLogRow = Tables<"exercise_logs">;
 // Query keys
 // ---------------------------------------------------------------------------
 
-const sessionSetsKey = (sessionId: string | null) =>
-  ["session-sets", sessionId ?? "none"] as const;
+const sessionSetsKey = (sessionId: string | null) => ["session-sets", sessionId ?? "none"] as const;
 
 // ---------------------------------------------------------------------------
 // Start session
@@ -105,7 +101,7 @@ export function useStartSessionMutation() {
   return useMutation({
     mutationFn: async (input: StartSessionInput = {}): Promise<WorkoutLogRow> => {
       if (!user?.id) {
-        console.warn(
+        log.warn(
           "[useStartSessionMutation] No authenticated user — falling back to local-only session.",
         );
         return makeLocalSessionRow(input.workout_id ?? null);
@@ -116,11 +112,7 @@ export function useStartSessionMutation() {
         started_at: new Date().toISOString(),
         status: "in_progress",
       };
-      const { data, error } = await supabase
-        .from("workout_logs")
-        .insert(payload)
-        .select()
-        .single();
+      const { data, error } = await supabase.from("workout_logs").insert(payload).select().single();
       if (error) throw error;
       return data;
     },

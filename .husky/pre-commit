@@ -3,4 +3,7 @@
 # type regressions before they land in main.
 
 npx lint-staged || exit 1
-npx tsc --noEmit || exit 1
+# `tsc --noEmit` without `-p` is a no-op when the root tsconfig has empty
+# `files` + project references (our setup), so use the app project file
+# explicitly. Otherwise type errors slip through unnoticed.
+npx tsc --noEmit -p tsconfig.app.json || exit 1

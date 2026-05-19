@@ -1,13 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,6 +66,7 @@ import {
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { useAuth } from "@/hooks/useAuth";
 import { format, addDays, startOfWeek } from "date-fns";
+import { log } from "@/lib/logger";
 
 // Define chart data type for proper TypeScript typing
 interface MacroChartEntry {
@@ -221,11 +216,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
 
   // Handle strategy mode changes - smart defaults
   const handleStrategyModeChange = (newMode: StrategyMode) => {
-    if (
-      newMode === "cycling_on_off" &&
-      !hasInitializedCycling &&
-      strategyMode === "static"
-    ) {
+    if (newMode === "cycling_on_off" && !hasInitializedCycling && strategyMode === "static") {
       // Pre-fill cycling targets with current static values
       const staticTargets: MacroTargets = { calories, protein, carbs, fats };
       setOnDayTargets({
@@ -260,12 +251,8 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
   const offDayCalculatedCalories = calculateCaloriesFromMacros(offDayTargets);
 
   const staticCalorieDiff = Math.abs(calories - staticCalculatedCalories);
-  const onDayCalorieDiff = Math.abs(
-    onDayTargets.calories - onDayCalculatedCalories,
-  );
-  const offDayCalorieDiff = Math.abs(
-    offDayTargets.calories - offDayCalculatedCalories,
-  );
+  const onDayCalorieDiff = Math.abs(onDayTargets.calories - onDayCalculatedCalories);
+  const offDayCalorieDiff = Math.abs(offDayTargets.calories - offDayCalculatedCalories);
 
   // Auto-fix functions for Math Guard
   const autoFixStaticCalories = () => {
@@ -295,8 +282,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
   // Dialog state
   const [addHabitOpen, setAddHabitOpen] = useState(false);
   const [newHabitName, setNewHabitName] = useState("");
-  const [newHabitCategory, setNewHabitCategory] =
-    useState<HabitCategory>("nutrition");
+  const [newHabitCategory, setNewHabitCategory] = useState<HabitCategory>("nutrition");
   const [newHabitDescription, setNewHabitDescription] = useState("");
   const [selectedHabitId, setSelectedHabitId] = useState<string | null>(null);
 
@@ -321,8 +307,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
       return {
         ...data,
         strategy_mode: (data.strategy_mode || "static") as StrategyMode,
-        cycling_targets:
-          data.cycling_targets as unknown as CyclingTargets | null,
+        cycling_targets: data.cycling_targets as unknown as CyclingTargets | null,
       } as NutritionPlan;
     },
     enabled: !!athleteId,
@@ -350,15 +335,11 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
       const schedule: ScheduledWorkout[] = [];
       for (let i = 0; i < 7; i++) {
         const date = format(addDays(weekStart, i), "yyyy-MM-dd");
-        const workoutsOnDay =
-          data?.filter((w) => w.scheduled_date === date) || [];
+        const workoutsOnDay = data?.filter((w) => w.scheduled_date === date) || [];
         schedule.push({
           date,
           hasWorkout: workoutsOnDay.length > 0,
-          workoutName:
-            workoutsOnDay.length > 0
-              ? `${workoutsOnDay.length} sessione/i`
-              : undefined,
+          workoutName: workoutsOnDay.length > 0 ? `${workoutsOnDay.length} sessione/i` : undefined,
         });
       }
 
@@ -370,9 +351,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
   // Update form when plan loads
   useEffect(() => {
     if (nutritionPlan) {
-      setStrategyMode(
-        (nutritionPlan.strategy_mode as StrategyMode) || "static",
-      );
+      setStrategyMode((nutritionPlan.strategy_mode as StrategyMode) || "static");
       setCalories(nutritionPlan.daily_calories);
       setProtein(nutritionPlan.protein_g);
       setCarbs(nutritionPlan.carbs_g);
@@ -431,8 +410,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
     if (restDays <= 0) return offDayTargets.calories;
 
     const neededRestCals =
-      (weeklyAvgGoal * 7 - onDayTargets.calories * trainingDaysPerWeek) /
-      restDays;
+      (weeklyAvgGoal * 7 - onDayTargets.calories * trainingDaysPerWeek) / restDays;
     return Math.max(1200, Math.round(neededRestCals));
   };
 
@@ -473,8 +451,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
         {
           athlete_id: athleteId,
           coach_id: user.id,
-          daily_calories:
-            strategyMode === "static" ? calories : onDayTargets.calories,
+          daily_calories: strategyMode === "static" ? calories : onDayTargets.calories,
           protein_g: strategyMode === "static" ? protein : onDayTargets.protein,
           carbs_g: strategyMode === "static" ? carbs : onDayTargets.carbs,
           fats_g: strategyMode === "static" ? fats : onDayTargets.fats,
@@ -496,7 +473,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
     },
     onError: (error) => {
       toast.error("Errore nel salvare la strategia");
-      console.error(error);
+      log.error(error);
     },
   });
 
@@ -528,7 +505,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
     },
     onError: (error) => {
       toast.error("Errore nella creazione dell'habit");
-      console.error(error);
+      log.error(error);
     },
   });
 
@@ -556,23 +533,14 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
     },
     onError: (error) => {
       toast.error("Errore nell'assegnazione dell'habit");
-      console.error(error);
+      log.error(error);
     },
   });
 
   // Toggle habit active state mutation
   const toggleHabitMutation = useMutation({
-    mutationFn: async ({
-      habitId,
-      active,
-    }: {
-      habitId: string;
-      active: boolean;
-    }) => {
-      const { error } = await supabase
-        .from("athlete_habits")
-        .update({ active })
-        .eq("id", habitId);
+    mutationFn: async ({ habitId, active }: { habitId: string; active: boolean }) => {
+      const { error } = await supabase.from("athlete_habits").update({ active }).eq("id", habitId);
 
       if (error) throw error;
     },
@@ -583,17 +551,14 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
     },
     onError: (error) => {
       toast.error("Errore nell'aggiornamento dell'habit");
-      console.error(error);
+      log.error(error);
     },
   });
 
   // Remove habit mutation
   const removeHabitMutation = useMutation({
     mutationFn: async (habitId: string) => {
-      const { error } = await supabase
-        .from("athlete_habits")
-        .delete()
-        .eq("id", habitId);
+      const { error } = await supabase.from("athlete_habits").delete().eq("id", habitId);
 
       if (error) throw error;
     },
@@ -605,7 +570,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
     },
     onError: (error) => {
       toast.error("Errore nella rimozione dell'habit");
-      console.error(error);
+      log.error(error);
     },
   });
 
@@ -645,14 +610,8 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
     () => getMacroChartData({ calories, protein, carbs, fats }),
     [calories, protein, carbs, fats],
   );
-  const onDayMacroData = useMemo(
-    () => getMacroChartData(onDayTargets),
-    [onDayTargets],
-  );
-  const offDayMacroData = useMemo(
-    () => getMacroChartData(offDayTargets),
-    [offDayTargets],
-  );
+  const onDayMacroData = useMemo(() => getMacroChartData(onDayTargets), [onDayTargets]);
+  const offDayMacroData = useMemo(() => getMacroChartData(offDayTargets), [offDayTargets]);
 
   // Get habits not yet assigned to this athlete
   const availableHabits = useMemo(() => {
@@ -681,12 +640,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
     const trainingCals = onDayTargets.calories * trainingDaysPerWeek;
     const restCals = offDayTargets.calories * (7 - trainingDaysPerWeek);
     return Math.round((trainingCals + restCals) / 7);
-  }, [
-    strategyMode,
-    onDayTargets.calories,
-    offDayTargets.calories,
-    trainingDaysPerWeek,
-  ]);
+  }, [strategyMode, onDayTargets.calories, offDayTargets.calories, trainingDaysPerWeek]);
 
   // Custom Donut Chart component
   const MacroDonutChart = ({
@@ -728,9 +682,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
                     <p>
                       {d.grams}g • {d.kcal} kcal
                     </p>
-                    <p className="text-muted-foreground">
-                      {d.value}% del totale
-                    </p>
+                    <p className="text-muted-foreground">{d.value}% del totale</p>
                   </div>
                 );
               }}
@@ -747,10 +699,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
       <div className="flex gap-3 mt-3 text-xs">
         {data.map((entry) => (
           <div key={entry.name} className="flex items-center gap-1">
-            <div
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: entry.color }}
-            />
+            <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: entry.color }} />
             <span>{entry.grams}g</span>
           </div>
         ))}
@@ -775,15 +724,10 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
 
     return (
       <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
-        <Badge
-          variant="outline"
-          className="gap-1 text-amber-600 border-amber-500/50"
-        >
+        <Badge variant="outline" className="gap-1 text-amber-600 border-amber-500/50">
           <span className="text-amber-500"></span>Δ {diff} kcal
         </Badge>
-        <span className="text-xs text-amber-600">
-          Macro = {calculatedCalories} kcal
-        </span>
+        <span className="text-xs text-amber-600">Macro = {calculatedCalories} kcal</span>
         <Button
           size="sm"
           variant="outline"
@@ -832,9 +776,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
               <Input
                 type="number"
                 value={targets.calories}
-                onChange={(e) =>
-                  setTargets({ ...targets, calories: Number(e.target.value) })
-                }
+                onChange={(e) => setTargets({ ...targets, calories: Number(e.target.value) })}
                 className="w-24 h-9"
               />
               <span className="text-xs text-muted-foreground">kcal</span>
@@ -844,10 +786,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
           {/* Math Guard Warning */}
           {showWarning && (
             <div className="flex items-center gap-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
-              <Badge
-                variant="outline"
-                className="gap-1 text-amber-600 border-amber-500/50 text-xs"
-              >
+              <Badge variant="outline" className="gap-1 text-amber-600 border-amber-500/50 text-xs">
                 Δ{calorieDiff}
               </Badge>
               <span className="text-xs text-amber-600 hidden sm:inline">
@@ -876,9 +815,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
               <Input
                 type="number"
                 value={targets.protein}
-                onChange={(e) =>
-                  setTargets({ ...targets, protein: Number(e.target.value) })
-                }
+                onChange={(e) => setTargets({ ...targets, protein: Number(e.target.value) })}
                 className="h-8 text-sm"
               />
             </div>
@@ -893,9 +830,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
               <Input
                 type="number"
                 value={targets.carbs}
-                onChange={(e) =>
-                  setTargets({ ...targets, carbs: Number(e.target.value) })
-                }
+                onChange={(e) => setTargets({ ...targets, carbs: Number(e.target.value) })}
                 className="h-8 text-sm"
               />
             </div>
@@ -910,9 +845,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
               <Input
                 type="number"
                 value={targets.fats}
-                onChange={(e) =>
-                  setTargets({ ...targets, fats: Number(e.target.value) })
-                }
+                onChange={(e) => setTargets({ ...targets, fats: Number(e.target.value) })}
                 className="h-8 text-sm"
               />
             </div>
@@ -942,12 +875,8 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
                 <Flame className="h-6 w-6 text-orange-500" />
               </div>
               <div>
-                <CardTitle className="text-lg">
-                  Protocollo Nutrizionale v2.0
-                </CardTitle>
-                <CardDescription>
-                  Target statici o cycling training/rest
-                </CardDescription>
+                <CardTitle className="text-lg">Protocollo Nutrizionale v2.0</CardTitle>
+                <CardDescription>Target statici o cycling training/rest</CardDescription>
               </div>
             </div>
 
@@ -1040,10 +969,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label
-                      htmlFor="fats"
-                      className="text-sm font-medium flex items-center gap-1.5"
-                    >
+                    <Label htmlFor="fats" className="text-sm font-medium flex items-center gap-1.5">
                       <div
                         className="w-2 h-2 rounded-full"
                         style={{ backgroundColor: MACRO_COLORS.fats }}
@@ -1090,12 +1016,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
                     <Calculator className="h-5 w-5 text-primary" />
                     <span className="font-medium">Smart Assistant</span>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={applySmartCalc}
-                    className="gap-1.5"
-                  >
+                  <Button size="sm" variant="outline" onClick={applySmartCalc} className="gap-1.5">
                     <Zap className="h-3.5 w-3.5" />
                     Auto-calcola Rest Days
                   </Button>
@@ -1110,20 +1031,14 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
                       <Input
                         type="number"
                         value={weeklyAvgGoal}
-                        onChange={(e) =>
-                          setWeeklyAvgGoal(Number(e.target.value))
-                        }
+                        onChange={(e) => setWeeklyAvgGoal(Number(e.target.value))}
                         className="h-9"
                       />
-                      <span className="text-xs text-muted-foreground">
-                        kcal
-                      </span>
+                      <span className="text-xs text-muted-foreground">kcal</span>
                     </div>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Giorni Allenamento
-                    </Label>
+                    <Label className="text-xs text-muted-foreground">Giorni Allenamento</Label>
                     <Select
                       value={trainingDaysPerWeek.toString()}
                       onValueChange={(v) => setTrainingDaysPerWeek(Number(v))}
@@ -1141,9 +1056,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
                     </Select>
                   </div>
                   <div>
-                    <Label className="text-xs text-muted-foreground">
-                      Media Attuale
-                    </Label>
+                    <Label className="text-xs text-muted-foreground">Media Attuale</Label>
                     <div className="h-9 flex items-center">
                       <Badge
                         variant={
@@ -1235,9 +1148,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
             {/* Weekly Weight Goal Slider */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium">
-                  Variazione Peso Settimanale Target
-                </Label>
+                <Label className="text-sm font-medium">Variazione Peso Settimanale Target</Label>
                 <Badge variant="outline" className="font-mono">
                   {weeklyWeightGoal > 0 ? "+" : ""}
                   {weeklyWeightGoal.toFixed(1)}%
@@ -1266,16 +1177,12 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <Label className="text-sm font-medium">
-                    Preview Settimana
-                  </Label>
+                  <Label className="text-sm font-medium">Preview Settimana</Label>
                 </div>
                 <div className="grid grid-cols-7 gap-2">
                   {weekSchedule.map((day, i) => {
                     const isTraining = day.hasWorkout;
-                    const dayCalories = isTraining
-                      ? onDayTargets.calories
-                      : offDayTargets.calories;
+                    const dayCalories = isTraining ? onDayTargets.calories : offDayTargets.calories;
 
                     return (
                       <div
@@ -1298,9 +1205,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
                         <p
                           className={cn(
                             "text-xs mt-1 font-mono",
-                            isTraining
-                              ? "text-orange-600"
-                              : "text-muted-foreground",
+                            isTraining ? "text-orange-600" : "text-muted-foreground",
                           )}
                         >
                           {dayCalories}
@@ -1315,10 +1220,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
 
           {/* Save Button */}
           <div className="flex justify-end pt-4 border-t">
-            <Button
-              onClick={() => savePlanMutation.mutate()}
-              disabled={savePlanMutation.isPending}
-            >
+            <Button onClick={() => savePlanMutation.mutate()} disabled={savePlanMutation.isPending}>
               {savePlanMutation.isPending ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
@@ -1340,9 +1242,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
               </div>
               <div>
                 <CardTitle className="text-lg">Habit Stacking</CardTitle>
-                <CardDescription>
-                  Assegna abitudini quotidiane da tracciare
-                </CardDescription>
+                <CardDescription>Assegna abitudini quotidiane da tracciare</CardDescription>
               </div>
             </div>
 
@@ -1366,9 +1266,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
                   {/* Existing Habits */}
                   {availableHabits.length > 0 && (
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium">
-                        Dalla tua libreria
-                      </Label>
+                      <Label className="text-sm font-medium">Dalla tua libreria</Label>
                       <div className="grid gap-2 max-h-48 overflow-y-auto">
                         {availableHabits.map((habit) => {
                           const config = CATEGORY_CONFIG[habit.category];
@@ -1383,13 +1281,9 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
                                   : "border-border hover:border-primary/50",
                               )}
                             >
-                              <config.icon
-                                className={cn("h-4 w-4", config.color)}
-                              />
+                              <config.icon className={cn("h-4 w-4", config.color)} />
                               <div className="flex-1">
-                                <p className="text-sm font-medium">
-                                  {habit.name}
-                                </p>
+                                <p className="text-sm font-medium">{habit.name}</p>
                                 {habit.description && (
                                   <p className="text-xs text-muted-foreground">
                                     {habit.description}
@@ -1410,9 +1304,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
 
                   {/* Create New Habit */}
                   <div className="space-y-3">
-                    <Label className="text-sm font-medium">
-                      Oppure crea nuovo
-                    </Label>
+                    <Label className="text-sm font-medium">Oppure crea nuovo</Label>
                     <Input
                       placeholder="Nome habit (es. Creatine 5g)"
                       value={newHabitName}
@@ -1420,26 +1312,20 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
                     />
                     <Select
                       value={newHabitCategory}
-                      onValueChange={(v) =>
-                        setNewHabitCategory(v as HabitCategory)
-                      }
+                      onValueChange={(v) => setNewHabitCategory(v as HabitCategory)}
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {Object.entries(CATEGORY_CONFIG).map(
-                          ([key, config]) => (
-                            <SelectItem key={key} value={key}>
-                              <div className="flex items-center gap-2">
-                                <config.icon
-                                  className={cn("h-4 w-4", config.color)}
-                                />
-                                {config.label}
-                              </div>
-                            </SelectItem>
-                          ),
-                        )}
+                        {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
+                          <SelectItem key={key} value={key}>
+                            <div className="flex items-center gap-2">
+                              <config.icon className={cn("h-4 w-4", config.color)} />
+                              {config.label}
+                            </div>
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <Input
@@ -1451,9 +1337,7 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
                       variant="outline"
                       size="sm"
                       className="w-full"
-                      disabled={
-                        !newHabitName.trim() || createHabitMutation.isPending
-                      }
+                      disabled={!newHabitName.trim() || createHabitMutation.isPending}
                       onClick={() => createHabitMutation.mutate()}
                     >
                       {createHabitMutation.isPending ? (
@@ -1467,18 +1351,12 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
                 </div>
 
                 <DialogFooter>
-                  <Button
-                    variant="outline"
-                    onClick={() => setAddHabitOpen(false)}
-                  >
+                  <Button variant="outline" onClick={() => setAddHabitOpen(false)}>
                     Annulla
                   </Button>
                   <Button
                     disabled={!selectedHabitId || assignHabitMutation.isPending}
-                    onClick={() =>
-                      selectedHabitId &&
-                      assignHabitMutation.mutate(selectedHabitId)
-                    }
+                    onClick={() => selectedHabitId && assignHabitMutation.mutate(selectedHabitId)}
                   >
                     {assignHabitMutation.isPending ? (
                       <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -1501,114 +1379,97 @@ export function StrategyContent({ athleteId }: StrategyContentProps) {
             </div>
           ) : (
             <div className="space-y-6">
-              {(
-                Object.entries(groupedHabits) as [
-                  HabitCategory,
-                  AthleteHabit[],
-                ][]
-              ).map(([category, habits]) => {
-                const config = CATEGORY_CONFIG[category];
-                return (
-                  <div key={category} className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <config.icon className={cn("h-4 w-4", config.color)} />
-                      <span className="text-sm font-medium">
-                        {config.label}
-                      </span>
-                      <Badge variant="secondary" className="text-xs">
-                        {habits.length}
-                      </Badge>
-                    </div>
-                    <div className="grid gap-2">
-                      {habits.map((ah) => (
-                        <div
-                          key={ah.id}
-                          className={cn(
-                            "flex items-center justify-between p-3 rounded-lg border transition-all",
-                            ah.active
-                              ? "border-border bg-card"
-                              : "border-border/50 bg-muted/30 opacity-60",
-                          )}
-                        >
-                          <div className="flex items-center gap-3">
-                            <Switch
-                              checked={ah.active}
-                              onCheckedChange={(checked) =>
-                                toggleHabitMutation.mutate({
-                                  habitId: ah.id,
-                                  active: checked,
-                                })
-                              }
-                            />
-                            <div>
-                              <p
-                                className={cn(
-                                  "text-sm font-medium",
-                                  !ah.active &&
-                                    "line-through text-muted-foreground",
-                                )}
-                              >
-                                {ah.habit?.name}
-                              </p>
-                              {ah.habit?.description && (
-                                <p className="text-xs text-muted-foreground">
-                                  {ah.habit.description}
+              {(Object.entries(groupedHabits) as [HabitCategory, AthleteHabit[]][]).map(
+                ([category, habits]) => {
+                  const config = CATEGORY_CONFIG[category];
+                  return (
+                    <div key={category} className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <config.icon className={cn("h-4 w-4", config.color)} />
+                        <span className="text-sm font-medium">{config.label}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          {habits.length}
+                        </Badge>
+                      </div>
+                      <div className="grid gap-2">
+                        {habits.map((ah) => (
+                          <div
+                            key={ah.id}
+                            className={cn(
+                              "flex items-center justify-between p-3 rounded-lg border transition-all",
+                              ah.active
+                                ? "border-border bg-card"
+                                : "border-border/50 bg-muted/30 opacity-60",
+                            )}
+                          >
+                            <div className="flex items-center gap-3">
+                              <Switch
+                                checked={ah.active}
+                                onCheckedChange={(checked) =>
+                                  toggleHabitMutation.mutate({
+                                    habitId: ah.id,
+                                    active: checked,
+                                  })
+                                }
+                              />
+                              <div>
+                                <p
+                                  className={cn(
+                                    "text-sm font-medium",
+                                    !ah.active && "line-through text-muted-foreground",
+                                  )}
+                                >
+                                  {ah.habit?.name}
                                 </p>
-                              )}
+                                {ah.habit?.description && (
+                                  <p className="text-xs text-muted-foreground">
+                                    {ah.habit.description}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs capitalize">
+                                {ah.frequency === "daily"
+                                  ? "Giornaliero"
+                                  : ah.frequency === "weekly"
+                                    ? "Settimanale"
+                                    : "Quando serve"}
+                              </Badge>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Rimuovi habit?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Questo habit verrà rimosso dall'atleta. Puoi sempre
+                                      riassegnarlo in futuro.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Annulla</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => removeHabitMutation.mutate(ah.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Rimuovi
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
                             </div>
                           </div>
-
-                          <div className="flex items-center gap-2">
-                            <Badge
-                              variant="outline"
-                              className="text-xs capitalize"
-                            >
-                              {ah.frequency === "daily"
-                                ? "Giornaliero"
-                                : ah.frequency === "weekly"
-                                  ? "Settimanale"
-                                  : "Quando serve"}
-                            </Badge>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8"
-                                >
-                                  <Trash2 className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>
-                                    Rimuovi habit?
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Questo habit verrà rimosso dall'atleta. Puoi
-                                    sempre riassegnarlo in futuro.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Annulla</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() =>
-                                      removeHabitMutation.mutate(ah.id)
-                                    }
-                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                  >
-                                    Rimuovi
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                },
+              )}
             </div>
           )}
         </CardContent>

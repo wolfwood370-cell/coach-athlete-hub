@@ -6,6 +6,7 @@ import { useProgramBuilderStore } from "@/stores/useProgramBuilderStore";
 import { toast } from "sonner";
 import type { ProgramData } from "@/components/coach/WeekGrid";
 import type { BlockSaveConfig } from "@/components/coach/SaveBlockDialog";
+import { log } from "@/lib/logger";
 
 export function useBlockTemplates() {
   const { user } = useAuth();
@@ -118,13 +119,13 @@ export function useBlockTemplates() {
         queryClient.invalidateQueries({ queryKey: ["block-templates"] });
         toast.success(`Template "${config.name}" salvato con successo`);
       } catch (error) {
-        console.error("Error saving block template:", error);
+        log.error("Error saving block template:", error);
         toast.error("Errore nel salvataggio del template");
       } finally {
         setIsSaving(false);
       }
     },
-    [user?.id, extractBlock, queryClient]
+    [user?.id, extractBlock, queryClient],
   );
 
   // Load a template and insert it into the program
@@ -141,7 +142,8 @@ export function useBlockTemplates() {
         // Fetch the complete template structure
         const { data: templateData, error: templateError } = await supabase
           .from("program_plans")
-          .select(`
+          .select(
+            `
             id,
             name,
             program_weeks (
@@ -172,7 +174,8 @@ export function useBlockTemplates() {
                 )
               )
             )
-          `)
+          `,
+          )
           .eq("id", templateId)
           .single();
 
@@ -225,15 +228,17 @@ export function useBlockTemplates() {
         // Insert the block into the program
         insertBlock(blockData, insertAtWeek);
 
-        toast.success(`Template "${templateData.name}" caricato alla settimana ${insertAtWeek + 1}`);
+        toast.success(
+          `Template "${templateData.name}" caricato alla settimana ${insertAtWeek + 1}`,
+        );
       } catch (error) {
-        console.error("Error loading block template:", error);
+        log.error("Error loading block template:", error);
         toast.error("Errore nel caricamento del template");
       } finally {
         setIsLoading(false);
       }
     },
-    [user?.id, insertBlock]
+    [user?.id, insertBlock],
   );
 
   return {

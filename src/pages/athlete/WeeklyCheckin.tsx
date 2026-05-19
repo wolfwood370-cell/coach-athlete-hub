@@ -27,6 +27,7 @@ import { useNavigate } from "react-router-dom";
 import { X, Camera, CheckCircle2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { log } from "@/lib/logger";
 
 // -----------------------------------------------------------------------------
 // Tunables
@@ -58,7 +59,7 @@ export default function WeeklyCheckin() {
   const handleSubmit = () => {
     // Payload shape mirrors what the Supabase insert will need next phase.
     // eslint-disable-next-line no-console
-    console.info("[WeeklyCheckin] payload preview", {
+    log.info("[WeeklyCheckin] payload preview", {
       narrative: narrative.trim(),
       photoSelected,
     });
@@ -116,8 +117,8 @@ export default function WeeklyCheckin() {
             Com'è andata questa settimana?
           </h2>
           <p className="mt-2 text-sm text-on-surface-variant">
-            Allenamenti, energia, sonno, recupero. Anche una foto di progresso,
-            se vuoi. Il tuo coach legge tutto.
+            Allenamenti, energia, sonno, recupero. Anche una foto di progresso, se vuoi. Il tuo
+            coach legge tutto.
           </p>
         </section>
 
@@ -165,9 +166,7 @@ export default function WeeklyCheckin() {
                 {photoSelected ? "Foto aggiunta" : "Aggiungi foto progresso"}
               </p>
               <p className="mt-1 text-xs text-on-surface-variant">
-                {photoSelected
-                  ? "Tocca per rimuovere"
-                  : "Opzionale · JPG, PNG"}
+                {photoSelected ? "Tocca per rimuovere" : "Opzionale · JPG, PNG"}
               </p>
             </div>
           </button>
@@ -192,9 +191,7 @@ export default function WeeklyCheckin() {
           <textarea
             id="weekly-narrative"
             value={narrative}
-            onChange={(e) =>
-              setNarrative(e.target.value.slice(0, NARRATIVE_MAX_LEN))
-            }
+            onChange={(e) => setNarrative(e.target.value.slice(0, NARRATIVE_MAX_LEN))}
             maxLength={NARRATIVE_MAX_LEN}
             placeholder="Allenamenti, sensazioni, sonno, energia, recupero. Scrivi quanto vuoi — il tuo coach legge tutto."
             rows={8}

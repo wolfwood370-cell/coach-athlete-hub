@@ -35,6 +35,7 @@ import {
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
+import { log } from "@/lib/logger";
 
 // -----------------------------------------------------------------------------
 // Action row definition. id is used only for keys + the "coming soon" toast
@@ -69,7 +70,7 @@ export default function AthleteProfile() {
       // manually here.
       await signOut();
     } catch (err) {
-      console.error("[AthleteProfile] signOut failed", err);
+      log.error("[AthleteProfile] signOut failed", err);
       toast.error("Logout non riuscito. Riprova.");
       setIsLoggingOut(false);
     }
@@ -144,11 +145,7 @@ export default function AthleteProfile() {
           <p className="font-display text-xl font-bold tracking-tight text-on-surface">
             {displayName}
           </p>
-          {email ? (
-            <p className="mt-1 text-sm text-on-surface-variant break-all">
-              {email}
-            </p>
-          ) : null}
+          {email ? <p className="mt-1 text-sm text-on-surface-variant break-all">{email}</p> : null}
         </div>
       </section>
 
@@ -183,10 +180,7 @@ export default function AthleteProfile() {
                     "flex items-center justify-center",
                   )}
                 >
-                  <Icon
-                    className="h-5 w-5 text-brand-container"
-                    strokeWidth={1.75}
-                  />
+                  <Icon className="h-5 w-5 text-brand-container" strokeWidth={1.75} />
                 </span>
                 <span className="flex-1 font-display text-base font-semibold text-on-surface">
                   {label}
