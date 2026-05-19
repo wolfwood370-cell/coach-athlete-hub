@@ -22,11 +22,23 @@ export default function CoachMessages() {
   const [showContext, setShowContext] = useState(false);
   const [newChatOpen, setNewChatOpen] = useState(false);
   const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  // Holds the id of a freshly-created room while we wait for the
+  // `useChatRooms` query to refetch and surface it. A dedicated effect
+  // (below) consumes this id once the matching room arrives in `rooms`
+  // and selects it — replaces the previous `setTimeout(500)` hack which
+  // was fragile on slow networks.
+  const [pendingRoomId, setPendingRoomId] = useState<string | null>(null);
 
   // Parse alert context from URL
   const alertContextParam = searchParams.get("alertContext");
   const alertContext = alertContextParam
-    ? (() => { try { return JSON.parse(decodeURIComponent(alertContextParam)); } catch { return null; } })()
+    ? (() => {
+        try {
+          return JSON.parse(decodeURIComponent(alertContextParam));
+        } catch {
+          return null;
+        }
+      })()
     : null;
 
   // Auto-select room from URL param
@@ -51,12 +63,26 @@ export default function CoachMessages() {
   // Update selected room when rooms change (to get fresh data)
   useEffect(() => {
     if (selectedRoom) {
-      const updated = rooms.find(r => r.id === selectedRoom.id);
+      const updated = rooms.find((r) => r.id === selectedRoom.id);
       if (updated && updated !== selectedRoom) {
         setSelectedRoom(updated);
       }
     }
   }, [rooms, selectedRoom]);
+
+  // Consume the pending room id once the rooms query surfaces a matching
+  // entry. Auto-selects + marks as read + collapses the list on mobile.
+  // Replaces the setTimeout(500) timing hack: the effect fires as soon
+  // as the data is actually there, not on a guessed delay.
+  useEffect(() => {
+    if (!pendingRoomId || rooms.length === 0) return;
+    const room = rooms.find((r) => r.id === pendingRoomId);
+    if (!room) return;
+    setSelectedRoom(room);
+    markRoomAsRead.mutate(room.id);
+    if (isMobile) setShowRoomList(false);
+    setPendingRoomId(null);
+  }, [pendingRoomId, rooms, markRoomAsRead, isMobile]);
 
   const handleSelectRoom = (room: ChatRoom) => {
     setSelectedRoom(room);
@@ -82,17 +108,11 @@ export default function CoachMessages() {
     try {
       const roomId = await getOrCreateDirectRoom.mutateAsync(athleteId);
       setNewChatOpen(false);
-      
-      // Find and select the room
-      setTimeout(() => {
-        const room = rooms.find(r => r.id === roomId);
-        if (room) {
-          handleSelectRoom(room);
-        }
-      }, 500);
-      
+      // Stash the new room id; the useEffect above selects it the
+      // moment the rooms query surfaces it. No timing assumption.
+      setPendingRoomId(roomId);
       toast.success("Conversazione pronta");
-    } catch (error) {
+    } catch {
       toast.error("Errore nella creazione della chat");
     } finally {
       setIsCreatingRoom(false);
@@ -105,7 +125,7 @@ export default function CoachMessages() {
         {/* 3-Pane Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 h-full rounded-lg overflow-hidden border bg-card">
           {/* Left Pane: Room List (25% on desktop) */}
-          <div className={`lg:col-span-3 h-full ${isMobile && !showRoomList ? 'hidden' : ''}`}>
+          <div className={`lg:col-span-3 h-full ${isMobile && !showRoomList ? "hidden" : ""}`}>
             <RoomList
               rooms={rooms}
               isLoading={isLoading}
@@ -116,7 +136,7 @@ export default function CoachMessages() {
           </div>
 
           {/* Center Pane: Chat Interface (50% on desktop) */}
-          <div className={`lg:col-span-5 h-full ${isMobile && showRoomList ? 'hidden' : ''}`}>
+          <div className={`lg:col-span-5 h-full ${isMobile && showRoomList ? "hidden" : ""}`}>
             <ChatPane
               room={selectedRoom}
               onBack={handleBack}
@@ -140,8 +160,10 @@ export default function CoachMessages() {
         {isMobile && (
           <>
             {showContext && (
-              <div
-                className="fixed inset-0 bg-black/50 z-40"
+              <button
+                type="button"
+                aria-label="Chiudi pannello contesto"
+                className="fixed inset-0 bg-black/50 z-40 cursor-default"
                 onClick={() => setShowContext(false)}
               />
             )}
