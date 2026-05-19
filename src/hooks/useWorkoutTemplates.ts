@@ -32,7 +32,7 @@ export function useWorkoutTemplates() {
     queryKey: ["workout-templates", user?.id],
     queryFn: async () => {
       if (!user?.id) return [];
-      
+
       const { data, error } = await supabase
         .from("workout_templates")
         .select("*")
@@ -40,7 +40,7 @@ export function useWorkoutTemplates() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      
+
       return (data || []).map((t) => ({
         ...t,
         structure: (t.structure as unknown as ProgramExercise[]) || [],
@@ -84,7 +84,7 @@ export function useWorkoutTemplates() {
           coach_id: user.id,
           name: input.name,
           description: input.description || null,
-          structure: cleanedStructure as unknown as Json,
+          structure: cleanedStructure as Json,
           tags: input.tags || [],
         })
         .select()
@@ -105,10 +105,7 @@ export function useWorkoutTemplates() {
   // Delete template
   const deleteMutation = useMutation({
     mutationFn: async (templateId: string) => {
-      const { error } = await supabase
-        .from("workout_templates")
-        .delete()
-        .eq("id", templateId);
+      const { error } = await supabase.from("workout_templates").delete().eq("id", templateId);
 
       if (error) throw error;
     },

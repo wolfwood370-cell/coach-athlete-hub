@@ -275,6 +275,9 @@ export default function CoachSettings() {
           logo_url: logoUrl,
           brand_color: brandColor,
           bio: bio || null,
+          // The two casts below stay as `as unknown as Json` because
+          // SocialLinks/Preferences are typed records without an index
+          // signature — TS rejects the direct `as Json`.
           social_links: socialLinks as unknown as Json,
           preferences: preferences as unknown as Json,
         })

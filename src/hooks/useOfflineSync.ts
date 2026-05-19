@@ -189,6 +189,9 @@ async function syncWorkoutLog(payload: WorkoutLogPayload): Promise<void> {
         : payload.notes,
       local_id: payload.local_id,
       sync_status: "synced",
+      // `WorkoutExercise[]` has named fields without a Json-compatible
+      // index signature — the double cast is required even though the
+      // runtime payload is plain JSON-serialisable.
       exercises_data: payload.exercises as unknown as Json,
     })
     .select("id")
@@ -202,7 +205,7 @@ async function syncWorkoutLog(payload: WorkoutLogPayload): Promise<void> {
       workout_log_id: workoutLog.id,
       exercise_name: ex.exercise_name,
       exercise_order: ex.exercise_order ?? index,
-      sets_data: ex.sets_data as unknown as Json,
+      sets_data: ex.sets_data as Json,
       notes: ex.notes ?? null,
     }));
 

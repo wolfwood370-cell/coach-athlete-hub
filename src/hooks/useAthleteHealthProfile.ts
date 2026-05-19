@@ -1,19 +1,19 @@
-import { useQuery } from"@tanstack/react-query";
-import { supabase } from"@/integrations/supabase/client";
-import { format, subDays } from"date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { format, subDays } from "date-fns";
 // Note: FMS test rows have ~20 dynamic columns (`*_l`, `*_r`, single-side).
 // We dynamically index them via a `Record` cast below — typed via supabase
 // generated types where applicable.
 
 // FMS test configuration
 const FMS_TEST_CONFIG = {
-  deep_squat: { name:"Deep Squat", bodyArea:"Lower Body"},
-  hurdle_step: { name:"Hurdle Step", bodyArea:"Hip/Knee", bilateral: true },
-  inline_lunge: { name:"Inline Lunge", bodyArea:"Hip Stability", bilateral: true },
-  shoulder_mobility: { name:"Shoulder Mobility", bodyArea:"Shoulder", bilateral: true },
-  active_straight_leg: { name:"Active Straight Leg", bodyArea:"Hamstring/Hip", bilateral: true },
-  trunk_stability: { name:"Trunk Stability", bodyArea:"Core"},
-  rotary_stability: { name:"Rotary Stability", bodyArea:"Core Rotation", bilateral: true },
+  deep_squat: { name: "Deep Squat", bodyArea: "Lower Body" },
+  hurdle_step: { name: "Hurdle Step", bodyArea: "Hip/Knee", bilateral: true },
+  inline_lunge: { name: "Inline Lunge", bodyArea: "Hip Stability", bilateral: true },
+  shoulder_mobility: { name: "Shoulder Mobility", bodyArea: "Shoulder", bilateral: true },
+  active_straight_leg: { name: "Active Straight Leg", bodyArea: "Hamstring/Hip", bilateral: true },
+  trunk_stability: { name: "Trunk Stability", bodyArea: "Core" },
+  rotary_stability: { name: "Rotary Stability", bodyArea: "Core Rotation", bilateral: true },
 } as const;
 
 export type FmsTestKey = keyof typeof FMS_TEST_CONFIG;
@@ -26,7 +26,7 @@ export interface FmsScore {
   rightScore: number | null;
   score: number | null; // For bilateral tests
   minScore: number;
-  status:"optimal"|"limited"|"dysfunctional"|"pain";
+  status: "optimal" | "limited" | "dysfunctional" | "pain";
 }
 
 export interface ActiveInjury {
@@ -43,7 +43,7 @@ export interface RecentPainReport {
   sorenessMap: Record<string, number>;
 }
 
-export type HealthStatus ="green"|"yellow"|"red";
+export type HealthStatus = "green" | "yellow" | "red";
 
 export interface HealthSummary {
   status: HealthStatus;
@@ -71,18 +71,22 @@ export interface AthleteHealthProfile {
 }
 
 function getScoreStatus(score: number): FmsScore["status"] {
-  if (score === 0) return"pain";
-  if (score === 1) return"dysfunctional";
-  if (score === 2) return"limited";
-  return"optimal";
+  if (score === 0) return "pain";
+  if (score === 1) return "dysfunctional";
+  if (score === 2) return "limited";
+  return "optimal";
 }
 
 function getStatusLabel(status: FmsScore["status"]): string {
   switch (status) {
-    case"pain": return"Dolore";
-    case"dysfunctional": return"Disfunzionale";
-    case"limited": return"Limitato";
-    case"optimal": return"Ottimale";
+    case "pain":
+      return "Dolore";
+    case "dysfunctional":
+      return "Disfunzionale";
+    case "limited":
+      return "Limitato";
+    case "optimal":
+      return "Ottimale";
   }
 }
 
@@ -106,36 +110,32 @@ export function useAthleteHealthProfile(athleteId: string | null) {
           .order("test_date", { ascending: false })
           .limit(1)
           .maybeSingle(),
-        
+
         // Active injuries (not healed)
         supabase
           .from("injuries")
           .select("*")
           .eq("athlete_id", athleteId)
-          .neq("status","healed")
+          .neq("status", "healed")
           .order("injury_date", { ascending: false }),
-        
+
         // Recent readiness with pain (last 7 days)
         supabase
           .from("daily_readiness")
           .select("date, has_pain, soreness_map")
           .eq("athlete_id", athleteId)
-          .gte("date", format(subDays(new Date(), 7),"yyyy-MM-dd"))
+          .gte("date", format(subDays(new Date(), 7), "yyyy-MM-dd"))
           .order("date", { ascending: false }),
-        
+
         // Athlete profile
-        supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("id", athleteId)
-          .maybeSingle(),
+        supabase.from("profiles").select("full_name").eq("id", athleteId).maybeSingle(),
       ]);
 
       if (fmsResult.error) throw fmsResult.error;
       if (injuriesResult.error) throw injuriesResult.error;
       if (readinessResult.error) throw readinessResult.error;
 
-      const athleteName = profileResult.data?.full_name ||"Atleta";
+      const athleteName = profileResult.data?.full_name || "Atleta";
       const fmsData = fmsResult.data;
       const injuries = injuriesResult.data || [];
       const readinessData = readinessResult.data || [];
@@ -148,15 +148,19 @@ export function useAthleteHealthProfile(athleteId: string | null) {
         // Process each test
         for (const [key, config] of Object.entries(FMS_TEST_CONFIG)) {
           const testKey = key as FmsTestKey;
-          
-          if ("bilateral"in config && config.bilateral) {
+
+          if ("bilateral" in config && config.bilateral) {
             // Bilateral test — read both sides via typed dynamic key access
+            // fmsData has named columns (no index signature) but we read it
+            // dynamically via `${testKey}_l/r`. Double cast through `unknown`
+            // is the only way TS allows the narrowing — code smell stays.
             const fms = fmsData as unknown as Record<string, number | null | undefined>;
             const leftScore = (fms[`${testKey}_l`] ?? null) as number | null;
             const rightScore = (fms[`${testKey}_r`] ?? null) as number | null;
-            const minScore = leftScore !== null && rightScore !== null
-              ? Math.min(leftScore, rightScore)
-              : leftScore ?? rightScore ?? 0;
+            const minScore =
+              leftScore !== null && rightScore !== null
+                ? Math.min(leftScore, rightScore)
+                : (leftScore ?? rightScore ?? 0);
 
             fmsTotalScore += minScore;
 
@@ -172,11 +176,14 @@ export function useAthleteHealthProfile(athleteId: string | null) {
             });
           } else {
             // Unilateral test
+            // fmsData has named columns (no index signature) but we read it
+            // dynamically via `${testKey}_l/r`. Double cast through `unknown`
+            // is the only way TS allows the narrowing — code smell stays.
             const fms = fmsData as unknown as Record<string, number | null | undefined>;
             const score = (fms[testKey] ?? null) as number | null;
             const scoreValue = score ?? 0;
             fmsTotalScore += scoreValue;
-            
+
             fmsScores.push({
               testKey,
               testName: config.name,
@@ -192,10 +199,12 @@ export function useAthleteHealthProfile(athleteId: string | null) {
       }
 
       // Check for FMS red flags (score <= 1)
-      const hasFmsRedFlags = fmsScores.some(s => s.status ==="pain"|| s.status ==="dysfunctional");
+      const hasFmsRedFlags = fmsScores.some(
+        (s) => s.status === "pain" || s.status === "dysfunctional",
+      );
 
       // Process active injuries
-      const activeInjuries: ActiveInjury[] = injuries.map(injury => ({
+      const activeInjuries: ActiveInjury[] = injuries.map((injury) => ({
         id: injury.id,
         bodyZone: injury.body_zone,
         description: injury.description,
@@ -204,13 +213,13 @@ export function useAthleteHealthProfile(athleteId: string | null) {
       }));
 
       // Process recent pain reports
-      const recentPainReports: RecentPainReport[] = readinessData.map(r => ({
+      const recentPainReports: RecentPainReport[] = readinessData.map((r) => ({
         date: r.date,
         hasPain: r.has_pain || false,
         sorenessMap: (r.soreness_map as Record<string, number>) || {},
       }));
 
-      const hasRecentPain = recentPainReports.some(r => r.hasPain);
+      const hasRecentPain = recentPainReports.some((r) => r.hasPain);
 
       // Generate summary
       const summary = generateHealthSummary({
@@ -257,61 +266,67 @@ function generateHealthSummary({
   fmsTestDate: string | null;
 }): HealthSummary {
   const details: string[] = [];
-  
+
   // Determine status
-  let status: HealthStatus ="green";
-  
+  let status: HealthStatus = "green";
+
   // Check for active injuries - highest priority
-  const criticalInjuries = activeInjuries.filter(i => i.status ==="in_rehab");
+  const criticalInjuries = activeInjuries.filter((i) => i.status === "in_rehab");
   if (criticalInjuries.length > 0) {
-    status ="red";
-    criticalInjuries.forEach(injury => {
-      details.push(`INFORTUNIO ATTIVO: ${injury.bodyZone}${injury.description ?`- ${injury.description}`:""}`);
+    status = "red";
+    criticalInjuries.forEach((injury) => {
+      details.push(
+        `INFORTUNIO ATTIVO: ${injury.bodyZone}${injury.description ? `- ${injury.description}` : ""}`,
+      );
     });
   }
 
   // Check for recent pain
   if (hasRecentPain) {
-    const painDays = recentPainReports.filter(r => r.hasPain);
+    const painDays = recentPainReports.filter((r) => r.hasPain);
     if (painDays.length > 0) {
-      if (status !=="red") status ="red";
+      if (status !== "red") status = "red";
       details.push(`Dolore riportato negli ultimi ${painDays.length} giorni`);
     }
   }
 
   // Check FMS red flags
-  const painTests = fmsScores.filter(s => s.status ==="pain");
-  const dysfunctionalTests = fmsScores.filter(s => s.status ==="dysfunctional");
-  const limitedTests = fmsScores.filter(s => s.status ==="limited");
+  const painTests = fmsScores.filter((s) => s.status === "pain");
+  const dysfunctionalTests = fmsScores.filter((s) => s.status === "dysfunctional");
+  const limitedTests = fmsScores.filter((s) => s.status === "limited");
 
   if (painTests.length > 0) {
-    if (status !=="red") status ="red";
-    painTests.forEach(test => {
+    if (status !== "red") status = "red";
+    painTests.forEach((test) => {
       details.push(`FMS Dolore: ${test.testName} (${test.bodyArea})`);
     });
   }
 
   if (dysfunctionalTests.length > 0) {
-    if (status ==="green") status ="yellow";
-    dysfunctionalTests.forEach(test => {
-      const sideInfo = test.leftScore !== null && test.rightScore !== null
-        ?`[Sx: ${test.leftScore}, Dx: ${test.rightScore}]`        :"";
+    if (status === "green") status = "yellow";
+    dysfunctionalTests.forEach((test) => {
+      const sideInfo =
+        test.leftScore !== null && test.rightScore !== null
+          ? `[Sx: ${test.leftScore}, Dx: ${test.rightScore}]`
+          : "";
       details.push(`FMS Disfunzionale: ${test.testName}${sideInfo}`);
     });
   }
 
-  if (limitedTests.length > 0 && status ==="green") {
-    status ="yellow";
-    limitedTests.forEach(test => {
+  if (limitedTests.length > 0 && status === "green") {
+    status = "yellow";
+    limitedTests.forEach((test) => {
       details.push(`ℹ FMS Limitato: ${test.testName} (Score: ${test.minScore}/3)`);
     });
   }
 
   // Watchlist injuries
-  const watchlistInjuries = activeInjuries.filter(i => i.status ==="monitoring"|| i.status ==="recovered");
-  if (watchlistInjuries.length > 0 && status ==="green") {
-    status ="yellow";
-    watchlistInjuries.forEach(injury => {
+  const watchlistInjuries = activeInjuries.filter(
+    (i) => i.status === "monitoring" || i.status === "recovered",
+  );
+  if (watchlistInjuries.length > 0 && status === "green") {
+    status = "yellow";
+    watchlistInjuries.forEach((injury) => {
       details.push(`In osservazione: ${injury.bodyZone}`);
     });
   }
@@ -321,21 +336,21 @@ function generateHealthSummary({
   let description: string;
 
   switch (status) {
-    case"red":
-      title ="ATTENZIONE RICHIESTA";
-      description ="Limitazioni attive che richiedono adattamenti al programma";
+    case "red":
+      title = "ATTENZIONE RICHIESTA";
+      description = "Limitazioni attive che richiedono adattamenti al programma";
       break;
-    case"yellow":
-      title ="Watchlist Attiva";
-      description ="Alcune aree richiedono attenzione durante la programmazione";
+    case "yellow":
+      title = "Watchlist Attiva";
+      description = "Alcune aree richiedono attenzione durante la programmazione";
       break;
-    case"green":
-      title ="Nessuna Restrizione";
+    case "green":
+      title = "Nessuna Restrizione";
       if (!fmsTestDate) {
-        description ="Nessun test FMS registrato. Considera di eseguire una valutazione.";
+        description = "Nessun test FMS registrato. Considera di eseguire una valutazione.";
         details.push("ℹ Test FMS non ancora eseguito");
       } else {
-        description ="FMS completato - Nessun infortunio recente";
+        description = "FMS completato - Nessun infortunio recente";
       }
       break;
   }

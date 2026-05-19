@@ -29,7 +29,8 @@ export function useAthleteVbtData(athleteId: string | undefined, exerciseFilter?
 
       const query = supabase
         .from("workout_exercises")
-        .select(`
+        .select(
+          `
           id,
           exercise_name,
           mean_velocity_ms,
@@ -42,7 +43,8 @@ export function useAthleteVbtData(athleteId: string | undefined, exerciseFilter?
             completed_at,
             athlete_id
           )
-        `)
+        `,
+        )
         .eq("workout_logs.athlete_id", athleteId)
         .not("mean_velocity_ms", "is", null)
         .order("created_at", { ascending: true });
@@ -53,7 +55,9 @@ export function useAthleteVbtData(athleteId: string | undefined, exerciseFilter?
       const points: VbtDataPoint[] = [];
 
       data?.forEach((row) => {
-        const log = row.workout_logs as unknown as { completed_at: string | null };
+        // Nested-relation alias collapses Supabase's typing — narrow
+        // it to the shape we actually consume.
+        const log = row.workout_logs as { completed_at: string | null } | null;
         if (!log?.completed_at) return;
 
         const sets = row.sets_data as SetData[] | null;
@@ -70,12 +74,17 @@ export function useAthleteVbtData(athleteId: string | undefined, exerciseFilter?
         if (meanV <= 0) return;
 
         // Filter by exercise if specified
-        if (exerciseFilter && !row.exercise_name.toLowerCase().includes(exerciseFilter.toLowerCase())) {
+        if (
+          exerciseFilter &&
+          !row.exercise_name.toLowerCase().includes(exerciseFilter.toLowerCase())
+        ) {
           return;
         }
 
         const date = new Date(log.completed_at);
-        const reps = Array.isArray(sets) ? sets.reduce((sum, s) => sum + (Number(s.reps) || 0), 0) : 0;
+        const reps = Array.isArray(sets)
+          ? sets.reduce((sum, s) => sum + (Number(s.reps) || 0), 0)
+          : 0;
         const est1RM = bestWeight > 0 && reps > 0 ? bestWeight * (1 + 0.0333 * reps) : bestWeight;
 
         points.push({
@@ -107,10 +116,12 @@ export function useAthleteVbtExercises(athleteId: string | undefined) {
 
       const { data, error } = await supabase
         .from("workout_exercises")
-        .select(`
+        .select(
+          `
           exercise_name,
           workout_logs!inner (athlete_id)
-        `)
+        `,
+        )
         .eq("workout_logs.athlete_id", athleteId)
         .not("mean_velocity_ms", "is", null);
 
