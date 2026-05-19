@@ -55,13 +55,13 @@ Sessione di cleanup eseguita sul branch `claude/flamboyant-hertz-937c2d`. Lo sta
 
 ### Tabella riassuntiva post-sessione
 
-| Severità        | Chiusi ✅                                                                      | Parziali 🟡   | Pendenti ❌ |
-| --------------- | ------------------------------------------------------------------------------ | ------------- | ----------- |
-| 🔴 Critical (4) | **C1, C2, C4**                                                                 | —             | C3          |
-| 🟡 Medium (13)  | **M1, M2, M4, M5, M6, M7, M8, M9, M10, M11, M12, M13** (de-facto chiuso da C2) | M3 (1/6 zone) | —           |
-| 🔵 Low (9)      | **B1, B2, B3, B4, B5, B6, B7, B8, B9**                                         | —             | —           |
+| Severità        | Chiusi ✅                                                                      | Parziali 🟡           | Pendenti ❌ |
+| --------------- | ------------------------------------------------------------------------------ | --------------------- | ----------- |
+| 🔴 Critical (4) | **C1, C2, C4**                                                                 | C3 (1/8 tab estratti) | —           |
+| 🟡 Medium (13)  | **M1, M2, M4, M5, M6, M7, M8, M9, M10, M11, M12, M13** (de-facto chiuso da C2) | M3 (1/6 zone)         | —           |
+| 🔵 Low (9)      | **B1, B2, B3, B4, B5, B6, B7, B8, B9**                                         | —                     | —           |
 
-**Totale**: **24/26 finding completamente chiusi (92%)**, 1 parziale, 1 pendente.
+**Totale**: **24/26 finding completamente chiusi (92%)**, 2 parziali (M3, C3), 0 pendenti.
 
 ### Mappa commit → finding
 
@@ -143,7 +143,7 @@ Sessione di cleanup eseguita sul branch `claude/flamboyant-hertz-937c2d`. Lo sta
   - Profile prop dovrebbe usare `Tables<"profiles">` o un subset esplicito.
   - `onError: (error: Error)` (o `PostgrestError` se da Supabase mutation).
 
-### C3. ❌ `AthleteDetail.tsx` da 4037 righe è ingestibile _(pendente — refactor multi-PR)_
+### C3. 🟡 `AthleteDetail.tsx` da 4037 righe è ingestibile _(parziale — primo tab estratto in `src/pages/coach/athlete-detail/OverviewTab.tsx`; file principale 4037→3439 righe (-15%); pattern stabilito per i prossimi PR del refactor)_
 
 - **Dove**: [`src/pages/coach/AthleteDetail.tsx`](src/pages/coach/AthleteDetail.tsx) — `wc -l` ritorna 4037 righe in un singolo file.
 - **Impatto**:
