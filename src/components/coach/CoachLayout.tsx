@@ -97,7 +97,10 @@ export function CoachLayout({ children, title, subtitle }: CoachLayoutProps) {
   return (
     <div className="theme-coach">
       <SidebarProvider defaultOpen={true}>
-        <div className="min-h-screen flex w-full bg-slate-50 dark:bg-slate-950">
+        {/* Aura Health System — base surface from the design tokens
+            (no more hardcoded bg-slate-50). Dark variant inherits via
+            the same CSS vars. */}
+        <div className="min-h-screen flex w-full bg-background">
           {/* Sidebar - desktop only */}
           <div className="hidden md:flex">
             <CoachSidebar />
@@ -106,9 +109,11 @@ export function CoachLayout({ children, title, subtitle }: CoachLayoutProps) {
           <div className="flex-1 flex flex-col min-w-0">
             <CoachHeader title={title} subtitle={subtitle} />
 
-            {/* Main Content */}
+            {/* Main Content — also pinned to the Aura surface (no more
+                bg-slate-* override). pb-20 keeps clearance for the bottom
+                nav on mobile (handled by safe-area inset below). */}
             <main
-              className="flex-1 overflow-auto p-4 lg:p-6 bg-slate-50 dark:bg-slate-950 pb-20 md:pb-6"
+              className="flex-1 overflow-auto p-4 lg:p-6 bg-background pb-20 md:pb-6"
               style={{ paddingBottom: "calc(5rem + env(safe-area-inset-bottom))" }}
             >
               {/* Page Header - Desktop */}

@@ -123,9 +123,12 @@ const getSeverityStyles = (severity: AlertSeverity) => {
   }
 };
 
-/* ── Glassmorphism card wrapper ── */
+/* ── Aura Health System — Glassmorphism card wrapper (DESIGN.md L1+L2)
+   Forced surface tokens (no more bg-white/slate hardcoded). rounded-3xl
+   matches the Cards 24–32px rule. The wide ambient shadow is inlined
+   so no Tailwind preset can override it. */
 const glass =
-  "bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/50 shadow-sm shadow-sky-900/5 rounded-2xl";
+  "bg-surface-container-lowest/70 dark:bg-surface-container/70 backdrop-blur-xl border border-outline-variant/20 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-3xl";
 
 export default function CoachHome() {
   const navigate = useNavigate();
@@ -393,7 +396,7 @@ export default function CoachHome() {
                               key={item.id}
                               role="button"
                               tabIndex={0}
-                              className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                              className="flex items-center gap-3 px-5 py-3 hover:bg-secondary/30 transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                               onClick={goToAthlete}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === " ") {
@@ -482,7 +485,7 @@ export default function CoachHome() {
                               key={w.id}
                               role="button"
                               tabIndex={0}
-                              className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-slate-50/80 dark:hover:bg-slate-800/30 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                              className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-secondary/30 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                               onClick={goToAthlete}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === " ") {
@@ -548,7 +551,7 @@ export default function CoachHome() {
                             role="button"
                             tabIndex={0}
                             aria-label={`Vedi tutti i ${healthyAthletes.length} atleti`}
-                            className="h-9 w-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-medium text-slate-500 cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                            className="h-9 w-9 rounded-full bg-secondary flex items-center justify-center text-xs font-medium text-on-surface-variant cursor-pointer hover:bg-secondary/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                             onClick={() => navigate("/coach/athletes")}
                             onKeyDown={(e) => {
                               if (e.key === "Enter" || e.key === " ") {
@@ -590,7 +593,7 @@ export default function CoachHome() {
                               key={a.id}
                               role="button"
                               tabIndex={0}
-                              className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700/50 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                              className="flex items-center gap-1.5 px-2 py-1.5 rounded-2xl bg-secondary/40 hover:bg-secondary/60 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                               onClick={goToAthlete}
                               onKeyDown={(e) => {
                                 if (e.key === "Enter" || e.key === " ") {
@@ -601,7 +604,7 @@ export default function CoachHome() {
                             >
                               <Avatar className="h-6 w-6">
                                 <AvatarImage src={a.avatarUrl || undefined} />
-                                <AvatarFallback className="text-4xs bg-slate-200 dark:bg-slate-700 text-slate-500">
+                                <AvatarFallback className="text-4xs bg-secondary text-on-surface-variant">
                                   {a.avatarInitials}
                                 </AvatarFallback>
                               </Avatar>
@@ -658,7 +661,9 @@ function KpiCard({
   return (
     <div
       className={cn(
-        "bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/50 rounded-2xl p-4 shadow-sm shadow-sky-900/5 hover-lift",
+        // Aura: forced surface + outline-variant border + ambient soft shadow.
+        // rounded-3xl moves the metric card into the proper Aura "Cards" band.
+        "bg-surface-container-lowest/70 dark:bg-surface-container/70 backdrop-blur-xl border border-outline-variant/20 rounded-3xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover-lift",
       )}
     >
       <div
@@ -689,7 +694,7 @@ function AlertRow({ alert, onClick }: { alert: UrgentAlert; onClick: () => void 
     <div
       role="button"
       tabIndex={0}
-      className="flex items-center gap-4 px-5 py-4 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="flex items-center gap-4 px-5 py-4 hover:bg-secondary/30 transition-colors cursor-pointer group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
       onClick={onClick}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {

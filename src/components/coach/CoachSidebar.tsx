@@ -76,28 +76,32 @@ export function CoachSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      // Aura glass treatment on the sidebar shell — see DESIGN.md
-      // "Level 2 (Navigation & Modals)". The underlying shadcn Sidebar
-      // exposes `--sidebar-background`; we layer translucency + blur on
-      // top so the panel reads as a lifted glass surface, with a 1px
-      // outline-variant border at 20% opacity instead of the harsh
-      // default border.
+      // Aura Health System — Level 2 Glassmorphism (DESIGN.md).
+      // Forced rules:
+      //   - bg-background/80 — translucent base surface (Aura `--background`
+      //     === `surface` token); 80% alpha lets scrolled content show
+      //     through, reinforcing depth.
+      //   - backdrop-blur-xl — heavy blur per spec.
+      //   - border-r border-outline-variant/20 — soft 1px definition.
+      // The same overrides are pushed down to the shadcn child
+      // `[data-sidebar=sidebar]` so its solid `--sidebar-background`
+      // (legacy dark) never wins on the Aura surface.
       className={cn(
-        "border-r border-outline-variant/20 backdrop-blur-xl sidebar-transition",
-        "[&_[data-sidebar=sidebar]]:bg-sidebar/80 [&_[data-sidebar=sidebar]]:backdrop-blur-xl",
+        "bg-background/80 backdrop-blur-xl border-r border-outline-variant/20 sidebar-transition",
+        "[&_[data-sidebar=sidebar]]:bg-background/80 [&_[data-sidebar=sidebar]]:backdrop-blur-xl [&_[data-sidebar=sidebar]]:border-r-0",
         isCollapsed ? "w-16" : "w-64",
       )}
     >
       <SidebarHeader className="p-4">
         <div className="flex items-center justify-between">
           <div className={cn("flex items-center gap-3", isCollapsed && "justify-center w-full")}>
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg gradient-primary flex-shrink-0">
+            <div className="flex h-9 w-9 items-center justify-center rounded-2xl gradient-primary flex-shrink-0">
               <Zap className="h-5 w-5 text-white" />
             </div>
             {!isCollapsed && (
               <div className="overflow-hidden">
-                <h1 className="text-base font-semibold text-sidebar-foreground">FitCoach</h1>
-                <p className="text-xs text-sidebar-foreground/50">Piattaforma Pro</p>
+                <h1 className="text-base font-semibold text-foreground">FitCoach</h1>
+                <p className="text-xs text-on-surface-variant/70">Piattaforma Pro</p>
               </div>
             )}
           </div>
@@ -107,7 +111,7 @@ export function CoachSidebar() {
               size="icon"
               aria-label="Chiudi menu laterale"
               onClick={toggleSidebar}
-              className="h-8 w-8 text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent"
+              className="h-8 w-8 text-on-surface-variant/70 hover:text-foreground hover:bg-secondary"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
@@ -118,7 +122,7 @@ export function CoachSidebar() {
       <SidebarContent className="px-2">
         <SidebarGroup>
           {!isCollapsed && (
-            <SidebarGroupLabel className="text-sidebar-foreground/40 text-3xs uppercase tracking-widest font-medium px-3 mb-1">
+            <SidebarGroupLabel className="text-on-surface-variant/60 text-3xs uppercase tracking-widest font-medium px-3 mb-1">
               Menu Principale
             </SidebarGroupLabel>
           )}
@@ -133,10 +137,10 @@ export function CoachSidebar() {
                           to={item.url}
                           end={item.url === "/coach"}
                           className={cn(
-                            "flex items-center gap-3 px-3 py-2 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors",
+                            "flex items-center gap-3 px-3 py-2 rounded-2xl text-on-surface-variant hover:text-foreground hover:bg-secondary/50 transition-colors",
                             isCollapsed && "justify-center px-2",
                           )}
-                          activeClassName="bg-sidebar-accent text-sidebar-foreground font-medium"
+                          activeClassName="bg-secondary text-foreground font-medium"
                         >
                           <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
                           {!isCollapsed && <span className="text-sm">{item.title}</span>}
@@ -157,7 +161,7 @@ export function CoachSidebar() {
 
         <SidebarGroup className="mt-auto">
           {!isCollapsed && (
-            <SidebarGroupLabel className="text-sidebar-foreground/40 text-3xs uppercase tracking-widest font-medium px-3 mb-1">
+            <SidebarGroupLabel className="text-on-surface-variant/60 text-3xs uppercase tracking-widest font-medium px-3 mb-1">
               Sistema
             </SidebarGroupLabel>
           )}
@@ -171,10 +175,10 @@ export function CoachSidebar() {
                         <NavLink
                           to={item.url}
                           className={cn(
-                            "flex items-center gap-3 px-3 py-2 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors",
+                            "flex items-center gap-3 px-3 py-2 rounded-2xl text-on-surface-variant hover:text-foreground hover:bg-secondary/50 transition-colors",
                             isCollapsed && "justify-center px-2",
                           )}
-                          activeClassName="bg-sidebar-accent text-sidebar-foreground font-medium"
+                          activeClassName="bg-secondary text-foreground font-medium"
                         >
                           <item.icon className="h-[18px] w-[18px] flex-shrink-0" />
                           {!isCollapsed && <span className="text-sm">{item.title}</span>}
@@ -197,7 +201,7 @@ export function CoachSidebar() {
                         <SidebarMenuButton asChild>
                           <button
                             className={cn(
-                              "flex items-center gap-3 px-3 py-2 rounded-md text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors w-full",
+                              "flex items-center gap-3 px-3 py-2 rounded-2xl text-on-surface-variant hover:text-foreground hover:bg-secondary/50 transition-colors w-full",
                               isCollapsed && "justify-center px-2",
                             )}
                           >
@@ -223,14 +227,14 @@ export function CoachSidebar() {
       <SidebarFooter className={cn("p-3", isCollapsed && "p-2")}>
         <div
           className={cn(
-            "flex items-center gap-3 p-2 rounded-lg hover:bg-sidebar-accent/30 transition-colors cursor-pointer",
+            "flex items-center gap-3 p-2 rounded-2xl hover:bg-secondary/30 transition-colors cursor-pointer",
             isCollapsed && "justify-center p-1",
           )}
         >
           <Tooltip delayDuration={0}>
             <TooltipTrigger asChild>
-              <div className="h-8 w-8 rounded-full bg-sidebar-accent flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-medium text-sidebar-foreground">MC</span>
+              <div className="h-8 w-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-medium text-foreground">MC</span>
               </div>
             </TooltipTrigger>
             {isCollapsed && (
@@ -243,14 +247,14 @@ export function CoachSidebar() {
           {!isCollapsed && (
             <>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-sidebar-foreground truncate">Marco Coach</p>
-                <p className="text-xs text-sidebar-foreground/50 truncate">Piano Pro</p>
+                <p className="text-sm font-medium text-foreground truncate">Marco Coach</p>
+                <p className="text-xs text-on-surface-variant/70 truncate">Piano Pro</p>
               </div>
               <button
                 onClick={handleLogout}
                 title="Logout"
                 aria-label="Logout"
-                className="p-1.5 rounded-md hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors"
+                className="p-1.5 rounded-full hover:bg-secondary text-on-surface-variant/70 hover:text-foreground transition-colors"
               >
                 <LogOut className="h-4 w-4" />
               </button>

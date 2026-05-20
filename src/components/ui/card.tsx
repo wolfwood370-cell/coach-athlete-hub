@@ -19,8 +19,14 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
+      // Aura Health System — forced canonical look (DESIGN.md):
+      //   - rounded-3xl (32px) per il linguaggio organic "Cards"
+      //   - bg-surface-container-lowest (#ffffff token) — esplicito sulla
+      //     surface role, NON sul colore card che può variare nel theme
+      //   - border-outline-variant/20 — 1px soft definition senza dark border
+      //   - shadow ambient wide (esplicito inline per evitare override Tailwind)
       className={cn(
-        "rounded-3xl border border-outline-variant/20 bg-card text-card-foreground shadow-aura transition-shadow",
+        "rounded-3xl border border-outline-variant/20 bg-surface-container-lowest text-card-foreground shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-shadow",
         className,
       )}
       {...props}

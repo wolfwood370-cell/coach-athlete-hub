@@ -105,7 +105,11 @@ export default {
         /* Aura Health System — Material 3 inspired surface roles.
            These map 1:1 to the CSS vars defined in `src/index.css`
            so components can reach them via `bg-surface-container`,
-           `border-outline-variant`, `text-on-surface-variant`, etc. */
+           `border-outline-variant`, `text-on-surface-variant`, etc.
+           Note: `bg-surface` (no suffix) is NOT mapped here because the
+           legacy athlete namespace `surface.{DEFAULT,variant,container}`
+           above would conflict. Use `bg-background` for the base Aura
+           surface — they're CSS-var-identical (`--background`). */
         outline: {
           DEFAULT: "var(--outline)",
           variant: "var(--outline-variant)",
