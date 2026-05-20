@@ -42,7 +42,10 @@ function CoachHeader({ title }: { title?: string; subtitle?: string }) {
   const isCollapsed = state === "collapsed";
 
   return (
-    <header className="h-14 border-b border-border/50 bg-background flex items-center justify-between px-4 lg:px-6">
+    // Aura Health System — Glassmorphism (DESIGN.md "Level 2: Navigation").
+    // Semi-transparent surface + backdrop blur so scrolled content stays
+    // visible underneath, reinforcing depth. Outline at 20% opacity per spec.
+    <header className="sticky top-0 z-30 h-14 border-b border-outline-variant/20 bg-background/80 backdrop-blur-xl flex items-center justify-between px-4 lg:px-6">
       <div className="flex items-center gap-3">
         {isCollapsed && (
           <Button

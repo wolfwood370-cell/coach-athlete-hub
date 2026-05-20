@@ -37,7 +37,10 @@ export function CoachBottomNav() {
       className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
-      <div className="absolute inset-0 bg-background/85 backdrop-blur-xl border-t border-border/50" />
+      {/* Aura Health System — Glassmorphism (DESIGN.md "Level 2: Navigation").
+          Translucent white + heavy backdrop-blur, outline-variant border
+          at 20% opacity for a soft edge against varied content underneath. */}
+      <div className="absolute inset-0 bg-background/80 backdrop-blur-xl border-t border-outline-variant/20" />
 
       <div className="relative flex items-center justify-around h-16 max-w-md mx-auto">
         {navItems.map((item) => (

@@ -76,7 +76,17 @@ export function CoachSidebar() {
   return (
     <Sidebar
       collapsible="icon"
-      className={cn("border-r-0 sidebar-transition", isCollapsed ? "w-16" : "w-64")}
+      // Aura glass treatment on the sidebar shell — see DESIGN.md
+      // "Level 2 (Navigation & Modals)". The underlying shadcn Sidebar
+      // exposes `--sidebar-background`; we layer translucency + blur on
+      // top so the panel reads as a lifted glass surface, with a 1px
+      // outline-variant border at 20% opacity instead of the harsh
+      // default border.
+      className={cn(
+        "border-r border-outline-variant/20 backdrop-blur-xl sidebar-transition",
+        "[&_[data-sidebar=sidebar]]:bg-sidebar/80 [&_[data-sidebar=sidebar]]:backdrop-blur-xl",
+        isCollapsed ? "w-16" : "w-64",
+      )}
     >
       <SidebarHeader className="p-4">
         <div className="flex items-center justify-between">
