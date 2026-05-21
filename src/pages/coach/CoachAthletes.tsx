@@ -1,32 +1,104 @@
+/**
+ * src/pages/coach/CoachAthletes.tsx
+ * ---------------------------------------------------------------------------
+ * Coach roster — Aura Health System desktop/iPad pattern.
+ *
+ * Page layout:
+ *   1. Canvas tint (bg-background = Aura surface #f5faff) inherits from
+ *      CoachLayout, blends with the sticky left sidebar.
+ *   2. Top Control Panel:
+ *      - Headline title (font-extrabold, text-[28px]) + count badge
+ *      - Search input rounded-xl with #c1c7d0 outline transitioning to
+ *        primary (#005685) + ambient outer glow on focus
+ *      - 5 filter pills rounded-full (Tutti / Attivi / In Onboarding /
+ *        Rehab Limitati / Sospesi)
+ *   3. Responsive grid: grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6
+ *
+ * Data binding:
+ *   - useAthletesRiskOverview → allAthletes (acwr, readiness, riskLevel,
+ *     riskFlags, etc.)
+ *   - Live-session subscription preserved (workout_logs realtime channel)
+ *   - Auth guard preserved
+ *
+ * Filter logic:
+ *   activeFilter ∈ "all" | "active" | "onboarding" | "rehab" | "suspended"
+ *   - all       → tutti
+ *   - active    → readiness entro 3 giorni (existing isActive heuristic)
+ *   - onboarding → mai check-in (readinessDate === null)
+ *   - rehab     → riskLevel high|moderate
+ *   - suspended → ultima readiness > 14 giorni fa
+ *
+ * AthleteCard mapping:
+ *   - acwrValue: trigger State Critical quando ACWR > 1.5
+ *   - readinessScore: scale 1-10 → 0-100 per la chip
+ *   - painMarkers: derivati dai riskFlags con label fisiologico
+ *   - missingOnboardingSteps: array vuoto per "onboarding" filter → AthleteCard renderizza Pending
+ */
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+
 import { CoachLayout } from "@/components/coach/CoachLayout";
+import { MetaHead } from "@/components/MetaHead";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { InviteAthleteDialog } from "@/components/coach/InviteAthleteDialog";
+import { AthleteCard } from "@/components/coach/AthleteCard";
+
 import { useAthletesRiskOverview } from "@/hooks/useAthletesRiskOverview";
 import { useAuth } from "@/hooks/useAuth";
-import { useNavigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Users, UserPlus, Search, LayoutGrid, List, ChevronRight, Radio } from "lucide-react";
-import { Input } from "@/components/ui/input";
+
+import { Users, UserPlus, Search, X, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatDistanceToNow } from "date-fns";
-import { it } from "date-fns/locale";
 
-type ViewMode = "grid" | "list";
+// ---------------------------------------------------------------------------
+// Filter model
+// ---------------------------------------------------------------------------
+type FilterKey = "all" | "active" | "onboarding" | "rehab" | "suspended";
 
+const FILTERS: Array<{ key: FilterKey; label: string }> = [
+  { key: "all", label: "Tutti" },
+  { key: "active", label: "Attivi" },
+  { key: "onboarding", label: "In Onboarding" },
+  { key: "rehab", label: "Rehab / Limitati" },
+  { key: "suspended", label: "Sospesi" },
+];
+
+// ---------------------------------------------------------------------------
+// Time-window helpers
+// ---------------------------------------------------------------------------
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function isWithinDays(date: string | null, days: number): boolean {
+  if (!date) return false;
+  return Date.now() - new Date(date).getTime() < days * DAY_MS;
+}
+
+function isOlderThanDays(date: string | null, days: number): boolean {
+  if (!date) return false;
+  return Date.now() - new Date(date).getTime() > days * DAY_MS;
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
 export default function CoachAthletes() {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { allAthletes, isLoading } = useAthletesRiskOverview();
-  const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
 
-  // Query for athletes with active (in_progress) workout sessions
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
+
+  // Auth guard
+  useEffect(() => {
+    if (!authLoading && !user) navigate("/auth");
+  }, [authLoading, user, navigate]);
+
+  // ── Live-session subscription (preserved) ───────────────────────────────
+  const queryClient = useQueryClient();
   const { data: liveAthleteIds = [] } = useQuery({
     queryKey: ["live-sessions", user?.id],
     queryFn: async () => {
@@ -46,8 +118,6 @@ export default function CoachAthletes() {
     refetchInterval: 30000,
   });
 
-  // Realtime: instantly update live status when any workout_log changes
-  const queryClient = useQueryClient();
   useEffect(() => {
     if (!user) return;
     const channel = supabase
@@ -61,319 +131,295 @@ export default function CoachAthletes() {
     };
   }, [user, queryClient]);
 
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate("/auth");
-    }
-  }, [authLoading, user, navigate]);
+  // ── Per-filter buckets (computed once, used both for counts and list) ───
+  const buckets = useMemo(() => {
+    const all = allAthletes;
+    const onboarding = all.filter((a) => a.readinessDate === null && a.latestReadiness === null);
+    const active = all.filter((a) => isWithinDays(a.readinessDate, 3));
+    const rehab = all.filter((a) => a.riskLevel === "high" || a.riskLevel === "moderate");
+    const suspended = all.filter((a) => isOlderThanDays(a.readinessDate, 14));
+    return { all, active, onboarding, rehab, suspended };
+  }, [allAthletes]);
 
-  // Filter athletes by search query
-  const filteredAthletes = allAthletes.filter((athlete) =>
-    athlete.athleteName.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  // Apply active filter + search query
+  const visible = useMemo(() => {
+    const list = buckets[activeFilter];
+    const q = searchQuery.trim().toLowerCase();
+    return q ? list.filter((a) => a.athleteName.toLowerCase().includes(q)) : list;
+  }, [buckets, activeFilter, searchQuery]);
 
-  const getLastActiveText = (date: string | null) => {
-    if (!date) return "Mai attivo";
-    try {
-      return formatDistanceToNow(new Date(date), {
-        addSuffix: true,
-        locale: it,
-      });
-    } catch {
-      return "Data sconosciuta";
-    }
-  };
-
-  const isActive = (date: string | null) => {
-    if (!date) return false;
-    return Date.now() - new Date(date).getTime() < 3 * 24 * 60 * 60 * 1000;
-  };
-
-  if (authLoading) {
+  // ── Loading skeleton ────────────────────────────────────────────────────
+  if (authLoading || isLoading) {
     return (
-      <CoachLayout title="Atleti" subtitle="Caricamento...">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <Skeleton key={i} className="h-32" />
-          ))}
-        </div>
+      <CoachLayout title="Atleti" subtitle="Caricamento roster…">
+        <RosterSkeleton />
       </CoachLayout>
     );
   }
 
+  // ── Empty (no athletes at all) ──────────────────────────────────────────
+  if (allAthletes.length === 0) {
+    return (
+      <>
+        <MetaHead title="Atleti" description="Roster del coach." />
+        <CoachLayout title="Atleti" subtitle="Inizia con il tuo primo atleta">
+          <RosterEmpty />
+        </CoachLayout>
+      </>
+    );
+  }
+
+  // ── Roster view ─────────────────────────────────────────────────────────
   return (
-    <CoachLayout title="Atleti" subtitle="Gestisci il tuo roster di atleti">
-      <div className="space-y-6 animate-fade-in">
-        {/* Header Actions */}
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Cerca atleti..."
-              className="pl-10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            {/* View Toggle */}
-            <div className="flex items-center border rounded-lg p-1 bg-muted/30">
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Vista griglia"
-                className={cn("h-8 w-8", viewMode === "grid" && "bg-background shadow-sm")}
-                onClick={() => setViewMode("grid")}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Vista elenco"
-                className={cn("h-8 w-8", viewMode === "list" && "bg-background shadow-sm")}
-                onClick={() => setViewMode("list")}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
-            <InviteAthleteDialog
-              trigger={
-                <Button size="sm" className="gradient-primary">
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Invita Atleta
-                </Button>
-              }
-            />
-          </div>
-        </div>
-
-        {/* Stats Bar */}
-        <div className="flex items-center gap-6 text-sm">
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground">Totale:</span>
-            <Badge variant="secondary">{allAthletes.length}</Badge>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-success" />
-            <span className="text-muted-foreground">Attivi:</span>
-            <span className="font-medium">
-              {allAthletes.filter((a) => isActive(a.readinessDate)).length}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-muted-foreground/50" />
-            <span className="text-muted-foreground">Inattivi:</span>
-            <span className="font-medium">
-              {allAthletes.filter((a) => !isActive(a.readinessDate)).length}
-            </span>
-          </div>
-        </div>
-
-        {/* Athletes Display */}
-        {isLoading ? (
-          <div
-            className={cn(
-              viewMode === "grid"
-                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-                : "space-y-2",
-            )}
-          >
-            {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className={viewMode === "grid" ? "h-32" : "h-16"} />
-            ))}
-          </div>
-        ) : filteredAthletes.length === 0 && allAthletes.length > 0 ? (
-          <Card className="p-8 text-center border-2 border-dashed border-border bg-muted/10">
-            <p className="text-muted-foreground">Nessun atleta trovato per "{searchQuery}"</p>
-          </Card>
-        ) : allAthletes.length === 0 ? (
-          <Card className="p-12 text-center border-2 border-dashed border-border bg-muted/10">
-            <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 mb-4">
-              <Users className="h-8 w-8 text-primary" />
-            </div>
-            <h3 className="text-lg font-semibold mb-2">Nessun atleta ancora</h3>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto mb-4">
-              Invita i tuoi atleti per iniziare a monitorare i loro progressi.
-            </p>
-            <InviteAthleteDialog
-              trigger={
-                <Button className="gradient-primary">
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Invita il tuo primo atleta
-                </Button>
-              }
-            />
-          </Card>
-        ) : viewMode === "grid" ? (
-          /* Grid View */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredAthletes.map((athlete) => {
-              const active = isActive(athlete.readinessDate);
-              const isLive = liveAthleteIds.includes(athlete.athleteId);
-
-              return (
-                <Card
-                  key={athlete.athleteId}
-                  onClick={() => navigate(`/coach/athlete/${athlete.athleteId}`)}
-                  className={cn(
-                    "group cursor-pointer transition-all duration-200 p-4",
-                    "bg-card border border-border/50",
-                    "hover:border-primary/50 hover:shadow-md hover:scale-[1.02]",
-                    "active:scale-[0.98]",
-                    isLive && "ring-2 ring-success/40",
-                  )}
+    <>
+      <MetaHead title="Atleti" description="Roster del coach." />
+      <CoachLayout title="Atleti" subtitle="Roster e gestione clienti">
+        <div className="space-y-6 animate-fade-in">
+          {/* ═══ Top Control Panel ═══ */}
+          <header className="space-y-5">
+            {/* Title row */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <h1 className="font-display font-extrabold text-[28px] leading-tight tracking-tight text-on-surface">
+                  Atleti
+                </h1>
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full bg-primary-container/15 text-primary px-3 py-1 text-sm font-bold tabular-nums"
+                  aria-label={`${buckets.all.length} atleti monitorati`}
                 >
-                  <div className="flex items-center gap-3">
-                    {/* Avatar with Status Dot */}
-                    <div className="relative flex-shrink-0">
-                      <Avatar className="h-12 w-12 border-2 border-border">
-                        <AvatarImage
-                          src={athlete.avatarUrl || undefined}
-                          alt={athlete.athleteName}
-                        />
-                        <AvatarFallback className="bg-primary/10 text-primary font-semibold text-sm">
-                          {athlete.avatarInitials}
-                        </AvatarFallback>
-                      </Avatar>
-                      {isLive ? (
-                        <div className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card bg-success animate-pulse" />
-                      ) : (
-                        <div
-                          className={cn(
-                            "absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-card",
-                            active ? "bg-success" : "bg-muted-foreground/50",
-                          )}
-                        />
-                      )}
-                    </div>
+                  <Users className="h-3.5 w-3.5" />
+                  {buckets.all.length}
+                </span>
+              </div>
 
-                    {/* Name & Status */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <h3 className="font-semibold text-sm text-foreground truncate group-hover:text-primary transition-colors">
-                          {athlete.athleteName}
-                        </h3>
-                        {isLive && (
-                          <Badge
-                            variant="secondary"
-                            className="text-3xs px-1.5 py-0 h-4 bg-success/10 text-success border-success/30 gap-1 shrink-0"
-                          >
-                            <Radio className="h-2.5 w-2.5" />
-                            Live
-                          </Badge>
-                        )}
-                      </div>
-                      <p
+              <InviteAthleteDialog
+                trigger={
+                  <Button className="gap-2 self-start sm:self-auto">
+                    <UserPlus className="h-4 w-4" />
+                    Invita atleta
+                  </Button>
+                }
+              />
+            </div>
+
+            {/* Search + filter pills row */}
+            <div className="flex flex-col gap-4">
+              {/* Search field */}
+              <div className="relative w-full max-w-md">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-on-surface-variant pointer-events-none" />
+                <input
+                  type="search"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cerca atleti per nome…"
+                  aria-label="Cerca atleti"
+                  className={cn(
+                    "w-full h-11 pl-10 pr-10 rounded-xl bg-surface-container-lowest",
+                    "border border-outline-variant text-sm text-on-surface placeholder:text-on-surface-variant/70",
+                    "transition-[box-shadow,border-color] duration-200",
+                    "focus:outline-none focus:border-primary focus:shadow-[0_0_0_4px_rgb(0_86_133_/_0.12)]",
+                  )}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    aria-label="Pulisci ricerca"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 h-6 w-6 inline-flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-high transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Filter pills */}
+              <nav className="flex flex-wrap gap-2" aria-label="Filtri roster">
+                {FILTERS.map((f) => {
+                  const isActive = activeFilter === f.key;
+                  const count = buckets[f.key].length;
+                  return (
+                    <button
+                      key={f.key}
+                      type="button"
+                      onClick={() => setActiveFilter(f.key)}
+                      aria-pressed={isActive}
+                      className={cn(
+                        "inline-flex items-center gap-2 h-9 px-4 rounded-full text-sm font-bold transition-all duration-200",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                        isActive
+                          ? "bg-primary-container text-white shadow-[0_4px_14px_rgb(0_62_98_/_0.20)]"
+                          : "bg-surface-container-lowest text-on-surface-variant border border-outline-variant/40 hover:bg-primary-container/10 hover:text-on-surface",
+                      )}
+                    >
+                      {f.label}
+                      <span
                         className={cn(
-                          "text-xs mt-0.5",
-                          isLive
-                            ? "text-success"
-                            : active
-                              ? "text-success"
-                              : "text-muted-foreground",
+                          "inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-3xs font-bold tabular-nums",
+                          isActive
+                            ? "bg-white/20 text-white"
+                            : "bg-primary-container/15 text-primary",
                         )}
                       >
-                        {isLive ? "In allenamento" : active ? "Attivo" : "Inattivo"}
-                      </p>
-                    </div>
-
-                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-
-                  {/* Last Active */}
-                  <div className="mt-3 pt-3 border-t border-border/50">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Ultima attività</span>
-                      <span className="text-foreground font-medium tabular-nums">
-                        {getLastActiveText(athlete.readinessDate)}
+                        {count}
                       </span>
-                    </div>
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+          </header>
+
+          {/* ═══ Responsive Grid ═══ */}
+          {visible.length === 0 ? (
+            <FilterEmpty filter={activeFilter} searchQuery={searchQuery} />
+          ) : (
+            <div
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+              role="list"
+              aria-label="Elenco atleti"
+            >
+              {visible.map((athlete) => {
+                const isLive = liveAthleteIds.includes(athlete.athleteId);
+                // Derive AthleteCard props from the risk-overview row.
+                const acwrValue = typeof athlete.acwr === "number" ? athlete.acwr : undefined;
+                // latestReadiness uses the 1–10 subjective scale internally;
+                // AthleteCard expects 0–100, so scale by 10.
+                const readinessScore =
+                  typeof athlete.latestReadiness === "number"
+                    ? Math.round(athlete.latestReadiness * 10)
+                    : undefined;
+                // Pain markers — pull from riskFlags labelled with bodyparts.
+                const painMarkers = athlete.riskFlags
+                  .filter((f) =>
+                    /dolore|fastidio|infortun|spalla|ginocch|caviglia|schiena|lomb/i.test(f.label),
+                  )
+                  .map((f) => f.label);
+                // Onboarding stub — when the filter is "onboarding", show the
+                // Pending state via missingOnboardingSteps. Real per-athlete
+                // missing-step detection lives elsewhere; here we just signal
+                // "incomplete" so AthleteCard switches to State C.
+                const missingOnboardingSteps =
+                  activeFilter === "onboarding" ||
+                  (athlete.readinessDate === null && athlete.latestReadiness === null)
+                    ? ["PAR-Q", "Prima sessione"]
+                    : undefined;
+                return (
+                  <div key={athlete.athleteId} role="listitem">
+                    <AthleteCard
+                      athleteId={athlete.athleteId}
+                      athleteName={isLive ? `🔴 ${athlete.athleteName}` : athlete.athleteName}
+                      avatarUrl={athlete.avatarUrl}
+                      avatarInitials={athlete.avatarInitials}
+                      lastActivityDate={athlete.readinessDate}
+                      programName={null}
+                      isActive={isWithinDays(athlete.readinessDate, 3)}
+                      acwrValue={acwrValue}
+                      readinessScore={readinessScore}
+                      painMarkers={painMarkers.length > 0 ? painMarkers : undefined}
+                      missingOnboardingSteps={missingOnboardingSteps}
+                    />
                   </div>
-                </Card>
-              );
-            })}
-          </div>
-        ) : (
-          /* List View */
-          <Card className="divide-y divide-border/50">
-            {filteredAthletes.map((athlete) => {
-              const active = isActive(athlete.readinessDate);
-              const isLive = liveAthleteIds.includes(athlete.athleteId);
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </CoachLayout>
+    </>
+  );
+}
 
-              const goToAthlete = () => navigate(`/coach/athlete/${athlete.athleteId}`);
-              return (
-                <div
-                  key={athlete.athleteId}
-                  role="button"
-                  tabIndex={0}
-                  onClick={goToAthlete}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      goToAthlete();
-                    }
-                  }}
-                  className="flex items-center gap-4 p-4 hover:bg-muted/30 cursor-pointer transition-colors group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                >
-                  {/* Avatar with Status Dot */}
-                  <div className="relative flex-shrink-0">
-                    <Avatar className="h-10 w-10 border-2 border-border">
-                      <AvatarImage src={athlete.avatarUrl || undefined} alt={athlete.athleteName} />
-                      <AvatarFallback className="bg-primary/10 text-primary font-semibold text-xs">
-                        {athlete.avatarInitials}
-                      </AvatarFallback>
-                    </Avatar>
-                    {isLive ? (
-                      <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card bg-success animate-pulse" />
-                    ) : (
-                      <div
-                        className={cn(
-                          "absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card",
-                          active ? "bg-success" : "bg-muted-foreground/50",
-                        )}
-                      />
-                    )}
-                  </div>
-
-                  {/* Name */}
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium text-sm text-foreground truncate group-hover:text-primary transition-colors">
-                      {athlete.athleteName}
-                    </h3>
-                    <p className="text-xs text-muted-foreground">
-                      {getLastActiveText(athlete.readinessDate)}
-                    </p>
-                  </div>
-
-                  {/* Status Badge */}
-                  {isLive ? (
-                    <Badge
-                      variant="secondary"
-                      className="text-xs bg-success/10 text-success border-success/30 gap-1"
-                    >
-                      <Radio className="h-3 w-3" />
-                      Live
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        "text-xs",
-                        active ? "bg-success/10 text-success" : "bg-muted text-muted-foreground",
-                      )}
-                    >
-                      {active ? "Attivo" : "Inattivo"}
-                    </Badge>
-                  )}
-
-                  <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              );
-            })}
-          </Card>
-        )}
+// ===========================================================================
+// Skeleton + Empty states
+// ===========================================================================
+function RosterSkeleton() {
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-48 rounded-xl" />
+        <Skeleton className="h-11 w-full max-w-md rounded-xl" />
+        <div className="flex gap-2 flex-wrap">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-9 w-24 rounded-full" />
+          ))}
+        </div>
       </div>
-    </CoachLayout>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-48 rounded-3xl" />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RosterEmpty() {
+  return (
+    <Card className="p-12 text-center max-w-2xl mx-auto">
+      <div className="inline-flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-primary-container to-primary mb-6 ring-4 ring-primary/10">
+        <Users className="h-10 w-10 text-white" strokeWidth={1.75} />
+      </div>
+      <h3 className="font-display text-2xl font-bold text-on-surface mb-2 tracking-tight">
+        Nessun atleta ancora
+      </h3>
+      <p className="text-base text-on-surface-variant max-w-md mx-auto mb-6 leading-relaxed">
+        Invita i tuoi atleti per iniziare a monitorare carico, readiness e performance in tempo
+        reale.
+      </p>
+      <InviteAthleteDialog
+        trigger={
+          <Button size="lg" className="gap-2">
+            <UserPlus className="h-5 w-5" />
+            Invita il primo atleta
+          </Button>
+        }
+      />
+    </Card>
+  );
+}
+
+function FilterEmpty({ filter, searchQuery }: { filter: FilterKey; searchQuery: string }) {
+  if (searchQuery) {
+    return (
+      <Card className="p-10 text-center">
+        <p className="text-sm text-on-surface-variant">
+          Nessun atleta trovato per <span className="font-bold">&ldquo;{searchQuery}&rdquo;</span>.
+        </p>
+      </Card>
+    );
+  }
+  const copy: Record<FilterKey, { title: string; subtitle: string; icon: LucideIcon }> = {
+    all: { title: "Nessun atleta", subtitle: "Invita il tuo primo atleta.", icon: Users },
+    active: {
+      title: "Nessun atleta attivo",
+      subtitle: "Nessuno ha registrato readiness negli ultimi 3 giorni.",
+      icon: Users,
+    },
+    onboarding: {
+      title: "Nessuno in onboarding",
+      subtitle: "Tutti gli atleti hanno completato il primo check-in.",
+      icon: Users,
+    },
+    rehab: {
+      title: "Nessun atleta in Rehab / Limitato",
+      subtitle: "Nessun atleta presenta flag di rischio moderato o alto.",
+      icon: Users,
+    },
+    suspended: {
+      title: "Nessun atleta sospeso",
+      subtitle: "Tutti gli atleti hanno fatto check-in negli ultimi 14 giorni.",
+      icon: Users,
+    },
+  };
+  const c = copy[filter];
+  const Icon = c.icon;
+  return (
+    <Card className="p-12 text-center">
+      <div className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary-container/10 mb-3">
+        <Icon className="h-7 w-7 text-primary" strokeWidth={1.75} />
+      </div>
+      <h3 className="font-display text-lg font-bold text-on-surface mb-1">{c.title}</h3>
+      <p className="text-sm text-on-surface-variant max-w-sm mx-auto">{c.subtitle}</p>
+    </Card>
   );
 }
