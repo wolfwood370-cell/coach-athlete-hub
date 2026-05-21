@@ -188,11 +188,11 @@ export function CoachSidebar() {
             )}
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-primary-container to-primary text-white shadow-[0_4px_14px_rgb(0_62_98_/_0.25)] flex-shrink-0">
-              <span className="font-display text-base font-bold tracking-tight">NC</span>
+              <span className="font-display text-label-md font-bold tracking-tight">NC</span>
             </div>
             {!isCollapsed && (
               <div className="overflow-hidden">
-                <h1 className="font-display text-base font-bold tracking-tight text-on-surface truncate">
+                <h1 className="font-display text-label-md font-bold tracking-tight text-on-surface truncate">
                   NC Performance
                 </h1>
                 <p className="text-xs text-on-surface-variant truncate font-medium">
@@ -243,7 +243,7 @@ export function CoachSidebar() {
       >
         {/* System group */}
         {!isCollapsed && (
-          <p className="px-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant/70">
+          <p className="px-3 text-xs font-semibold uppercase tracking-wider text-on-surface-variant">
             Sistema
           </p>
         )}
@@ -292,7 +292,7 @@ export function CoachSidebar() {
           {!isCollapsed && (
             <>
               <div className="flex-1 min-w-0">
-                <p className="text-on-surface font-bold text-sm truncate">{displayName}</p>
+                <p className="text-on-surface font-bold text-label-md truncate">{displayName}</p>
                 <p className="text-xs text-on-surface-variant truncate">S&amp;C Coach</p>
               </div>
 
@@ -359,7 +359,7 @@ function SidebarNavGroup({
     <div>
       {!isCollapsed && (
         <p
-          className="px-4 mb-2 text-xs font-semibold uppercase tracking-wider text-slate-600"
+          className="px-4 mb-2 text-xs font-semibold uppercase tracking-wider text-on-surface-variant"
           aria-label={label}
         >
           {label}
@@ -390,7 +390,19 @@ function SidebarNavGroup({
   );
 }
 
-/** Active-aware NavLink rendering — pill shape, Aura color system */
+/**
+ * Pill-shaped nav link with Aura active/hover/focus states.
+ *
+ * Active rules (DESIGN.md):
+ *   - bg-primary-container (#005685) + text-on-primary (white)
+ *   - hover overrides locked back to primary fill so the row never
+ *     flashes back to the soft hover tint while active
+ *   - subtle ambient shadow that mirrors the auraCard treatment
+ *
+ * Inactive: text-on-surface-variant with hover surface-container-high
+ * (slightly stronger than primary-container/10 for readability on the
+ * sky-tinted background).
+ */
 function SidebarLinkRow({
   to,
   end,
@@ -406,25 +418,32 @@ function SidebarLinkRow({
   isCollapsed: boolean;
   badge?: { count: number; variant: "error" | "primary" };
 }) {
-  const baseClasses = cn(
-    "group flex items-center gap-3 rounded-full transition-all duration-200",
-    "text-sm font-bold tracking-wide",
-    "hover:bg-primary-container/10",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
-    isCollapsed ? "h-11 w-11 justify-center mx-auto" : "h-11 px-4 w-full",
-  );
-
-  const inactiveClasses = "text-on-surface-variant hover:text-on-surface";
-  const activeClasses =
-    "bg-primary-container text-white shadow-[0_4px_14px_rgb(0_62_98_/_0.20)]";
-
-  const inner = (
-    <NavLink to={to} end={end} className={baseClasses} activeClassName={activeClasses}>
+  const node = (
+    <NavLink
+      to={to}
+      end={end}
+      className={cn(
+        "group flex items-center gap-3 rounded-full transition-all duration-200",
+        "text-label-md font-bold",
+        "text-on-surface-variant",
+        "hover:bg-primary-container/10 hover:text-on-surface",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+        isCollapsed ? "h-11 w-11 justify-center mx-auto" : "h-11 px-4 w-full",
+      )}
+      activeClassName={cn(
+        // `text-white` over `text-on-primary` per la correzione Lovable
+        // (d401e22) — semanticamente identici (on-primary == #ffffff)
+        // ma più resiliente a future variazioni di palette.
+        "bg-primary-container text-white shadow-[0_4px_14px_rgb(0_62_98_/_0.20)]",
+        // Lock hover state so the row stays solid while active.
+        "hover:bg-primary-container hover:text-white",
+      )}
+    >
       {({ isActive }) => (
         <>
           <Icon
             className={cn(
-              "h-[18px] w-[18px] flex-shrink-0 transition-transform",
+              "h-[18px] w-[18px] flex-shrink-0",
               isActive ? "stroke-[2.25]" : "stroke-[1.75]",
             )}
           />
@@ -436,23 +455,15 @@ function SidebarLinkRow({
               )}
             </>
           )}
-          {/* className needs the inactive color, but only when NOT active —
-              we add it here as a sibling rule via tailwind merge below.
-              Trick: NavLink toggles activeClassName, so the inactive
-              colors are applied as default on the base. */}
-          <span className={cn("absolute", isActive ? "sr-only" : "hidden")} aria-hidden />
         </>
       )}
     </NavLink>
   );
 
-  // Wrap collapsed icons with tooltip showing the label on the right.
   if (isCollapsed) {
     return (
       <Tooltip delayDuration={0}>
-        <TooltipTrigger asChild>
-          <div className={cn(inactiveClasses, "block")}>{inner}</div>
-        </TooltipTrigger>
+        <TooltipTrigger asChild>{node}</TooltipTrigger>
         <TooltipContent side="right" className="font-semibold">
           <span>{label}</span>
           {badge && <span className="ml-2 text-xs text-on-surface-variant">({badge.count})</span>}
@@ -461,10 +472,10 @@ function SidebarLinkRow({
     );
   }
 
-  return <div className={inactiveClasses}>{inner}</div>;
+  return node;
 }
 
-/** Like SidebarLinkRow but for button-triggered actions (Supporto). */
+/** Pill-shaped button row for non-navigation actions (e.g. Supporto dialog). */
 function SidebarButtonRow({
   icon: Icon,
   label,
@@ -474,9 +485,9 @@ function SidebarButtonRow({
   label: string;
   isCollapsed: boolean;
 }) {
-  const base = cn(
+  const className = cn(
     "group flex items-center gap-3 rounded-full transition-all duration-200",
-    "text-sm font-bold tracking-wide w-full text-left",
+    "text-label-md font-bold w-full text-left",
     "text-on-surface-variant hover:text-on-surface hover:bg-primary-container/10",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
     isCollapsed ? "h-11 w-11 justify-center mx-auto" : "h-11 px-4",
@@ -486,7 +497,7 @@ function SidebarButtonRow({
     return (
       <Tooltip delayDuration={0}>
         <TooltipTrigger asChild>
-          <button type="button" className={base}>
+          <button type="button" className={className}>
             <Icon className="h-[18px] w-[18px] stroke-[1.75]" />
           </button>
         </TooltipTrigger>
@@ -498,7 +509,7 @@ function SidebarButtonRow({
   }
 
   return (
-    <button type="button" className={base}>
+    <button type="button" className={className}>
       <Icon className="h-[18px] w-[18px] flex-shrink-0 stroke-[1.75]" />
       <span className="flex-1 truncate">{label}</span>
     </button>
