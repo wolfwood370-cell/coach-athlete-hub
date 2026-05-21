@@ -16,6 +16,10 @@ import {
   Phone,
   Video,
   X,
+  Plus,
+  AlertTriangle,
+  Activity,
+  Dumbbell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -84,6 +88,22 @@ interface CalendarGridProps {
 }
 
 // Droppable Day Cell for Month View
+/**
+ * DroppableDayCell — Aura Health System day-cell (monthly grid).
+ *
+ * Multi-archetype rendering:
+ *   A) Out-of-month: `opacity-40 bg-transparent` (no white surface, faded)
+ *   B) Standard Training Day: white card + horizontal pill chips for each
+ *      workout (`bg-primary-container/10 text-primary font-bold`).
+ *   C) Triage Alert Day: red high-signal badge for missed workouts (proxy
+ *      for ACWR spikes / overreaching) (`bg-error/10 text-error font-bold`).
+ *   D) Rehab Focus Day: amber tokens for "consult" appointments (proxy for
+ *      FMS / corrective protocols) (`bg-tertiary-container/10 text-tertiary
+ *      border-tertiary-container/20`).
+ *   E) Empty / Free Day: dashed drop-zone canvas with centered plus icon.
+ *
+ * The cell stays droppable in all states (setNodeRef on the outer button).
+ */
 function DroppableDayCell({
   date,
   isSelected,
@@ -115,102 +135,205 @@ function DroppableDayCell({
     data: { type: "calendar-day", date, dateKey },
   });
 
+  // Archetype detection (proxy mappings — extend when domain data lands)
+  const missedWorkout = workouts.find((w) => w.status === "missed");
+  // CalendarAppointment.type is constrained to "check-in" | "pt-session" |
+  // "other", so we detect "rehab focus" via a regex on the title (FMS,
+  // mobilità, fisio, corrective, etc.). When the schema gains a dedicated
+  // `rehab` type we'll switch to that.
+  const rehabAppointment = appointments.find((a) =>
+    /rehab|fms|recup|corrective|mobilit|fisio/i.test(a.title),
+  );
+  const hasEvents =
+    workouts.length + appointments.length + (showGoogleEvents ? busySlots.length : 0) > 0;
   const totalEvents =
     workouts.length + appointments.length + (showGoogleEvents ? busySlots.length : 0);
 
+  // State A — Out of month (faded, transparent)
+  if (!isCurrentMonth) {
+    return (
+      <button
+        ref={setNodeRef}
+        onClick={onClick}
+        className={cn(
+          "min-h-[140px] p-3 rounded-[20px] text-left transition-all",
+          "opacity-40 bg-transparent border border-outline-variant/10",
+          isOver && "opacity-70 ring-2 ring-primary",
+        )}
+      >
+        <span className="text-sm font-semibold text-on-surface-variant">{format(date, "d")}</span>
+      </button>
+    );
+  }
+
+  // State E — Empty / Free Day (dashed drop-zone)
+  if (!hasEvents) {
+    return (
+      <button
+        ref={setNodeRef}
+        onClick={onClick}
+        className={cn(
+          "group min-h-[140px] p-3 rounded-[20px] transition-all flex flex-col justify-between text-left cursor-pointer",
+          "border-2 border-dashed border-outline-variant/40 bg-surface-container-low/30",
+          "hover:border-primary/50 hover:bg-primary-container/5",
+          isSelected && "ring-2 ring-primary",
+          isOver && "border-primary bg-primary-container/10 scale-[1.02]",
+        )}
+      >
+        <DayHeader date={date} isTodayDate={isTodayDate} totalEvents={0} muted />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="h-9 w-9 rounded-full bg-surface-container-lowest/60 border border-outline-variant/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+            <Plus className="h-4 w-4 text-on-surface-variant" />
+          </div>
+        </div>
+      </button>
+    );
+  }
+
+  // States B / C / D — populated cell on Aura white card
   return (
     <button
       ref={setNodeRef}
       onClick={onClick}
       className={cn(
-        "min-h-[100px] p-2 rounded-xl transition-all relative flex flex-col text-left",
-        "hover:bg-muted/50 border border-transparent",
-        !isCurrentMonth && "opacity-40",
-        isSelected && "ring-2 ring-primary bg-primary/5 border-primary/20",
-        isTodayDate && !isSelected && "bg-accent/50 border-accent",
-        isOver && "ring-2 ring-primary bg-primary/10 scale-[1.02] border-primary",
+        "min-h-[140px] p-3 rounded-[20px] bg-white border border-outline-variant/10 shadow-sm",
+        "flex flex-col justify-between text-left transition-all",
+        "hover:shadow-lg",
+        isSelected && "ring-2 ring-primary",
+        isTodayDate && !isSelected && "ring-1 ring-primary/40",
+        isOver && "ring-2 ring-primary scale-[1.02]",
       )}
     >
-      {/* Day Number */}
-      <div className="flex items-center justify-between mb-1">
-        <span
-          className={cn(
-            "text-sm font-semibold",
-            isTodayDate &&
-              "bg-primary text-primary-foreground h-6 w-6 rounded-full flex items-center justify-center",
-          )}
-        >
-          {format(date, "d")}
-        </span>
-        {totalEvents > 0 && (
-          <Badge variant="secondary" className="text-3xs h-4 px-1.5">
-            {totalEvents}
-          </Badge>
+      <DayHeader date={date} isTodayDate={isTodayDate} totalEvents={totalEvents} />
+
+      {/* Chips area */}
+      <div className="flex-1 flex flex-col gap-1 overflow-hidden mt-1">
+        {/* Triage Alert chip (priority) */}
+        {missedWorkout && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-bold bg-destructive/10 text-destructive">
+            <AlertTriangle className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate">⚠️ Spike ACWR</span>
+          </span>
         )}
-      </div>
 
-      {/* Events */}
-      <div className="flex-1 flex flex-col gap-0.5 overflow-hidden">
-        {/* Workouts - Blue */}
-        {workouts.slice(0, 2).map((workout) => (
-          <div
-            key={workout.id}
-            className={cn(
-              "text-3xs px-1.5 py-0.5 rounded truncate font-medium flex items-center gap-1 group/event relative",
-              workout.status === "scheduled" && "bg-primary/15 text-primary",
-              workout.status === "completed" && "bg-success/15 text-success",
-              workout.status === "missed" && "bg-destructive/15 text-destructive",
-            )}
-          >
-            {workout.status === "scheduled" && <Clock className="h-2.5 w-2.5 shrink-0" />}
-            {workout.status === "completed" && <CheckCircle2 className="h-2.5 w-2.5 shrink-0" />}
-            {workout.status === "missed" && <XCircle className="h-2.5 w-2.5 shrink-0" />}
-            <span className="truncate flex-1">{workout.workout_name}</span>
-            {workout.status === "scheduled" && onDeleteWorkout && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDeleteWorkout(workout.id);
-                }}
-                disabled={isDeletingWorkout}
-                className="h-4 w-4 rounded-full bg-destructive/20 hover:bg-destructive/40 flex items-center justify-center opacity-0 group-hover/event:opacity-100 transition-opacity shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
-                title="Rimuovi"
-              >
-                <X className="h-2.5 w-2.5 text-destructive" />
-              </button>
-            )}
-          </div>
-        ))}
-
-        {/* Appointments - Green */}
-        {appointments.slice(0, 1).map((apt) => (
-          <div
-            key={apt.id}
-            className="text-3xs px-1.5 py-0.5 rounded truncate font-medium flex items-center gap-1 bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-          >
-            {apt.type === "check-in" && <Phone className="h-2.5 w-2.5 shrink-0" />}
-            {apt.type === "pt-session" && <Video className="h-2.5 w-2.5 shrink-0" />}
-            <span className="truncate">{apt.title}</span>
-          </div>
-        ))}
-
-        {/* Google Busy Slots - Gray */}
-        {showGoogleEvents &&
-          busySlots.slice(0, 1).map((slot) => (
+        {/* Standard Training Day chips */}
+        {workouts
+          .filter((w) => w.status !== "missed")
+          .slice(0, missedWorkout ? 1 : 2)
+          .map((workout) => (
             <div
-              key={slot.id}
-              className="text-3xs px-1.5 py-0.5 rounded truncate font-medium bg-muted text-muted-foreground"
+              key={workout.id}
+              className={cn(
+                "group/event relative inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-bold",
+                workout.status === "completed"
+                  ? "bg-success/10 text-success"
+                  : "bg-primary-container/10 text-primary",
+              )}
             >
-              {slot.title || "Busy"}
+              {workout.status === "completed" ? (
+                <CheckCircle2 className="h-2.5 w-2.5 shrink-0" />
+              ) : (
+                <Dumbbell className="h-2.5 w-2.5 shrink-0" />
+              )}
+              <span className="truncate flex-1">{workout.workout_name}</span>
+              {workout.status === "scheduled" && onDeleteWorkout && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDeleteWorkout(workout.id);
+                  }}
+                  disabled={isDeletingWorkout}
+                  className="h-3.5 w-3.5 rounded-full bg-destructive/20 hover:bg-destructive/40 flex items-center justify-center opacity-0 group-hover/event:opacity-100 transition-opacity shrink-0 disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Rimuovi"
+                >
+                  <X className="h-2 w-2 text-destructive" />
+                </button>
+              )}
             </div>
           ))}
 
-        {/* Overflow indicator */}
+        {/* Rehab Focus chip (consult appointment) */}
+        {rehabAppointment && (
+          <span
+            key={rehabAppointment.id}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-bold bg-tertiary-container/10 text-tertiary-container border border-tertiary-container/20"
+            title="Rehab / FMS"
+          >
+            <Activity className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate">{rehabAppointment.title}</span>
+          </span>
+        )}
+
+        {/* Other appointments — soft success chip */}
+        {appointments
+          .filter((a) => a.id !== rehabAppointment?.id)
+          .slice(0, 1)
+          .map((apt) => (
+            <span
+              key={apt.id}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-bold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+            >
+              {apt.type === "check-in" && <Phone className="h-2.5 w-2.5 shrink-0" />}
+              {apt.type === "pt-session" && <Video className="h-2.5 w-2.5 shrink-0" />}
+              <span className="truncate">{apt.title}</span>
+            </span>
+          ))}
+
+        {/* Google busy chip */}
+        {showGoogleEvents &&
+          busySlots.slice(0, 1).map((slot) => (
+            <span
+              key={slot.id}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-3xs font-bold bg-muted text-muted-foreground"
+            >
+              <Clock className="h-2.5 w-2.5 shrink-0" />
+              <span className="truncate">{slot.title || "Busy"}</span>
+            </span>
+          ))}
+
         {totalEvents > 3 && (
-          <span className="text-3xs text-muted-foreground px-1">+{totalEvents - 3} altri</span>
+          <span className="text-3xs text-on-surface-variant px-1 font-medium">
+            +{totalEvents - 3} altri
+          </span>
         )}
       </div>
     </button>
+  );
+}
+
+/** Day-number header (re-used by all populated and empty cells) */
+function DayHeader({
+  date,
+  isTodayDate,
+  totalEvents,
+  muted,
+}: {
+  date: Date;
+  isTodayDate: boolean;
+  totalEvents: number;
+  muted?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <span
+        className={cn(
+          "text-sm font-bold tabular-nums",
+          isTodayDate
+            ? "bg-primary text-white h-6 w-6 rounded-full flex items-center justify-center"
+            : muted
+              ? "text-on-surface-variant"
+              : "text-on-surface",
+        )}
+      >
+        {format(date, "d")}
+      </span>
+      {totalEvents > 0 && (
+        <Badge variant="secondary" className="text-3xs h-4 px-1.5 rounded-full">
+          {totalEvents}
+        </Badge>
+      )}
+    </div>
   );
 }
 
@@ -561,23 +684,27 @@ export function CalendarGrid({
       <div className="flex-1 overflow-hidden pt-4">
         {view === "month" && (
           <>
-            {/* Weekday Headers */}
-            <div className="grid grid-cols-7 gap-2 mb-2">
+            {/* Weekday Headers — Aura, LUN..DOM uppercase */}
+            <div className="grid grid-cols-7 gap-3 mb-3">
               {WEEKDAYS.map((day) => (
                 <div
                   key={day}
-                  className="text-center text-xs font-semibold text-muted-foreground py-2 uppercase tracking-wide"
+                  className="text-center text-3xs font-bold uppercase tracking-widest text-on-surface-variant py-2"
                 >
                   {day}
                 </div>
               ))}
             </div>
 
-            {/* Month Grid */}
-            <div className="grid grid-cols-7 gap-2 auto-rows-fr">
+            {/* Month Grid — 5-week matrix, gap-3 per DESIGN.md spacing */}
+            <div className="grid grid-cols-7 gap-3 auto-rows-fr">
               {days.map((day, idx) => {
+                // Bounds safety: `days` may carry leading `null` placeholders
+                // when the month doesn't start on Monday. Render an inert
+                // spacer so the 7-col matrix stays aligned without a key
+                // collision on subsequent renders.
                 if (!day) {
-                  return <div key={`empty-${idx}`} className="min-h-[100px]" />;
+                  return <div key={`empty-${idx}`} className="min-h-[140px]" aria-hidden />;
                 }
 
                 const dateKey = format(day, "yyyy-MM-dd");
