@@ -12,6 +12,8 @@ import {
   Video,
   AlertTriangle,
   X,
+  Dumbbell,
+  Activity,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -248,38 +250,45 @@ export function ChatPane({
 
   if (!room) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-background text-muted-foreground">
+      <div className="h-full flex flex-col items-center justify-center bg-surface-container-lowest text-on-surface-variant">
         <div className="text-center p-8">
-          <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mx-auto mb-4">
-            <Send className="h-6 w-6" />
+          <div className="h-16 w-16 rounded-full bg-primary-container/10 flex items-center justify-center mx-auto mb-4">
+            <Send className="h-6 w-6 text-primary" />
           </div>
-          <h3 className="font-medium text-foreground mb-1">Seleziona una conversazione</h3>
-          <p className="text-sm">Scegli un atleta dalla lista per iniziare</p>
+          <h3 className="font-display text-label-md font-bold text-on-surface mb-1">
+            Seleziona una conversazione
+          </h3>
+          <p className="text-sm">Scegli un atleta dalla lista per iniziare.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-background">
-      {/* Header */}
-      <div className="h-14 shrink-0 border-b flex items-center justify-between px-4">
-        <div className="flex items-center gap-3">
+    <div className="h-full flex flex-col bg-surface-container-lowest font-sans">
+      {/* ═══ Workspace Header (sticky) ═══
+          Aura sub-bar: prominent athlete avatar + name + active phase
+          context. The header is wrapped in `sticky top-0` so it floats
+          above the scroll track while the conversation flows underneath. */}
+      <header className="sticky top-0 z-10 h-16 shrink-0 border-b border-outline-variant/20 bg-surface-container-lowest/90 backdrop-blur-md flex items-center justify-between px-5">
+        <div className="flex items-center gap-3 min-w-0">
           {showBackButton && (
             <Button
               variant="ghost"
               size="icon"
               aria-label="Indietro"
-              className="h-8 w-8"
+              className="h-9 w-9 rounded-full"
               onClick={onBack}
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
           )}
 
-          <Avatar className="h-9 w-9">
+          {/* Profile picture frame — ring with the Aura outline-variant for a
+              subtle "framed" look (matches premium messaging apps). */}
+          <Avatar className="h-10 w-10 ring-2 ring-outline-variant/40 ring-offset-2 ring-offset-surface-container-lowest">
             <AvatarImage src={otherParticipant?.avatar_url || undefined} />
-            <AvatarFallback className="bg-primary/10 text-primary text-sm">
+            <AvatarFallback className="bg-primary-container/15 text-primary text-sm font-bold">
               {otherParticipant?.full_name
                 ?.split(" ")
                 .map((n) => n[0])
@@ -289,9 +298,20 @@ export function ChatPane({
             </AvatarFallback>
           </Avatar>
 
-          <div>
-            <h3 className="font-semibold text-sm">{otherParticipant?.full_name || "Utente"}</h3>
-            <p className="text-2xs text-muted-foreground">Attivo di recente</p>
+          <div className="min-w-0">
+            <h3 className="font-display text-label-md font-bold text-on-surface truncate">
+              {otherParticipant?.full_name || "Utente"}
+            </h3>
+            {/* Active block context — placeholder until the athlete's current
+                training phase is wired in from useCoachData (TODO). The
+                badge gives the coach the working-memory cue that the
+                conversation is anchored to a specific mesocycle. */}
+            <p className="text-xs text-on-surface-variant truncate flex items-center gap-1.5">
+              <Activity className="h-3 w-3 text-primary" />
+              <span>
+                <span className="font-semibold text-primary">Fase:</span> Ipertrofia Meccanica
+              </span>
+            </p>
           </div>
         </div>
 
@@ -299,12 +319,12 @@ export function ChatPane({
           variant="ghost"
           size="icon"
           aria-label="Informazioni atleta"
-          className="h-8 w-8"
+          className="h-9 w-9 rounded-full"
           onClick={onToggleContext}
         >
           <Info className="h-4 w-4" />
         </Button>
-      </div>
+      </header>
 
       {/* Messages */}
       <ScrollArea className="flex-1 px-4" ref={scrollRef}>
@@ -370,71 +390,110 @@ export function ChatPane({
         </div>
       )}
 
-      {/* Input Area */}
-      <div className="shrink-0 border-t p-3">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1">
+      {/* ═══ Message Input Area — Aura sleek pill row ═══
+          Pill-shaped container holding (1) the exercise-library injection
+          short-track on the far left, (2) a transparent text input in the
+          middle, and (3) an absolutely-positioned attachment utility panel
+          on the right with the standard media icons. Send is the only
+          control outside the pill — a primary CTA on the right edge. */}
+      <footer className="shrink-0 border-t border-outline-variant/20 bg-surface-container-lowest px-4 py-3">
+        <div className="flex items-end gap-2">
+          {/* Pill input row */}
+          <div className="relative flex-1 flex items-center bg-surface-container-low rounded-full border border-outline-variant/40 transition-[box-shadow,border-color] duration-200 focus-within:border-primary focus-within:shadow-[0_0_0_4px_rgb(0_86_133_/_0.12)] pl-1.5 pr-1.5">
+            {/* Exercise-library injection short-track (Dumbbell) — primary
+                action of the row, anchored to the far left. */}
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Registra audio"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={() => handleMediaClick("audio")}
+              aria-label="Inietta esercizio dalla libreria"
+              title="Inserisci esercizio dalla libreria"
+              className="h-9 w-9 rounded-full text-primary hover:bg-primary-container/15 shrink-0"
+              onClick={() =>
+                toast.info("Libreria esercizi in arrivo", {
+                  description:
+                    "Selezione rapida dalla libreria coach per allegare un esercizio o un programma alla chat.",
+                })
+              }
               disabled={isUploadingVideo}
             >
-              <Mic className="h-4 w-4" />
+              <Dumbbell className="h-4 w-4" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Allega immagine"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={() => handleMediaClick("image")}
-              disabled={isUploadingVideo}
-            >
-              <ImageIcon className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Video Clip (max 50MB)"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={() => handleMediaClick("video")}
-              disabled={isUploadingVideo}
-              title="Video Clip (max 50MB)"
-            >
-              {isUploadingVideo ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Video className="h-4 w-4" />
+
+            {/* Transparent text input */}
+            <Input
+              ref={inputRef}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Scrivi un messaggio…"
+              aria-label="Scrivi un messaggio"
+              className={cn(
+                "flex-1 h-10 bg-transparent border-0 shadow-none px-3",
+                "focus-visible:ring-0 focus-visible:shadow-none placeholder:text-on-surface-variant/70",
               )}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              aria-label="Allega link"
-              className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={() => handleMediaClick("link")}
-              disabled={isUploadingVideo}
-            >
-              <Link2 className="h-4 w-4" />
-            </Button>
+              disabled={isSending}
+            />
+
+            {/* Absolute attachment utility panel — anchored right inside the
+                pill. Each icon is a tappable pill action that maps to a
+                specific media type. */}
+            <nav aria-label="Allegati" className="flex items-center gap-0.5 shrink-0">
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Registra audio"
+                title="Registra audio"
+                className="h-9 w-9 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+                onClick={() => handleMediaClick("audio")}
+                disabled={isUploadingVideo}
+              >
+                <Mic className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Allega immagine"
+                title="Allega immagine"
+                className="h-9 w-9 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+                onClick={() => handleMediaClick("image")}
+                disabled={isUploadingVideo}
+              >
+                <ImageIcon className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Video Clip (max 50MB)"
+                title="Video Clip (max 50MB)"
+                className="h-9 w-9 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+                onClick={() => handleMediaClick("video")}
+                disabled={isUploadingVideo}
+              >
+                {isUploadingVideo ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Video className="h-4 w-4" />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Allega link Loom/YouTube"
+                title="Allega link Loom/YouTube"
+                className="h-9 w-9 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high"
+                onClick={() => handleMediaClick("link")}
+                disabled={isUploadingVideo}
+              >
+                <Link2 className="h-4 w-4" />
+              </Button>
+            </nav>
           </div>
 
-          <Input
-            ref={inputRef}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Scrivi un messaggio..."
-            className="flex-1 h-9"
-            disabled={isSending}
-          />
-
+          {/* Send — primary pill CTA, sits outside the input pill for emphasis */}
           <Button
             size="icon"
             aria-label="Invia messaggio"
-            className="h-9 w-9 shrink-0"
+            className="h-11 w-11 shrink-0 shadow-[0_4px_14px_rgb(0_62_98_/_0.20)]"
             disabled={!inputValue.trim() || isSending}
             onClick={handleSend}
           >
@@ -445,7 +504,7 @@ export function ChatPane({
             )}
           </Button>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }

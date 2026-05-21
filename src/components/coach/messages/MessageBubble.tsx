@@ -246,6 +246,19 @@ export function MessageBubble({ message, isOwn, showAvatar = true }: MessageBubb
       .slice(0, 2);
   };
 
+  /**
+   * Aura asymmetric bubble shape — the "tail" corner is removed so the
+   * bubble visually leans toward the speaker:
+   *   - Coach (isOwn / outgoing)   → primary-container fill, top-RIGHT square
+   *   - Athlete (incoming)         → soft surface-container-low, top-LEFT square
+   *
+   * Both keep `rounded-2xl` on the other three corners for the friendly
+   * shape language defined in DESIGN.md.
+   */
+  const bubbleShape = isOwn
+    ? "rounded-2xl rounded-tr-none bg-primary-container text-white"
+    : "rounded-2xl rounded-tl-none bg-surface-container-low text-on-surface";
+
   const renderContent = () => {
     // If it's a video embed (Loom/YouTube)
     if (videoEmbed) {
@@ -255,12 +268,7 @@ export function MessageBubble({ message, isOwn, showAvatar = true }: MessageBubb
     switch (message.media_type) {
       case "audio":
         return (
-          <div
-            className={cn(
-              "rounded-2xl px-4 py-3",
-              isOwn ? "bg-primary text-primary-foreground" : "bg-muted",
-            )}
-          >
+          <div className={cn("px-4 py-3 max-w-[320px]", bubbleShape)}>
             <AudioPlayer url={message.media_url || undefined} />
           </div>
         );
@@ -273,13 +281,10 @@ export function MessageBubble({ message, isOwn, showAvatar = true }: MessageBubb
 
       default:
         return (
-          <div
-            className={cn(
-              "rounded-2xl px-4 py-2 max-w-[320px]",
-              isOwn ? "bg-primary text-primary-foreground" : "bg-muted",
-            )}
-          >
-            <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+          <div className={cn("px-4 py-3 max-w-[320px]", bubbleShape)}>
+            <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+              {message.content}
+            </p>
           </div>
         );
     }
@@ -288,9 +293,9 @@ export function MessageBubble({ message, isOwn, showAvatar = true }: MessageBubb
   return (
     <div className={cn("flex gap-2 mb-3", isOwn ? "flex-row-reverse" : "flex-row")}>
       {showAvatar && !isOwn && (
-        <Avatar className="h-8 w-8 shrink-0">
+        <Avatar className="h-8 w-8 shrink-0 mt-1">
           <AvatarImage src={message.sender?.avatar_url || undefined} />
-          <AvatarFallback className="text-xs bg-primary/10 text-primary">
+          <AvatarFallback className="text-xs bg-primary-container/15 text-primary font-bold">
             {getInitials(message.sender?.full_name || null)}
           </AvatarFallback>
         </Avatar>
@@ -300,7 +305,7 @@ export function MessageBubble({ message, isOwn, showAvatar = true }: MessageBubb
         {renderContent()}
         <span
           className={cn(
-            "text-3xs text-muted-foreground mt-1 px-1",
+            "text-3xs text-on-surface-variant mt-1 px-1 tabular-nums",
             isOwn ? "text-right" : "text-left",
           )}
         >
