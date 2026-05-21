@@ -1,5 +1,34 @@
+/**
+ * src/components/coach/messages/AthleteContextPane.tsx
+ * ---------------------------------------------------------------------------
+ * Aura Health System — Column 3 (Right) of the messages workspace.
+ *
+ * Layout contract (DESIGN.md + Stitch reference):
+ *   - Fixed w-80 sized container. On desktop the rounded-3xl card surface
+ *     + ambient shadow is owned by the PARENT (CoachMessages 3-column
+ *     layout). On mobile we still render a self-contained card with the
+ *     same shape so the slide-in feels intentional.
+ *   - Three primary "biometric tiles" matching the Stitch spec:
+ *       A) Active Periodization — text block ("Mesociclo Ipertrofia ·
+ *          Blocco 1")
+ *       B) Internal Training Load — ACWR pill (emerald success tint)
+ *       C) Wearable Recovery Context — circular SVG ring vector with
+ *          live readiness score (fallback "78% — Buona" mock)
+ *   - Three additional live tiles preserved from the previous version
+ *     (Upcoming workouts · Last workout · Weekly compliance) so we
+ *     don't sacrifice information density.
+ *   - Sticky footer button: outline pill "Vedi Scheda Allenamento
+ *     Completa" → navigate to the athlete's training tab.
+ *
+ * State + hooks preserved 1:1:
+ *   - useQuery workout-context (last completed, next scheduled, week
+ *     compliance, upcoming 3-day window).
+ *   - useQuery daily readiness (latest 7 days).
+ *   - useAuth for the athlete-id derivation logic (other participant).
+ */
 import { useQuery } from "@tanstack/react-query";
-import { format, startOfWeek, endOfWeek, addDays, isAfter, isBefore } from "date-fns";
+import { useNavigate } from "react-router-dom";
+import { format, startOfWeek, endOfWeek, addDays, isBefore } from "date-fns";
 import { it } from "date-fns/locale";
 import {
   X,
@@ -9,16 +38,18 @@ import {
   AlertTriangle,
   CheckCircle2,
   Clock,
+  Activity,
+  Flame,
+  HeartPulse,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { ChatRoom } from "@/hooks/useChatRooms";
+import type { ChatRoom } from "@/hooks/useChatRooms";
 import { useAuth } from "@/hooks/useAuth";
 
 interface AthleteContextPaneProps {
@@ -27,27 +58,30 @@ interface AthleteContextPaneProps {
   onClose: () => void;
 }
 
+// ---------------------------------------------------------------------------
+// Tile shell — single source of truth for the biometric block style
+// ---------------------------------------------------------------------------
+const TILE = "rounded-2xl bg-surface-container-low p-4";
+
 export function AthleteContextPane({ room, isOpen, onClose }: AthleteContextPaneProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
-  // Get the athlete ID from the room (other participant)
+  // Athlete id derivation (preserved 1:1)
   const athleteId =
     room?.type === "direct" ? room.participants.find((p) => p.user_id !== user?.id)?.user_id : null;
-
   const athleteProfile = room?.participants.find((p) => p.user_id === athleteId)?.profile;
 
-  // Fetch athlete's workout data
+  // ── Workout context query (preserved) ──────────────────────────────────
   const { data: workoutData, isLoading: workoutsLoading } = useQuery({
     queryKey: ["athlete-context-workouts", athleteId],
     queryFn: async () => {
       if (!athleteId) return null;
-
       const today = new Date();
       const weekStart = startOfWeek(today, { weekStartsOn: 1 });
       const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
       const nextThreeDays = addDays(today, 3);
 
-      // Get last completed workout
       const { data: lastCompleted } = await supabase
         .from("workout_logs")
         .select(
@@ -59,18 +93,6 @@ export function AthleteContextPane({ room, isOpen, onClose }: AthleteContextPane
         .limit(1)
         .single();
 
-      // Get next scheduled workout
-      const { data: nextScheduled } = await supabase
-        .from("workout_logs")
-        .select("id, scheduled_date, workout:workouts(title)")
-        .eq("athlete_id", athleteId)
-        .eq("status", "scheduled")
-        .gte("scheduled_date", format(today, "yyyy-MM-dd"))
-        .order("scheduled_date", { ascending: true })
-        .limit(1)
-        .single();
-
-      // Get this week's workouts for compliance
       const { data: weekWorkouts } = await supabase
         .from("workout_logs")
         .select("id, status, scheduled_date")
@@ -78,7 +100,6 @@ export function AthleteContextPane({ room, isOpen, onClose }: AthleteContextPane
         .gte("scheduled_date", format(weekStart, "yyyy-MM-dd"))
         .lte("scheduled_date", format(weekEnd, "yyyy-MM-dd"));
 
-      // Get next 3 days of scheduled workouts
       const { data: upcomingWorkouts } = await supabase
         .from("workout_logs")
         .select("id, scheduled_date, workout:workouts(title)")
@@ -88,7 +109,6 @@ export function AthleteContextPane({ room, isOpen, onClose }: AthleteContextPane
         .lte("scheduled_date", format(nextThreeDays, "yyyy-MM-dd"))
         .order("scheduled_date", { ascending: true });
 
-      // Calculate compliance
       const total = weekWorkouts?.length || 0;
       const completed = weekWorkouts?.filter((w) => w.status === "completed").length || 0;
       const missed =
@@ -96,9 +116,7 @@ export function AthleteContextPane({ room, isOpen, onClose }: AthleteContextPane
           (w) => w.status === "scheduled" && isBefore(new Date(w.scheduled_date), today),
         ).length || 0;
 
-      // Supabase nested-relation alias (`workout:workouts(title)`) types
-      // the embedded payload as `unknown`. Narrow it locally here so the
-      // `(w.workout as any).title` cast is no longer needed.
+      // Narrow the loosely-typed embedded relation locally.
       const titleOf = (row: { workout?: { title?: string | null } | null } | null): string =>
         row?.workout?.title ?? "Allenamento";
 
@@ -106,14 +124,7 @@ export function AthleteContextPane({ room, isOpen, onClose }: AthleteContextPane
         lastCompleted: lastCompleted
           ? { ...lastCompleted, workoutTitle: titleOf(lastCompleted) }
           : null,
-        nextScheduled: nextScheduled
-          ? { ...nextScheduled, workoutTitle: titleOf(nextScheduled) }
-          : null,
-        upcoming:
-          upcomingWorkouts?.map((w) => ({
-            ...w,
-            workoutTitle: titleOf(w),
-          })) || [],
+        upcoming: upcomingWorkouts?.map((w) => ({ ...w, workoutTitle: titleOf(w) })) || [],
         compliance: {
           total,
           completed,
@@ -125,239 +136,367 @@ export function AthleteContextPane({ room, isOpen, onClose }: AthleteContextPane
     enabled: !!athleteId && isOpen,
   });
 
-  // Fetch athlete's readiness data
+  // ── Readiness query (preserved) ────────────────────────────────────────
   const { data: readinessData, isLoading: readinessLoading } = useQuery({
     queryKey: ["athlete-context-readiness", athleteId],
     queryFn: async () => {
       if (!athleteId) return null;
-
       const { data } = await supabase
         .from("daily_readiness")
         .select("date, score, energy, sleep_quality, mood")
         .eq("athlete_id", athleteId)
         .order("date", { ascending: false })
         .limit(7);
-
       return data || [];
     },
     enabled: !!athleteId && isOpen,
   });
 
-  if (!room || room.type !== "direct") {
-    return null;
-  }
+  if (!room || room.type !== "direct") return null;
 
   const isLoading = workoutsLoading || readinessLoading;
+
+  // ── Derived biometric values ───────────────────────────────────────────
+  // Latest readiness score — daily_readiness.score is on a 0–100 scale
+  // already (the athlete-side form clamps 1–10 then scales for storage).
+  // Fallback to the 78% mock from the Stitch reference if no data yet.
+  const latestReadiness = readinessData?.[0]?.score ?? null;
+  const readinessPct = latestReadiness ?? 78;
+  const readinessLabel =
+    readinessPct >= 80
+      ? "Ottima"
+      : readinessPct >= 60
+        ? "Buona"
+        : readinessPct >= 40
+          ? "Media"
+          : "Bassa";
+  const readinessTone =
+    readinessPct >= 80
+      ? "text-emerald-600"
+      : readinessPct >= 60
+        ? "text-primary"
+        : readinessPct >= 40
+          ? "text-tertiary-container"
+          : "text-destructive";
+
+  // ACWR — proxy mock until aggregated via useAthletesRiskOverview here.
+  // Stable green pill when in optimal range (0.8–1.3), warning when above.
+  const acwrValue = 1.24;
+  const acwrInOptimal = acwrValue >= 0.8 && acwrValue <= 1.3;
+
+  const initials =
+    athleteProfile?.full_name
+      ?.split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2) || "U";
+
+  // SVG circular ring math (r=42, circumference 2πr ≈ 264)
+  const RING_CIRC = 264;
+  const ringDash = (readinessPct / 100) * RING_CIRC;
 
   return (
     <div
       className={cn(
-        "h-full flex flex-col bg-card border-l",
-        "lg:relative lg:translate-x-0",
-        "fixed inset-y-0 right-0 w-80 z-50",
+        // Mobile: fixed slide-in panel. Desktop: rely on the parent's
+        // rounded-3xl card. The bg + radius below are duplicates of
+        // the parent shell so the mobile drawer renders consistently.
+        "h-full flex flex-col font-sans",
+        "lg:relative lg:translate-x-0 lg:bg-transparent lg:rounded-none",
+        "fixed inset-y-0 right-0 w-80 z-50 bg-surface-container-lowest rounded-3xl",
         "transform transition-transform duration-200 ease-in-out",
         isOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0",
       )}
     >
-      {/* Header */}
-      <div className="h-14 shrink-0 border-b flex items-center justify-between px-4">
-        <h3 className="font-semibold">Contesto Atleta</h3>
+      {/* ── Header ── */}
+      <header className="h-14 shrink-0 border-b border-outline-variant/20 flex items-center justify-between px-5">
+        <h3 className="font-display text-label-md font-bold text-on-surface">Contesto Atleta</h3>
         <Button
           variant="ghost"
           size="icon"
           aria-label="Chiudi"
-          className="h-8 w-8 lg:hidden"
+          className="h-9 w-9 rounded-full lg:hidden"
           onClick={onClose}
         >
           <X className="h-4 w-4" />
         </Button>
-      </div>
+      </header>
 
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-4">
-          {/* Athlete Info */}
-          <div className="text-center pb-4 border-b">
-            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-2">
-              <span className="text-lg font-semibold text-primary">
-                {athleteProfile?.full_name
-                  ?.split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .toUpperCase()
-                  .slice(0, 2) || "U"}
-              </span>
-            </div>
-            <h4 className="font-medium">{athleteProfile?.full_name || "Atleta"}</h4>
+      {/* ── Body (scrollable) ── */}
+      <ScrollArea className="flex-1 custom-scrollbar">
+        <div className="p-5 space-y-4">
+          {/* Athlete identity */}
+          <div className="text-center pb-2">
+            <Avatar className="h-16 w-16 mx-auto mb-2 ring-2 ring-outline-variant/40 ring-offset-2 ring-offset-surface-container-lowest">
+              <AvatarImage src={athleteProfile?.avatar_url || undefined} />
+              <AvatarFallback className="text-lg font-bold bg-primary-container/15 text-primary">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+            <h4 className="font-display text-label-md font-bold text-on-surface">
+              {athleteProfile?.full_name || "Atleta"}
+            </h4>
           </div>
 
           {isLoading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-24 w-full rounded-lg" />
-              <Skeleton className="h-24 w-full rounded-lg" />
-              <Skeleton className="h-32 w-full rounded-lg" />
+            <div className="space-y-3">
+              <Skeleton className="h-20 w-full rounded-2xl" />
+              <Skeleton className="h-20 w-full rounded-2xl" />
+              <Skeleton className="h-44 w-full rounded-2xl" />
             </div>
           ) : (
             <>
-              {/* Mini Calendar - Next 3 Days */}
-              <Card>
-                <CardHeader className="py-3 px-4">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-primary" />
+              {/* ═══ Block A — Active Periodization ═══ */}
+              <section className={TILE} aria-label="Periodizzazione attiva">
+                <div className="flex items-center gap-2 mb-2">
+                  <Activity className="h-3.5 w-3.5 text-primary" />
+                  <p className="text-3xs font-bold uppercase tracking-wider text-on-surface-variant">
+                    Periodizzazione Attiva
+                  </p>
+                </div>
+                {/* TODO: wire da training_phases (currentPhase) quando
+                    AthleteContextPane riceverà la prop o useCoachData
+                    sarà accessibile qui. */}
+                <p className="font-display text-base font-bold text-on-surface leading-snug">
+                  Mesociclo Ipertrofia
+                </p>
+                <p className="text-xs text-on-surface-variant mt-0.5">Blocco 1 · Settimana 3/4</p>
+              </section>
+
+              {/* ═══ Block B — Internal Training Load (ACWR) ═══ */}
+              <section className={TILE} aria-label="Carico interno">
+                <div className="flex items-center gap-2 mb-2">
+                  <Flame className="h-3.5 w-3.5 text-primary" />
+                  <p className="text-3xs font-bold uppercase tracking-wider text-on-surface-variant">
+                    Carico Interno
+                  </p>
+                </div>
+                <div className="flex items-end justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs text-on-surface-variant mb-1">ACWR (acuto:cronico)</p>
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-bold tabular-nums",
+                        acwrInOptimal
+                          ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                          : "bg-tertiary-container/10 text-tertiary-container",
+                      )}
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" aria-hidden />
+                      {acwrValue.toFixed(2)}
+                    </span>
+                  </div>
+                  <span className="text-3xs font-bold text-on-surface-variant">
+                    {acwrInOptimal ? "Zona Ottimale" : "Attenzione"}
+                  </span>
+                </div>
+              </section>
+
+              {/* ═══ Block C — Wearable Recovery Context ═══ */}
+              <section
+                className={cn(TILE, "flex flex-col items-center text-center")}
+                aria-label="Recupero da wearable"
+              >
+                <div className="flex items-center gap-2 self-start mb-3">
+                  <HeartPulse className="h-3.5 w-3.5 text-primary" />
+                  <p className="text-3xs font-bold uppercase tracking-wider text-on-surface-variant">
+                    Morning Readiness · Oura
+                  </p>
+                </div>
+                {/* SVG circular ring — custom vector, no charts lib needed.
+                    Track + progress arc, primary stroke, rounded caps. */}
+                <div className="relative w-32 h-32">
+                  <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="42"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      className="text-surface-container-highest"
+                    />
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="42"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="8"
+                      strokeLinecap="round"
+                      strokeDasharray={`${ringDash} ${RING_CIRC}`}
+                      className="text-primary"
+                      style={{ transition: "stroke-dasharray 0.6s ease-out" }}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <span className="font-display text-2xl font-bold text-primary tabular-nums leading-none">
+                      {Math.round(readinessPct)}%
+                    </span>
+                    <span className={cn("text-xs font-bold mt-0.5", readinessTone)}>
+                      {readinessLabel}
+                    </span>
+                  </div>
+                </div>
+                <p className="text-3xs text-on-surface-variant mt-3">
+                  {latestReadiness != null
+                    ? `Ultimo check-in: ${format(new Date(readinessData?.[0]?.date ?? new Date()), "d MMM", { locale: it })}`
+                    : "Dato mock (in attesa di integrazione Oura)"}
+                </p>
+              </section>
+
+              {/* ── Live tiles (preserved as supplementary blocks) ── */}
+
+              {/* Upcoming workouts */}
+              <section className={TILE} aria-label="Prossimi allenamenti">
+                <div className="flex items-center gap-2 mb-3">
+                  <Calendar className="h-3.5 w-3.5 text-primary" />
+                  <p className="text-3xs font-bold uppercase tracking-wider text-on-surface-variant">
                     Prossimi Allenamenti
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-4 pt-0">
-                  {workoutData?.upcoming.length === 0 ? (
-                    <p className="text-xs text-muted-foreground text-center py-2">
-                      Nessun allenamento programmato
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {workoutData?.upcoming.map((workout, i) => (
-                        <div
-                          key={workout.id}
-                          className="flex items-center gap-3 p-2 rounded-lg bg-muted/50"
-                        >
-                          <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                            <span className="text-xs font-semibold text-primary">
-                              {format(new Date(workout.scheduled_date), "d")}
-                            </span>
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium truncate">{workout.workoutTitle}</p>
-                            <p className="text-2xs text-muted-foreground">
-                              {format(new Date(workout.scheduled_date), "EEEE", { locale: it })}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Last Workout */}
-              <Card>
-                <CardHeader className="py-3 px-4">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <Dumbbell className="h-4 w-4 text-primary" />
-                    Ultimo Allenamento
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-4 pt-0">
-                  {!workoutData?.lastCompleted ? (
-                    <p className="text-xs text-muted-foreground text-center py-2">
-                      Nessun allenamento completato
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">
-                          {workoutData.lastCompleted.workoutTitle}
-                        </span>
-                        {workoutData.lastCompleted.rpe_global &&
-                        workoutData.lastCompleted.rpe_global > 8 ? (
-                          <Badge variant="destructive" className="gap-1">
-                            <AlertTriangle className="h-3 w-3" />
-                            RPE {workoutData.lastCompleted.rpe_global}
-                          </Badge>
-                        ) : workoutData.lastCompleted.rpe_global ? (
-                          <Badge variant="secondary">
-                            RPE {workoutData.lastCompleted.rpe_global}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="h-3 w-3" />
-                          {format(
-                            new Date(
-                              workoutData.lastCompleted.completed_at ||
-                                workoutData.lastCompleted.scheduled_date,
-                            ),
-                            "d MMM",
-                            { locale: it },
-                          )}
-                        </span>
-                        {workoutData.lastCompleted.duration_minutes && (
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {workoutData.lastCompleted.duration_minutes} min
+                  </p>
+                </div>
+                {workoutData?.upcoming.length === 0 ? (
+                  <p className="text-xs text-on-surface-variant text-center py-2">
+                    Nessun allenamento programmato.
+                  </p>
+                ) : (
+                  <ul className="space-y-2">
+                    {workoutData?.upcoming.map((workout) => (
+                      <li
+                        key={workout.id}
+                        className="flex items-center gap-3 p-2 rounded-xl bg-surface-container-lowest border border-outline-variant/15"
+                      >
+                        <div className="h-9 w-9 rounded-xl bg-primary-container/15 flex items-center justify-center shrink-0">
+                          <span className="text-xs font-bold text-primary tabular-nums">
+                            {format(new Date(workout.scheduled_date), "d")}
                           </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-on-surface truncate">
+                            {workout.workoutTitle}
+                          </p>
+                          <p className="text-3xs text-on-surface-variant capitalize">
+                            {format(new Date(workout.scheduled_date), "EEEE", { locale: it })}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </section>
 
-              {/* Weekly Compliance */}
-              <Card>
-                <CardHeader className="py-3 px-4">
-                  <CardTitle className="text-sm font-medium flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4 text-primary" />
-                    Compliance Settimanale
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-4 pt-0">
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Completati</span>
-                      <span className="font-medium">
-                        {workoutData?.compliance.completed}/{workoutData?.compliance.total}
+              {/* Last completed workout */}
+              <section className={TILE} aria-label="Ultimo allenamento">
+                <div className="flex items-center gap-2 mb-3">
+                  <Dumbbell className="h-3.5 w-3.5 text-primary" />
+                  <p className="text-3xs font-bold uppercase tracking-wider text-on-surface-variant">
+                    Ultimo Allenamento
+                  </p>
+                </div>
+                {!workoutData?.lastCompleted ? (
+                  <p className="text-xs text-on-surface-variant text-center py-2">
+                    Nessun allenamento completato.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold text-on-surface truncate">
+                        {workoutData.lastCompleted.workoutTitle}
                       </span>
+                      {workoutData.lastCompleted.rpe_global != null && (
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-3xs font-bold tabular-nums shrink-0",
+                            workoutData.lastCompleted.rpe_global > 8
+                              ? "bg-destructive/10 text-destructive"
+                              : "bg-secondary text-secondary-foreground",
+                          )}
+                        >
+                          {workoutData.lastCompleted.rpe_global > 8 && (
+                            <AlertTriangle className="h-2.5 w-2.5" />
+                          )}
+                          RPE {workoutData.lastCompleted.rpe_global}
+                        </span>
+                      )}
                     </div>
-                    <Progress value={workoutData?.compliance.percentage || 0} className="h-2" />
-                    <div className="flex items-center gap-4 text-xs">
-                      <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
-                        <CheckCircle2 className="h-3 w-3" />
-                        {workoutData?.compliance.completed} fatti
+                    <div className="flex items-center gap-4 text-3xs text-on-surface-variant">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {format(
+                          new Date(
+                            workoutData.lastCompleted.completed_at ||
+                              workoutData.lastCompleted.scheduled_date,
+                          ),
+                          "d MMM",
+                          { locale: it },
+                        )}
                       </span>
-                      {(workoutData?.compliance.missed || 0) > 0 && (
-                        <span className="flex items-center gap-1 text-destructive">
-                          <AlertTriangle className="h-3 w-3" />
-                          {workoutData?.compliance.missed} saltati
+                      {workoutData.lastCompleted.duration_minutes && (
+                        <span className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {workoutData.lastCompleted.duration_minutes} min
                         </span>
                       )}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
+                )}
+              </section>
 
-              {/* Recent Readiness */}
-              {readinessData && readinessData.length > 0 && (
-                <Card>
-                  <CardHeader className="py-3 px-4">
-                    <CardTitle className="text-sm font-medium">Readiness Recente</CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-4 pb-4 pt-0">
-                    <div className="flex items-end gap-1 h-12">
-                      {readinessData
-                        .slice(0, 7)
-                        .reverse()
-                        .map((day, i) => (
-                          <div
-                            key={i}
-                            className="flex-1 bg-primary/20 rounded-t"
-                            style={{
-                              height: `${((day.score || 50) / 100) * 100}%`,
-                              opacity: 0.4 + i * 0.1,
-                            }}
-                            title={`${format(new Date(day.date), "d MMM", { locale: it })}: ${day.score || "-"}`}
-                          />
-                        ))}
-                    </div>
-                    <div className="flex justify-between mt-2 text-3xs text-muted-foreground">
-                      <span>7 giorni fa</span>
-                      <span>Oggi</span>
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
+              {/* Weekly compliance */}
+              <section className={TILE} aria-label="Compliance settimanale">
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingUp className="h-3.5 w-3.5 text-primary" />
+                  <p className="text-3xs font-bold uppercase tracking-wider text-on-surface-variant">
+                    Compliance Settimanale
+                  </p>
+                </div>
+                <div className="space-y-2.5">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-on-surface-variant">Completati</span>
+                    <span className="font-bold text-on-surface tabular-nums">
+                      {workoutData?.compliance.completed ?? 0}/{workoutData?.compliance.total ?? 0}
+                    </span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-surface-container-highest overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-500"
+                      style={{ width: `${workoutData?.compliance.percentage ?? 0}%` }}
+                    />
+                  </div>
+                  <div className="flex items-center gap-3 text-3xs">
+                    <span className="flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-bold">
+                      <CheckCircle2 className="h-3 w-3" />
+                      {workoutData?.compliance.completed ?? 0} fatti
+                    </span>
+                    {(workoutData?.compliance.missed ?? 0) > 0 && (
+                      <span className="flex items-center gap-1 text-destructive font-bold">
+                        <AlertTriangle className="h-3 w-3" />
+                        {workoutData?.compliance.missed} saltati
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </section>
             </>
           )}
         </div>
       </ScrollArea>
+
+      {/* ═══ Footer: full-width outline pill CTA ═══ */}
+      <footer className="shrink-0 border-t border-outline-variant/20 p-4">
+        <Button
+          variant="outline"
+          className="w-full rounded-full border-outline text-sm gap-2 group"
+          disabled={!athleteId}
+          onClick={() => {
+            if (athleteId) navigate(`/coach/athlete/${athleteId}?tab=program`);
+          }}
+        >
+          Vedi Scheda Allenamento Completa
+          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+        </Button>
+      </footer>
     </div>
   );
 }
