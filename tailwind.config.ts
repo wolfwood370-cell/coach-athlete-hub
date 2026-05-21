@@ -122,6 +122,12 @@ export default {
         "surface-container-highest": "var(--surface-container-highest)",
         "primary-container": "var(--primary-container)",
         "on-primary-container": "var(--on-primary-container)",
+        tertiary: {
+          DEFAULT: "var(--tertiary)",
+          foreground: "var(--tertiary-foreground)",
+        },
+        "tertiary-container": "var(--tertiary-container)",
+        "on-tertiary-container": "var(--on-tertiary-container)",
         "inverse-surface": "var(--inverse-surface)",
         "inverse-on-surface": "var(--inverse-on-surface)",
         "inverse-primary": "var(--inverse-primary)",

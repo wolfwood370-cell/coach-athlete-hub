@@ -1,29 +1,27 @@
 /**
  * src/pages/coach/CoachHome.tsx
  * ---------------------------------------------------------------------------
- * Coach "Command Center" — Bento Grid Dashboard (Aura Health System).
+ * Aura Command Center — Coach dashboard.
  *
- * Layout: grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6.
+ * Implements the Stitch design (`stitch_aura_coach_command_center.html`)
+ * 1:1 in terms of layout, tone and shape language, while binding every
+ * widget to the live data hooks already in the codebase.
  *
- * Five widgets:
- *   1. AI Copilot Insight   — greeting + auto-generated daily insight (full top width)
- *   2. Triage / Risk Alerts — athletes flagged by ACWR / readiness / RPE
- *   3. Today's Pulse        — workouts completed today vs scheduled (gauge)
- *   4. Recent Completions   — scrollable list of finished workouts (RPE + view CTA)
- *   5. Quick Actions        — pill-shaped shortcuts (invite, program, calendar, messages)
+ * Bento grid (DESIGN.md fluid grid):
+ *   grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6
  *
- * Hooks reused 1:1 from the previous dashboard:
+ * Widgets:
+ *   1. Centrale Operativa (AI Copilot)  — full top, primary gradient
+ *   2. Atleti a Rischio / Triage        — md:col-span-2
+ *   3. Attività Oggi (Pulse)            — md:col-span-1, SVG ring
+ *   4. Ultimi Allenamenti Conclusi      — md:col-span-2 xl:col-span-2
+ *   5. Azioni Rapide                    — md:col-span-1, pill buttons
+ *
+ * Live data:
  *   - useCoachDashboardMetrics → urgentAlerts, feedbackItems, todaySchedule,
- *     businessMetrics, healthyAthletes, isLoading
- *   - useCoachAlerts → smart watchdog alerts
- *   - useAuth → user, profile, auth loading state
- *
- * Aura design rules enforced:
- *   - All widget cards: rounded-3xl bg-surface-container-lowest
- *     shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-outline-variant/20 p-6
- *   - Buttons: pill-shaped (inherited from <Button>)
- *   - Icons: lucide-react only
- *   - Typography: font-display for headlines, font-sans for body
+ *     businessMetrics, isLoading
+ *   - useCoachAlerts → smartAlerts
+ *   - useAuth → user, profile, auth loading
  */
 import { useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
@@ -31,117 +29,110 @@ import { useNavigate } from "react-router-dom";
 import { CoachLayout } from "@/components/coach/CoachLayout";
 import { MetaHead } from "@/components/MetaHead";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { InviteAthleteDialog } from "@/components/coach/InviteAthleteDialog";
 
 import { useAuth } from "@/hooks/useAuth";
-import {
-  useCoachDashboardMetrics,
-  type UrgentAlert,
-  type AlertType,
-  type AlertSeverity,
-} from "@/hooks/useCoachDashboardMetrics";
+import { useCoachDashboardMetrics, type UrgentAlert } from "@/hooks/useCoachDashboardMetrics";
 import { useCoachAlerts } from "@/hooks/useCoachAlerts";
 
 import {
-  Sparkles,
-  ShieldAlert,
-  Activity,
-  CheckCircle2,
-  UserPlus,
-  ChevronRight,
-  Calendar,
-  MessageSquare,
-  Flame,
-  AlertCircle,
-  Battery,
-  CalendarX,
-  Clock,
-  Zap,
-  Dumbbell,
-  PlusCircle,
-  ArrowRight,
+  Bot,
   AlertTriangle,
+  Activity,
+  CheckSquare,
+  ShieldAlert,
+  Dumbbell,
+  Timer,
+  ChevronRight,
+  UserPlus,
+  FileText,
+  Megaphone,
+  ListFilter,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { it } from "date-fns/locale";
 
 // ---------------------------------------------------------------------------
-// Aura card class — single source of truth for widget surfaces.
-// Inlined shadow guarantees no Tailwind preset can override the soft ambient.
+// Aura bento card — Stitch reference style
+//   rounded-[32px] · bg-surface-container-lowest · outline-variant/10 border
+//   wide ambient shadow · p-6 (md:p-8) · hover lifts the shadow
 // ---------------------------------------------------------------------------
-const auraCard =
-  "rounded-3xl bg-surface-container-lowest border border-outline-variant/20 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6";
+const bentoCard =
+  "rounded-[32px] bg-surface-container-lowest border border-outline-variant/10 shadow-[0_12px_40px_rgb(0,0,0,0.03)] hover:shadow-[0_16px_48px_rgb(0,0,0,0.05)] transition-shadow p-6 md:p-8";
 
 // ---------------------------------------------------------------------------
-// Helpers (re-used by Triage widget)
+// Triage severity → Stitch status pill mapping
 // ---------------------------------------------------------------------------
-const getAlertConfig = (type: AlertType) => {
-  const configs: Record<
-    AlertType,
-    { icon: typeof AlertTriangle; label: string; bgClass: string; textClass: string }
-  > = {
-    missed_workout: {
-      icon: CalendarX,
-      label: "Allenamento saltato",
-      bgClass: "bg-destructive/10",
-      textClass: "text-destructive",
-    },
-    low_readiness: {
-      icon: Battery,
-      label: "Readiness bassa",
-      bgClass: "bg-destructive/10",
-      textClass: "text-destructive",
-    },
-    active_injury: {
-      icon: AlertCircle,
-      label: "Infortunio attivo",
-      bgClass: "bg-destructive/10",
-      textClass: "text-destructive",
-    },
-    high_acwr: {
-      icon: Flame,
-      label: "ACWR > 1.5",
-      bgClass: "bg-warning/10",
-      textClass: "text-warning",
-    },
-    rpe_spike: {
-      icon: Zap,
-      label: "RPE elevato",
-      bgClass: "bg-warning/10",
-      textClass: "text-warning",
-    },
-    no_checkin: {
-      icon: Clock,
-      label: "Nessun check-in",
-      bgClass: "bg-muted",
-      textClass: "text-muted-foreground",
-    },
-  };
-  return (
-    configs[type] ?? {
-      icon: AlertTriangle,
-      label: "Alert",
-      bgClass: "bg-muted",
-      textClass: "text-muted-foreground",
-    }
-  );
-};
-
-const getSeverityBadge = (severity: AlertSeverity): string => {
+function severityPill(severity: UrgentAlert["severity"]): {
+  bg: string;
+  text: string;
+  dot: string;
+  label: string;
+} {
   switch (severity) {
     case "critical":
-      return "bg-destructive/10 text-destructive border-destructive/30";
+      return {
+        bg: "bg-error-container",
+        text: "text-on-error-container",
+        dot: "bg-destructive",
+        label: "Critico",
+      };
     case "warning":
-      return "bg-warning/10 text-warning border-warning/30";
+      return {
+        bg: "bg-tertiary-container/10",
+        text: "text-tertiary-container",
+        dot: "bg-tertiary-container",
+        label: "Attenzione",
+      };
     default:
-      return "bg-muted text-muted-foreground border-outline-variant/40";
+      return {
+        bg: "bg-yellow-100",
+        text: "text-yellow-800",
+        dot: "bg-yellow-500",
+        label: "Monitorare",
+      };
   }
-};
+}
+
+// RPE → Stitch RPE pill (1-3 facile, 4-6 mod, 7-10 forte)
+function rpePill(rpe: number | null | undefined): {
+  bg: string;
+  text: string;
+  dot: string;
+  label: string;
+} | null {
+  if (rpe == null) return null;
+  if (rpe >= 7) {
+    return {
+      bg: "bg-destructive/10",
+      text: "text-destructive",
+      dot: "bg-destructive",
+      label: `RPE ${rpe} — Forte`,
+    };
+  }
+  if (rpe >= 4) {
+    return {
+      bg: "bg-yellow-100",
+      text: "text-yellow-800",
+      dot: "bg-yellow-500",
+      label: `RPE ${rpe} — Mod`,
+    };
+  }
+  return {
+    bg: "bg-green-100",
+    text: "text-green-800",
+    dot: "bg-green-500",
+    label: `RPE ${rpe} — Facile`,
+  };
+}
+
+// "Recent" icon rotation — adds visual variety to the activity feed
+// without needing per-workout type metadata in the underlying hook.
+const FEED_ICONS = [Dumbbell, Timer, Activity];
 
 // ===========================================================================
 // Page
@@ -151,90 +142,136 @@ export default function CoachHome() {
   const { user, profile, loading: authLoading } = useAuth();
   const { urgentAlerts, feedbackItems, todaySchedule, businessMetrics, isLoading } =
     useCoachDashboardMetrics();
-  const { alerts: smartAlerts } = useCoachAlerts();
+  const { alerts: _smartAlerts } = useCoachAlerts();
+  void _smartAlerts; // kept hot for cache warm-up; widget consumes urgentAlerts.
 
-  // ── Auth guard ──────────────────────────────────────────────────────────
+  // Auth guard
   useEffect(() => {
     if (!authLoading && !user) navigate("/auth");
   }, [authLoading, user, navigate]);
 
-  // ── Derived state ───────────────────────────────────────────────────────
   const firstName = profile?.full_name?.split(" ")[0] ?? "Coach";
   const hasAthletes = businessMetrics.activeClients > 0;
 
-  // Triage = critical + warning urgent alerts, capped at 5 for layout calmness.
+  // Triage: critical + warning, top 5 for layout calmness.
   const triageAlerts = useMemo(
     () =>
       urgentAlerts.filter((a) => a.severity === "critical" || a.severity === "warning").slice(0, 5),
     [urgentAlerts],
   );
 
-  // Today's pulse — workouts completed today vs scheduled today.
-  // `feedbackItems` is the "needs review" backlog (=completed but unreviewed),
-  // so its count is a fair proxy for "trained today" until we have a dedicated
-  // hook. The denominator is the day's schedule length.
+  // Pulse: completed/scheduled today
   const completedToday = feedbackItems.length;
   const scheduledToday = todaySchedule.length;
-  const pulsePct =
-    scheduledToday > 0
-      ? Math.min(100, Math.round((completedToday / scheduledToday) * 100))
-      : completedToday > 0
-        ? 100
-        : 0;
+  const totalToday = Math.max(scheduledToday, completedToday);
+  const pulseFrac = totalToday > 0 ? Math.min(1, completedToday / totalToday) : 0;
+  const pulseInProgress = Math.max(0, Math.min(scheduledToday - completedToday, scheduledToday));
+  const pulseToStart = Math.max(0, scheduledToday - pulseInProgress - completedToday);
 
-  // AI Copilot insight — synthesized from the live metrics. No remote AI call;
-  // this is a deterministic, single-sentence "headline" so the widget never
-  // shows an empty stub.
-  const aiInsight = useMemo(() => {
-    if (!hasAthletes) return "Invita il tuo primo atleta per attivare gli insight quotidiani.";
-    const bits: string[] = [];
-    if (triageAlerts.length > 0) {
-      const first = triageAlerts[0];
-      bits.push(
-        `${first.athleteName} ha un alert ${first.severity === "critical" ? "critico" : "di attenzione"}`,
-      );
+  // AI Copilot bullets — derived from live data, max 3 lines so the widget
+  // visually matches the Stitch reference (which shows 3 bullets).
+  const aiBullets = useMemo<
+    Array<{
+      icon: typeof AlertTriangle;
+      iconWrap: string;
+      iconColor: string;
+      text: React.ReactNode;
+    }>
+  >(() => {
+    const out: Array<{
+      icon: typeof AlertTriangle;
+      iconWrap: string;
+      iconColor: string;
+      text: React.ReactNode;
+    }> = [];
+
+    // 1st: top critical alert if any
+    const topCritical = triageAlerts.find((a) => a.severity === "critical");
+    if (topCritical) {
+      out.push({
+        icon: AlertTriangle,
+        iconWrap: "bg-destructive/20",
+        iconColor: "text-error-container",
+        text: (
+          <>
+            <strong>{topCritical.athleteName}</strong>: {topCritical.details || topCritical.value}.
+          </>
+        ),
+      });
     }
+
+    // 2nd: top warning alert (or 2nd critical if no warning)
+    const topWarning =
+      triageAlerts.find((a) => a.severity === "warning") ??
+      triageAlerts.filter((a) => a.severity === "critical")[1];
+    if (topWarning) {
+      out.push({
+        icon: Activity,
+        iconWrap: "bg-tertiary-fixed/20",
+        iconColor: "text-tertiary-fixed",
+        text: (
+          <>
+            <strong>{topWarning.athleteName}</strong>: {topWarning.details || topWarning.value}.
+          </>
+        ),
+      });
+    }
+
+    // 3rd: pending feedback count
     if (feedbackItems.length > 0) {
-      bits.push(
-        `${feedbackItems.length} workout ${feedbackItems.length === 1 ? "attende" : "attendono"} il tuo feedback`,
-      );
+      out.push({
+        icon: CheckSquare,
+        iconWrap: "bg-white/20",
+        iconColor: "text-white",
+        text: (
+          <>
+            Hai <strong>{feedbackItems.length} check-in</strong> in attesa di revisione.
+          </>
+        ),
+      });
     }
-    if (scheduledToday > 0) {
-      bits.push(`${scheduledToday} sessioni programmate per oggi`);
-    }
-    if (bits.length === 0) {
-      return "Tutto sotto controllo. Nessun alert critico, nessuna sessione in sospeso.";
-    }
-    return bits.slice(0, 3).join(" · ") + ".";
-  }, [hasAthletes, triageAlerts, feedbackItems.length, scheduledToday]);
 
-  // ── Loading + empty states ──────────────────────────────────────────────
+    // Fallback when nothing is flagged
+    if (out.length === 0) {
+      out.push({
+        icon: CheckSquare,
+        iconWrap: "bg-white/20",
+        iconColor: "text-white",
+        text: <>Tutto sotto controllo. Nessun alert critico in coda oggi.</>,
+      });
+    }
+
+    return out.slice(0, 3);
+  }, [triageAlerts, feedbackItems.length]);
+
+  // ── Loading skeleton ───────────────────────────────────────────────────
   if (authLoading) {
     return (
-      <CoachLayout title="Command Center" subtitle="Caricamento...">
+      <CoachLayout title="Aura Command Center" subtitle="Caricamento...">
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6">
-          <Skeleton className="md:col-span-3 xl:col-span-4 h-40 rounded-3xl" />
+          <Skeleton className="md:col-span-3 xl:col-span-4 h-56 rounded-[32px]" />
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-64 rounded-3xl" />
+            <Skeleton key={i} className="h-80 rounded-[32px]" />
           ))}
         </div>
       </CoachLayout>
     );
   }
 
+  // ── Empty state ────────────────────────────────────────────────────────
   if (!isLoading && !hasAthletes) {
     return (
       <>
-        <MetaHead title="Command Center" description="Dashboard del coach." />
-        <CoachLayout title="Command Center" subtitle="Inizia con il tuo primo atleta">
-          <div className={cn(auraCard, "p-12 text-center max-w-2xl mx-auto")}>
-            <div className="inline-flex items-center justify-center h-20 w-20 rounded-3xl bg-gradient-to-br from-primary/20 to-secondary/40 mb-6 ring-4 ring-primary/10">
-              <UserPlus className="h-10 w-10 text-primary" strokeWidth={1.75} />
+        <MetaHead title="Aura Command Center" description="Dashboard del coach." />
+        <CoachLayout title="Aura Command Center" subtitle="Inizia con il tuo primo atleta">
+          <div className={cn(bentoCard, "max-w-2xl mx-auto text-center p-12")}>
+            <div className="inline-flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-primary-container to-primary mb-6 ring-4 ring-primary/10">
+              <UserPlus className="h-10 w-10 text-white" strokeWidth={1.75} />
             </div>
-            <h3 className="font-display text-2xl font-bold text-foreground mb-2">
+            <h3 className="font-display text-2xl font-bold text-on-surface mb-2 tracking-tight">
               Benvenuto, {firstName}!
             </h3>
-            <p className="text-sm text-muted-foreground max-w-md mx-auto mb-6">
+            <p className="text-base text-on-surface-variant max-w-md mx-auto mb-6 leading-relaxed">
               Invita il tuo primo atleta per attivare il Command Center: triage automatico, pulse
               giornaliero e insight AI in tempo reale.
             </p>
@@ -252,46 +289,43 @@ export default function CoachHome() {
     );
   }
 
-  // ── Bento grid ──────────────────────────────────────────────────────────
+  // ── Bento grid ─────────────────────────────────────────────────────────
   return (
     <>
-      <MetaHead title="Command Center" description="Dashboard del coach." />
+      <MetaHead title="Aura Command Center" description="Dashboard del coach." />
       <CoachLayout
-        title="Command Center"
+        title="Aura Command Center"
         subtitle={format(new Date(), "EEEE d MMMM yyyy", { locale: it })}
       >
         <div className="grid grid-cols-1 md:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
-          {/* ═══ Widget 1: AI Copilot Insight ═══ */}
-          <AiCopilotWidget
-            firstName={firstName}
-            insight={aiInsight}
-            alertCount={triageAlerts.length}
-          />
+          {/* ═══ 1. Centrale Operativa (AI Copilot) ═══ */}
+          <CentraleOperativaWidget firstName={firstName} bullets={aiBullets} />
 
-          {/* ═══ Widget 2: Triage / Risk Alerts ═══ */}
+          {/* ═══ 2. Atleti a Rischio / Triage ═══ */}
           <TriageWidget
             alerts={triageAlerts}
-            smartCount={smartAlerts.length}
             isLoading={isLoading}
             onSelect={(id) => navigate(`/coach/athlete/${id}`)}
           />
 
-          {/* ═══ Widget 3: Today's Pulse ═══ */}
+          {/* ═══ 3. Attività Oggi (Pulse) ═══ */}
           <PulseWidget
             completed={completedToday}
-            scheduled={scheduledToday}
-            percentage={pulsePct}
+            total={totalToday}
+            fraction={pulseFrac}
+            inProgress={pulseInProgress}
+            toStart={pulseToStart}
             isLoading={isLoading}
           />
 
-          {/* ═══ Widget 4: Recent Completions ═══ */}
-          <RecentCompletionsWidget
+          {/* ═══ 4. Ultimi Allenamenti Conclusi ═══ */}
+          <RecentFeedWidget
             items={feedbackItems}
             isLoading={isLoading}
-            onView={(id) => navigate(`/coach/athlete/${id}`)}
+            onReview={(id) => navigate(`/coach/athlete/${id}`)}
           />
 
-          {/* ═══ Widget 5: Quick Actions ═══ */}
+          {/* ═══ 5. Azioni Rapide ═══ */}
           <QuickActionsWidget onNavigate={navigate} />
         </div>
       </CoachLayout>
@@ -300,357 +334,331 @@ export default function CoachHome() {
 }
 
 // ===========================================================================
-// Widget 1 — AI Copilot Insight (full top row)
+// 1. Centrale Operativa — AI Copilot hero (full top)
 // ===========================================================================
-function AiCopilotWidget({
+function CentraleOperativaWidget({
   firstName,
-  insight,
-  alertCount,
+  bullets,
 }: {
   firstName: string;
-  insight: string;
-  alertCount: number;
+  bullets: Array<{
+    icon: typeof AlertTriangle;
+    iconWrap: string;
+    iconColor: string;
+    text: React.ReactNode;
+  }>;
 }) {
   return (
     <div
       className={cn(
-        // Gradient + glass — extra ambient lift over the standard auraCard.
-        "md:col-span-3 xl:col-span-4 relative overflow-hidden rounded-3xl border border-outline-variant/20 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-6 md:p-8",
-        "bg-gradient-to-br from-primary/10 via-secondary/30 to-surface-container-lowest",
+        "md:col-span-3 xl:col-span-4 rounded-[32px] p-6 md:p-8",
+        "bg-gradient-to-br from-primary-container to-primary text-white",
+        "shadow-[0_16px_48px_rgb(0_62_98_/_0.20)]",
+        "flex flex-col h-full justify-between",
       )}
     >
-      {/* Decorative aura blob */}
-      <div className="pointer-events-none absolute -top-20 -right-20 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 -left-10 h-56 w-56 rounded-full bg-secondary/40 blur-3xl" />
-
-      <div className="relative flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div className="flex items-start gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-3xl bg-primary/15 ring-1 ring-primary/20 flex-shrink-0">
-            <Sparkles className="h-6 w-6 text-primary" strokeWidth={1.75} />
+      <div>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm">
+            <Bot className="h-6 w-6 text-white" strokeWidth={1.75} />
           </div>
-          <div className="min-w-0">
-            <p className="font-display text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-              Buongiorno, {firstName}
-            </p>
-            <p className="text-sm md:text-base text-on-surface-variant mt-1 font-sans leading-relaxed">
-              {insight}
-            </p>
-          </div>
+          <h2 className="font-display text-2xl font-semibold tracking-tight">
+            Centrale Operativa — NC Personal Trainer
+          </h2>
         </div>
-        {alertCount > 0 && (
-          <Badge
-            variant="outline"
-            className="self-start md:self-center bg-destructive/10 text-destructive border-destructive/30 px-3 py-1 text-sm gap-1.5"
-          >
-            <ShieldAlert className="h-3.5 w-3.5" />
-            {alertCount} {alertCount === 1 ? "alert" : "alert"}
-          </Badge>
-        )}
+        <p className="text-lg text-white/95 mb-6 leading-relaxed">
+          <span aria-hidden>👋</span> Buongiorno, {firstName}. Ecco il triage della tua scuderia
+          oggi:
+        </p>
+        <ul className="space-y-4 text-base text-white/90">
+          {bullets.map((b, idx) => {
+            const Icon = b.icon;
+            return (
+              <li key={idx} className="flex items-start gap-3">
+                <div
+                  className={cn(
+                    "mt-0.5 flex h-7 w-7 items-center justify-center rounded-full",
+                    b.iconWrap,
+                  )}
+                >
+                  <Icon className={cn("h-4 w-4", b.iconColor)} strokeWidth={2} />
+                </div>
+                <span className="leading-relaxed pt-0.5">{b.text}</span>
+              </li>
+            );
+          })}
+        </ul>
       </div>
     </div>
   );
 }
 
 // ===========================================================================
-// Widget 2 — Triage / Risk Alerts
+// 2. Atleti a Rischio / Triage (md:col-span-2)
 // ===========================================================================
 function TriageWidget({
   alerts,
-  smartCount,
   isLoading,
   onSelect,
 }: {
   alerts: UrgentAlert[];
-  smartCount: number;
   isLoading: boolean;
   onSelect: (athleteId: string) => void;
 }) {
   return (
-    <div className={cn(auraCard, "md:col-span-2 xl:col-span-2 flex flex-col min-h-[320px]")}>
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-destructive/10">
-            <ShieldAlert className="h-5 w-5 text-destructive" strokeWidth={1.75} />
-          </div>
-          <div>
-            <h2 className="font-display text-base font-bold text-foreground">Triage</h2>
-            <p className="text-xs text-on-surface-variant">ACWR · Readiness · RPE</p>
-          </div>
-        </div>
-        {smartCount > 0 && (
-          <Badge
-            variant="outline"
-            className="bg-destructive/10 text-destructive border-destructive/30 tabular-nums"
-          >
-            {smartCount} smart
-          </Badge>
-        )}
+    <div className={cn(bentoCard, "md:col-span-2 flex flex-col min-h-[400px]")}>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="font-display text-2xl font-semibold tracking-tight text-on-surface">
+          Atleti a Rischio / Triage
+        </h2>
+        <ShieldAlert className="h-6 w-6 text-destructive" strokeWidth={1.75} />
       </div>
 
       {isLoading ? (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="flex items-center gap-3">
-              <Skeleton className="h-10 w-10 rounded-full" />
+            <div key={i} className="flex items-center gap-4 p-3">
+              <Skeleton className="h-12 w-12 rounded-full" />
               <div className="flex-1 space-y-2">
-                <Skeleton className="h-3.5 w-32" />
-                <Skeleton className="h-3 w-48" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-24" />
               </div>
+              <Skeleton className="h-7 w-24 rounded-full" />
             </div>
           ))}
         </div>
       ) : alerts.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
           <div className="h-14 w-14 rounded-full bg-success/10 flex items-center justify-center mb-3">
-            <CheckCircle2 className="h-7 w-7 text-success" strokeWidth={1.75} />
+            <CheckSquare className="h-7 w-7 text-success" strokeWidth={1.75} />
           </div>
-          <h3 className="font-display text-base font-semibold mb-1">Tutto OK</h3>
+          <h3 className="font-display text-lg font-semibold mb-1">Tutto sotto controllo</h3>
           <p className="text-sm text-on-surface-variant">Nessun atleta in zona critica.</p>
         </div>
       ) : (
-        <ScrollArea className="flex-1 -mx-6 px-6 max-h-[260px]">
-          <div className="space-y-2">
-            {alerts.map((a) => (
-              <TriageRow key={a.id} alert={a} onClick={() => onSelect(a.athleteId)} />
-            ))}
-          </div>
-        </ScrollArea>
+        <div className="space-y-4">
+          {alerts.map((a) => {
+            const pill = severityPill(a.severity);
+            return (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => onSelect(a.athleteId)}
+                className="w-full flex items-center justify-between p-3 rounded-[24px] hover:bg-surface-container-high transition-colors border border-transparent hover:border-outline-variant/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary text-left"
+              >
+                <div className="flex items-center gap-4 min-w-0">
+                  <Avatar className="h-12 w-12 bg-surface-container-highest">
+                    <AvatarImage src={a.avatarUrl || undefined} alt={a.athleteName} />
+                    <AvatarFallback className="bg-secondary-container text-on-secondary-container text-sm font-semibold">
+                      {a.avatarInitials}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-on-surface truncate">
+                      {a.athleteName}
+                    </p>
+                    <p className="text-xs text-on-surface-variant truncate">
+                      {a.details || a.value}
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold flex-shrink-0",
+                    pill.bg,
+                    pill.text,
+                  )}
+                >
+                  <span className={cn("w-2 h-2 rounded-full", pill.dot)} />
+                  {pill.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       )}
     </div>
   );
 }
 
-function TriageRow({ alert, onClick }: { alert: UrgentAlert; onClick: () => void }) {
-  const cfg = getAlertConfig(alert.alertType);
-  const Icon = cfg.icon;
-  const badgeClass = getSeverityBadge(alert.severity);
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-secondary/30 transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-    >
-      <div className="relative flex-shrink-0">
-        <Avatar
-          className={cn(
-            "h-10 w-10 ring-2",
-            alert.severity === "critical" ? "ring-destructive/30" : "ring-warning/30",
-          )}
-        >
-          <AvatarImage src={alert.avatarUrl || undefined} />
-          <AvatarFallback className={cn("text-sm font-medium", cfg.bgClass, cfg.textClass)}>
-            {alert.avatarInitials}
-          </AvatarFallback>
-        </Avatar>
-        <div
-          className={cn(
-            "absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full border-2 border-surface-container-lowest flex items-center justify-center",
-            alert.severity === "critical" ? "bg-destructive" : "bg-warning",
-          )}
-        >
-          <Icon className="h-2.5 w-2.5 text-white" />
-        </div>
-      </div>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-sm font-semibold truncate text-foreground">{alert.athleteName}</p>
-          <Badge variant="outline" className={cn("text-3xs px-1.5 py-0 h-5", badgeClass)}>
-            {alert.value}
-          </Badge>
-        </div>
-        <p className="text-xs text-on-surface-variant truncate mt-0.5">{cfg.label}</p>
-      </div>
-      <ChevronRight className="h-4 w-4 text-on-surface-variant/40 flex-shrink-0" />
-    </button>
-  );
-}
-
 // ===========================================================================
-// Widget 3 — Today's Pulse (circular gauge)
+// 3. Attività Oggi — circular gauge (md:col-span-1)
 // ===========================================================================
 function PulseWidget({
   completed,
-  scheduled,
-  percentage,
+  total,
+  fraction,
+  inProgress,
+  toStart,
   isLoading,
 }: {
   completed: number;
-  scheduled: number;
-  percentage: number;
+  total: number;
+  fraction: number;
+  inProgress: number;
+  toStart: number;
   isLoading: boolean;
 }) {
-  // SVG ring math: r=42 → circumference = 264
-  const dash = (percentage / 100) * 264;
-  const ringColor =
-    percentage >= 80 ? "text-success" : percentage >= 50 ? "text-warning" : "text-destructive";
+  // r=45 → circumference 2πr ≈ 283; dashoffset moves the cap.
+  const circumference = 283;
+  const dashOffset = circumference * (1 - fraction);
 
   return (
-    <div className={cn(auraCard, "md:col-span-1 xl:col-span-2 flex flex-col min-h-[320px]")}>
-      <div className="flex items-center gap-3 mb-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10">
-          <Activity className="h-5 w-5 text-primary" strokeWidth={1.75} />
-        </div>
-        <div>
-          <h2 className="font-display text-base font-bold text-foreground">Today&apos;s Pulse</h2>
-          <p className="text-xs text-on-surface-variant">Completati vs programmati</p>
-        </div>
-      </div>
+    <div
+      className={cn(
+        bentoCard,
+        "md:col-span-1 flex flex-col items-center justify-center text-center relative overflow-hidden min-h-[400px]",
+      )}
+    >
+      <h2 className="font-display text-2xl font-semibold tracking-tight self-start w-full text-left mb-6">
+        Attività Oggi
+      </h2>
 
       {isLoading ? (
-        <div className="flex-1 flex items-center justify-center">
-          <Skeleton className="h-32 w-32 rounded-full" />
-        </div>
+        <Skeleton className="w-48 h-48 rounded-full" />
       ) : (
-        <div className="flex-1 flex flex-col items-center justify-center gap-4">
-          <div className="relative">
-            <svg className="w-36 h-36 -rotate-90" viewBox="0 0 100 100">
+        <>
+          <div className="relative w-48 h-48 flex items-center justify-center mb-6">
+            <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
               <circle
                 cx="50"
                 cy="50"
-                r="42"
+                r="45"
                 fill="none"
                 stroke="currentColor"
-                strokeWidth="8"
-                className="text-outline-variant/30"
+                strokeWidth="10"
+                className="text-surface-container-highest"
               />
               <circle
                 cx="50"
                 cy="50"
-                r="42"
+                r="45"
                 fill="none"
-                strokeWidth="8"
-                strokeLinecap="round"
-                strokeDasharray={`${dash} 264`}
-                className={ringColor}
                 stroke="currentColor"
-                style={{ transition: "stroke-dasharray 0.6s ease-out" }}
+                strokeWidth="10"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={dashOffset}
+                className="text-primary"
+                style={{ transition: "stroke-dashoffset 0.6s ease-out" }}
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className={cn("font-display text-3xl font-bold tabular-nums", ringColor)}>
-                {percentage}%
-              </span>
-              <span className="text-3xs text-on-surface-variant uppercase tracking-wide font-medium">
-                aderenza
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-6 text-sm">
-            <div className="text-center">
-              <p className="font-display text-xl font-bold text-foreground tabular-nums">
+              <span className="font-display text-5xl font-bold text-primary tracking-tighter">
                 {completed}
-              </p>
-              <p className="text-xs text-on-surface-variant">Completati</p>
-            </div>
-            <div className="h-8 w-px bg-outline-variant/40" />
-            <div className="text-center">
-              <p className="font-display text-xl font-bold text-foreground tabular-nums">
-                {scheduled}
-              </p>
-              <p className="text-xs text-on-surface-variant">Programmati</p>
+                <span className="text-2xl text-on-surface-variant font-normal">/{total}</span>
+              </span>
+              <span className="text-sm font-semibold text-on-surface mt-1">Completati</span>
             </div>
           </div>
-        </div>
+
+          <div className="flex w-full justify-around mt-2">
+            <div className="flex flex-col items-center">
+              <span className="font-display text-2xl font-semibold text-on-surface">
+                {inProgress}
+              </span>
+              <span className="text-xs text-on-surface-variant">In corso</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="font-display text-2xl font-semibold text-on-surface">{toStart}</span>
+              <span className="text-xs text-on-surface-variant">Da iniziare</span>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
 }
 
 // ===========================================================================
-// Widget 4 — Recent Completions
+// 4. Ultimi Allenamenti Conclusi — activity feed (md:col-span-2)
 // ===========================================================================
 type FeedbackItem = ReturnType<typeof useCoachDashboardMetrics>["feedbackItems"][number];
 
-function RecentCompletionsWidget({
+function RecentFeedWidget({
   items,
   isLoading,
-  onView,
+  onReview,
 }: {
   items: FeedbackItem[];
   isLoading: boolean;
-  onView: (athleteId: string) => void;
+  onReview: (athleteId: string) => void;
 }) {
   return (
-    <div className={cn(auraCard, "md:col-span-2 xl:col-span-3 flex flex-col min-h-[320px]")}>
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-success/10">
-            <CheckCircle2 className="h-5 w-5 text-success" strokeWidth={1.75} />
-          </div>
-          <div>
-            <h2 className="font-display text-base font-bold text-foreground">
-              Completati di Recente
-            </h2>
-            <p className="text-xs text-on-surface-variant">
-              Workout finiti che attendono il tuo feedback
-            </p>
-          </div>
-        </div>
-        {items.length > 0 && (
-          <Badge
-            variant="outline"
-            className="bg-success/10 text-success border-success/30 tabular-nums"
-          >
-            {items.length}
-          </Badge>
-        )}
+    <div className={cn(bentoCard, "md:col-span-2 xl:col-span-2 flex flex-col min-h-[400px]")}>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="font-display text-2xl font-semibold tracking-tight">
+          Ultimi Allenamenti Conclusi
+        </h2>
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Filtra"
+          className="text-on-surface-variant hover:bg-surface-container-high"
+        >
+          <ListFilter className="h-5 w-5" />
+        </Button>
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-14 rounded-2xl" />
+            <Skeleton key={i} className="h-20 rounded-[24px]" />
           ))}
         </div>
       ) : items.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
-          <Clock className="h-10 w-10 text-on-surface-variant/40 mb-3" />
-          <p className="text-sm text-on-surface-variant">Nessun workout in attesa di feedback.</p>
+          <Timer className="h-10 w-10 text-on-surface-variant/40 mb-3" />
+          <p className="text-sm text-on-surface-variant">Nessun workout in attesa di revisione.</p>
         </div>
       ) : (
-        <ScrollArea className="flex-1 -mx-6 px-6 max-h-[260px]">
-          <div className="space-y-2">
-            {items.map((item) => (
-              <div
-                key={item.id}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-2xl bg-secondary/20 hover:bg-secondary/40 transition-colors"
-              >
-                <Avatar className="h-10 w-10 flex-shrink-0">
-                  <AvatarImage src={item.avatarUrl || undefined} />
-                  <AvatarFallback className="bg-success/10 text-success text-xs font-medium">
-                    {item.avatarInitials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold truncate text-foreground">
-                    {item.athleteName}
-                  </p>
-                  <p className="text-xs text-on-surface-variant truncate">{item.workoutTitle}</p>
-                </div>
-                {item.rpeGlobal != null && (
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "tabular-nums",
-                      item.rpeGlobal > 8
-                        ? "bg-warning/10 text-warning border-warning/30"
-                        : "bg-secondary/40 text-on-surface-variant border-outline-variant/40",
-                    )}
-                  >
-                    RPE {item.rpeGlobal}
-                  </Badge>
-                )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onView(item.athleteId)}
-                  className="gap-1.5 flex-shrink-0"
+        <ScrollArea className="flex-1 max-h-[320px] -mx-2 px-2 custom-scrollbar">
+          <div className="space-y-3">
+            {items.map((item, idx) => {
+              const Icon = FEED_ICONS[idx % FEED_ICONS.length];
+              const pill = rpePill(item.rpeGlobal);
+              return (
+                <div
+                  key={item.id}
+                  className="group flex items-center justify-between p-4 bg-surface rounded-[24px] border border-outline-variant/5 hover:border-outline-variant/20 transition-all"
                 >
-                  Vedi
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            ))}
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-secondary-container text-on-secondary-container flex-shrink-0">
+                      <Icon className="h-5 w-5" strokeWidth={1.75} />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-semibold text-on-surface truncate">
+                        {item.athleteName}
+                      </h3>
+                      <p className="text-sm text-on-surface-variant truncate">
+                        {item.workoutTitle}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    {pill && (
+                      <span
+                        className={cn(
+                          "hidden sm:flex items-center gap-2 px-4 py-1.5 rounded-full text-sm font-semibold",
+                          pill.bg,
+                          pill.text,
+                        )}
+                      >
+                        <span className={cn("w-2 h-2 rounded-full", pill.dot)} />
+                        {pill.label}
+                      </span>
+                    )}
+                    <Button
+                      size="sm"
+                      onClick={() => onReview(item.athleteId)}
+                      className="bg-primary-container text-on-primary-container hover:bg-primary-container/80 transition-opacity opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+                    >
+                      Esamina
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </ScrollArea>
       )}
@@ -659,67 +667,49 @@ function RecentCompletionsWidget({
 }
 
 // ===========================================================================
-// Widget 5 — Quick Actions
+// 5. Azioni Rapide — pill action buttons (md:col-span-1)
 // ===========================================================================
 function QuickActionsWidget({ onNavigate }: { onNavigate: (path: string) => void }) {
   return (
-    <div className={cn(auraCard, "md:col-span-1 xl:col-span-1 flex flex-col min-h-[320px]")}>
-      <div className="flex items-center gap-3 mb-5">
-        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-secondary">
-          <Zap className="h-5 w-5 text-secondary-foreground" strokeWidth={1.75} />
-        </div>
-        <div>
-          <h2 className="font-display text-base font-bold text-foreground">Azioni Rapide</h2>
-          <p className="text-xs text-on-surface-variant">Shortcut comuni</p>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <InviteAthleteDialog
-          trigger={
-            <Button className="w-full justify-start gap-3" size="lg">
-              <UserPlus className="h-4 w-4" />
-              Invita atleta
-            </Button>
-          }
-        />
-        <Button
-          variant="outline"
-          size="lg"
-          className="w-full justify-start gap-3"
+    <div className={cn(bentoCard, "md:col-span-1 flex flex-col min-h-[400px]")}>
+      <h2 className="font-display text-2xl font-semibold tracking-tight mb-6">Azioni Rapide</h2>
+      <div className="flex flex-col gap-4">
+        <InviteAthleteDialog trigger={<ActionRow icon={UserPlus} label="Invita Nuovo Atleta" />} />
+        <ActionRow
+          icon={FileText}
+          label="Nuovo Programma"
           onClick={() => onNavigate("/coach/programs")}
-        >
-          <PlusCircle className="h-4 w-4" />
-          Nuovo programma
-        </Button>
-        <Button
-          variant="outline"
-          size="lg"
-          className="w-full justify-start gap-3"
-          onClick={() => onNavigate("/coach/calendar")}
-        >
-          <Calendar className="h-4 w-4" />
-          Apri calendario
-        </Button>
-        <Button
-          variant="outline"
-          size="lg"
-          className="w-full justify-start gap-3"
+        />
+        <ActionRow
+          icon={Megaphone}
+          label="Invia Broadcast"
           onClick={() => onNavigate("/coach/messages")}
-        >
-          <MessageSquare className="h-4 w-4" />
-          Messaggi
-        </Button>
-        <Button
-          variant="outline"
-          size="lg"
-          className="w-full justify-start gap-3"
-          onClick={() => onNavigate("/coach/exercises")}
-        >
-          <Dumbbell className="h-4 w-4" />
-          Libreria esercizi
-        </Button>
+        />
       </div>
     </div>
   );
 }
+
+const ActionRow = ({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: typeof UserPlus;
+  label: string;
+  onClick?: () => void;
+}) => {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group w-full flex items-center gap-4 p-4 bg-surface rounded-full hover:bg-primary-container/10 transition-colors text-on-surface border border-outline-variant/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
+      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary-container/20 text-primary group-hover:bg-primary group-hover:text-on-primary transition-colors flex-shrink-0">
+        <Icon className="h-5 w-5" strokeWidth={1.75} />
+      </div>
+      <span className="text-sm font-semibold flex-1 text-left">{label}</span>
+      <ChevronRight className="h-5 w-5 text-on-surface-variant opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all flex-shrink-0" />
+    </button>
+  );
+};
