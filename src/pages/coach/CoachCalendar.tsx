@@ -34,7 +34,16 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Dumbbell, Calendar, ExternalLink, Users } from "lucide-react";
+import {
+  Dumbbell,
+  Calendar,
+  ExternalLink,
+  Users,
+  CalendarRange,
+  CalendarDays,
+  ArrowRightCircle,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays } from "date-fns";
 import { log } from "@/lib/logger";
 import { useCoachAppointments } from "@/hooks/useCoachAppointments";
@@ -93,7 +102,7 @@ export default function CoachCalendar() {
   // State
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [calendarView, setCalendarView] = useState<"month" | "week">("month");
+  const [viewMode, setViewMode] = useState<"month" | "week">("month");
   const [selectedAthleteId, setSelectedAthleteId] = useState<string | null>(null);
   const [showGoogleEvents, setShowGoogleEvents] = useState(false);
 
@@ -166,7 +175,7 @@ export default function CoachCalendar() {
 
   // Calculate date range based on view
   const dateRange = useMemo(() => {
-    if (calendarView === "month") {
+    if (viewMode === "month") {
       return {
         start: format(startOfMonth(currentDate), "yyyy-MM-dd"),
         end: format(endOfMonth(currentDate), "yyyy-MM-dd"),
@@ -177,7 +186,7 @@ export default function CoachCalendar() {
         end: format(endOfWeek(currentDate, { weekStartsOn: 1 }), "yyyy-MM-dd"),
       };
     }
-  }, [currentDate, calendarView]);
+  }, [currentDate, viewMode]);
 
   // Fetch workout logs for calendar
   const { data: workoutLogs = [], isLoading: logsLoading } = useQuery({
@@ -523,11 +532,11 @@ export default function CoachCalendar() {
 
           {/* ===== MAIN AREA: CALENDAR GRID (75%) ===== */}
           <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            {/* Toolbar */}
-            <div className="flex items-center justify-between mb-3 px-1">
-              {/* Athlete Selector */}
+            {/* Toolbar — Aura sub-header (3 columns: athlete · view switcher · macro actions) */}
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3 px-1">
+              {/* ── Left: Athlete Selector ── */}
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 text-sm text-on-surface-variant">
                   <Users className="h-4 w-4" />
                   <span>Atleta:</span>
                 </div>
@@ -558,11 +567,70 @@ export default function CoachCalendar() {
                 </Select>
               </div>
 
-              {/* Google Calendar Button (Placeholder) */}
-              <Button variant="outline" size="sm" disabled className="gap-2 h-9">
-                <ExternalLink className="h-4 w-4" />
-                Connetti Google Calendar
-              </Button>
+              {/* ── Center: View Switcher (pill toggle, Aura) ──
+                  Container pill `rounded-full` track + 2 segmented buttons.
+                  Active = solid primary-container + text-white,
+                  inactive = transparent text-on-surface-variant with soft hover.
+                  Toggling re-renders the CalendarGrid via the `view` prop. */}
+              <div
+                role="group"
+                aria-label="Modalità visualizzazione calendario"
+                className="inline-flex items-center gap-1 rounded-full bg-surface-container-low border border-outline-variant/30 p-1"
+              >
+                <button
+                  type="button"
+                  onClick={() => setViewMode("month")}
+                  aria-pressed={viewMode === "month"}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 h-8 px-4 rounded-full text-sm font-bold transition-all duration-200",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                    viewMode === "month"
+                      ? "bg-primary-container text-white shadow-[0_2px_8px_rgb(0_62_98_/_0.20)]"
+                      : "text-on-surface-variant hover:text-on-surface hover:bg-primary-container/10",
+                  )}
+                >
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  Mese
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode("week")}
+                  aria-pressed={viewMode === "week"}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 h-8 px-4 rounded-full text-sm font-bold transition-all duration-200",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+                    viewMode === "week"
+                      ? "bg-primary-container text-white shadow-[0_2px_8px_rgb(0_62_98_/_0.20)]"
+                      : "text-on-surface-variant hover:text-on-surface hover:bg-primary-container/10",
+                  )}
+                >
+                  <CalendarRange className="h-3.5 w-3.5" />
+                  Settimana
+                </button>
+              </div>
+
+              {/* ── Right: Macro automation actions ── */}
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2 h-9"
+                  onClick={() => {
+                    toast.info("Slitta Blocco +7gg", {
+                      description:
+                        "Funzione in arrivo: sposta tutti i workout futuri dell'atleta di 7 giorni.",
+                    });
+                  }}
+                  disabled={!selectedAthleteId}
+                >
+                  <ArrowRightCircle className="h-4 w-4" />
+                  Slitta Blocco +7gg
+                </Button>
+                <Button variant="outline" size="sm" disabled className="gap-2 h-9">
+                  <ExternalLink className="h-4 w-4" />
+                  Connetti Google Calendar
+                </Button>
+              </div>
             </div>
 
             {/* Calendar Grid */}
@@ -604,8 +672,8 @@ export default function CoachCalendar() {
                     googleBusySlots={MOCK_GOOGLE_BUSY_SLOTS}
                     onDateSelect={setSelectedDate}
                     selectedDate={selectedDate}
-                    view={calendarView}
-                    onViewChange={setCalendarView}
+                    view={viewMode}
+                    onViewChange={setViewMode}
                     currentDate={currentDate}
                     onDateChange={setCurrentDate}
                     showGoogleEvents={showGoogleEvents}
