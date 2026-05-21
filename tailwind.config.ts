@@ -30,10 +30,31 @@ export default {
       //   text-4xs → 9px   (audit B3: replaces `text-[9px]`)
       //   text-5xs → 8px   (audit B3: replaces `text-[8px]`)
       fontSize: {
+        // Sub-`xs` compact tokens (audit B3) — replace ad-hoc `text-[Npx]`.
         "2xs": ["0.6875rem", { lineHeight: "1rem" }],
         "3xs": ["0.625rem", { lineHeight: "0.875rem" }],
         "4xs": ["0.5625rem", { lineHeight: "0.75rem" }],
         "5xs": ["0.5rem", { lineHeight: "0.75rem" }],
+        // Aura Health System typography tokens (DESIGN.md).
+        // Exposed so consumers can use `text-label-md`, `text-body-md`,
+        // `text-headline-lg`, etc. directly — single source of truth for
+        // size + line-height + weight + letter-spacing.
+        "label-md": [
+          "0.875rem",
+          { lineHeight: "1.25rem", letterSpacing: "0.01em", fontWeight: "600" },
+        ],
+        "body-md": ["1rem", { lineHeight: "1.5rem", fontWeight: "400" }],
+        "body-lg": ["1.125rem", { lineHeight: "1.75rem", fontWeight: "400" }],
+        "headline-md": ["1.5rem", { lineHeight: "2rem", fontWeight: "600" }],
+        "headline-lg": [
+          "2rem",
+          { lineHeight: "2.5rem", letterSpacing: "-0.01em", fontWeight: "700" },
+        ],
+        "headline-lg-mobile": ["1.75rem", { lineHeight: "2.25rem", fontWeight: "700" }],
+        "display-lg": [
+          "3rem",
+          { lineHeight: "3.5rem", letterSpacing: "-0.02em", fontWeight: "700" },
+        ],
       },
       colors: {
         /* Athlete brand palette — namespaced to avoid colliding with Coach semantic tokens */
