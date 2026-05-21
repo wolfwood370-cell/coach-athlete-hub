@@ -37,11 +37,9 @@ export function useCoachAppointments({ startDate, endDate }: UseCoachAppointment
 
       if (error) throw error;
 
-      return (data ?? []).map((row) => ({
+      return ((data ?? []) as any[]).map((row) => ({
         id: row.id,
         title: row.title,
-        // CalendarGrid's union narrows to 3 visual buckets; anything
-        // else from the DB collapses to "other" for layout purposes.
         type:
           row.type === "check-in" || row.type === "pt-session" || row.type === "other"
             ? row.type
