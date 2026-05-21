@@ -27,13 +27,16 @@ export function useCoachAppointments({ startDate, endDate }: UseCoachAppointment
     queryFn: async (): Promise<CalendarAppointment[]> => {
       if (!user?.id) return [];
 
-      const { data, error } = await supabase
+      const { data, error } = (await supabase
         .from("appointments")
         .select("id, title, type, date, time")
         .eq("coach_id", user.id)
         .gte("date", startDate)
         .lte("date", endDate)
-        .order("date", { ascending: true });
+        .order("date", { ascending: true })) as unknown as {
+        data: { id: string; title: string; type: string; date: string; time: string | null }[] | null;
+        error: any;
+      };
 
       if (error) throw error;
 
